@@ -1,0 +1,7 @@
+1                        # Number of fit to perform
+1.322808294              # Radius to fit
+MM_FIT_40_9_0.7          # Fit ID Labels
+0.0  40.0                # Rmin && Rmax of fitting
+400 9                    # Number of Points && Number of Gaussians to use
+1E-16   1000             # Fit error && Maximum number of Iterations
+

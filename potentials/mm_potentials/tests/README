@@ -1,0 +1,5 @@
+In order to run the test:
+
+1) Compile the source code in ../src/
+3) ln -s input.1.dat input.dat (or input.2.dat)
+2) ../src/gfit.exe |tee fit.out

@@ -1,0 +1,60 @@
+#! /usr/bin/perl
+######################################################################
+# Usage: makeobj                                                     #
+#                                                                    #
+# Generates an object list of files                                  #
+#                                                                    #
+# Based on an idea of Michael Wester February 16, 1995               #
+#       Cotopaxi (Consulting), Albuquerque, New Mexico               #
+#                                                                    #
+# Author : Teodoro Laino                                             #
+# Date:    08.2004                                                   #
+#                                                                    #
+######################################################################
+#
+open(OBJLIST, "> objlist ");
+#
+# Source listing
+#
+print OBJLIST "SRCS =\t";
+@srcs = <*.f90 >;
+&PrintWords(8, 0, @srcs);
+print OBJLIST "\n\n";
+#
+# Object listing
+#
+print OBJLIST "OBJS =\t";
+@objs = @srcs;
+foreach (@objs) { s/\.[^.]+$/.o/ };
+&PrintWords(8, 0, @objs);
+print OBJLIST "\n\n";
+#
+sub PrintWords {
+   local($columns) = 78 - shift(@_);
+   local($extratab) = shift(@_);
+   local($wordlength);
+   #
+   print OBJLIST @_[0];
+   $columns -= length(shift(@_));
+   foreach $word (@_) {
+      $wordlength = length($word);
+      if ($wordlength + 1 < $columns) {
+         print OBJLIST " $word";
+         $columns -= $wordlength + 1;
+         }
+      else {
+         #
+         # Continue onto a new line
+         #
+         if ($extratab) {
+            print OBJLIST " \\\n\t\t$word";
+            $columns = 62 - $wordlength;
+            }
+         else {
+            print OBJLIST " \\\n\t$word";
+            $columns = 70 - $wordlength;
+            }
+         }
+      }
+   }
+#
