@@ -13,7 +13,7 @@
      :     psi(0:ngmx,noccmx,lmx,nsmx),rho(((ng+1)*(ng+2))/2,lmax+1),
      :     pp1(0:ng,lmax+1),pp2(0:ng,lmax+1),pp3(0:ng,lmax+1),
      :     potgrd(nint),pexgrd(nint),xcgrd(nint),rr(nint),rw(nint),
-     :     ppr1(nint,lmax),ppr2(nint,lmax),ppr3(nint,lmax),
+     :     ppr1(nint,lmax+1),ppr2(nint,lmax+1),ppr3(nint,lmax+1),
      :     aux1(nint),aux2(nint,0:ng,lmax+1),
      :     expxpr(0:ng,nint)
 

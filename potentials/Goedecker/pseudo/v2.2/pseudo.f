@@ -704,13 +704,10 @@ c
             enddo
             dh=0.2d0
             do i=1,nfit
-CMK
-              CALL random_number(rrand)
-              pp(i+i*nfit)=pp(i)+dh*1.0d0*(rrand-.5d0)
-c     IBM/DEC
-c            pp(i+i*nfit)=pp(i)+dh*1.0d0*(dble(rand())-.5d0)
+c     IBM/DEC/PGI/Intel
+              pp(i+i*nfit)=pp(i)+dh*1.0d0*(dble(rand(0.0d0))-.5d0)
 c     CRAY
-c            pp(i+i*nfit)=pp(i)+dh*1.0d0*(ranf()-.5d0)
+c             pp(i+i*nfit)=pp(i)+dh*1.0d0*(ranf()-.5d0)
             enddo
             write(6,*) 'penalties for start simplex:'
             do i=1,nfit+1

@@ -7,18 +7,17 @@ TARGET		= $(PROGRAM)
 #   Compilers, Programs and Flags
 
 #   for Intel Fortran Compiler (Pentium4)
-#F90C		= ifc -FR
-#FC		= ifc -FI
-#FFLAGS		= -O3 -tpp7
+F90C		= ifc -FR
+FC		= ifc -FI
+FFLAGS		= -O3 -tpp7
 #   Linker/Loader
-#LD		= ifc
-#LFLAGS		= $(FFLAGS) -Vaxlib -L/apps/intel/mkl60/lib/32
-#LIBS		= -lmkl_lapack -lmkl_ia32 -lguide
+LD		= ifc
+LFLAGS		= $(FFLAGS) -Vaxlib -L/apps/intel/mkl60/lib/32
+LIBS		= -lmkl_lapack -lmkl_ia32 -lguide
 #
-#   for PGI
-#   Fortran Compiler
+#   for PGI Fortran Compiler
 #F90C		= pgf90 -Mfree
-#FC		= pgf77
+#FC		= pgf90 -Mfixed
 #FFLAGS		= -fast
 #   Linker/Loader
 #LD		= pgf90
@@ -27,13 +26,13 @@ TARGET		= $(PROGRAM)
 #
 #   for ibm/aix:
 #   Fortran Compiler
-F90C		= xlf95
-FC		= xlf
-FFLAGS		= -O -q32 -qarch=auto -qmaxmem=-1 -qtune=auto
+#F90C		= xlf95
+#FC		= xlf
+#FFLAGS		= -O -q32 -qarch=auto -qmaxmem=-1 -qtune=auto
 #   Linker/Loader
-LD		= xlf95
-LFLAGS		= $(FFLAGS) -L/users/krack/lib/32 -L/apps/mass/lib
-LIBS		= -lmass -llapack3 -lessl
+#LD		= xlf95
+#LFLAGS		= $(FFLAGS) -L/users/krack/lib/32 -L/apps/mass/lib
+#LIBS		= -lmass -llapack3 -lessl
 # to link libaries static: -bnso -bI:/usr/lib/syscalls.exp
 
 #   for SGI/IRIX 6.3 (O2):

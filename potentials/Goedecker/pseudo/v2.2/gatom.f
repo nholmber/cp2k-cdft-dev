@@ -26,7 +26,7 @@ c     local arrays
      :     rho(((ng+1)*(ng+2))/2,lmax+1),
      :     rhoold(((ng+1)*(ng+2))/2,lmax+1),excgrd(nint),vxcgrd(nint),
      :     rr(nint),rw(nint),rd(nint),pexgrd(nint),
-     :     ppr1(nint,lmax),ppr2(nint,lmax),ppr3(nint,lmax),
+     :     ppr1(nint,lmax+1),ppr2(nint,lmax+1),ppr3(nint,lmax+1),
      :     aux1(nint),aux2(nint,0:ng,lmax+1),
      :     expxpr(0:ng,nint)
 
@@ -301,13 +301,10 @@ c     for minimum number of scf iterations
             nscfo = nscf
             nscf = 0
          endif
-CMK
-         CALL random_number(rrand)
-         rmix = delta + (.5d0-delta/2.d0)*rrand
-c     IBM/DEC
-c         rmix = delta + (.5d0-delta/2.d0)*dble(rand())
+c     IBM/DEC/PGI/Intel
+        rmix = delta + (.5d0-delta/2.d0)*dble(rand(0.0d0))
 c     CRAY
-c         rmix = delta + (.5d0-delta/2.d0)*ranf()
+c        rmix = delta + (.5d0-delta/2.d0)*ranf()
 c     rmix = delta
          if (it.eq.1) rmix=1.d0
          do l=0,lmax
@@ -664,7 +661,6 @@ c     new version, using the integrals of the function between the nodes
          enddo
       enddo
 
-c      print*,'leave gatom'
-      return
+c     print*,'leave gatom'
 
       end
