@@ -5,9 +5,6 @@ PROGRAM cpmd_to_qs
 !          is written in CPMD-format to the Quickstep potential database
 !          format.
 
-! Input file:  XX
-! Output file: QS
-
 ! History: - Creation (12.12.2003,MK)
 
 ! *****************************************************************************
@@ -15,8 +12,15 @@ PROGRAM cpmd_to_qs
   IMPLICIT NONE
 
   INTEGER, PARAMETER :: wp = SELECTED_REAL_KIND(14,200),&
-                        max_ppl = 4,&  ! Max. number of local projectors
-                        max_ppnl = 4   ! Max. number of non-local projectors
+                        maxl = 3,&    ! Max. angular momentum quantum number
+                        max_ppl = 4,& ! Max. number of local projectors
+                        max_ppnl = 4  ! Max. number of non-local projectors
+
+  CHARACTER(LEN=200) :: input_file1,input_file2,line,output_file
+  CHARACTER(LEN=12)  :: fmtstr,string,xc_string
+  REAL(KIND=wp)      :: rloc,q,z,zeff
+  INTEGER            :: i,ippnl,istat,iz,j,l,n,narg,ncore,nelec,nppl,&
+                        nppnl_max,nvalence,xc_code
 
   CHARACTER(LEN=2), DIMENSION(103) :: elesym =&
     (/"H ","He","Li","Be","B ","C ","N ","O ","F ","Ne","Na","Mg","Al","Si",&
@@ -28,18 +32,20 @@ PROGRAM cpmd_to_qs
       "At","Rn","Fr","Ra","Ac","Th","Pa","U ","Np","Pu","Am","Cm","Bk","Cf",&
       "Es","Fm","Md","No","Lr"/)
 
-  CHARACTER(LEN=200) :: line
-  CHARACTER(LEN=12)  :: fmtstr,xc_string
-  REAL(KIND=wp)      :: rloc,z,zeff
-  INTEGER            :: i,ippnl,istat,j,nppl,nppnl_max,xc_code
-
   REAL(KIND=wp), DIMENSION(max_ppl)      :: cppl
   REAL(KIND=wp), DIMENSION(max_ppnl)     :: rppnl
   REAL(KIND=wp), DIMENSION(max_ppnl,3,3) :: cppnl
 
   INTEGER, DIMENSION(max_ppnl) :: nppnl
+  INTEGER, DIMENSION(maxl+1)   :: elec_conf
+
+  INTEGER :: iargc
 
 ! -----------------------------------------------------------------------------
+
+  input_file1 = ""
+  input_file2 = ""
+  output_file = ""
 
   z = 0.0_wp
   zeff = 0.0_wp
@@ -50,35 +56,68 @@ PROGRAM cpmd_to_qs
   rppnl(:) = 0.0_wp
   cppnl(:,:,:) = 0.0_wp
 
+! *** Check the number of arguments ***
+
+  narg = iargc()
+  IF (narg /= 3) THEN
+    PRINT*,"ERROR: Expected three valid file names as arguments, found",narg
+    PRINT*,"       <input_file1> <input_file2> <output_file>"
+    PRINT*,"       e.g. XX atom.dat QS"
+    STOP
+  END IF
+
 ! *** Open I/O units ***
 
-  OPEN (UNIT=5,&
-        FILE="XX",&
+  CALL getarg(1,input_file1)
+  OPEN (UNIT=1,&
+        FILE=TRIM(input_file1),&
         STATUS="OLD",&
         ACCESS="SEQUENTIAL",&
         FORM="FORMATTED",&
         POSITION="REWIND",&
         ACTION="READ",&
         IOSTAT=istat)
+  IF (istat /= 0) THEN
+    PRINT*,"ERROR: Could not open the first input file "//TRIM(input_file1)
+    STOP
+  END IF
 
-  IF (istat /= 0) STOP "*** Could not open input file XX ***"
+  CALL getarg(2,input_file2)
+  OPEN (UNIT=2,&
+        FILE=TRIM(input_file2),&
+        STATUS="OLD",&
+        ACCESS="SEQUENTIAL",&
+        FORM="FORMATTED",&
+        POSITION="REWIND",&
+        ACTION="READ",&
+        IOSTAT=istat)
+  IF (istat /= 0) THEN
+    PRINT*,"ERROR: Could not open the second input file "//TRIM(input_file2)
+    STOP
+  END IF
 
-  OPEN (UNIT=6,&
-        FILE="QS",&
+  CALL getarg(3,output_file)
+  OPEN (UNIT=3,&
+        FILE=TRIM(output_file),&
         STATUS="REPLACE",&
         ACCESS="SEQUENTIAL",&
         FORM="FORMATTED",&
         POSITION="REWIND",&
         ACTION="WRITE",&
         IOSTAT=istat)
+  IF (istat /= 0) THEN
+    PRINT*,"ERROR: Could not open the output file "//TRIM(output_file)
+    STOP
+  END IF
 
-  IF (istat /= 0) STOP "*** Could not open output file QS ***"
-
-! *** Read XX file (CPMD format) ***
+! *** Read first input file (CPMD format) ***
 
   DO
-    READ (UNIT=5,FMT="(A)",IOSTAT=istat) line
-    IF (istat /= 0) STOP "*** Error reading input file XX ***"
+    READ (UNIT=1,FMT="(A)",IOSTAT=istat) line
+    IF (istat /= 0) THEN
+      PRINT*,"ERROR reading the first input file "//TRIM(input_file1)
+      STOP
+    END IF
     IF (INDEX(line,"Z  =") > 0) THEN
       READ (UNIT=line(7:),FMT=*) z
     ELSE IF (INDEX(line,"ZV =") > 0) THEN
@@ -90,8 +129,14 @@ PROGRAM cpmd_to_qs
     END IF
   END DO
 
-  IF (z == 0.0_wp) STOP "*** Z is zero ***"
-  IF (zeff == 0.0_wp) STOP "*** Z(eff) is zero ***"
+  IF (z == 0.0_wp) THEN
+    PRINT*,"ERROR: Z is zero in the first input file "//TRIM(input_file1)
+    STOP
+  END IF
+  IF (zeff == 0.0_wp) THEN
+    PRINT*,"ERROR: Z(eff) is zero in the first input file "//TRIM(input_file1)
+    STOP
+  END IF
 
   SELECT CASE (xc_code)
   CASE (1312)
@@ -100,38 +145,109 @@ PROGRAM cpmd_to_qs
     xc_string = "BP"
   CASE (0900)
     xc_string = "PADE"
+  CASE (0055)
+    xc_string = "HCTH" ! CPMD version of HCTH120
+  CASE (0066)
+    xc_string = "HCTH93"
+  CASE (0077)
+    xc_string = "HCTH120"
+  CASE (0088)
+    xc_string = "HCTH147"
+  CASE (0099)
+    xc_string = "HCTH407"
   CASE (1134)
     xc_string = "PBE"
   CASE DEFAULT
-    STOP "*** Invalid XC code found in input file XX ***"
+    PRINT*,"ERROR: Invalid XC code found in the first input file "//TRIM(input_file1)
+    STOP
   END SELECT
 
-  READ (UNIT=5,FMT="(A)") line
-  IF (INDEX(line,"GOEDECKER") == 0) STOP "*** Keyword GOEDECKER not found ***"
-  READ (UNIT=5,FMT=*) nppnl_max
-  READ (UNIT=5,FMT=*) rloc
-  READ (UNIT=5,FMT=*) nppl,(cppl(i),i=1,nppl)
+  READ (UNIT=1,FMT="(A)") line
+  IF (INDEX(line,"GOEDECKER") == 0) THEN
+    PRINT*,"ERROR: No keyword GOEDECKER found in the first input file "//TRIM(input_file1)
+    STOP
+  END IF
+  READ (UNIT=1,FMT=*) nppnl_max
+  READ (UNIT=1,FMT=*) rloc
+  READ (UNIT=1,FMT=*) nppl,(cppl(i),i=1,nppl)
   DO ippnl=1,nppnl_max
-    READ (UNIT=5,FMT=*) rppnl(ippnl),nppnl(ippnl),&
+    READ (UNIT=1,FMT=*) rppnl(ippnl),nppnl(ippnl),&
                         ((cppnl(ippnl,i,j),j=i,nppnl(ippnl)),i=1,nppnl(ippnl))
   END DO
 
+  iz = NINT(z)
+  PRINT*,"Element symbol: "//TRIM(elesym(iz))
+  PRINT*,"XC functional : "//TRIM(xc_string)
+  PRINT*,"Z             : ",iz
+  PRINT*,"Z(eff)        : ",NINT(zeff)
+
+! *** Read second input file (electronic configuration) ***
+
+  READ (UNIT=2,FMT="(A)") string
+  IF (TRIM(ADJUSTL(string)) /= TRIM(elesym(iz))) THEN
+    PRINT*,"ERROR: Mismatching element symbols found in the input files"
+    STOP
+  END IF
+  READ (UNIT=2,FMT="(A)") string
+  IF (TRIM(ADJUSTL(string)) /= xc_string) THEN
+    PRINT*,"ERROR: Mismatching XC functionals found in the input files"
+    STOP
+  END IF
+  READ (UNIT=2,FMT=*) line ! dummy read
+  READ (UNIT=2,FMT=*) line ! dummy read
+  READ (UNIT=2,FMT=*) line ! dummy read
+  READ (UNIT=2,FMT=*) ncore,nvalence
+  PRINT*,"Core states   : ",ncore
+  PRINT*,"Valence states: ",nvalence
+  elec_conf(:) = 0
+  DO i=1,nvalence
+    READ (UNIT=2,FMT=*) n,l,q
+    elec_conf(l+1) = elec_conf(l+1) + INT(q)
+  END DO
+  PRINT*,"Elec. conf.   : ",elec_conf(1:maxl)
+
+! *** Check the electronic configuration ***
+
+  nelec = 0
+
+  DO i=1,maxl+1
+    nelec = nelec + elec_conf(i)
+    IF (nelec == NINT(zeff)) EXIT
+  END DO
+
+  IF (nelec /= NINT(zeff)) THEN
+    PRINT*,"ERROR: Mismatch between Z(eff) and the electronic configuration found"
+    STOP
+  END IF
+
 ! *** Quickstep database format ***
 
-  WRITE (UNIT=6,FMT="(A,1X,A)") elesym(NINT(z)),"GTH-"//TRIM(xc_string)
-  WRITE (UNIT=6,FMT="(I5,A)")&
-    NINT(z)," -> split into total number of s p d ... electrons (all-elec. atom)"
-  WRITE (UNIT=6,FMT="(I5,A)")&
-    NINT(zeff)," -> split into total number of s p d ... electrons (pseudo atom)"
-  WRITE (UNIT=6,FMT="(F15.8,I5,4F15.8)") rloc,nppl,(cppl(i),i=1,nppl)
-  WRITE (UNIT=6,FMT="(I5)") nppnl_max
+  string = ""
+  WRITE (UNIT=string,FMT="(I5)") nelec
+  WRITE (UNIT=3,FMT="(A,1X,A)")&
+    TRIM(elesym(iz)),"GTH-"//TRIM(xc_string)//"-q"//TRIM(ADJUSTL(string))
+
+  nelec = 0
+  DO i=1,maxl+1
+    nelec = nelec + elec_conf(i)
+    IF (nelec == NINT(zeff)) THEN
+      WRITE (UNIT=3,FMT="(I5)") elec_conf(i)
+      EXIT
+    ELSE
+      WRITE (UNIT=3,FMT="(I5)",ADVANCE="NO") elec_conf(i)
+    END IF
+  END DO
+
+  WRITE (UNIT=3,FMT="(F15.8,I5,4F15.8)") rloc,nppl,(cppl(i),i=1,nppl)
+
+  WRITE (UNIT=3,FMT="(I5)") nppnl_max
   DO ippnl=1,nppnl_max
-    WRITE (UNIT=6,FMT="(F15.8,I5,4F15.8)")&
+    WRITE (UNIT=3,FMT="(F15.8,I5,4F15.8)")&
       rppnl(ippnl),nppnl(ippnl),(cppnl(ippnl,1,j),j=1,nppnl(ippnl))
     fmtstr = "(T  ,4F15.8)"
     DO i=2,nppnl(ippnl)
       WRITE (fmtstr(3:4),"(I2)") 15*i + 6
-      WRITE (UNIT=6,FMT=fmtstr) (cppnl(ippnl,i,j),j=i,nppnl(ippnl))
+      WRITE (UNIT=3,FMT=fmtstr) (cppnl(ippnl,i,j),j=i,nppnl(ippnl))
     END DO
   END DO
 
