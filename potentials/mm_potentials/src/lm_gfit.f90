@@ -42,7 +42,7 @@ MODULE lm_gfit
   CHARACTER(len=*), PRIVATE, PARAMETER :: moduleN='lm_gfit'
   LOGICAL, PRIVATE, PARAMETER          :: debug_this_module=.true.
 
-  PUBLIC :: lm_gaussian_Fit
+  PUBLIC :: lm_gaussian_Fit, CreateData
 
 CONTAINS
 
@@ -70,11 +70,12 @@ CONTAINS
 !!   SOURCE
 !!
 !!*** **********************************************************************
-  SUBROUTINE Lm_Gaussian_Fit( pgf, Rstat, ExpFac )
+  SUBROUTINE Lm_Gaussian_Fit( pgf, Rstat, ExpFac, Fit_type)
     IMPLICIT NONE
     ! Arguments
-    TYPE(gaussian_fit_type), POINTER                :: pgf
+    TYPE(gaussian_fit_type), POINTER                 :: pgf
     INTEGER, INTENT(INOUT)                           :: Rstat
+    INTEGER, INTENT(IN)                              :: Fit_Type
     REAL(KIND=dbl), INTENT(IN), OPTIONAL             :: ExpFac
     ! Local Variables
     LOGICAL :: failure
@@ -111,9 +112,17 @@ CONTAINS
     CALL CreateData(X, Y, Ndata, Elp_Radius, Rmin, Rmax)
     ALLOCATE(A(Ma), stat=stat)
 
-    ! Initialize the parameter set
-    CALL Initialize_Gauss_Parameters(A, pgf%Number_of_Gaussians,&
-                                     X, Y, Ndata, Elp_Radius )
+    IF (Fit_Type.EQ.1) THEN
+       ! Initialize the parameter set
+       CALL Initialize_Gauss_Parameters(A, pgf%Number_of_Gaussians,&
+                                        X, Y, Ndata, Elp_Radius )
+    ELSE
+       DO I = 1, pgf%Number_of_Gaussians
+          II       = (I-1)*2
+          A(II+1)  = pgf%Ak(I)
+          A(II+2)  = pgf%Gk(I)
+       END DO
+    ENDIF
     A(Ma)      = 0.0_dbl
     WRITE (*,'(A)')" STARTING PARAMETERS:"
     WRITE (*,'(2F12.6)')(A(I),I=1,Ma)
@@ -202,7 +211,7 @@ CONTAINS
     REAL(KIND=dbl), INTENT(INOUT) ::  MaxErr
     ! Local Variables
     INTEGER ::  i, j
-    REAL(KIND=dbl) ::  arg,ex,fac,y
+    REAL(KIND=dbl) ::  arg,ex,fac,y, Dert
 
     IF (Iflag.EQ.1) THEN
        MaxErr = -1.0_dbl
@@ -210,13 +219,15 @@ CONTAINS
           y=0.0_dbl
           ! Sum of Gaussians
           ! Function value 
+          !     WRITE(*,*)"POINT : ",j, xt(j)
           DO i=1,n-2,2
+             !  WRITE(*,*)"     GAUSSIAN : ",i, a(i), a(i+1)
              arg=xt(j)/a(i+1)
              ex=EXP(-arg**2)
              y=y+a(i)*ex                     ! Function value
           END DO
           ! Constant Term
-          y= y + a(n)
+          y= y + a(n) + Term(n,a,xt,m)
           fvec(j) = yt(j) - y
           MaxErr = MAX(MaxErr, Abs(fvec(j)))
        END DO
@@ -224,13 +235,14 @@ CONTAINS
        ! Sum of Gaussians
        fjac = 0.0_dbl
        LoopOnParameters: DO i=1,n-2,2
+          Dert = DTerm(i,n,a,xt,m)
           LoopOnPoints: DO j=1,m
              ! Function derivatives
              arg=xt(j)/a(i+1)
              ex=EXP(-arg**2)
              fac        =   a(i)*ex*2.0_dbl*arg
-             fjac(j,i)  = - ex                  ! Derivatives w.r.t. Ak
-             fjac(j,i+1)= - fac*arg/a(i+1)      ! Derivatives w.r.t. Gk
+             fjac(j,i)  = - ex                        ! Derivatives w.r.t. Ak
+             fjac(j,i+1)= - fac*arg/a(i+1)  - Dert    ! Derivatives w.r.t. Gk
           END DO LoopOnPoints
        END DO LoopOnParameters
        LoopOnPointsConst: DO j=1,m
@@ -238,7 +250,43 @@ CONTAINS
           fjac(j,n) = - 1.0_dbl
        END DO LoopOnPointsConst
     END IF 
+    
   END SUBROUTINE evaluate_gaussian
+
+  FUNCTION Term(n,a,xt,m) RESULT(MyVal)
+    IMPLICIT NONE
+    INTEGER :: k, n, m, i
+    REAL(KIND=dbl), DIMENSION(:) :: a, xt
+    REAL(KIND=dbl) :: g, g1, g2, MyVal
+    
+    MyVal = 0.0_dbl
+    DO i = 3, n-2, 2
+       DO k = 1, i-2, 2
+          g1 = a(i+1) / a(k+1)
+          g2 = 1.0_dbl / g1
+          g  = xt(m) * ABS(g1-g2)
+          MyVal = MyVal + EXP(-g) 
+       END DO
+    END DO
+  END FUNCTION Term
+
+  FUNCTION DTerm(i,n,a,xt,m) RESULT(MyVal)
+    IMPLICIT NONE
+    INTEGER :: k, n, m, i
+    REAL(KIND=dbl), DIMENSION(:) :: a, xt
+    REAL(KIND=dbl) :: g, g1, g2, MyVal
+    
+    MyVal = 0.0_dbl
+    DO k = 1, n-2, 2
+       IF (k.NE.i) THEN
+          g1 = a(i+1) / a(k+1)
+          g2 = 1.0_dbl / g1
+          g  = xt(m) * ABS(g1-g2)
+          g  = - g * SIGN(g1-g2,.0_dbl) * EXP(-g) * ( 1.0_dbl /a(k+1) + a(k+1)/a(i+1)**2)
+          MyVal = MyVal + g
+       END IF
+    END DO
+  END FUNCTION DTerm
 
 !!****f* lm_gfit/CreateData [1.0] *
 !!
@@ -281,7 +329,7 @@ CONTAINS
     END DO
     CALL  EVALMMF1(X,Y,N,Rc)
     WRITE(77,'(2F12.6)')(X(I),Y(I),I=1,N)
-    close(77)
+
   END SUBROUTINE CreateData
                
 

@@ -48,14 +48,15 @@ CONTAINS
 !!
 !!   SOURCE
 !****************************************************************************
-  SUBROUTINE read_input_file(pgfs)
+  SUBROUTINE read_input_file(pgfs, Fit_type)
     IMPLICIT NONE
     ! Arguments
+    INTEGER, INTENT(OUT) :: Fit_type
     TYPE(gaussian_fit_p_type), DIMENSION(:), POINTER :: pgfs
     ! Local Variables
     INTEGER  :: Number_of_fit, Npoint, stat, Number_of_gaussians
-    INTEGER  :: i, MaxIter
-    REAL(KIND=dbl), ALLOCATABLE, DIMENSION(:) :: Radius_to_fit
+    INTEGER  :: i, MaxIter, nodf
+    REAL(KIND=dbl), ALLOCATABLE, DIMENSION(:) :: Radius_to_fit, lb, ub
     REAL(KIND=dbl) :: Rmax, Rmin, Eps_fit
     CHARACTER(len=*), PARAMETER :: routineN = 'read_input_file', &
          routineP = moduleN//':'//routineN
@@ -64,6 +65,7 @@ CONTAINS
 
     OPEN(10,file=IONAME,status='OLD',form='formatted')
     
+    READ(10,*,END=100,ERR=200) Fit_Type
     READ(10,*,END=100,ERR=200) Number_of_fit
     ALLOCATE(Radius_to_fit(Number_of_fit),&
              IdLabel(Number_of_fit),stat=stat)
@@ -79,6 +81,12 @@ CONTAINS
     READ(10,*,END=100,ERR=200) Rmin, Rmax
     READ(10,*,END=100,ERR=200) Npoint, Number_of_gaussians
     READ(10,*,END=100,ERR=200) Eps_fit, MaxIter
+    IF (Fit_type.EQ.2.OR.Fit_type.EQ.3) THEN
+       READ(10,*,END=100,ERR=200) Nodf
+       ALLOCATE(lb(Nodf), ub(Nodf))
+       READ(10,*,END=100,ERR=200)(lb(i),i=1,Nodf)
+       READ(10,*,END=100,ERR=200)(ub(i),i=1,Nodf)
+    END IF
 
     CLOSE(10)
 
@@ -92,10 +100,18 @@ CONTAINS
                         Number_of_Gaussians,&
                         Eps_fit,&
                         MaxIter,&
+                        Fit_type,&
+                        Nodf,&
+                        lb,&
+                        ub,&
                         pgfs)
 
     DEALLOCATE(Radius_to_fit,&
                IdLabel,stat=stat)
+    IF (Fit_type.EQ.2.OR.Fit_type.EQ.3) THEN
+       DEALLOCATE(lb, ub)
+    END IF
+
     IF (stat.NE.0) THEN
        WRITE(6,'(A)')"Error deallocating vector in :"//routineN//" ."
        STOP 99
@@ -126,16 +142,17 @@ CONTAINS
 !!
 !!   SOURCE
 !****************************************************************************
-  SUBROUTINE build_fit_type( NF, RF, Id, Rmax, Rmin, NP, NG, EMAX, MAXIT, pgfs)
+  SUBROUTINE build_fit_type( NF, RF, Id, Rmax, Rmin, NP, NG, EMAX, MAXIT,&
+       Fit_type, Nodf, lb, ub, pgfs)
     IMPLICIT NONE
     ! Arguments
-    INTEGER, INTENT(IN) :: NF, NP, NG, MAXIT
+    INTEGER, INTENT(IN) :: NF, NP, NG, MAXIT, Fit_type, Nodf
     CHARACTER(len=default_string_length), DIMENSION(:) :: Id
-    REAL(KIND=dbl), INTENT(IN), DIMENSION(:) :: RF
+    REAL(KIND=dbl), INTENT(IN), DIMENSION(:) :: RF, lb, ub
     REAL(KIND=dbl), INTENT(IN) :: Rmax, Rmin, EMAX
     TYPE(gaussian_fit_p_type), DIMENSION(:), POINTER :: pgfs
     ! Local Variables
-    INTEGER :: stat, I
+    INTEGER :: stat, I, J
     CHARACTER(len=*), PARAMETER :: routineN = 'build_fit_type', &
          routineP = moduleN//':'//routineN
 
@@ -159,6 +176,16 @@ CONTAINS
        pgfs(I)%pgf%info%MaxIter          = MAXIT
        pgfs(I)%pgf%info%Rmax             = Rmax
        pgfs(I)%pgf%info%Rmin             = Rmin
+       IF (Fit_type.EQ.2.OR.Fit_type.EQ.3) THEN
+          pgfs(I)%pgf%info2%nodf            = Nodf
+          ALLOCATE( pgfs(I)%pgf%info2%lb(Nodf),&
+                    pgfs(I)%pgf%info2%ub(Nodf) )
+          DO J = 1, nodf
+             pgfs(I)%pgf%info2%lb(j)        = lb(j)
+             pgfs(I)%pgf%info2%ub(j)        = ub(j)
+          END DO
+       END IF
+
        ALLOCATE(pgfs(I)%pgf%Ak(NG),stat=stat)
        IF (stat.NE.0) THEN
           WRITE(6,'(A)')"Error allocating vector in :"//routineN//" ."

@@ -42,15 +42,27 @@ PROGRAM GFIT
   USE input, ONLY: read_input_file
   USE gaussian_fit, ONLY: fit 
   USE output,       ONLY: punch_results
+  USE Fit_lsq,      ONLY: eval_opt
   IMPLICIT NONE
   TYPE(gaussian_fit_p_type), DIMENSION(:), POINTER :: pgfs
-  INTEGER ::  stat
+  INTEGER ::  stat, Fit_Type
 
   NULLIFY(pgfs)
 
   CALL init_mathcon
-  CALL read_input_file(pgfs)
-  CALL fit(pgfs)
+  CALL read_input_file(pgfs ,Fit_Type)
+  IF (Fit_Type.EQ.1) THEN
+     CALL fit(pgfs, Fit_type) ! Levenberg-Marquardt
+  ELSEIF  (Fit_Type.EQ.2) THEN
+     CALL eval_opt(pgfs, 2)   ! Powell
+  ELSEIF (Fit_Type.EQ.3) THEN
+     CALL eval_opt(pgfs, 2)   ! Powell + Levenberg-Marquardt
+     WRITE(*,*)"Starting Levenberg-Marquardt..."
+     CALL fit(pgfs, Fit_type)
+  ELSE
+     WRITE(*,*)"Wrong fit type!"
+     STOP 99
+  END IF
   CALL punch_results(pgfs)
 
   IF (ASSOCIATED(pgfs)) DEALLOCATE(pgfs,stat=stat)

@@ -20,7 +20,8 @@ CFLAGS = -O2
 ## nag compiler family
 ##
 F90 = f95
-F90FLAGS = -C=all -mtrace=size -nan -colour -free 
+F90FLAGS = -C=all -g -mtrace=size -nan -colour -free 
+LIBS =  -Wl,-framework -Wl,vecLib -Wl,-Xlinker -Wl,-Y -Wl,-Xlinker -Wl,10
 
 
 all: 	$(PROG)

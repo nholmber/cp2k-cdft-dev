@@ -26,6 +26,10 @@ MODULE gaussian_fit_types
 !!
 !!   SOURCE
 !****************************************************************************
+  TYPE Info_new_fit
+     INTEGER         :: Nodf
+      REAL(KIND=dbl), DIMENSION(:), POINTER :: ub, lb
+  END TYPE Info_new_fit
 
   TYPE Info_Pot_Type
      REAL(KIND=dbl)  :: Rmax, Rmin
@@ -39,6 +43,7 @@ MODULE gaussian_fit_types
      REAL(KIND=dbl)  :: Elp_Radius
      CHARACTER(len=default_string_length) :: IdLabel
      TYPE(Info_Pot_Type)  :: Info
+     TYPE(Info_new_fit)   :: Info2
      REAL(KIND=dbl)  :: A0 
      REAL(KIND=dbl), DIMENSION(:), POINTER :: Ak, Gk
   END TYPE Gaussian_fit_type
@@ -74,6 +79,7 @@ MODULE gaussian_fit_types
 
   PUBLIC :: gaussian_fit_type,&
             gaussian_fit_p_type,&
-            Info_Pot_type
+            Info_Pot_type,&
+            Info_new_fit
 
 END MODULE gaussian_fit_types

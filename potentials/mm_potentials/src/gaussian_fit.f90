@@ -30,10 +30,11 @@ MODULE Gaussian_fit
 
 CONTAINS
 
-  SUBROUTINE fit(pgfs)
+  SUBROUTINE fit(pgfs, Fit_Type)
     IMPLICIT NONE
     ! Arguments
     TYPE(gaussian_fit_p_type), DIMENSION(:), POINTER :: pgfs
+    INTEGER, INTENT(IN) :: Fit_Type
     ! Local Variables
     INTEGER :: I, stat
     REAL(KIND=dbl) :: ExpFac
@@ -41,7 +42,11 @@ CONTAINS
     ExpFac = 15.0_dbl
     DO I = 1, SIZE(pgfs)
        stat = 0
-       CALL lm_gaussian_fit(pgfs(I)%pgf, stat, ExpFac)
+       IF (Fit_Type.EQ.1) THEN
+          CALL lm_gaussian_fit(pgfs(I)%pgf, stat, ExpFac, Fit_Type)
+       ELSEIF (Fit_Type.EQ.3) THEN
+          CALL lm_gaussian_fit(pgf=pgfs(I)%pgf, Rstat=stat, Fit_Type=Fit_Type)
+       END IF
        If (stat.ne.0) EXIT
     END DO
 
