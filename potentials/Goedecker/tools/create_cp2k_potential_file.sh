@@ -1,4 +1,4 @@
-#!/bin/ksh
+#!/bin/sh
 #
   potential_file=$(pwd)/../cp2k/POTENTIAL
   cat <<*** >$potential_file
@@ -51,11 +51,11 @@
 ***
   for xcfun in blyp bp hcth120 hcth407 pade pbe olyp; do
     cd ../cp2k/$xcfun
-    typeset -u ltu=$xcfun # make uppercase
+    XCFUN=$(echo $xcfun | tr [:lower:] [:upper:])
     cat <<*** >>$potential_file
 ################################################################################
 #
-# $ltu functional
+# $XCFUN functional
 #
 ################################################################################
 #

@@ -1,4 +1,4 @@
-#!/bin/ksh
+#!/bin/sh
 # Update the database for the Goedecker-Teter-Hutter pseudo potentials (GTH PP)
 # in CPMD format and CP2K/Quickstep format
 
