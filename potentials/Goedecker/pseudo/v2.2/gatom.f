@@ -301,8 +301,10 @@ c     for minimum number of scf iterations
             nscfo = nscf
             nscf = 0
          endif
-c     IBM/DEC/PGI/Intel
-        rmix = delta + (.5d0-delta/2.d0)*dble(rand(0.0d0))
+c     Intel (ifc)
+c        rmix = delta + (.5d0-delta/2.d0)*dble(rand(0.0d0))
+c     IBM/DEC/PGI
+        rmix = delta + (.5d0-delta/2.d0)*dble(rand())
 c     CRAY
 c        rmix = delta + (.5d0-delta/2.d0)*ranf()
 c     rmix = delta
