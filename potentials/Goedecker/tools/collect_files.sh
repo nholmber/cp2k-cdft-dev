@@ -11,13 +11,20 @@
       el=$(echo $xxfile | cut -d"/" -f2)
       typeset -L q=$(head -3 $xxfile | tail -1 | cut -d"=" -f2 | cut -d"." -f1)
       qsfile=$(dirname $xxfile)/QS
-      if [[ -n $(diff $xxfile $cpmdlibpath/$xcfun/$el-q$q) ]]; then
-        cp $xxfile $cpmdlibpath/$xcfun/$el-q$q
-        echo "$xxfile was copied to $cpmdlibpath/$xcfun/$el-q$q"
-        if [[ -f $qsfile ]]; then
-          cp $qsfile $cp2klibpath/$xcfun/$el-q$q
-          echo "$qsfile was copied to $cp2klibpath/$xcfun/$el-q$q"
+      cpmdlibfile=$(echo ${cpmdlibpath}/${xcfun}/${el}-q${q})
+      cp2klibfile=$(echo ${cp2klibpath}/${xcfun}/${el}-q${q})
+      if [[ -f $cpmdlibfile ]]; then
+        if [[ -n $(diff $xxfile $cpmdlibfile) ]]; then
+          cp $xxfile $cpmdlibfile
+          echo "Changed file $xxfile was moved to $cpmdlibfile"
+          mv $qsfile $cp2klibfile
+          echo "Changed file $qsfile was moved to $cp2klibfile"
         fi
+      else
+        cp $xxfile $cpmdlibfile
+        echo "New file $xxfile was moved to $cpmdlibfile"
+        mv $qsfile $cp2klibfile
+        echo "New file $qsfile was moved to $cp2klibfile"
       fi
     done
   done
