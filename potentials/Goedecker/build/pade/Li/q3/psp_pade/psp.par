@@ -1,0 +1,7 @@
+   22             3.00000 ng, rij
+     1.600     3.610                                       rcov,rprb
+ r                           (non)relativistic calculation
+ PADE                        XC-functional
+  3.000  3.000    0.4000000000   -0.1403486849E+02    0.9553476269E+01   -0.1766488167E+01    0.8436998065E-01  znuc,zion,rloc,gpot()
+  -1                                                       lpx, (Projectors for l=0..lpx)
+ --------------------------

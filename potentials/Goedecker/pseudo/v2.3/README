@@ -1,0 +1,56 @@
+*********************************************************************
+*                                                                   *
+*  Fitting of Goedecker type pseudopotentials                       *
+*             with pseudo_2.3                                       *
+*                                                                   *
+*          C. Hartwigsen, March 97                                  *
+*********************************************************************
+
+pseudo_2.3 is an extended version of pseudo_2.2. It allows the
+simultaneous fit of goedecker-type pseudopotentials against several
+selected atomic reference states. This should improve the
+transferability of the pseudopotentials.  Before using pseudo_2.3 one
+has to read the README for pseudo_2.2.  pseudo_2.3 works essentially
+the same as pseudo_2.2. There are only small differences if more than
+one atomic reference configuration is considered. As long as only one
+atomic reference configuration is used pseudo_2.3 takes the same input
+as pseudo_2.2 (in fact in this case one should prefer the program
+pseudo_2.2!)
+
+
+Differences if more the one atomic reference state is used:
+----------------------------------------------------------
+
+The file 'atom.ae' now contains data of more than one atomic state.
+The atomic all electron calculation is still done with the program
+atm.f (see corresponding README).
+
+The file 'weights.par' now contains two additional lines (third and
+forth line). Example for 'weights.par':
+
+ Initial weight-guess from atomic-program
+ ----------------------------------------
+    .1E+00     weight_psir0
+ 1.00 1.00 1.00 1.00 1.00 1.00 1.00 1.00 1.00 1.00  weights for configurations
+ 0.00 1.00 1.00 1.00 1.00 1.00 1.00 1.00 1.00 1.00  weights for excitation-energies 
+    n   l  so   eigval  chrg    dchrg  ddchrg  res    rnode dnode ddnode
+   3   0  .00   0.0e0   0.0e0   0.0e0  0.0e0   0.0e0  1.0e0 0.0e0 0.0e0
+   4   0  .00   0.0e0   0.0e0   0.0e0  0.0e0   0.0e0  0.0e0 0.0e0 0.0e0
+   3   1  .00   0.0e0   0.0e0   0.0e0  0.0e0   0.0e0  1.0e0 0.0e0 0.0e0
+   4   1  .00   0.0e0   0.0e0   0.0e0  0.0e0   0.0e0  0.0e0 0.0e0 0.0e0
+
+This is an example for a calculation where 10 different configurations
+are considered. The penalty-function is given by:
+
+penalty = sum_(i=1)^(nconf){ wghtcf[i]*sqrt(penal_cf[i]) + dE_excit[i}
+                            * whgtex[i] }
+
+where penal_cf[i] is the penalty-function for the configuration i as
+used in pseudo_2.2 (see README for pseudo_2.2) and dE_excit[i} is the
+error in the excitation energy for configuration i. nconf is the
+number of configurations (i.e. 10). The first state is taken as the
+ground state (excitation energy = zero!). wghtcf[i] and whgtex[i] are
+the weights for the different configurations and excitation energies,
+respectively.
+
+

@@ -1,0 +1,17 @@
+ &ATOM
+  Z  =   6.00000000000000000
+  ZV =   4.00000000000000000
+  XC = 1111    .6666666667
+  TYPE = NORMCONSERVING GOEDECKER
+ &END
+ &INFO
+   Goedecker/Hartwigsen s ? PP
+ &END
+ &POTENTIAL
+     GOEDECKER
+ 2                                    LMAX
+       .336796922                                 RC
+   2    -8.868486851     1.354475959   #C  C1 C2
+       .302410220  1   9.622711611 H(s) 11                 
+       .289616899  0 H(p) no projector       
+ &END

@@ -1,0 +1,7 @@
+   18             3.00000 ng, rij 
+      .750     1.500                                       rcov,rprb 
+ r                           (non)relativistic calculation
+ BLYP                        XC-functional
+  2.000  2.000     .2000000000    -.9147371281E+01     .1711977924E+01     .0000000000E+00     .0000000000E+00  znuc,zion,rloc,gpot()
+  -1                                                       lpx, (Projectors for l=0..lpx)
+ ---------------------------------------------

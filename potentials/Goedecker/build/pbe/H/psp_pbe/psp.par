@@ -1,0 +1,7 @@
+   18             3.00000 ng, rij 
+      .750     1.210                                       rcov,rprb 
+ r                           (non)relativistic calculation
+ PBE                         XC-functional
+  1.000  1.000     .2000000000    -.4178900438E+01     .7244633131E+00     .0000000000E+00     .0000000000E+00  znuc,zion,rloc,gpot()
+  -1                                                       lpx, (Projectors for l=0..lpx)
+ ---------------------------------------------

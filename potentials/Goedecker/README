@@ -1,0 +1,18 @@
+The directory PADE contains the LDA Goedecker pseudopotentials. 
+
+The directory ATOM contains the source for the atomic program.  Due to
+copyright reasons this atomic code is not completely identical to the
+one that has been used for the reference calculations of the LDA
+pseudopotentials. Therefore for the heavier elements small differences
+in the pseudopotential/all electron eigenvalues and charges exist.
+
+The directory PSEUDO contains the sources for two programs to fit the
+parameters of Goedecker pseudopotentials. A directory with some
+examples is also included.
+
+The directory PAPER contains two publications about the Goedecker
+pseudopotentials.
+
+--------------------------
+
+
