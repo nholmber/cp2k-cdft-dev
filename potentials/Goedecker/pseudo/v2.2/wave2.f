@@ -1,4 +1,3 @@
-
         real*8 function wave2(ng,ll,psi,expxpr,r,k,nint)
         implicit real*8 (a-h,o-z)
         dimension psi(0:ng),expxpr(0:ng,nint)

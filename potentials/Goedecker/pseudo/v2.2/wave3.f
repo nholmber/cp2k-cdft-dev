@@ -1,4 +1,3 @@
-
         subroutine wave3(ng,ll,xp,psi,expxpr,r,k,nint,w,dw,ddw)
         implicit real*8 (a-h,o-z)
         dimension psi(0:ng),xp(0:ng),expxpr(0:ng,nint)

@@ -9,7 +9,7 @@
       implicit real*8 (a-h,o-z)
       dimension aeval(noccmx,lmx,nsmx),
      :     gpot(4),r_l(lmx),hsep(6,lpmx,nsmx),
-     :     xp(0:ng),  ud(nint,((ng+1)*(ng+2))/2,lcx+1), 
+     :     xp(0:ng),  ud(nint,((ng+1)*(ng+2))/2,lcx+1),
      :     psi(0:ngmx,noccmx,lmx,nsmx),rho(((ng+1)*(ng+2))/2,lmax+1),
      :     pp1(0:ng,lmax+1),pp2(0:ng,lmax+1),pp3(0:ng,lmax+1),
      :     xcgrd(nint), rhogrd(nint),
@@ -39,9 +39,9 @@ c calc hartree potential
 c   calc eext, ehart, exc
       do k=1,nint
          r=rr(k)
-         vexgrd(k)=.5d0*(r/rprb**2)**2-zion*Derf(r/(sqrt(2.d0)*rloc))/r 
+         vexgrd(k)=.5d0*(r/rprb**2)**2-zion*Derf(r/(sqrt(2.d0)*rloc))/r
      1        + exp(-.5d0*(r/rloc)**2)*
-     1        ( gpot(1) + gpot(2)*(r/rloc)**2 + gpot(3)*(r/rloc)**4 + 
+     1        ( gpot(1) + gpot(2)*(r/rloc)**2 + gpot(3)*(r/rloc)**4 +
      1        gpot(4)*(r/rloc)**6 )
          eext  = eext  +       vexgrd(k)*rhogrd(k)*rw(k)
          ehart = ehart + 0.5d0*vhgrd(k) *rhogrd(k)*rw(k)
@@ -52,13 +52,13 @@ c   calc eext, ehart, exc
       do ll=0,lmax
          do ispin=1,min(2*ll+1,nspin)
             if (ll.le.lpx) then
-	rnrm1=1.d0/sqrt(.5d0*gamma(ll+1.5d0)*r_l(ll+1)**(2*ll+3))
-	rnrm2=1.d0/sqrt(.5d0*gamma(ll+3.5d0)*r_l(ll+1)**(2*ll+7))
-	rnrm3=1.d0/sqrt(.5d0*gamma(ll+5.5d0)*r_l(ll+1)**(2*ll+11))
+        rnrm1=1.d0/sqrt(.5d0*gamma(ll+1.5d0)*r_l(ll+1)**(2*ll+3))
+        rnrm2=1.d0/sqrt(.5d0*gamma(ll+3.5d0)*r_l(ll+1)**(2*ll+7))
+        rnrm3=1.d0/sqrt(.5d0*gamma(ll+5.5d0)*r_l(ll+1)**(2*ll+11))
             endif
             do iocc=1,noccmax
                zz = occup(iocc,ll+1,ispin)
-               if (zz.gt.1.0d-8) then 
+               if (zz.gt.1.0d-8) then
                   eigsum=eigsum + aeval(iocc,ll+1,ispin) *zz
 c     separabel part
                   if (ll.le.lpx) then
@@ -74,7 +74,7 @@ c     separabel part
 c     wavefunction on grid
                      psigrd = wave2(ng,ll,psi(0,iocc,ll+1,ispin),
      :                    expxpr,r,k,nint)
-c     kinetic energy	
+c     kinetic energy
                      rkin=0.d0
                      do i=0,ng
                         rkin=rkin+psi(i,iocc,ll+1,ispin)*(xp(i)*
@@ -85,17 +85,17 @@ c     kinetic energy
                      ekin = ekin+rkin*(psigrd*r**ll)*zz*rw(k)/fourpi
 c     separabel part
                      if (ll.le.lpx) then
-                        sep = (scpr1(ispin)*hsep(1,ll+1,ispin) 
-     :                       + scpr2(ispin)*hsep(2,ll+1,ispin) 
+                        sep = (scpr1(ispin)*hsep(1,ll+1,ispin)
+     :                       + scpr2(ispin)*hsep(2,ll+1,ispin)
      :                       + scpr3(ispin)*hsep(4,ll+1,ispin))
      :                       *rnrm1*r**ll*exp(-.5d0*(r/r_l(ll+1))**2)+
-     :                       (scpr1(ispin)*hsep(2,ll+1,ispin) 
-     :                       + scpr2(ispin)*hsep(3,ll+1,ispin) 
+     :                       (scpr1(ispin)*hsep(2,ll+1,ispin)
+     :                       + scpr2(ispin)*hsep(3,ll+1,ispin)
      :                       + scpr3(ispin)*hsep(5,ll+1,ispin))
      :                       *rnrm2*r**(ll+2)
-     :                       *exp(-.5d0*(r/r_l(ll+1))**2)   
-     :                       +(scpr1(ispin)*hsep(4,ll+1,ispin) 
-     :                       + scpr2(ispin)*hsep(5,ll+1,ispin) 
+     :                       *exp(-.5d0*(r/r_l(ll+1))**2)
+     :                       +(scpr1(ispin)*hsep(4,ll+1,ispin)
+     :                       + scpr2(ispin)*hsep(5,ll+1,ispin)
      :                       + scpr3(ispin)*hsep(6,ll+1,ispin))
      :                       *rnrm3*r**(ll+4)
      :                       *exp(-.5d0*(r/r_l(ll+1))**2)
@@ -110,7 +110,7 @@ c     separabel part
          enddo
       enddo
       etotal = eigsum - ehart - vxc + exc
-      write(6,*) 
+      write(6,*)
       write(6,*)' Pseudo atom energies'
       write(6,*)' --------------------'
       write(6,'(a,f16.10)')' kinetic energy            =',ekin

@@ -1,4 +1,3 @@
-
       real*8 function gamma(x)
 c
 c     calc. gamma(x), fuer halb/ganzzahlige positive x

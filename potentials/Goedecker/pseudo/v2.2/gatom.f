@@ -5,7 +5,7 @@
      :     vh,xp,rmt,rmtg,ud,nint,ng,ngmx,psi,igrad,
      :     rr,rw,rd,ntime,itertot)
 
-c optimized version of gatom with level 2 BLAS calls 
+c optimized version of gatom with level 2 BLAS calls
       implicit real*8 (a-h,o-z)
       dimension occup(noccmx,lmx,nsmx),
      :     aeval(noccmx,lmx,nsmx),chrg(noccmx,lmx,nsmx),
@@ -16,7 +16,7 @@ c optimized version of gatom with level 2 BLAS calls
      :     vh(((ng+1)*(ng+2))/2,lcx+1,((ng+1)*(ng+2))/2,lmax+1),
      :     xp(0:ng), rmt(nint,((ng+1)*(ng+2))/2,lmax+1),
      :     rmtg(nint,((ng+1)*(ng+2))/2,lmax+1),
-     :     ud(nint,((ng+1)*(ng+2))/2,lcx+1), 
+     :     ud(nint,((ng+1)*(ng+2))/2,lcx+1),
      :     psi(0:ngmx,noccmx,lmx,nsmx)
 c     local arrays
       dimension  hh(0:ng,0:ng,lmax+1,nspin),ss(0:ng,0:ng,lmax+1),
@@ -61,8 +61,8 @@ c            do l=0,lpx
 c               write(6,*) 'l=',l
 c               write(6,'(f7.3,t8,6e11.3,t76,a)') r_l(l+1),
 c     :              (hsep(i,l+1,1),i=1,6),'r_l(),hsep(), '//is(1)
-c               if (l.gt.0 .and. nspin.eq.2) 
-c     :              write(6,'(t8,6e11.3,t76,a)') 
+c               if (l.gt.0 .and. nspin.eq.2)
+c     :              write(6,'(t8,6e11.3,t76,a)')
 c     :              (hsep(i,l+1,2),i=1,6),'       hsep(), '//is(2)
 c            enddo
 c      print*,'xp',xp
@@ -71,8 +71,8 @@ c     c. hartwig    modified scf mixing
 c     initialize variables for first iteration rmix
          delta= 0.25d0
          odelta = 0.0d0
-         nscf = 0 
-         nscfo=2**10 
+         nscf = 0
+         nscfo=2**10
 c     initial guess for wavefunction
          do l=0,lmax
             do iocc=1,noccmax
@@ -99,9 +99,9 @@ c projectors
       do l=0,lpx
 c     gaussians
          gml1=sqrt( gamma(l+1.5d0) / (2.d0*r_l(l+1)**(2*l+3)) )
-         gml2=sqrt( gamma(l+3.5d0) / (2.d0*r_l(l+1)**(2*l+7)) ) 
+         gml2=sqrt( gamma(l+3.5d0) / (2.d0*r_l(l+1)**(2*l+7)) )
      1        /(l+2.5d0)
-         gml3=sqrt( gamma(l+5.5d0) / (2.d0*r_l(l+1)**(2*l+11)) ) 
+         gml3=sqrt( gamma(l+5.5d0) / (2.d0*r_l(l+1)**(2*l+11)) )
      1        /((l+3.5d0)*(l+4.5d0))
          tt=1.d0/(2.d0*r_l(l+1)**2)
          do i=0,ng
@@ -111,23 +111,23 @@ c     gaussians
             pp3(i,l+1)=gml3*ttt**2*(sqrt(ttt)**(2*l+3))
          enddo
 c     radial grid
-	rnrm1=1.d0/sqrt(.5d0*gamma(l+1.5d0)*r_l(l+1)**(2*l+3))
-	rnrm2=1.d0/sqrt(.5d0*gamma(l+3.5d0)*r_l(l+1)**(2*l+7))
-	rnrm3=1.d0/sqrt(.5d0*gamma(l+5.5d0)*r_l(l+1)**(2*l+11))
+        rnrm1=1.d0/sqrt(.5d0*gamma(l+1.5d0)*r_l(l+1)**(2*l+3))
+        rnrm2=1.d0/sqrt(.5d0*gamma(l+3.5d0)*r_l(l+1)**(2*l+7))
+        rnrm3=1.d0/sqrt(.5d0*gamma(l+5.5d0)*r_l(l+1)**(2*l+11))
         do k=1,nint
            r=rr(k)
            ppr1(k,l+1)=rnrm1*r**l*exp(-.5d0*(r/r_l(l+1))**2)
-           ppr2(k,l+1)=rnrm2*r**(l+2)*exp(-.5d0*(r/r_l(l+1))**2)   
+           ppr2(k,l+1)=rnrm2*r**(l+2)*exp(-.5d0*(r/r_l(l+1))**2)
            ppr3(k,l+1)=rnrm3*r**(l+4)*exp(-.5d0*(r/r_l(l+1))**2)
         enddo
       enddo
 
-c   external potential on grid 
+c   external potential on grid
       do k=1,nint
          r=rr(k)
-         pexgrd(k)=.5d0*(r/rprb**2)**2-zion*Derf(r/(sqrt(2.d0)*rloc))/r 
+         pexgrd(k)=.5d0*(r/rprb**2)**2-zion*Derf(r/(sqrt(2.d0)*rloc))/r
      1        + exp(-.5d0*(r/rloc)**2)*
-     1        ( gpot(1) + gpot(2)*(r/rloc)**2 + gpot(3)*(r/rloc)**4 + 
+     1        ( gpot(1) + gpot(2)*(r/rloc)**2 + gpot(3)*(r/rloc)**4 +
      1        gpot(4)*(r/rloc)**6 )
       enddo
 
@@ -138,7 +138,7 @@ c     store exp(-xp(i)*r**2) in expxpr()
             expxpr(i,k)= exp(-xp(i)*r**2)
          enddo
       enddo
-      
+
 c     auxillary grids for resid:
       fourpi = 16.d0*atan(1.d0)
       do k=1,nint
@@ -167,7 +167,7 @@ c
                   d=xp(i)+xp(j)
                   sxp=1.d0/d
                   const=gml*sqrt(sxp)**(2*l+1)
-c     overlap 
+c     overlap
                   ss(i,j,l+1)=const*sxp*(l+.5d0)
 c     kinetic energy
                   hhij=.5d0*const*sxp**2*(3.d0*xp(i)*xp(j)+
@@ -175,23 +175,23 @@ c     kinetic energy
      1                 l**2*(xp(i)-xp(j))**2  )+ .5d0*l*(l+1.d0)*const
 c     potential energy from parabolic potential
                   hhij=hhij+
-     1                 .5d0*const*sxp**2*(l+.5d0)*(l+1.5d0)/rprb**4 
+     1                 .5d0*const*sxp**2*(l+.5d0)*(l+1.5d0)/rprb**4
 c     hartree potential from ionic core charge
                   tt=sqrt(1.d0+2.d0*rloc**2*d)
                   if (l.eq.0) then
                      hhij=hhij-zion/(2.d0*d*tt)
                   else if (l.eq.1) then
-                     hhij=hhij-zion* 
+                     hhij=hhij-zion*
      &                    (1.d0 + 3.d0*rloc**2*d)/(2.d0*d**2*tt**3)
                   else if (l.eq.2) then
                      hhij=hhij-zion*
      &                    (2.d0+10.d0*rloc**2*d+15.d0*rloc**4*d**2)
      &                    /(2.d0*d**3*tt**5)
                   else if (l.eq.3) then
-                     hhij=hhij-zion*3.d0* 
-     &                    (2.d0+14.d0*rloc**2*d+35.d0*rloc**4*d**2 
+                     hhij=hhij-zion*3.d0*
+     &                    (2.d0+14.d0*rloc**2*d+35.d0*rloc**4*d**2
      &                    +35.d0*rloc**6*d**3)/(2.d0*d**4*tt**7)
-                  else 
+                  else
                      stop 'l too big'
                   endif
 c     potential from repulsive gauss potential
@@ -207,7 +207,7 @@ c     potential from repulsive gauss potential
      1                 + (gpot(4)/rloc**6)*.5d0*gamma(pw4)*tt**pw4
 c     separabel terms
                   if (l.le.lpx) then
-                     hhij = hhij 
+                     hhij = hhij
      1                    + pp1(i,l+1)*hsep(1,l+1,ispin)*pp1(j,l+1)
      1                    + pp1(i,l+1)*hsep(2,l+1,ispin)*pp2(j,l+1)
      1                    + pp2(i,l+1)*hsep(2,l+1,ispin)*pp1(j,l+1)
@@ -249,7 +249,7 @@ c
                do i=j,ng
                   ij=ij+1
                   rhoold(ij,l+1)=rho(ij,l+1)
-                  rho(ij,l+1)=0.d0 
+                  rho(ij,l+1)=0.d0
                enddo
             enddo
          enddo
@@ -261,13 +261,13 @@ c
                      do j=0,ng
                         i=j
                         ij=ij+1
-                        rho(ij,l+1)=rho(ij,l+1) + 
+                        rho(ij,l+1)=rho(ij,l+1) +
      :                       psi(i,iocc,l+1,ispin)
      :                       *psi(j,iocc,l+1,ispin)
      :                       *occup(iocc,l+1,ispin)
                         do i=j+1,ng
                            ij=ij+1
-                           rho(ij,l+1)=rho(ij,l+1) + 
+                           rho(ij,l+1)=rho(ij,l+1) +
      1                          psi(i,iocc,l+1,ispin)
      1                          *psi(j,iocc,l+1,ispin)
      1                          *(2.d0*occup(iocc,l+1,ispin))
@@ -301,10 +301,13 @@ c     for minimum number of scf iterations
             nscfo = nscf
             nscf = 0
          endif
+CMK
+         CALL random_number(rrand)
+         rmix = delta + (.5d0-delta/2.d0)*rrand
 c     IBM/DEC
-         rmix = delta + (.5d0-delta/2.d0)*dble(rand())
+c         rmix = delta + (.5d0-delta/2.d0)*dble(rand())
 c     CRAY
-c         rmix = delta + (.5d0-delta/2.d0)*ranf()   
+c         rmix = delta + (.5d0-delta/2.d0)*ranf()
 c     rmix = delta
          if (it.eq.1) rmix=1.d0
          do l=0,lmax
@@ -384,7 +387,7 @@ C     end LAPACK
                enddo
 c     write(6,*) 'eval',l
 c     55         format(5(e14.7))
-c     write(6,55) eval 
+c     write(6,55) eval
 c     write(6,*) 'evec',l
 c     do i=0,ng
 c     33            format(10(e9.2))
@@ -432,75 +435,75 @@ c
                do 3762,i=0,ng
                   d=xp(i)+xp(j)
                   sd=sqrt(d)
-                  terf=Derf(sd*rcov) 
+                  terf=Derf(sd*rcov)
                   texp=exp(-d*rcov**2)
                   tt0=0.4431134627263791d0*terf/sd**3-0.5d0*rcov*texp/d
-                  tt1=0.6646701940895686d0*terf/sd**5 + 
+                  tt1=0.6646701940895686d0*terf/sd**5 +
      &                 (-0.75d0*rcov*texp - 0.5d0*d*rcov**3*texp)/d**2
-                  chrg(iocc,1,ispin)=chrg(iocc,1,ispin) + 
+                  chrg(iocc,1,ispin)=chrg(iocc,1,ispin) +
      1                 psi(i,iocc,1,ispin)*psi(j,iocc,1,ispin)*tt0
 c     integrate up to rcov
-c               dhrg(iocc,1,ispin)=dhrg(iocc,1,ispin) + 
+c               dhrg(iocc,1,ispin)=dhrg(iocc,1,ispin) +
 c     1              psi(i,iocc,1,ispin)*psi(j,iocc,1,ispin)*tt1
 c     integrate up to inf
-                  dhrg(iocc,1,ispin)=dhrg(iocc,1,ispin) + 
+                  dhrg(iocc,1,ispin)=dhrg(iocc,1,ispin) +
      :                 psi(i,iocc,1,ispin)*psi(j,iocc,1,ispin)
      :                 *0.6646701940895686d0/sd**5
-                  ehrg(iocc,1,ispin)=ehrg(iocc,1,ispin) + 
+                  ehrg(iocc,1,ispin)=ehrg(iocc,1,ispin) +
      :                 psi(i,iocc,1,ispin)*psi(j,iocc,1,ispin)
      :                 *1.66167548522392d0/sd**7
                   if (lmax.eq.0) goto 3762
-               
-                  tt2=1.661675485223921d0*terf/sd**7 + 
+
+                  tt2=1.661675485223921d0*terf/sd**7 +
      &                 (-1.875d0*rcov*texp-1.25d0*d*rcov**3*texp-
      &                 0.5d0*d**2*rcov**5*texp)/d**3
-                  chrg(iocc,2,ispin)=chrg(iocc,2,ispin) + 
+                  chrg(iocc,2,ispin)=chrg(iocc,2,ispin) +
      1                 psi(i,iocc,2,ispin)*psi(j,iocc,2,ispin)*tt1
 c     integrate up to rcov
-c               dhrg(iocc,2,ispin)=dhrg(iocc,2,ispin) + 
+c               dhrg(iocc,2,ispin)=dhrg(iocc,2,ispin) +
 c     1              psi(i,iocc,2,ispin)*psi(j,iocc,2,ispin)*tt2
 c     integrate up to inf
-                  dhrg(iocc,2,ispin)=dhrg(iocc,2,ispin) + 
+                  dhrg(iocc,2,ispin)=dhrg(iocc,2,ispin) +
      1                 psi(i,iocc,2,ispin)*psi(j,iocc,2,ispin)
      2                 *1.661675485223921d0/sd**7
-                  ehrg(iocc,2,ispin)=ehrg(iocc,2,ispin) + 
+                  ehrg(iocc,2,ispin)=ehrg(iocc,2,ispin) +
      1                 psi(i,iocc,2,ispin)*psi(j,iocc,2,ispin)
      2                 *5.815864198283725d0/sd**9
                   if (lmax.eq.1) goto 3762
 
-                  tt3=5.815864198283725d0*terf/sd**9 + 
+                  tt3=5.815864198283725d0*terf/sd**9 +
      &                 (-6.5625d0*rcov*texp-4.375d0*d*rcov**3*texp-
-     &                 1.75d0*d**2*rcov**5*texp - 
+     &                 1.75d0*d**2*rcov**5*texp -
      &                 0.5d0*d**3*rcov**7*texp)/d**4
-                  chrg(iocc,3,ispin)=chrg(iocc,3,ispin) + 
+                  chrg(iocc,3,ispin)=chrg(iocc,3,ispin) +
      1                 psi(i,iocc,3,ispin)*psi(j,iocc,3,ispin)*tt2
 c     integrate up to rcov
-c               dhrg(iocc,3,ispin)=dhrg(iocc,3,ispin) + 
+c               dhrg(iocc,3,ispin)=dhrg(iocc,3,ispin) +
 c     1              psi(i,iocc,3,ispin)*psi(j,iocc,3,ispin)*tt3
 c     integrate up to inf
-                  dhrg(iocc,3,ispin)=dhrg(iocc,3,ispin) + 
+                  dhrg(iocc,3,ispin)=dhrg(iocc,3,ispin) +
      1                 psi(i,iocc,3,ispin)*psi(j,iocc,3,ispin)
      2                 *5.815864198283725d0/sd**9
-                  ehrg(iocc,3,ispin)=ehrg(iocc,3,ispin) + 
+                  ehrg(iocc,3,ispin)=ehrg(iocc,3,ispin) +
      1                 psi(i,iocc,3,ispin)*psi(j,iocc,3,ispin)
      2                 *26.17138889227676d0/sd**11
 
                   if (lmax.eq.2) goto 3762
 
-                  chrg(iocc,4,ispin)=chrg(iocc,4,ispin) + 
+                  chrg(iocc,4,ispin)=chrg(iocc,4,ispin) +
      1                 psi(i,iocc,4,ispin)*psi(j,iocc,4,ispin)*tt3
 c     integrate up to rcov
 c                  tt4=26.17138889227676d0*terf/sd**11+(-29.53125d0*
 c     :                 rcov*texp-19.6875d0*d*rcov**3*texp-7.875d0*d**2
-c     :                 *rcov**5*texp-2.25d0*d**3*rcov**7*texp- 
+c     :                 *rcov**5*texp-2.25d0*d**3*rcov**7*texp-
 c     &                 0.5d0*d**4*rcov**9*texp)/d**5
-c               dhrg(iocc,4,ispin)=dhrg(iocc,4,ispin) + 
+c               dhrg(iocc,4,ispin)=dhrg(iocc,4,ispin) +
 c     1              psi(i,iocc,4,ispin)*psi(j,iocc,4,ispin)*tt4
 c     integrate up to inf
-                  dhrg(iocc,4,ispin)=dhrg(iocc,4,ispin) + 
+                  dhrg(iocc,4,ispin)=dhrg(iocc,4,ispin) +
      1                 psi(i,iocc,4,ispin)*psi(j,iocc,4,ispin)
      2                 *26.17138889227676d0/sd**11
-                  ehrg(iocc,4,ispin)=dhrg(iocc,4,ispin) + 
+                  ehrg(iocc,4,ispin)=dhrg(iocc,4,ispin) +
      1                 psi(i,iocc,4,ispin)*psi(j,iocc,4,ispin)
      2                 *143.9426389075222d0/sd**13
 
@@ -509,7 +512,7 @@ c     integrate up to inf
       enddo
 c
 c     value at origin
-c 
+c
       psir0=0.d0
       do i=0,ng
          psir0=psir0+psi(i,1,1,1)
@@ -527,9 +530,9 @@ c
       do l=0,lmax
          do ispin=1, min(2*l+1,nspin)
             do nocc=1,noccmax
-               if ( (wght(nocc,l+1,ispin,6).ne.0.d0) 
+               if ( (wght(nocc,l+1,ispin,6).ne.0.d0)
      :              .or.  (wght(nocc,l+1,ispin,7).ne.0.d0)
-     :              .or.  (wght(nocc,l+1,ispin,8).ne.0.d0) ) then 
+     :              .or.  (wght(nocc,l+1,ispin,8).ne.0.d0) ) then
 
 c       print*,'node search, l, nocc:',l,' ',nocc
                   wfnode(nocc,l+1,ispin,1)=0.d0
@@ -582,21 +585,21 @@ c     nodes of wavefunction
                         x2=rr(k)
                         rrnode = zbrent(wave,ng,ngmx,l,lmx,xp,psi,
      :                       nocc,noccmx,ispin,nsmx,
-     :                       X1,X2,TOL) 
+     :                       X1,X2,TOL)
                         if (nnode .ge.nocc) then
                            rnode=rnode+rrnode
 c                          print*,'found rnode at:',rrnode
                         endif
                         rlist(nnode)=rrnode
                      endif
-c     nodes of first derivative 
+c     nodes of first derivative
                      if (y2(k)*y2(k-1).lt.0.d0) then
                         ndnode = ndnode +1
                         x1=rr(k-1)
                         x2=rr(k)
                         rrnode = zbrent(dwave,ng,ngmx,l,lmx,xp,psi,
      :                       nocc,noccmx,ispin,nsmx,
-     :                       X1,X2,TOL) 
+     :                       X1,X2,TOL)
                         if (ndnode .ge.nocc) then
                            dnode=dnode+rrnode
 c                        print*,'found dnode at:',rrnode
@@ -610,9 +613,9 @@ c     second derivative test:
                         x2=rr(k)
                         rrnode = zbrent(ddwave,ng,ngmx,l,lmx,xp,psi,
      :                       nocc,noccmx,ispin,nsmx,
-     :                       X1,X2,TOL) 
+     :                       X1,X2,TOL)
 c     only add the lowest node! (this one shoud dissapear)
-                        if (nddnode .ge. nocc +1 ) then 
+                        if (nddnode .ge. nocc +1 ) then
                            ddnode = ddnode + rrdnode
 c                          print*,'found ddnode at:',rrnode
                         else
@@ -665,5 +668,3 @@ c      print*,'leave gatom'
       return
 
       end
-
-

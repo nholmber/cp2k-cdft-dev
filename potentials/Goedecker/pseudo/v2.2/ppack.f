@@ -56,7 +56,7 @@ c      print*,'nfit=',nfit
       if (nstring.eq.'init') then
          do i=1,maxdim
             lpack(i)=.false.
-	    pp(i) = 0.0d0
+            pp(i) = 0.0d0
          enddo
          INQUIRE ( FILE = 'FITPAR', EXIST = FILEPR )
          IF ( FILEPR ) THEN

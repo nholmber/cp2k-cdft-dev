@@ -52,18 +52,18 @@ c      print*,'entered amoeba with nfit=',ndim
 
 c     cwh
       if (ilo .ne. iloold) trycount = 0
-      iloold = ilo 
+      iloold = ilo
 
 c     RTOL=min(Y(IHI),(y(ihi)-y(ilo))/y(ilo)**2)
       RTOL=min(Y(IHI),(y(ihi)-y(ilo))/y(ilo))
       IF(RTOL.LT.FTOL) then
-c     Check   
+c     Check
          write(6,*) 'values at the edges of the simplex:'
          write(6,'(40e15.8)') y
          do i=1,ndim
             if (y(i).lt.y(ilo)) write(6,*) 'WARNING ilo not lowest'
          enddo
-c 	unpack variables
+c       unpack variables
 c         print*,'call with ndim:',ndim
          call  ppack (rloc,gpot,hsep,r_l,p(1,ilo),
      :        lpx,lpmx,nspin,nsmx,ndim,ndim,'unpack',avgl1,avgl2,avgl3,
@@ -188,7 +188,7 @@ c     :         'iter',iter,' found',YPR,' reject',ihi,Y(IHI)
           DO 19 J=1,NDIM
             P(j,IHI)=PR(J)
 19        CONTINUE
-c          if (mod(iter,10).eq.0) 
+c          if (mod(iter,10).eq.0)
 c     :         write(6,'(a,i5,a,e15.7,2(a,i2,e15.7))')
 c     :         'iter',iter,' found',YPR,' reject',ihi,Y(IHI),
 c     :         ' best:',ilo,Y(Ilo)
@@ -210,7 +210,7 @@ c     :         ' best:',ilo,Y(Ilo)
           DO 22 J=1,NDIM
             P(j,IHI)=PRR(J)
 22        CONTINUE
-c          if (mod(iter,10).eq.0)  
+c          if (mod(iter,10).eq.0)
 c     :         write(6,'(a,i5,a,e15.7,2(a,i2,e15.7))')
 c     :         'iter',iter,' found',YPRR,' reject',ihi,Y(IHI),
 c     :         ' best:',ilo,Y(Ilo)
@@ -238,8 +238,8 @@ c     :         ' best:',ilo,Y(Ilo)
         DO 25 J=1,NDIM
           P(j,IHI)=PR(J)
 25      CONTINUE
-c          if (mod(iter,10).eq.0) 
-c     :         write(6,'(a,i5,a,e15.7,2(a,i2,e15.7))') 
+c          if (mod(iter,10).eq.0)
+c     :         write(6,'(a,i5,a,e15.7,2(a,i2,e15.7))')
 c     :         'iter',iter,' found',YPR,' reject',ihi,Y(IHI),
 c     :         ' best:',ilo,Y(Ilo)
         Y(IHI)=YPR

@@ -1,4 +1,3 @@
-
       subroutine pj2test(hsep,lpx,lpmx,lmx,nspin,nsmx,r_l,is)
 
       implicit none

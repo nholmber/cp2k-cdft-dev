@@ -1,5 +1,3 @@
-
-
         subroutine detnp(nn,r,rad0,npsp)
 C       DETERMINE NPSP
         implicit real*8 (a-h,o-z)

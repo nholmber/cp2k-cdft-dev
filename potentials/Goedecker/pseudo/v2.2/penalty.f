@@ -1,7 +1,3 @@
-
-
-
-
       subroutine penalty(maxdim,pp,penal,
      :     noccmax,noccmx,lmax,lmx,lpx,lpmx,lcx,nspin,nsmx,
      :     no,lo,so,ev,crcov,dcrcov,ddcrcov,norb,

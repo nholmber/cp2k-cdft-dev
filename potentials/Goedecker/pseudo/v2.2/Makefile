@@ -6,16 +6,25 @@ TARGET		= $(PROGRAM)
 
 #   Compilers, Programs and Flags
 
+#   for Intel Fortran Compiler (Pentium4)
+F90C		= ifc -FR
+FC		= ifc -FI
+FFLAGS		= -O3 -tpp7
+#   Linker/Loader
+LD		= ifc
+LFLAGS		= $(FFLAGS) -Vaxlib -L/apps/intel/mkl60/lib/32
+LIBS		= -lmkl_lapack -lmkl_ia32 -lguide
+#
 #   for PGI
 #   Fortran Compiler
-F90C		= pgf90 -Mfree
-FC		= pgf77
-FFLAGS		= -fast
+#F90C		= pgf90 -Mfree
+#FC		= pgf77
+#FFLAGS		= -fast
 #   Linker/Loader
-LD		= pgf90
-LFLAGS		= $(FFLAGS)
-LIBS		= -llapack -lblas
-
+#LD		= pgf90
+#LFLAGS		= $(FFLAGS)
+#LIBS		= -llapack -lblas
+#
 #   for ibm/aix:
 #   Fortran Compiler
 #F90C		= xlf90

@@ -3,8 +3,8 @@ C finds approximate pseudopotential parameters by simplex downhill method
       implicit real*8 (a-h,o-z)
       logical fullac, avgl1,avgl2,avgl3,plotwf,denbas,ignore,
      :     ortprj, litprj, energ,igrad,info
-      
-      parameter ( norbmx=40, nrmax=10000, maxdim=30 ) 
+
+      parameter ( norbmx=40, nrmax=10000, maxdim=30 )
       parameter ( lmx=5, lpmx= 4, noccmx=7, nsmx=2 )
       parameter ( ngmx=27, nintmx=5*(ngmx+14) )
 
@@ -71,7 +71,7 @@ c
       info=.false.
 c
 c     read command line options
-c      
+c
       ICARG=IARGC()
       IF(ICARG.LT.1) THEN
         WRITE(6,*) 'No value for NAMOEB specified.'
@@ -125,7 +125,7 @@ c         IF(IERROR.NE.0) STRING=' '
                   write(strcyc,'(i'//char(ichar('0')+ndigit)//')') j
                   if (string(ii+2:ii+1+ndigit).eq.strcyc) ng=j
                enddo
-               write(6,*)ng,'gaussians (don''t use value from psp.par)' 
+               write(6,*)ng,'gaussians (don''t use value from psp.par)'
                goto 11
             endif
             ii=index(string,'-r')
@@ -137,7 +137,7 @@ c         IF(IERROR.NE.0) STRING=' '
                   if (string(ii+2:ii+1+ndigit).eq.strcyc) rij=j
                enddo
                rij=rij/10.d0
-               write(6,*)rij,' rij (don''t use value from psp.par)' 
+               write(6,*)rij,' rij (don''t use value from psp.par)'
                goto 11
             endif
             ii=index(string,'-fullacc')
@@ -202,21 +202,21 @@ c         IF(IERROR.NE.0) STRING=' '
             write(6,*) '                  -rN       ',
      :           'set rij=N/10 '
             write(6,*) '                  -fullacc  ',
-     :           'use max. number of gaussians'          
+     :           'use max. number of gaussians'
             write(6,*) '                  -orth     ',
-     :           'orthogonalisation of the projectors' 
+     :           'orthogonalisation of the projectors'
             write(6,*) '                  -lith     ',
-     :           'transformation of the projectors as in lit.' 
+     :           'transformation of the projectors as in lit.'
             write(6,*) '                  -denbas   ',
-     :           'use dense gaussian basis    '          
+     :           'use dense gaussian basis    '
             write(6,*) '                  -ignore   ',
-     :           'override several warnings   '          
+     :           'override several warnings   '
             write(6,*) '                  -info     ',
      :           'append gaussian coefficients of final'
             write(6,*) '                            ',
      :           'wavefunctions to psp.par'
             write(6,*) '                  -plot     ',
-     :           'plot wfs after each iteration'          
+     :           'plot wfs after each iteration'
             write(6,*) '                  -lNso     ',
      :           'average nonlocal potential = 0 for l=N'
             write(6,*) '                            ',
@@ -234,7 +234,7 @@ c         IF(IERROR.NE.0) STRING=' '
          write(6,*) 'use only one option -orth or -lith!'
          stop
       endif
-c     
+c
 c     ----------------- read data from AE calculation -----------------
 c
       write(6,*) '***        Reading data from atom.ae      *** '
@@ -266,7 +266,7 @@ c      read(40,'(t2,a)',err=456) icorrp
      :        ngrid,nrmax
          stop
       endif
-      write(6,*)'pseudo states = ', norb 
+      write(6,*)'pseudo states = ', norb
       write(6,*)'znuc          = ', znucp
       write(6,*)'zpseudo       = ', zionp
       write(6,*)'r_covalent    = ', rcovp
@@ -364,7 +364,7 @@ c      print*,'noccmax=',noccmax
          do j=1,ngrid
             psiold(j,nocc,l+1,ispin) = 0.0d0
 c     use major comp. as reference
-            if (rae(j).ne.0.0) 
+            if (rae(j).ne.0.0)
      :           psiold(j,nocc,l+1,ispin)=gf(j,iorb,1)/rae(j)
          enddo
       enddo
@@ -378,9 +378,9 @@ c     use major comp. as reference
 
 
 c     ---------------------------------------------------------------
-c     main loop begins here 
+c     main loop begins here
 c     ---------------------------------------------------------------
-      
+
       do iiter=1,max(namoeb,1)
 c
 c     read initial pseudopotential parameter from psp.par
@@ -395,7 +395,7 @@ c
             if (rij.eq.0) rij=tmprij
             if (fullac) then
                ng=ngmx
-            elseif (ng .gt. ngmx ) then 
+            elseif (ng .gt. ngmx ) then
                write(6,*) 'gaussians:',ng
                write(6,*) 'max is   :',ngmx
                stop
@@ -411,7 +411,7 @@ c
      :                 ' from psp.par'
                else
                   write(6,*) 'option ''-ignore'' ignores this warning'
-                  stop 
+                  stop
                endif
             endif
             if (rprb.ne.rprbp) then
@@ -600,9 +600,9 @@ C..   functionals
             else
                write(6,'(t30,a)')'non relativistic calculation'
             endif
-            write(6,'(t2,a10,t30,a)')icorr ,'XC-functional' 
+            write(6,'(t2,a10,t30,a)')icorr ,'XC-functional'
             write(6,*) 'local part'
-            write(6,'(f5.0,f7.2,f7.3,4e11.3,t65,a)') 
+            write(6,'(f5.0,f7.2,f7.3,4e11.3,t65,a)')
      :           znuc,zion,rloc,gpot(1),gpot(2),gpot(3),gpot(4),
      :           'znuc,zion, rloc, gpot() '
             if (lpx.ge.0) then
@@ -613,16 +613,16 @@ C..   functionals
                   write(6,*) 'l=',l
                   write(6,'(f7.3,t8,6e11.3,t76,a)') r_l(l+1),
      :                 (hsep(i,l+1,1),i=1,6),'r_l(),hsep(), '//is(1)
-                  if (l.gt.0 .and. nspin.eq.2) 
-     :                 write(6,'(t8,6e11.3,t76,a)') 
+                  if (l.gt.0 .and. nspin.eq.2)
+     :                 write(6,'(t8,6e11.3,t76,a)')
      :                 (hsep(i,l+1,2),i=1,6),'       hsep(), '//is(2)
                enddo
             endif
             close(23)
          endif
-c     
+c
 c     weights will be read from weights.par
-c     
+c
          write(6,*)
          write(6,*) 'Reading actual weights from file weights.par'
          open(unit=24,file='weights.par',form='formatted')
@@ -651,7 +651,7 @@ c     calc. exponents of gaussians
          a0=a0in/rij
 c     take this for an crude initial fit:
 c     tt=2.d0**.4d0
-         if (denbas) then 
+         if (denbas) then
 c     fine fit:
             tt=sqrt(sqrt(2.d0))
          else
@@ -688,15 +688,15 @@ c          if (mod(iter,10).eq.0) then
 
 
 
-c     
+c
 c     pack initial guess
-c     
+c
             call  ppack (rloc,gpot,hsep,r_l,pp(1),
      :           lpx,lpmx,nspin,nsmx,maxdim,nfit,'init',
      :           avgl1,avgl2,avgl3,ortprj,litprj)
-c     
+c
 c     initial simplex
-c     
+c
             do i=1,nfit
                do j=1,nfit
                   pp(j+i*nfit)=pp(j)
@@ -704,8 +704,11 @@ c
             enddo
             dh=0.2d0
             do i=1,nfit
+CMK
+              CALL random_number(rrand)
+              pp(i+i*nfit)=pp(i)+dh*1.0d0*(rrand-.5d0)
 c     IBM/DEC
-               pp(i+i*nfit)=pp(i)+dh*1.0d0*(dble(rand())-.5d0)
+c            pp(i+i*nfit)=pp(i)+dh*1.0d0*(dble(rand())-.5d0)
 c     CRAY
 c            pp(i+i*nfit)=pp(i)+dh*1.0d0*(ranf()-.5d0)
             enddo
@@ -726,9 +729,9 @@ CMK            CALL FLUSH(6)
 c     refine simplex only every 10.th step
 c     end of if-block
 c         endif
-c     
+c
 c     starting amoeba
-c     
+c
             ftol=1.d-7
             write(6,*) 'starting amoeba, iter=',iiter
             call AMOEBA(pp,yp,nfit,FTOL,ITER,nsmplx,namoeb,
@@ -751,7 +754,7 @@ c
      :           rr,rw,rd,ntime,itertot)
             energ=.false.
          endif
-c     
+c
 c     print results
 c
          write(6,*)
@@ -759,7 +762,7 @@ c
          write(6,*) ' -------------------------'
          write(6,'(2f10.3,t60,a)') rcov,rprb,'rcov,rprb'
          write(6,*) 'local part'
-            write(6,'(f5.0,f7.2,f7.3,4e11.3,t65,a)') 
+            write(6,'(f5.0,f7.2,f7.3,4e11.3,t65,a)')
      :        znuc,zion,rloc,gpot(1),gpot(2),gpot(3),gpot(4),
      :        'znuc, zion, rloc, gpot() '
          if (lpx.ge.0) then
@@ -770,8 +773,8 @@ c
                write(6,*) 'l=',l
                write(6,'(f7.3,t8,6e11.3,t76,a)') r_l(l+1),
      :              (hsep(i,l+1,1),i=1,6),'r_l(),hsep(), '//is(1)
-               if (l.gt.0 .and. nspin.eq.2) 
-     :              write(6,'(t8,6e11.3,t76,a)') 
+               if (l.gt.0 .and. nspin.eq.2)
+     :              write(6,'(t8,6e11.3,t76,a)')
      :              (hsep(i,l+1,2),i=1,6),'       hsep(), '//is(2)
             enddo
             if (nspin.eq.2 .and. lpx.gt.0 ) then
@@ -788,9 +791,9 @@ c
                         havg(i)=hsep(i,l+1,1)
                      endif
                   enddo
-                  write(6,'(f7.3,(t8,6e11.3,t76,a))') 
+                  write(6,'(f7.3,(t8,6e11.3,t76,a))')
      :                 r_l(l+1),(havg(i),i=1,6),'r_l(),hsep_avg()'
-                  if (l.gt.0)    write(6,'(t8,6e11.3,t76,a)') 
+                  if (l.gt.0)    write(6,'(t8,6e11.3,t76,a)')
      :                 (hso(i),i=1,6),'       hsep_so()'
                enddo
             endif
@@ -798,7 +801,7 @@ c
          write(6,*)
          write(6,'(2(tr10,a,e12.4))')
      :        'psir0 =',psir0,'weight_psir0 =',abs(psir0*whgtp0)
-         write(6,*) 
+         write(6,*)
          write(6,'(a,t32,a,t42,a,t55,a,t64,a)')
      :        ' nl    s      occ','ae','pseudo','diff','diff*weight'
 
@@ -819,13 +822,13 @@ c
      :           chrg(nocc,l+1,ispin)-crcov(iorb),
      :           abs(wght(nocc,l+1,ispin,2)*
      :           (chrg(nocc,l+1,ispin)-crcov(iorb)))
-            if (wght(nocc,l+1,ispin,3).ne.0.0d0) 
+            if (wght(nocc,l+1,ispin,3).ne.0.0d0)
      :           write(6,32) 'dcharge   ',
      :           dcrcov(iorb),dhrg(nocc,l+1,ispin),
      :           100.d0*abs(1.d0-dhrg(nocc,l+1,ispin)/dcrcov(iorb)),
      :           abs(wght(nocc,l+1,ispin,3))*
      :           100.d0*abs(1.d0-dhrg(nocc,l+1,ispin)/dcrcov(iorb))
-            if (wght(nocc,l+1,ispin,4).ne.0.0d0) 
+            if (wght(nocc,l+1,ispin,4).ne.0.0d0)
      :           write(6,32) 'echarge   ',
      :           ddcrcov(iorb),ehrg(nocc,l+1,ispin),
      :           100.d0*abs(1.d0-ehrg(nocc,l+1,ispin)/ddcrcov(iorb)),
@@ -834,15 +837,15 @@ c
             write(6,33) 'residue   ',
      :           res(nocc,l+1,ispin),
      :           abs(wght(nocc,l+1,ispin,5)*res(nocc,l+1,ispin))
-            if (wght(nocc,l+1,ispin,6).ne.0.0d0) 
+            if (wght(nocc,l+1,ispin,6).ne.0.0d0)
      :           write(6,33) 'rnode     ',
      :           wfnode(nocc,l+1,ispin,1),
      :           abs(wght(nocc,l+1,ispin,6)*wfnode(nocc,l+1,ispin,1))
-            if (wght(nocc,l+1,ispin,7).ne.0.0d0) 
+            if (wght(nocc,l+1,ispin,7).ne.0.0d0)
      :           write(6,33) 'dnode     ',
      :           wfnode(nocc,l+1,ispin,2),
      :           abs(wght(nocc,l+1,ispin,7)*wfnode(nocc,l+1,ispin,2))
-            if (wght(nocc,l+1,ispin,8).ne.0.0d0) 
+            if (wght(nocc,l+1,ispin,8).ne.0.0d0)
      :           write(6,33) 'ddnode    ',
      :           wfnode(nocc,l+1,ispin,3),
      :           abs(wght(nocc,l+1,ispin,8)*wfnode(nocc,l+1,ispin,3))
@@ -851,7 +854,7 @@ c
  32      format (t10,a,t25,4e12.4)
  33      format (t10,a,t25,2e24.4)
          write(6,*) 'diff for dcharg and echarge is given in (%)'
-c     
+c
 c     overwrite old values of 'psp.par' with the current ones
 c
          if (namoeb.gt.0) then
@@ -862,14 +865,14 @@ c
             write(23,'(t2,a,t30,a)') ispp,
      :           '(non)relativistic calculation'
             write(23,'(t2,a,t30,a)') icorr,'XC-functional'
-            write(23,'(2f7.3,f16.10,4e20.10,tr2,a)') 
+            write(23,'(2f7.3,f16.10,4e20.10,tr2,a)')
      :           znuc,zion,rloc, gpot, 'znuc,zion,rloc,gpot()'
             write(23,'(i4,t60,a)') lpx ,'lpx, (Projectors for l=0..lpx)'
             do l=0,lpx
                write(23,'(f16.10,6e20.10,tr2,a)') r_l(l+1),
      :              (hsep(i,l+1,1),i=1,6),'r_l(),hsep(), '//is(1)
-               if (l.gt.0 .and. nspin.eq.2) 
-     :              write(23,'(6e20.10,tr2,a)') 
+               if (l.gt.0 .and. nspin.eq.2)
+     :              write(23,'(6e20.10,tr2,a)')
      :             (hsep(i,l+1,2),i=1,6),'       hsep(), '//is(2)
             enddo
             write(23,*) '---------------------------------------------'
@@ -892,16 +895,16 @@ c
                enddo
             endif
          endif
-         close(unit=23)	
+         close(unit=23)
 
 
-c     
+c
 c     PLOT WAVEFUNCTIONS (up to 5*rcov)   c.hartwigsen: version for gnuplot
 c
          if (plotwf) then
             call detnp(ngrid,rae,5*rcov,np)
             open(32,file='pswf.gnu',form='formatted',status='unknown')
-            write (32,*) 'set data style lines' 
+            write (32,*) 'set data style lines'
             do iorb=1,norb
                nocc=no(iorb)
                l=lo(iorb)
@@ -921,7 +924,7 @@ c     :        char(ichar('A')-ichar('a')+ichar(il(lo(iorb)+1)))//
      :                 form='formatted',status='unknown')
                endif
 c     find outer max of psi (approx), search from 10 bohr down
-                  ra=10.d0 
+                  ra=10.d0
                   ttrmax=ra
                   ttmax= dabs(wave(ng,l,xp,psi(0,nocc,l+1,ispin),ra))
                   do i=100,0, -1
@@ -950,7 +953,7 @@ c     never use first gridpoint! (only relevant for H and He)
                   tt=wave(ng,l,xp,psi(0,nocc,l+1,ispin),rae(i))
      :                 *sign2*rae(i)
                   tt=max(min(3.d0,tt),-3.d0)
-                  ttdiff=psiold(i,nocc,l+1,ispin)*sign1- 
+                  ttdiff=psiold(i,nocc,l+1,ispin)*sign1-
      :                 wave(ng,l,xp,psi(0,nocc,l+1,ispin),rae(i))*sign2
                   ttdiff= ttdiff*rae(i)
                   ttdiff=log(max(abs(ttdiff),1.d-8))/log(10.d0)
@@ -986,13 +989,13 @@ c     :                 ddwave(ng,l,xp,psi(0,nocc,l+1,ispin),rae(i))
      :              //'" using 1:4 title "diff"'
                write(32,*) 'pause -10 "Hit return to continue"'
             enddo
-            write (32,*) 'set nokey' 
+            write (32,*) 'set nokey'
             close(unit=32)
             write(6,*) 'to plot wfs type ''gnuplot pswf.gnu'' '
          endif
 c    -----------------------------------------------
 c                     MAIN LOOP END
-      if (namoeb.eq.0) goto 1000   
+      if (namoeb.eq.0) goto 1000
       enddo
  1000 continue
 
@@ -1001,41 +1004,41 @@ c
 c     write psp-parameter in cpmd-form
 c
         ngpot=0
-	do j=1,4
+        do j=1,4
            if (gpot(j).ne.0.d0) ngpot=j
         enddo
-	open(unit=3,file='XX',form='formatted',status='unknown')
-	write(3,*) '&ATOM'
-	write(3,*) ' Z  =  ',znuc 
-	write(3,*) ' ZV =  ' ,zion 
-	write(3,'(a,4i1,f15.10)')
-     :       '  XC = ',mfxcx,mfxcc,mgcx,mgcc,salpha 
-	write(3,*) ' TYPE = NORMCONSERVING GOEDECKER' 
-	write(3,*) '&END' 
-	write(3,*) '&INFO' 
-	write(3,*) '  Goedecker/Hartwigsen s ? PP' 
-	write(3,*) '&END' 
-	write(3,*) '&POTENTIAL' 
-	write(3,*) '    GOEDECKER' 
-	write(3,*) lpx+1  ,'                                   LMAX'
-8	format(1x,f16.9,a) 
-	write(3,8) rloc,'                                 RC'
- 9	format(1x,i3,a) 
-19	format(1x,i3,f16.9,a) 
-29	format(1x,i3,2(f16.9),a) 
-39	format(1x,i3,3(f16.9),a) 
-49	format(1x,i3,4(f16.9),a) 
-	if (ngpot.eq.0) then 
-           write(3,9) ngpot,'   #C ' 
-	elseif (ngpot.eq.1) then 
-           write(3,19)   ngpot,(gpot(j),j=1,ngpot), '   #C  C1' 
-	else if (ngpot.eq.2) then 
-           write(3,29)   ngpot,(gpot(j),j=1,ngpot), '   #C  C1 C2' 
-	else if (ngpot.eq.3) then 
-           write(3,39)   ngpot,(gpot(j),j=1,ngpot), '   #C  C1 C2 C3' 
-	else  
-           write(3,49)   ngpot,(gpot(j),j=1,ngpot), '   #C  C1 C2 C3 C4' 
-	endif 
+        open(unit=3,file='XX',form='formatted',status='unknown')
+        write(3,*) '&ATOM'
+        write(3,*) ' Z  =  ',znuc
+        write(3,*) ' ZV =  ' ,zion
+        write(3,'(a,4i1,f15.10)')
+     :       '  XC = ',mfxcx,mfxcc,mgcx,mgcc,salpha
+        write(3,*) ' TYPE = NORMCONSERVING GOEDECKER'
+        write(3,*) '&END'
+        write(3,*) '&INFO'
+        write(3,*) '  Goedecker/Hartwigsen s ? PP'
+        write(3,*) '&END'
+        write(3,*) '&POTENTIAL'
+        write(3,*) '    GOEDECKER'
+        write(3,*) lpx+1  ,'                                   LMAX'
+8       format(1x,f16.9,a)
+        write(3,8) rloc,'                                 RC'
+ 9      format(1x,i3,a)
+19      format(1x,i3,f16.9,a)
+29      format(1x,i3,2(f16.9),a)
+39      format(1x,i3,3(f16.9),a)
+49      format(1x,i3,4(f16.9),a)
+        if (ngpot.eq.0) then
+           write(3,9) ngpot,'   #C '
+        elseif (ngpot.eq.1) then
+           write(3,19)   ngpot,(gpot(j),j=1,ngpot), '   #C  C1'
+        else if (ngpot.eq.2) then
+           write(3,29)   ngpot,(gpot(j),j=1,ngpot), '   #C  C1 C2'
+        else if (ngpot.eq.3) then
+           write(3,39)   ngpot,(gpot(j),j=1,ngpot), '   #C  C1 C2 C3'
+        else
+           write(3,49)   ngpot,(gpot(j),j=1,ngpot), '   #C  C1 C2 C3 C4'
+        endif
         if (lpx.ge.0) then
            do l=0,lpx
               do i=1,6
@@ -1067,7 +1070,7 @@ c
                  form  = '(1x,f16.9,i3,a)'
                  nhsep = 0
               endif
-c                 
+c
 c     cpmd uses different ordering of the H-matrix
 c     only relevant for npj > 2
               do i=1,6
@@ -1084,18 +1087,18 @@ c     only relevant for npj > 2
               write(3,form) r_l(l+1),npj,(hhsep(i),i=1,nhsep),string
            enddo
         endif
-	write(3,*) '&END'
-c     
+        write(3,*) '&END'
+c
 c     test orthogonality of the projectors
 c
-      if (lpx.ge.0.and.ortprj) 
+      if (lpx.ge.0.and.ortprj)
      :     call pj2test(hsep,lpx,lpmx,lmx,nspin,nsmx,r_l,is)
 c
       write(6,*) 'Total SCF-cycles:',itertot
       write(6,*) 'Pseudoatom calculations:',ntime
       write(6,*) '*************finished*****************'
       end
- 
+
 
 c
 c     CRAY: no derf() -> user erf()
@@ -1105,11 +1108,3 @@ c      REAL*8 X
 c      DERF=ERF(X)
 c      RETURN
 c      END
-
-
-
-
-
-
-
-
