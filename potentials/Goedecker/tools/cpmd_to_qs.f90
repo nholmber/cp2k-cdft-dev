@@ -125,6 +125,19 @@ PROGRAM cpmd_to_qs
     STOP
   END IF
 
+  OPEN (UNIT=10,&
+        FILE="TEXTAB",&
+        STATUS="REPLACE",&
+        ACCESS="SEQUENTIAL",&
+        FORM="FORMATTED",&
+        POSITION="REWIND",&
+        ACTION="WRITE",&
+        IOSTAT=istat)
+  IF (istat /= 0) THEN
+    PRINT*,"ERROR: Could not open the output file TEXTAB"
+    STOP
+  END IF
+
 ! *** Read first input file (CPMD format) ***
 
   DO
@@ -194,7 +207,7 @@ PROGRAM cpmd_to_qs
 
   iz = NINT(z)
   WRITE (UNIT=4,FMT="(2(A,/,/),A,I3,/,A,I3)")&
-    REPEAT("*",65),&
+    " "//REPEAT("*",64),&
     " Atomic symbol                       : "//TRIM(elesym(iz)),&
     " Atomic number                       : ",iz,&
     " Effective core charge               : ",NINT(zeff)
@@ -239,6 +252,18 @@ PROGRAM cpmd_to_qs
     PRINT*,"ERROR: Mismatch between Z(eff) and the electronic configuration found"
     STOP
   END IF
+
+! *** TeX tabular format ***
+
+  WRITE (UNIT=10,FMT="(T2,A5,I3,A3,F10.6,4(A3,F13.6),A)")&
+    elesym(iz)//" & ",NINT(zeff)," & ",rloc,(" & ",cppl(i),i=1,4),"\\\\"
+
+  DO ippnl=1,nppnl_max
+    IF (nppnl(ippnl) > 0) THEN
+      WRITE (UNIT=10,FMT="(T13,F10.6,4(A3,F13.6),A)")&
+        rppnl(ippnl),(" & ",cppnl(ippnl,1,j),j=1,4),"\\\\"
+    END IF
+  END DO
 
 ! *** Quickstep database format ***
 
@@ -325,6 +350,6 @@ PROGRAM cpmd_to_qs
     "   Phys. Rev. B 54, 1703 (1996)",&
     " - C. Hartwigsen, S. Goedecker, and J. Hutter,",&
     "   Phys. Rev. B 58, 3641 (1998)",&
-    REPEAT("*",65)
+    " "//REPEAT("*",64)
 
 END PROGRAM cpmd_to_qs

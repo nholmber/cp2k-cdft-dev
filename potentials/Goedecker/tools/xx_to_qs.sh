@@ -6,6 +6,6 @@
     cd $(dirname $xx)
     echo New directory: $(pwd)
     $exe XX ../atom/atom.dat QS
-    cat INFO
+#   cat INFO
     cd -
   done
