@@ -11,8 +11,12 @@
   collect_files.sh
 
 # Remove all the QS files in the build/ tree
+  echo Removing all the INFO files in the build/ tree ...
+  find ../build -name INFO -exec rm {} \;
   echo Removing all the QS files in the build/ tree ...
   find ../build -name QS -exec rm {} \;
+  echo Removing all the CPMD files in the build/ tree ...
+  find ../build -name CPMD -exec rm {} \;
 
 # Create a new POTENTIAL database file for CP2K/Quickstep w.r.t the
 # updated database

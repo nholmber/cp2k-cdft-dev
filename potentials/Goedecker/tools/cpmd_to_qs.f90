@@ -17,9 +17,11 @@ PROGRAM cpmd_to_qs
                         max_ppnl = 4  ! Max. number of non-local projectors
 
   CHARACTER(LEN=200) :: input_file1,input_file2,line,output_file
-  CHARACTER(LEN=12)  :: fmtstr,string,xc_string
+  CHARACTER(LEN=17)  :: fmtstr1
+  CHARACTER(LEN=16)  :: fmtstr3
+  CHARACTER(LEN=12)  :: fmtstr2,string,xc_string
   REAL(KIND=wp)      :: rloc,q,z,zeff
-  INTEGER            :: i,ippnl,istat,iz,j,l,n,narg,ncore,nelec,nppl,&
+  INTEGER            :: i,idigits,ippnl,istat,iz,j,l,n,narg,ncore,nelec,nppl,&
                         nppnl_max,nvalence,xc_code
 
   CHARACTER(LEN=2), DIMENSION(103) :: elesym =&
@@ -110,6 +112,19 @@ PROGRAM cpmd_to_qs
     STOP
   END IF
 
+  OPEN (UNIT=4,&
+        FILE="INFO",&
+        STATUS="REPLACE",&
+        ACCESS="SEQUENTIAL",&
+        FORM="FORMATTED",&
+        POSITION="REWIND",&
+        ACTION="WRITE",&
+        IOSTAT=istat)
+  IF (istat /= 0) THEN
+    PRINT*,"ERROR: Could not open the output file INFO"
+    STOP
+  END IF
+
 ! *** Read first input file (CPMD format) ***
 
   DO
@@ -178,10 +193,11 @@ PROGRAM cpmd_to_qs
   END DO
 
   iz = NINT(z)
-  PRINT*,"Element symbol: "//TRIM(elesym(iz))
-  PRINT*,"XC functional : "//TRIM(xc_string)
-  PRINT*,"Z             : ",iz
-  PRINT*,"Z(eff)        : ",NINT(zeff)
+  WRITE (UNIT=4,FMT="(2(A,/,/),A,I3,/,A,I3)")&
+    REPEAT("*",65),&
+    " Atomic symbol                       : "//TRIM(elesym(iz)),&
+    " Atomic number                       : ",iz,&
+    " Effective core charge               : ",NINT(zeff)
 
 ! *** Read second input file (electronic configuration) ***
 
@@ -199,14 +215,16 @@ PROGRAM cpmd_to_qs
   READ (UNIT=2,FMT=*) line ! dummy read
   READ (UNIT=2,FMT=*) line ! dummy read
   READ (UNIT=2,FMT=*) ncore,nvalence
-  PRINT*,"Core states   : ",ncore
-  PRINT*,"Valence states: ",nvalence
+  WRITE (UNIT=4,FMT="(A,I3,/,A,I3)")&
+    " Number of core states               : ",ncore,&
+    " Number of valence states            : ",nvalence
   elec_conf(:) = 0
   DO i=1,nvalence
     READ (UNIT=2,FMT=*) n,l,q
     elec_conf(l+1) = elec_conf(l+1) + INT(q)
   END DO
-  PRINT*,"Elec. conf.   : ",elec_conf(1:maxl)
+  WRITE (UNIT=4,FMT="(A,6I3)")&
+    " Electronic configuration (s,p,d,...): ",elec_conf(1:maxl)
 
 ! *** Check the electronic configuration ***
 
@@ -240,17 +258,67 @@ PROGRAM cpmd_to_qs
     END IF
   END DO
 
-  WRITE (UNIT=3,FMT="(F15.8,I5,4F15.8)") rloc,nppl,(cppl(i),i=1,nppl)
+! *** Set output precision for the QS database files ***
+
+  idigits = 8
+
+  fmtstr1 = "(F15. ,I5,4F15. )"
+  WRITE (UNIT=fmtstr1(6:6),FMT="(I1)") idigits
+  WRITE (UNIT=fmtstr1(16:16),FMT="(I1)") idigits
+
+  WRITE (UNIT=3,FMT=fmtstr1) rloc,nppl,(cppl(i),i=1,nppl)
 
   WRITE (UNIT=3,FMT="(I5)") nppnl_max
   DO ippnl=1,nppnl_max
-    WRITE (UNIT=3,FMT="(F15.8,I5,4F15.8)")&
+    WRITE (UNIT=3,FMT=fmtstr1)&
       rppnl(ippnl),nppnl(ippnl),(cppnl(ippnl,1,j),j=1,nppnl(ippnl))
-    fmtstr = "(T  ,4F15.8)"
+    fmtstr2 = "(T  ,4F15. )"
+    WRITE (UNIT=fmtstr2(11:11),FMT="(I1)") idigits
     DO i=2,nppnl(ippnl)
-      WRITE (fmtstr(3:4),"(I2)") 15*i + 6
-      WRITE (UNIT=3,FMT=fmtstr) (cppnl(ippnl,i,j),j=i,nppnl(ippnl))
+      WRITE (UNIT=fmtstr2(3:4),FMT="(I2)") 15*i + 6
+      WRITE (UNIT=3,FMT=fmtstr2) (cppnl(ippnl,i,j),j=i,nppnl(ippnl))
     END DO
   END DO
+
+! *** Write the data set also to INFO file ***
+
+  WRITE (UNIT=4,FMT="(/,A)")&
+    " Exchange-correlation functional     : "//TRIM(xc_string)
+
+! *** Set output precision for the CPMD INFO section ***
+
+  idigits = 6
+
+  fmtstr3 = "(/,F13. ,4F13. )"
+  WRITE (UNIT=fmtstr3(8:8),FMT="(I1)") idigits
+  WRITE (UNIT=fmtstr3(15:15),FMT="(I1)") idigits
+
+  WRITE (UNIT=4,FMT="(/,T8,A,(9X,A2,I1,A1))",ADVANCE="NO")&
+    "r(loc)",("C(",i,")",i=1,nppl)
+  WRITE (UNIT=4,FMT=fmtstr3) rloc,(cppl(i),i=1,nppl)
+
+  WRITE (UNIT=4,FMT=*)
+  DO ippnl=1,nppnl_max
+    IF (nppnl(ippnl) > 0) THEN
+      WRITE (UNIT=4,FMT="(9X,A2,I1,A1,5X,A,I1)",ADVANCE="NO")&
+        "r(",ippnl-1,")","h(i,j)^",ippnl-1
+      WRITE (UNIT=4,FMT=fmtstr3)&
+        rppnl(ippnl),(cppnl(ippnl,1,j),j=1,nppnl(ippnl))
+      fmtstr2 = "(T  ,4F13. )"
+      WRITE (UNIT=fmtstr2(11:11),FMT="(I1)") idigits
+      DO i=2,nppnl(ippnl)
+        WRITE (UNIT=fmtstr2(3:4),FMT="(I2)") 13*i + 1
+        WRITE (UNIT=4,FMT=fmtstr2) (cppnl(ippnl,i,j),j=i,nppnl(ippnl))
+      END DO
+    END IF
+  END DO
+
+  WRITE (UNIT=4,FMT="(/,A,/,4(/,A),/,/,A)")&
+    " Please cite:",&
+    " - S. Goedecker, M. Teter, and J. Hutter,",&
+    "   Phys. Rev. B 54, 1703 (1996)",&
+    " - C. Hartwigsen, S. Goedecker, and J. Hutter,",&
+    "   Phys. Rev. B 58, 3641 (1998)",&
+    REPEAT("*",65)
 
 END PROGRAM cpmd_to_qs
