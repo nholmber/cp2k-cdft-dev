@@ -293,15 +293,21 @@ PROGRAM cpmd_to_qs
   WRITE (UNIT=fmtstr3(8:8),FMT="(I1)") idigits
   WRITE (UNIT=fmtstr3(15:15),FMT="(I1)") idigits
 
-  WRITE (UNIT=4,FMT="(/,T8,A,(9X,A2,I1,A1))",ADVANCE="NO")&
-    "r(loc)",("C(",i,")",i=1,nppl)
+  WRITE (UNIT=4,FMT="(/,T8,A)",ADVANCE="NO") "r(loc)"
+  DO i=1,nppl
+    WRITE (UNIT=4,FMT="(9X,A2,I1,A1)",ADVANCE="NO") "C(",i,")"
+  END DO
   WRITE (UNIT=4,FMT=fmtstr3) rloc,(cppl(i),i=1,nppl)
 
-  WRITE (UNIT=4,FMT=*)
   DO ippnl=1,nppnl_max
     IF (nppnl(ippnl) > 0) THEN
-      WRITE (UNIT=4,FMT="(9X,A2,I1,A1,5X,A,I1)",ADVANCE="NO")&
-        "r(",ippnl-1,")","h(i,j)^",ippnl-1
+      IF (ippnl == 1) THEN
+        WRITE (UNIT=4,FMT="(/,9X,A2,I1,A1,5X,A,I1)",ADVANCE="NO")&
+          "r(",ippnl-1,")","h(i,j)^",ippnl-1
+      ELSE
+        WRITE (UNIT=4,FMT="(9X,A2,I1,A1,5X,A,I1)",ADVANCE="NO")&
+          "r(",ippnl-1,")","h(i,j)^",ippnl-1
+      END IF
       WRITE (UNIT=4,FMT=fmtstr3)&
         rppnl(ippnl),(cppnl(ippnl,1,j),j=1,nppnl(ippnl))
       fmtstr2 = "(T  ,4F13. )"
