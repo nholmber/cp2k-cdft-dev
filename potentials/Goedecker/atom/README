@@ -1,8 +1,14 @@
-Building atom.x: e.g. with the PGI compiler
+Building atom.x: e.g. with the PGI compiler:
 
 pgf90 -c -fast -Mfree hcth.f
 pgf77 -c -fast        atom.f
 pgf90 -o atom.x hcth.o atom.o
+
+or the Intel compiler:
+
+ifc -FR -c -O3 -tpp7 hcth.f
+ifc -FI -c -O3 -tpp7 atom.f
+ifc -o atom.x hcth.o atom.o
 
 ***********************************************************
 *                                                         *
