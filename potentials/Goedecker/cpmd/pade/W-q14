@@ -5,7 +5,40 @@
   TYPE = NORMCONSERVING GOEDECKER
  &END
  &INFO
-   Goedecker/Hartwigsen s ? PP
+*****************************************************************
+
+ Atomic symbol                       : W
+
+ Atomic number                       :  74
+ Effective core charge               :  14
+ Number of core states               :   9
+ Number of valence states            :  14
+ Electronic configuration (s,p,d,...):   4  6  4
+
+ Exchange-correlation functional     : PADE
+
+       r(loc)         C(1)         C(2)
+     0.540000     4.800251     0.901544
+
+         r(0)     h(i,j)^0
+     0.418570     2.692204     2.332557     0.297239
+                              -6.022637    -0.767467
+                                            1.218316
+         r(1)     h(i,j)^1
+     0.449555    -0.702084     1.036024
+                              -2.451680
+         r(2)     h(i,j)^2
+     0.399602     1.177436     2.448917
+                              -5.553621
+
+ Please cite:
+
+ - S. Goedecker, M. Teter, and J. Hutter,
+   Phys. Rev. B 54, 1703 (1996)
+ - C. Hartwigsen, S. Goedecker, and J. Hutter,
+   Phys. Rev. B 58, 3641 (1998)
+
+*****************************************************************
  &END
  &POTENTIAL
      GOEDECKER

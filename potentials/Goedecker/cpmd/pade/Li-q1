@@ -5,7 +5,34 @@
   TYPE = NORMCONSERVING GOEDECKER
  &END
  &INFO
-   Goedecker/Hartwigsen s ? PP
+*****************************************************************
+
+ Atomic symbol                       : Li
+
+ Atomic number                       :   3
+ Effective core charge               :   1
+ Number of core states               :   1
+ Number of valence states            :   9
+ Electronic configuration (s,p,d,...):   1  0  0
+
+ Exchange-correlation functional     : PADE
+
+       r(loc)         C(1)         C(2)
+     0.787553    -1.892612     0.286060
+
+         r(0)     h(i,j)^0
+     0.666375     1.858811
+         r(1)     h(i,j)^1
+     1.079306    -0.005895
+
+ Please cite:
+
+ - S. Goedecker, M. Teter, and J. Hutter,
+   Phys. Rev. B 54, 1703 (1996)
+ - C. Hartwigsen, S. Goedecker, and J. Hutter,
+   Phys. Rev. B 58, 3641 (1998)
+
+*****************************************************************
  &END
  &POTENTIAL
      GOEDECKER

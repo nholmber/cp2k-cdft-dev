@@ -5,7 +5,35 @@
   TYPE = NORMCONSERVING GOEDECKER
  &END
  &INFO
-   Goedecker/Hartwigsen s ? PP
+*****************************************************************
+
+ Atomic symbol                       : Si
+
+ Atomic number                       :  14
+ Effective core charge               :   4
+ Number of core states               :   3
+ Number of valence states            :  13
+ Electronic configuration (s,p,d,...):   2  2  0
+
+ Exchange-correlation functional     : PADE
+
+       r(loc)         C(1)
+     0.440000    -7.336103
+
+         r(0)     h(i,j)^0
+     0.422738     5.906928    -1.261894
+                               3.258196
+         r(1)     h(i,j)^1
+     0.484278     2.727013
+
+ Please cite:
+
+ - S. Goedecker, M. Teter, and J. Hutter,
+   Phys. Rev. B 54, 1703 (1996)
+ - C. Hartwigsen, S. Goedecker, and J. Hutter,
+   Phys. Rev. B 58, 3641 (1998)
+
+*****************************************************************
  &END
  &POTENTIAL
      GOEDECKER

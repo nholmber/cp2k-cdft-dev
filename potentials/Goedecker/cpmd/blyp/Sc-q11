@@ -5,7 +5,38 @@
   TYPE = NORMCONSERVING GOEDECKER
  &END
  &INFO
-   Goedecker/Hartwigsen s ? PP
+*****************************************************************
+
+ Atomic symbol                       : Sc
+
+ Atomic number                       :  21
+ Effective core charge               :  11
+ Number of core states               :   3
+ Number of valence states            :  14
+ Electronic configuration (s,p,d,...):   4  6  1
+
+ Exchange-correlation functional     : BLYP
+
+       r(loc)         C(1)         C(2)
+     0.376875     9.840097    -1.165860
+
+         r(0)     h(i,j)^0
+     0.359989     3.306103     2.547964
+                              -3.289408
+         r(1)     h(i,j)^1
+     0.220994    -0.434882     6.464258
+                              -7.648614
+         r(2)     h(i,j)^2
+     0.233380   -10.134039
+
+ Please cite:
+
+ - S. Goedecker, M. Teter, and J. Hutter,
+   Phys. Rev. B 54, 1703 (1996)
+ - C. Hartwigsen, S. Goedecker, and J. Hutter,
+   Phys. Rev. B 58, 3641 (1998)
+
+*****************************************************************
  &END
  &POTENTIAL
      GOEDECKER

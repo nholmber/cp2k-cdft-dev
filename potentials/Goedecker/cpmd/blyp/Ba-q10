@@ -5,7 +5,40 @@
   TYPE = NORMCONSERVING GOEDECKER
  &END
  &INFO
-   Goedecker/Hartwigsen s ? PP
+*****************************************************************
+
+ Atomic symbol                       : Ba
+
+ Atomic number                       :  56
+ Effective core charge               :  10
+ Number of core states               :   9
+ Number of valence states            :  13
+ Electronic configuration (s,p,d,...):   4  6  0
+
+ Exchange-correlation functional     : BLYP
+
+       r(loc)         C(1)         C(2)
+     0.540000    24.535451    -2.478074
+
+         r(0)     h(i,j)^0
+     0.485698     0.093879     1.151717
+                              -1.486861
+         r(1)     h(i,j)^1
+     0.396226     0.845374    -1.741070
+                               2.060062
+         r(2)     h(i,j)^2
+     0.660143     0.427558
+         r(3)     h(i,j)^3
+     0.300491   -19.651794
+
+ Please cite:
+
+ - S. Goedecker, M. Teter, and J. Hutter,
+   Phys. Rev. B 54, 1703 (1996)
+ - C. Hartwigsen, S. Goedecker, and J. Hutter,
+   Phys. Rev. B 58, 3641 (1998)
+
+*****************************************************************
  &END
  &POTENTIAL
      GOEDECKER

@@ -5,7 +5,38 @@
   TYPE = NORMCONSERVING GOEDECKER
  &END
  &INFO
-   Goedecker/Hartwigsen s ? PP
+*****************************************************************
+
+ Atomic symbol                       : Ni
+
+ Atomic number                       :  28
+ Effective core charge               :  18
+ Number of core states               :   3
+ Number of valence states            :  16
+ Electronic configuration (s,p,d,...):   4  6  8
+
+ Exchange-correlation functional     : PBE
+
+       r(loc)         C(1)         C(2)
+     0.350000     2.102166     0.648484
+
+         r(0)     h(i,j)^0
+     0.261295     0.622658     9.970227
+                             -12.871507
+         r(1)     h(i,j)^1
+     0.224253   -11.142708    12.429566
+                             -14.706861
+         r(2)     h(i,j)^2
+     0.215348   -12.628146
+
+ Please cite:
+
+ - S. Goedecker, M. Teter, and J. Hutter,
+   Phys. Rev. B 54, 1703 (1996)
+ - C. Hartwigsen, S. Goedecker, and J. Hutter,
+   Phys. Rev. B 58, 3641 (1998)
+
+*****************************************************************
  &END
  &POTENTIAL
      GOEDECKER

@@ -5,7 +5,34 @@
   TYPE = NORMCONSERVING GOEDECKER
  &END
  &INFO
-   Goedecker/Hartwigsen s ? PP
+*****************************************************************
+
+ Atomic symbol                       : Mg
+
+ Atomic number                       :  12
+ Effective core charge               :  10
+ Number of core states               :   1
+ Number of valence states            :  12
+ Electronic configuration (s,p,d,...):   4  6  0
+
+ Exchange-correlation functional     : PADE
+
+       r(loc)         C(1)         C(2)
+     0.210950   -19.419008     2.871331
+
+         r(0)     h(i,j)^0
+     0.141547    40.316626
+         r(1)     h(i,j)^1
+     0.105469   -10.891113
+
+ Please cite:
+
+ - S. Goedecker, M. Teter, and J. Hutter,
+   Phys. Rev. B 54, 1703 (1996)
+ - C. Hartwigsen, S. Goedecker, and J. Hutter,
+   Phys. Rev. B 58, 3641 (1998)
+
+*****************************************************************
  &END
  &POTENTIAL
      GOEDECKER

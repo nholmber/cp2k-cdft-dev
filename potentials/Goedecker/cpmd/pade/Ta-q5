@@ -5,7 +5,39 @@
   TYPE = NORMCONSERVING GOEDECKER
  &END
  &INFO
-   Goedecker/Hartwigsen s ? PP
+*****************************************************************
+
+ Atomic symbol                       : Ta
+
+ Atomic number                       :  73
+ Effective core charge               :   5
+ Number of core states               :  12
+ Number of valence states            :  11
+ Electronic configuration (s,p,d,...):   2  0  3
+
+ Exchange-correlation functional     : PADE
+
+       r(loc)         C(1)
+     0.744000     3.623116
+
+         r(0)     h(i,j)^0
+     0.581801     2.005338    -1.172366
+                               3.027036
+         r(1)     h(i,j)^1
+     0.770646     0.518567    -0.500914
+                               1.185378
+         r(2)     h(i,j)^2
+     0.534370    -2.202200     0.734935
+                              -1.666675
+
+ Please cite:
+
+ - S. Goedecker, M. Teter, and J. Hutter,
+   Phys. Rev. B 54, 1703 (1996)
+ - C. Hartwigsen, S. Goedecker, and J. Hutter,
+   Phys. Rev. B 58, 3641 (1998)
+
+*****************************************************************
  &END
  &POTENTIAL
      GOEDECKER

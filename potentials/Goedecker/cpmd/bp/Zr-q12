@@ -5,7 +5,39 @@
   TYPE = NORMCONSERVING GOEDECKER
  &END
  &INFO
-   Goedecker/Hartwigsen s ? PP
+*****************************************************************
+
+ Atomic symbol                       : Zr
+
+ Atomic number                       :  40
+ Effective core charge               :  12
+ Number of core states               :   6
+ Number of valence states            :  13
+ Electronic configuration (s,p,d,...):   4  6  2
+
+ Exchange-correlation functional     : BP
+
+       r(loc)         C(1)         C(2)
+     0.470000     7.717104    -1.873496
+
+         r(0)     h(i,j)^0
+     0.260128    23.333163    -8.487563
+                              10.957397
+         r(1)     h(i,j)^1
+     0.289094     8.574711    -5.338039
+                               6.316053
+         r(2)     h(i,j)^2
+     0.579231     0.031806     0.274155
+                              -0.310862
+
+ Please cite:
+
+ - S. Goedecker, M. Teter, and J. Hutter,
+   Phys. Rev. B 54, 1703 (1996)
+ - C. Hartwigsen, S. Goedecker, and J. Hutter,
+   Phys. Rev. B 58, 3641 (1998)
+
+*****************************************************************
  &END
  &POTENTIAL
      GOEDECKER

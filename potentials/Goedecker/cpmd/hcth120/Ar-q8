@@ -5,7 +5,35 @@
   TYPE = NORMCONSERVING GOEDECKER
  &END
  &INFO
-   Goedecker/Hartwigsen s ? PP
+*****************************************************************
+
+ Atomic symbol                       : Ar
+
+ Atomic number                       :  18
+ Effective core charge               :   8
+ Number of core states               :   3
+ Number of valence states            :  13
+ Electronic configuration (s,p,d,...):   2  6  0
+
+ Exchange-correlation functional     : HCTH120
+
+       r(loc)         C(1)
+     0.400000    -7.016604
+
+         r(0)     h(i,j)^0
+     0.317264    17.434702    -5.686555
+                               7.341311
+         r(1)     h(i,j)^1
+     0.351998     4.997537
+
+ Please cite:
+
+ - S. Goedecker, M. Teter, and J. Hutter,
+   Phys. Rev. B 54, 1703 (1996)
+ - C. Hartwigsen, S. Goedecker, and J. Hutter,
+   Phys. Rev. B 58, 3641 (1998)
+
+*****************************************************************
  &END
  &POTENTIAL
      GOEDECKER

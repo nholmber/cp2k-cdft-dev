@@ -5,7 +5,39 @@
   TYPE = NORMCONSERVING GOEDECKER
  &END
  &INFO
-   Goedecker/Hartwigsen s ? PP
+*****************************************************************
+
+ Atomic symbol                       : Ir
+
+ Atomic number                       :  77
+ Effective core charge               :   9
+ Number of core states               :  12
+ Number of valence states            :  11
+ Electronic configuration (s,p,d,...):   2  0  7
+
+ Exchange-correlation functional     : PADE
+
+       r(loc)         C(1)
+     0.641000    10.720016
+
+         r(0)     h(i,j)^0
+     0.509960     2.445999    -1.088710
+                               2.811037
+         r(1)     h(i,j)^1
+     0.684971     0.461792    -0.551347
+                               1.304726
+         r(2)     h(i,j)^2
+     0.471745    -4.545484     0.721156
+                              -1.635428
+
+ Please cite:
+
+ - S. Goedecker, M. Teter, and J. Hutter,
+   Phys. Rev. B 54, 1703 (1996)
+ - C. Hartwigsen, S. Goedecker, and J. Hutter,
+   Phys. Rev. B 58, 3641 (1998)
+
+*****************************************************************
  &END
  &POTENTIAL
      GOEDECKER

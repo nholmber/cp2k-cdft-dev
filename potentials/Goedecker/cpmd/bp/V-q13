@@ -5,7 +5,38 @@
   TYPE = NORMCONSERVING GOEDECKER
  &END
  &INFO
-   Goedecker/Hartwigsen s ? PP
+*****************************************************************
+
+ Atomic symbol                       : V
+
+ Atomic number                       :  23
+ Effective core charge               :  13
+ Number of core states               :   3
+ Number of valence states            :  16
+ Electronic configuration (s,p,d,...):   4  6  3
+
+ Exchange-correlation functional     : BP
+
+       r(loc)         C(1)         C(2)
+     0.375000     7.151792    -0.343565
+
+         r(0)     h(i,j)^0
+     0.329787     1.967060     4.726242
+                              -6.101552
+         r(1)     h(i,j)^1
+     0.246174    -5.582364     8.796910
+                             -10.408644
+         r(2)     h(i,j)^2
+     0.241159    -9.447430
+
+ Please cite:
+
+ - S. Goedecker, M. Teter, and J. Hutter,
+   Phys. Rev. B 54, 1703 (1996)
+ - C. Hartwigsen, S. Goedecker, and J. Hutter,
+   Phys. Rev. B 58, 3641 (1998)
+
+*****************************************************************
  &END
  &POTENTIAL
      GOEDECKER
