@@ -1,0 +1,55 @@
+#
+# this is just a quick step-by-step reminder on how to get a GTH pseudo
+# read ~/potentials/Goedecker/atom/README
+# and  ~/potentials/Goedecker/pseudo/v2.2/README
+# further relevant literature is in : ~/potentials/Goedecker/paper/
+#
+# always test a pseudo before using it !
+#
+
+# get code
+cvs co potentials
+
+# build all needed executables (ifc seems to be buggy here for making executables)
+# makefiles might need modifications for your system
+cd ~/potentials/Goedecker/tools
+pgf90 cpmd_to_qs.f90 -o cpmd_to_qs.x
+
+cd ~/potentials/Goedecker/atom 
+pgf90 atom.f hcth.f90 -o atom.x 
+
+cd ~/potentials/Goedecker/pseudo/v2.2
+make
+
+# generate a new element
+mkdir ~/potentials/Goedecker/build/hcth407/C
+mkdir ~/potentials/Goedecker/build/hcth407/C/atom
+mkdir ~/potentials/Goedecker/build/hcth407/C/psp_hcth407
+cd ~/potentials/Goedecker/build/hcth407/C/atom
+cp ~/potentials/Goedecker/build/blyp/C/atom/atom.dat .
+vi atom.dat ! replace BLYP with HCTH407
+
+# hoping for the best concerning convergence, GGA 
+# typically don't reach the convergence of 1E-11, but e.g. 1E-7 or worse
+~/potentials/Goedecker/atom/atom.x
+
+# pseudo
+cd ~/potentials/Goedecker/build/hcth407/C/psp_hcth407
+cp ../../../blyp/C/psp_blyp/psp.par .
+cp ../../../blyp/C/psp_blyp/weights.par .
+cp ../../../blyp/C/psp_blyp/FITPAR .
+# Check that FITPAR has a t for channels you want to 
+# fit (check ~/potentials/Goedecker/paper/2)
+cp ../atom/atom.ae .
+# replace BLYP with HCTH407
+vi psp.par 
+
+# l1so zeros the l=1 angular momentum channel (for consistency with other e.g. PADE pseudos)
+# improved initial guess can be obtained with -c20 -n600 [-l1so]
+~/potentials/Goedecker/pseudo/v2.2/pseudo.x -c10 -orth -plot -denbas -fullacc [-l1so] 
+
+# visual inspection of the wavefunctions [press return]
+gnuplot pswf.gnu 
+
+# generate QS format pseudo
+ ~/potentials/Goedecker/tools/cpmd_to_qs.x XX ../atom/atom.dat C-GTH-HCTH407-q4
