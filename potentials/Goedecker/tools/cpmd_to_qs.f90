@@ -260,8 +260,8 @@ PROGRAM cpmd_to_qs
 
   DO ippnl=1,nppnl_max
     IF (nppnl(ippnl) > 0) THEN
-      WRITE (UNIT=10,FMT="(T13,F10.6,4(A3,F13.6),A)")&
-        rppnl(ippnl),(" & ",cppnl(ippnl,1,j),j=1,4),"\\\\"
+      WRITE (UNIT=10,FMT="(T2,A11,F10.6,4(A3,F13.6),A)")&
+        "   &     & ",rppnl(ippnl),(" & ",cppnl(ippnl,1,j),j=1,4),"\\\\"
     END IF
   END DO
 
