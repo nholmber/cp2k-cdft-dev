@@ -262,6 +262,10 @@ PROGRAM cpmd_to_qs
     IF (nppnl(ippnl) > 0) THEN
       WRITE (UNIT=10,FMT="(T2,A11,F10.6,4(A3,F13.6),A)")&
         "   &     & ",rppnl(ippnl),(" & ",cppnl(ippnl,1,j),j=1,4),"\\\\"
+      DO i=2,nppnl(ippnl)
+        WRITE (UNIT=10,FMT="(T5,A1,T11,A1,T23,3(A3,F13.6),T72,A1,T87,A)")&
+          "&","&",(" & ",cppnl(ippnl,i,j),j=1,3),"&","\\\\"
+      END DO
     END IF
   END DO
 
