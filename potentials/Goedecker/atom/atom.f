@@ -753,6 +753,11 @@ C..functionals
             mgcx=5
           END IF
           mgcc=mgcx
+       elseif(index(icorr,'OLYP').NE.0) THEN
+          mfxcx=0
+          mfxcc=3 ! lyp lda cc
+          mgcx=10 ! optx gga x ! mgcx is different from CPMD since HCTH uses the numbers...!?
+          mgcc=2  ! lyp cc 
        else
           write(6,*) 'Unknown functional(s): ',icorr
           stop
@@ -3484,6 +3489,8 @@ C..Exchange
         SC=0.0D0
         V1C=0.0D0
         V2C=0.0D0
+      ELSEIF(MGCX.EQ.10) THEN
+        CALL OPTX(RHO,GRHO,SX,V1X,V2X)
       ELSE
         SX=0.0D0
         V1X=0.0D0
@@ -3812,6 +3819,44 @@ C     ==--------------------------------------------------------------==
 C     ==--------------------------------------------------------------==
       RETURN
       END
+C     ==================================================================
+      SUBROUTINE OPTX(rho,grho,sx,v1x,v2x)
+C     OPTX, Handy et al. JCP 116, p. 5411 (2002) and refs. therein
+C     Present release: Tsukuba, 20/6/2002
+c--------------------------------------------------------------------------
+c     rhoa = rhob = 0.5 * rho in LDA implementation
+c     grho is the SQUARE of the gradient of rho! --> gr=sqrt(grho)
+c     sx  : total exchange correlation energy at point r
+c     v1x : d(sx)/drho
+c     v2x : 1/gr*d(sx)/d(gr)
+c--------------------------------------------------------------------------
+      IMPLICIT REAL*8 (a-h,o-z)
+      PARAMETER(SMALL=1.D-20,SMAL2=1.D-08)
+C.......coefficients and exponents....................
+      PARAMETER(o43=4.0d0/3.0d0,two13=1.259921049894873D0
+     .         ,two53=3.174802103936399D0,gam=0.006D0
+     .         ,a1cx=0.9784571170284421D0,a2=1.43169D0)
+C.......OPTX in compact form..........................
+      IF(RHO.LE.SMALL) THEN
+       sx=0.0D0
+       v1x=0.0D0
+       v2x=0.0D0
+      ELSE
+       gr=DMAX1(grho,SMAL2)
+       rho43=rho**o43
+       xa=two13*DSQRT(gr)/rho43
+       gamx2=gam*xa*xa
+       uden=1.d+00/(1.d+00+gamx2)
+       uu=a2*gamx2*gamx2*uden*uden
+       uden=rho43*uu*uden
+       sx=-rho43*(a1cx+uu)/two13
+       v1x=o43*(sx+two53*uden)/rho
+       v2x=-two53*uden/gr
+      ENDIF
+C
+      RETURN
+      END
+C =-------------------------------------------------------------------=
 C     ==================================================================
       SUBROUTINE PBEX(RHO,GRHO,SX,V1X,V2X)
 C     ==--------------------------------------------------------------==

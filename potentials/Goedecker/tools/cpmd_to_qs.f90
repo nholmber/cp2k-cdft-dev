@@ -157,6 +157,8 @@ PROGRAM cpmd_to_qs
     xc_string = "HCTH407"
   CASE (1134)
     xc_string = "PBE"
+  CASE (0302)
+    xc_string = "OLYP"
   CASE DEFAULT
     PRINT*,"ERROR: Invalid XC code found in the first input file "//TRIM(input_file1)
     STOP

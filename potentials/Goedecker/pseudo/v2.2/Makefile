@@ -5,24 +5,24 @@ PROGRAM		= pseudo.x
 TARGET		= $(PROGRAM)
 
 #   Compilers, Programs and Flags
-
 #   for Intel Fortran Compiler (Pentium4)
-F90C		= ifc -FR
-FC		= ifc -FI
-FFLAGS		= -O3 -tpp7
+#F90C		= ifc -FR
+#FC		= ifc -FI
+#FFLAGS		= -O3 -tpp7
 #   Linker/Loader
-LD		= ifc
-LFLAGS		= $(FFLAGS) -Vaxlib -L/apps/intel/mkl60/lib/32
-LIBS		= -lmkl_lapack -lmkl_ia32 -lguide
+#LD		= ifc
+#LFLAGS		= $(FFLAGS) -Vaxlib -L/usr/local/intel/mkl60/lib/32/
+#LIBS		= -lmkl_lapack -lmkl_ia32 -lguide
+
 #
 #   for PGI Fortran Compiler
-#F90C		= pgf90 -Mfree
-#FC		= pgf90 -Mfixed
-#FFLAGS		= -fast
+F90C		= pgf90 -Mfree
+FC		= pgf90 -Mfixed
+FFLAGS		= -fast
 #   Linker/Loader
-#LD		= pgf90
-#LFLAGS		= $(FFLAGS)
-#LIBS		= -llapack -lblas
+LD		= pgf90
+LFLAGS		= $(FFLAGS)
+LIBS		= -llapack -lblas
 #
 #   for ibm/aix:
 #   Fortran Compiler
@@ -56,6 +56,7 @@ LIBS		= -lmkl_lapack -lmkl_ia32 -lguide
 # Linker/Loader
 #LD              = f90
 #LDFLAGS         = -l /opt/ctl/craylibs/craylibs/libblas.a  
+
 
 # Shell Command
 #SHELL		= /bin/ksh

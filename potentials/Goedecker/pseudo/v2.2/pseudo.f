@@ -551,6 +551,12 @@ C..   functionals
                END IF
                mgcc=mgcx
                igrad=.true.
+            elseif(index(icorr,'OLYP').ne.0) then
+               mfxcx=0
+               mfxcc=3
+               mgcx=10
+               mgcc=2
+               igrad=.true.
             else
                write(6,*) 'Unknown functional(s): ',icorr
                stop
@@ -1011,7 +1017,9 @@ c
         write(3,*) ' Z  =  ',znuc
         write(3,*) ' ZV =  ' ,zion
         write(3,'(a,4i1,f15.10)')
-     :       '  XC = ',mfxcx,mfxcc,mgcx,mgcc,salpha
+     :       '  XC = ',mfxcx,mfxcc,MODULO(mgcx,10),mgcc,salpha ! MODULO needed to preserve scheme
+                                                               ! obviously pretty dangerous 
+                                                               ! hcthxxx anyway is different from cpmd
         write(3,*) ' TYPE = NORMCONSERVING GOEDECKER'
         write(3,*) '&END'
         write(3,*) '&INFO'

@@ -49,7 +49,7 @@
 # hprj_ppnl: Coefficients of the non-local projector functions
 #
 ***
-  for xcfun in blyp bp hcth120 hcth407 pade pbe; do
+  for xcfun in blyp bp hcth120 hcth407 pade pbe olyp; do
     cd ../cp2k/$xcfun
     typeset -u ltu=$xcfun # make uppercase
     cat <<*** >>$potential_file
