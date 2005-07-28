@@ -1,0 +1,50 @@
+ &ATOM
+  Z  =      79.00000000000000     
+  ZV =      11.00000000000000     
+  XC = 1312   0.6666666667
+  TYPE = NORMCONSERVING GOEDECKER
+ &END
+ &INFO
+ ****************************************************************
+
+ Atomic symbol                       : Au
+
+ Atomic number                       :  79
+ Effective core charge               :  11
+ Number of core states               :  12
+ Number of valence states            :  11
+ Electronic configuration (s,p,d,...):   1  0 10
+
+ Exchange-correlation functional     : BLYP
+
+       r(loc)         C(1)
+     0.590000    10.815894
+
+         r(0)     h(i,j)^0
+     0.525727     6.718670    -2.666206
+                               3.442057
+         r(1)     h(i,j)^1
+     0.605266     4.321324    -4.094650
+                               4.844855
+         r(2)     h(i,j)^2
+     0.439032    -7.451540     3.068025
+                              -3.478813
+
+ Please cite:
+
+ - S. Goedecker, M. Teter, and J. Hutter,
+   Phys. Rev. B 54, 1703 (1996)
+ - C. Hartwigsen, S. Goedecker, and J. Hutter,
+   Phys. Rev. B 58, 3641 (1998)
+
+ ****************************************************************
+ &END
+ &POTENTIAL
+     GOEDECKER
+            3                                    LMAX
+      0.590000000                                 RC
+   1    10.815893810   #C  C1
+      0.525727468  2   6.718670149  -2.666206103   3.442057278 H(s) 11 12 22           
+      0.605265972  2   4.321323540  -4.094650149   4.844855394 H(p) 11 12 22           
+      0.439031599  2  -7.451539849   3.068024763  -3.478813088 H(d) 11 12 22           
+ &END
