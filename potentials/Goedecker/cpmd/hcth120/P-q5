@@ -1,0 +1,45 @@
+ &ATOM
+  Z  =      15.00000000000000     
+  ZV =      5.000000000000000     
+  XC = 0077   0.6666666667
+  TYPE = NORMCONSERVING GOEDECKER
+ &END
+ &INFO
+ ****************************************************************
+
+ Atomic symbol                       : P
+
+ Atomic number                       :  15
+ Effective core charge               :   5
+ Number of core states               :   3
+ Number of valence states            :  13
+ Electronic configuration (s,p,d,...):   2  3  0
+
+ Exchange-correlation functional     : HCTH120
+
+       r(loc)         C(1)
+     0.430000    -5.559671
+
+         r(0)     h(i,j)^0
+     0.399827    10.601032    -3.268980
+                               4.220235
+         r(1)     h(i,j)^1
+     0.451319     2.950154
+
+ Please cite:
+
+ - S. Goedecker, M. Teter, and J. Hutter,
+   Phys. Rev. B 54, 1703 (1996)
+ - C. Hartwigsen, S. Goedecker, and J. Hutter,
+   Phys. Rev. B 58, 3641 (1998)
+
+ ****************************************************************
+ &END
+ &POTENTIAL
+     GOEDECKER
+            2                                    LMAX
+      0.430000000                                 RC
+   1    -5.559671168   #C  C1
+      0.399826580  2  10.601032439  -3.268979924   4.220234935 H(s) 11 12 22           
+      0.451319044  1   2.950154252 H(p) 11                 
+ &END
