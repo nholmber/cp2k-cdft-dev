@@ -1,6 +1,6 @@
 #!/bin/sh
 #
-  potential_file=$(pwd)/../cp2k/POTENTIAL
+  potential_file=$(pwd)/../cp2k/GTH_POTENTIALS
   cat <<*** >$potential_file
 ################################################################################
 #

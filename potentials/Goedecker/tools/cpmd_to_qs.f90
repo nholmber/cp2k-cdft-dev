@@ -348,12 +348,14 @@ PROGRAM cpmd_to_qs
     END IF
   END DO
 
-  WRITE (UNIT=4,FMT="(/,A,/,4(/,A),/,/,A)")&
+  WRITE (UNIT=4,FMT="(/,A,/,6(/,A),/,/,A)")&
     " Please cite:",&
     " - S. Goedecker, M. Teter, and J. Hutter,",&
     "   Phys. Rev. B 54, 1703 (1996)",&
     " - C. Hartwigsen, S. Goedecker, and J. Hutter,",&
     "   Phys. Rev. B 58, 3641 (1998)",&
+    " - M. Krack,",&
+    "   Theor. Chem. Acc. 114, 145 (2005)",&
     " "//REPEAT("*",64)
 
 END PROGRAM cpmd_to_qs

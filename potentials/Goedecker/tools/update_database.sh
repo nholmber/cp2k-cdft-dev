@@ -20,7 +20,7 @@
   echo Removing all the TEXTAB files in the build/ tree ...
   find ../build -name TEXTAB -exec rm {} \;
 
-# Create a new POTENTIAL database file for CP2K/Quickstep w.r.t the
+# Create a new GTH_POTENTIALS database file for CP2K/Quickstep w.r.t the
 # updated database
   create_cp2k_potential_file.sh
   create_tex_file.sh

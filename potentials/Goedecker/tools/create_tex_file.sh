@@ -1,6 +1,6 @@
 #!/bin/sh
 #
-  texfile=$(pwd)/../tex/POTENTIAL.tex
+  texfile=$(pwd)/../tex/GTH_POTENTIALS.tex
   cat <<*** >$texfile
 \documentclass{article}
 \usepackage{supertabular}
