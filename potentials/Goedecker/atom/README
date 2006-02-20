@@ -1,6 +1,10 @@
-Building atom.x: e.g. with the PGI compiler:
+Building atom.x: e.g. with the PGI 5.2.2 compiler:
 
 pgf90 -fast -o atom.x atom.f hcth.f90 
+
+or Intel(R) Fortran Compiler for 32-bit applications, Version 9.0:
+
+ifort -O3 -i-static -o atom.x atom.f hcth.f90
 
 ***********************************************************
 *                                                         *

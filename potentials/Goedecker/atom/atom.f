@@ -25,7 +25,7 @@ c      consistency in the potential (set in the main program)
 c      and the accuracy in the eigenvalue for a given potential
 c      (set in difrel,difnrl)
 c
-      parameter (nrmax=10000, maxorb=40, lmax=5, maxconf=19)
+      parameter (nrmax=10000, maxorb=60, lmax=5, maxconf=19)
 c
        dimension r(nrmax),rab(nrmax),
      2 no(maxorb),lo(maxorb),so(maxorb),zo(maxorb),
@@ -138,7 +138,7 @@ c      start iteration loop
 c
        iconv = 0
        icon2 = 0
-       maxit = 1000
+       maxit = 5000
 c     empirical function
        xmixo = 1.0d0/log(znuc+7.0d0)
 c
@@ -205,7 +205,7 @@ c     diverging - reduce mixing coefficient
        if (xmixo .lt. 0.01D0) xmixo=0.01D0
        dvold = dvmax
       write(6,70) iter,dvmax,xmixo
- 70    format(7h iter =,i3,8h dvmax =,e9.3,8h xmixo =,e9.3)
+ 70    format(7h iter =,i5,9h dvmax = ,e9.3,8h xmixo =,e9.3)
 c
 c      mix input and output electronic potentials
 c
@@ -768,8 +768,8 @@ C..functionals
        rho(1)=rho(2)-(rho(3)-rho(2))*r(2)/(r(3)-r(2))
 
 
-c   this should avoid problems with XC-functionals
-c   with kinks (BLYP,....)
+CMK   this should avoid problems with XC-functionals
+CMK   with kinks (BLYP,....)
       if (iter.lt.30) then
         mfxcx=0
         mfxcc=9
@@ -1185,7 +1185,7 @@ c
      5 etot(10),ev(norb),ek(norb),ep(norb)
        character*2 nameat
 c
-      parameter ( mesh = 2000 , nvmax = 6*mesh )
+      parameter ( mesh = 4000 , nvmax = 6*mesh )
        dimension nmax(2,5),dk(mesh),d(mesh),sd(mesh),sd2(mesh),e(10),
      1 ind(10),z(nvmax),
      2 rv1(mesh),rv2(mesh),rv3(mesh),rv4(mesh),rv5(mesh)
@@ -1213,7 +1213,11 @@ c
        if (lo(k) .ne. j-1) goto 20
        if ((so(k)-0.1D0)*(i-1.5D0) .lt. 0.D0) goto 20
        nmax(i,j)=no(k)
-       if (no(k)*(nr-1) .gt. nvmax) call ext(500)
+       if (no(k)*(nr-1) .gt. nvmax) then
+         print*,no(k),nr-1
+         print*,no(k)*(nr-1)," > ",nvmax
+         call ext(500)
+       end if
  20    continue
 c
 c      set up hamiltonian matrix for kinetic energy
