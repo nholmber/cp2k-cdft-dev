@@ -1,0 +1,53 @@
+ &ATOM
+  Z  =      47.00000000000000     
+  ZV =      11.00000000000000     
+  XC = 1134   0.6666666667
+  TYPE = NORMCONSERVING GOEDECKER
+ &END
+ &INFO
+ ****************************************************************
+
+ Atomic symbol                       : Ag
+
+ Atomic number                       :  47
+ Effective core charge               :  11
+ Number of core states               :   8
+ Number of valence states            :  13
+ Electronic configuration (s,p,d,...):   1  0 10
+
+ Exchange-correlation functional     : PBE
+
+       r(loc)         C(1)
+     0.570000     0.033419
+
+         r(0)     h(i,j)^0
+     0.527045     9.582045    -5.274240     0.997047
+                               8.430713    -2.574365
+                                            2.043339
+         r(1)     h(i,j)^1
+     0.629112     3.874019    -1.742116
+                               2.061299
+         r(2)     h(i,j)^2
+     0.405382    -2.724953    -0.433549
+                               0.491598
+
+ Please cite:
+
+ - S. Goedecker, M. Teter, and J. Hutter,
+   Phys. Rev. B 54, 1703 (1996)
+ - C. Hartwigsen, S. Goedecker, and J. Hutter,
+   Phys. Rev. B 58, 3641 (1998)
+ - M. Krack,
+   Theor. Chem. Acc. 114, 145 (2005)
+
+ ****************************************************************
+ &END
+ &POTENTIAL
+     GOEDECKER
+            3                                    LMAX
+      0.570000000                                 RC
+   1     0.033419122   #C  C1
+      0.527044613  3   9.582045350  -5.274240431   0.997047252   8.430712594  -2.574364935   2.043338820 H(s) 11 12 13 22 23 33  
+      0.629112176  2   3.874019044  -1.742115831   2.061299249 H(p) 11 12 22           
+      0.405381865  2  -2.724952756  -0.433548514   0.491597807 H(d) 11 12 22           
+ &END
