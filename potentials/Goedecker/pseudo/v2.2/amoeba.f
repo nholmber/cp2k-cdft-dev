@@ -107,7 +107,7 @@ c     unpack variables
       if (mod(iter,10).eq.0) then
          write(6,*) 'iter (amoeba,gatom):',iter,ntime,
      :        ' y(ilo):',y(ilo)
-CMK      CALL FLUSH(6)
+         CALL FLUSH(6)
          INQUIRE ( FILE = 'NEXT', EXIST = lnext )
          INQUIRE ( FILE = 'EXIT', EXIST = lexit )
          if (lnext .or. lexit) then
