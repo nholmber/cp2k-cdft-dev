@@ -273,8 +273,14 @@ PROGRAM cpmd_to_qs
 
   string = ""
   WRITE (UNIT=string,FMT="(I5)") nelec
+  IF (xc_string == "PADE") THEN
   WRITE (UNIT=3,FMT="(A,1X,A)")&
-    TRIM(elesym(iz)),"GTH-"//TRIM(xc_string)//"-q"//TRIM(ADJUSTL(string))
+    TRIM(elesym(iz)),"GTH-"//TRIM(xc_string)//"-q"//TRIM(ADJUSTL(string))//&
+    " GTH-LDA-q"//TRIM(ADJUSTL(string))
+  ELSE
+    WRITE (UNIT=3,FMT="(A,1X,A)")&
+      TRIM(elesym(iz)),"GTH-"//TRIM(xc_string)//"-q"//TRIM(ADJUSTL(string))
+  END IF
 
   nelec = 0
   DO i=1,maxl+1
