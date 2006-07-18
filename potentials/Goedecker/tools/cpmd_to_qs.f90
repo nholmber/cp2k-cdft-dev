@@ -1,13 +1,13 @@
 PROGRAM cpmd_to_qs
 
-! Purpose: Convert the output file XX of the program pseudo.x for the
-!          generation of Goedecker-Teter-Hutter (GTH) pseudo potentials which
-!          is written in CPMD-format to the Quickstep potential database
-!          format.
+  ! Purpose: Convert the output file XX of the program pseudo.x for the
+  !          generation of Goedecker-Teter-Hutter (GTH) pseudo potentials which
+  !          is written in CPMD-format to the Quickstep potential database
+  !          format.
 
-! History: - Creation (12.12.2003,MK)
+  ! History: - Creation (12.12.2003,MK)
 
-! *****************************************************************************
+  ! ***************************************************************************
 
   IMPLICIT NONE
 
@@ -16,12 +16,15 @@ PROGRAM cpmd_to_qs
                         max_ppl = 4,& ! Max. number of local projectors
                         max_ppnl = 4  ! Max. number of non-local projectors
 
+  REAL(KIND=wp), PARAMETER :: eps_zero = 1.0E-10_wp
+
   CHARACTER(LEN=200) :: input_file1,input_file2,line,output_file
+  CHARACTER(LEN=80)  :: elec_string,string
   CHARACTER(LEN=17)  :: fmtstr1
   CHARACTER(LEN=16)  :: fmtstr3
-  CHARACTER(LEN=12)  :: fmtstr2,string,xc_string
-  REAL(KIND=wp)      :: rloc,q,z,zeff
-  INTEGER            :: i,idigits,ippnl,istat,iz,j,l,n,narg,ncore,nelec,nppl,&
+  CHARACTER(LEN=12)  :: fmtstr2,xc_string
+  REAL(KIND=wp)      :: nelec,rloc,q,z,zeff
+  INTEGER            :: i,idigits,ippnl,istat,iz,j,l,lmax,n,narg,ncore,nppl,&
                         nppnl_max,nvalence,xc_code
 
   CHARACTER(LEN=2), DIMENSION(103) :: elesym =&
@@ -34,16 +37,17 @@ PROGRAM cpmd_to_qs
       "At","Rn","Fr","Ra","Ac","Th","Pa","U ","Np","Pu","Am","Cm","Bk","Cf",&
       "Es","Fm","Md","No","Lr"/)
 
+  REAL(KIND=wp), DIMENSION(maxl+1)       :: elec_conf
   REAL(KIND=wp), DIMENSION(max_ppl)      :: cppl
   REAL(KIND=wp), DIMENSION(max_ppnl)     :: rppnl
   REAL(KIND=wp), DIMENSION(max_ppnl,3,3) :: cppnl
 
   INTEGER, DIMENSION(max_ppnl) :: nppnl
-  INTEGER, DIMENSION(maxl+1)   :: elec_conf
 
   INTEGER :: iargc
+  LOGICAL :: frac_elec
 
-! -----------------------------------------------------------------------------
+  ! ---------------------------------------------------------------------------
 
   input_file1 = ""
   input_file2 = ""
@@ -58,7 +62,7 @@ PROGRAM cpmd_to_qs
   rppnl(:) = 0.0_wp
   cppnl(:,:,:) = 0.0_wp
 
-! *** Check the number of arguments ***
+  ! Check the number of arguments
 
   narg = iargc()
   IF (narg /= 3) THEN
@@ -68,7 +72,7 @@ PROGRAM cpmd_to_qs
     STOP
   END IF
 
-! *** Open I/O units ***
+  ! Open I/O units
 
   CALL getarg(1,input_file1)
   OPEN (UNIT=1,&
@@ -138,7 +142,7 @@ PROGRAM cpmd_to_qs
     STOP
   END IF
 
-! *** Read first input file (CPMD format) ***
+  ! Read first input file (CPMD format)
 
   DO
     READ (UNIT=1,FMT="(A)",IOSTAT=istat) line
@@ -206,13 +210,19 @@ PROGRAM cpmd_to_qs
   END DO
 
   iz = NINT(z)
-  WRITE (UNIT=4,FMT="(2(A,/,/),A,I3,/,A,I3)")&
+  WRITE (UNIT=4,FMT="(2(A,/,/),A,I3)")&
     " "//REPEAT("*",64),&
     " Atomic symbol                       : "//TRIM(elesym(iz)),&
-    " Atomic number                       : ",iz,&
-    " Effective core charge               : ",NINT(zeff)
+    " Atomic number                       : ",iz
+  IF (ABS(zeff - INT(zeff)) > eps_zero) THEN
+    WRITE (UNIT=4,FMT="(A,F8.3)")&
+      " Effective core charge               : ",zeff
+  ELSE
+    WRITE (UNIT=4,FMT="(A,I3)")&
+      " Effective core charge               : ",INT(zeff)
+  END IF
 
-! *** Read second input file (electronic configuration) ***
+  ! Read second input file (electronic configuration)
 
   READ (UNIT=2,FMT="(A)") string
   IF (TRIM(ADJUSTL(string)) /= TRIM(elesym(iz))) THEN
@@ -231,29 +241,55 @@ PROGRAM cpmd_to_qs
   WRITE (UNIT=4,FMT="(A,I3,/,A,I3)")&
     " Number of core states               : ",ncore,&
     " Number of valence states            : ",nvalence
-  elec_conf(:) = 0
+
+  ! Build electronic configuration
+
+  frac_elec = .FALSE.
+  elec_conf(:) = 0.0_wp
+
   DO i=1,nvalence
     READ (UNIT=2,FMT=*) n,l,q
-    elec_conf(l+1) = elec_conf(l+1) + INT(q)
-  END DO
-  WRITE (UNIT=4,FMT="(A,6I3)")&
-    " Electronic configuration (s,p,d,...): ",elec_conf(1:maxl)
-
-! *** Check the electronic configuration ***
-
-  nelec = 0
-
-  DO i=1,maxl+1
-    nelec = nelec + elec_conf(i)
-    IF (nelec == NINT(zeff)) EXIT
+    elec_conf(l+1) = elec_conf(l+1) + q
+    IF (ABS(q - INT(q)) > eps_zero) frac_elec = .TRUE. ! we have a non-integer number of electrons
   END DO
 
-  IF (nelec /= NINT(zeff)) THEN
-    PRINT*,"ERROR: Mismatch between Z(eff) and the electronic configuration found"
-    STOP
+  ! This is a hack for the elements from Hf to Pt, since
+  ! the 4f electrons are not treated as valence electrons
+
+  IF ((72 <= iz).AND.(iz <= 78)) elec_conf(4) = 0.0_wp
+
+  nelec = SUM(elec_conf) 
+
+  ! Find the occupied orbitals with the largest l value
+
+  DO i=maxl+1,1,-1
+    IF (elec_conf(i) > eps_zero) THEN
+      lmax = i - 1
+      EXIT
+    END IF
+  END DO
+
+  ! Build a printable string with the electronic configuration
+
+  elec_string = ""
+
+  DO i=0,lmax
+    IF (frac_elec) THEN
+      WRITE (UNIT=elec_string(8*i+1:),FMT="(F8.3)") elec_conf(i+1)
+    ELSE
+      WRITE (UNIT=elec_string(5*i+1:),FMT="(I5)") INT(elec_conf(i+1))
+    END IF
+  END DO
+
+  WRITE (UNIT=4,FMT="(A,A)")&
+    " Electronic configuration (s,p,d,...): ",TRIM(elec_string)
+
+  IF (ABS(zeff - nelec) > eps_zero) THEN
+    WRITE (UNIT=4,FMT="(A,F8.3)")&
+      " Ionic charge                        : ",zeff - nelec
   END IF
 
-! *** TeX tabular format ***
+  ! TeX tabular format
 
   WRITE (UNIT=10,FMT="(T2,A5,I3,A3,F10.6,4(A3,F13.6),A)")&
     elesym(iz)//" & ",NINT(zeff)," & ",rloc,(" & ",cppl(i),i=1,4),"\\\\"
@@ -269,10 +305,11 @@ PROGRAM cpmd_to_qs
     END IF
   END DO
 
-! *** Quickstep database format ***
+  ! Quickstep database format
 
   string = ""
-  WRITE (UNIT=string,FMT="(I5)") nelec
+
+  WRITE (UNIT=string,FMT="(I5)") NINT(zeff)
   IF (xc_string == "PADE") THEN
   WRITE (UNIT=3,FMT="(A,1X,A)")&
     TRIM(elesym(iz)),"GTH-"//TRIM(xc_string)//"-q"//TRIM(ADJUSTL(string))//&
@@ -282,18 +319,9 @@ PROGRAM cpmd_to_qs
       TRIM(elesym(iz)),"GTH-"//TRIM(xc_string)//"-q"//TRIM(ADJUSTL(string))
   END IF
 
-  nelec = 0
-  DO i=1,maxl+1
-    nelec = nelec + elec_conf(i)
-    IF (nelec == NINT(zeff)) THEN
-      WRITE (UNIT=3,FMT="(I5)") elec_conf(i)
-      EXIT
-    ELSE
-      WRITE (UNIT=3,FMT="(I5)",ADVANCE="NO") elec_conf(i)
-    END IF
-  END DO
+  WRITE (UNIT=3,FMT="(A)") TRIM(elec_string)
 
-! *** Set output precision for the QS database files ***
+  ! Set output precision for the QS database files
 
   idigits = 8
 
@@ -315,12 +343,12 @@ PROGRAM cpmd_to_qs
     END DO
   END DO
 
-! *** Write the data set also to INFO file ***
+  ! Write the data set also to INFO file
 
   WRITE (UNIT=4,FMT="(/,A)")&
     " Exchange-correlation functional     : "//TRIM(xc_string)
 
-! *** Set output precision for the CPMD INFO section ***
+  ! Set output precision for the CPMD INFO section
 
   idigits = 6
 
