@@ -1,0 +1,38 @@
+RCOV  1.379
+RPRB  2.759
+&ATOM
+NAME  O
+RPRB  2.759
+PPOT
+OPTI  1.0D-9
+ZVAL  8
+ZEFF  6
+LMAX  1
+OCCU
+1 2
+1 4
+MIXI  0.2
+CONV  1.0D-14
+ITER  200
+IPPN  100
+XCFN  PADE
+&END
+
+&BASIS
+GAUS
+4
+        8.4855854223        2.5642200801        0.8065658147        0.2368483892
+1 2 3 4
+4
+        8.4855854223        2.5642200801        0.8065658147        0.2368483892
+1 2 3 4
+&END
+
+&POTENTIAL
+    GOEDECKER
+2                                    LMAX
+      .247620862                                 RC
+  2   -16.580317970     2.395700917   #C  C1 C2
+      .221786145  1  18.266917180 H(s) 11
+      .256828896  0 H(p) no projector
+&END
