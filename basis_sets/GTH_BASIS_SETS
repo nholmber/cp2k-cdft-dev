@@ -1,0 +1,73 @@
+#
+# Gaussian basis sets optimized for the Goedecker-Teter-Hutter (GTH)
+# pseudopotentials and for the usage with CP2K/Quickstep
+#
+# - Creation (15.03.06, Matthias Krack)
+#
+# - Note: the single-zeta valence (SZV) basis sets as a kind of minimal
+#   basis set are usually not well suited for production runs. It is
+#   recommended to use DZV or better. The polarization functions are
+#   taken from the Dunning basis sets (cc-pVXZ).
+#
+# Nuclear charge: 8.0
+# Number of valence electrons: 6.0
+# XC functional: LDA
+#
+# Kohn-Sham energy for 4 Gaussians: -15.640671 a.u.
+#
+# r_cov: 1.951
+# r_prb: 2.759
+#
+O SZV-GTH-LDA-q6 SZV-GTH-PADE-q6 SZV-GTH-q6
+  1
+  2  0  1  4  1  1           2s             2p
+          8.48558542     0.14603234    -0.09578057
+          2.56422008    -0.01767665    -0.29011713
+          0.80656581    -0.66975676    -0.46962058
+          0.23684839    -0.42357392    -0.39055648
+#
+O DZV-GTH-LDA-q6 DZV-GTH-PADE-q6 DZV-GTH-q6
+  1
+  2  0  1  4  2  2           2s             3s             2p             3p
+          8.48558542     0.14603234     0.00000000    -0.09578057     0.00000000
+          2.56422008    -0.01767665     0.00000000    -0.29011713     0.00000000
+          0.80656581    -0.66975676     0.00000000    -0.46962058     0.00000000
+          0.23684839    -0.42357392     1.00000000    -0.39055648     1.00000000
+#
+O DZVP-GTH-LDA-q6 DZVP-GTH-PADE-q6 DZVP-GTH-q6
+  2
+  2  0  1  4  2  2           2s             3s             2p             3p
+          8.48558542     0.14603234     0.00000000    -0.09578057     0.00000000
+          2.56422008    -0.01767665     0.00000000    -0.29011713     0.00000000
+          0.80656581    -0.66975676     0.00000000    -0.46962058     0.00000000
+          0.23684839    -0.42357392     1.00000000    -0.39055648     1.00000000
+  3  2  2  1  1              3d
+          1.18500000     1.00000000
+#
+# Nuclear charge: 47.0
+# Number of valence electrons: 11.0
+# XC functional: LDA
+#
+# Kohn-Sham energy for 5 Gaussians: -36.416116 a.u.
+#
+# r_cov: 1.768
+# r_prb: 2.500
+#
+Ag SZV-GTH-LDA-q11-very-confined SZV-GTH-PADE-q11-very-confined SZV-GTH-q11-very-confined
+  1
+  5  0  2  4  1  1  1        5s             5p             4d
+          2.46486383     0.03590417     0.00493595    -0.22559876
+          1.31100278    -0.00894223    -0.00107367    -0.35505993
+          0.60768504    -0.49964372    -0.14096849    -0.36256473
+          0.25322421     0.32309142     0.22230233    -0.23955826
+          0.10283267     0.97864253     0.88136098    -0.03740249
+#
+Ag DZV-GTH-LDA-q11-very-confined DZV-GTH-PADE-q11-very-confined DZV-GTH-q11-very-confined
+  1
+  5  0  2  5  2  2  2        5s             6s             5p             6p             4d             5d
+          2.46486383     0.03590417     0.00000000     0.00493595     0.00000000    -0.22559876     0.00000000
+          1.31100278    -0.00894223     0.00000000    -0.00107367     0.00000000    -0.35505993     0.00000000
+          0.60768504    -0.49964372     0.00000000    -0.14096849     0.00000000    -0.36256473     0.00000000
+          0.25322421     0.32309142     0.00000000     0.22230233     0.00000000    -0.23955826     0.00000000
+          0.10283267     0.97864253     1.00000000     0.88136098     1.00000000    -0.03740249     1.00000000
+#
