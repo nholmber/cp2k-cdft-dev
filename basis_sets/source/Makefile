@@ -6,16 +6,24 @@ SHELL = /bin/bash
 #LFLAGS   = -lacml
 #LD       = pgf90 $(FFLAGS)
 # Intel Fortran compiler 9.0 and Cluster MKL 8.0
-FC90     = ifort -FR -c
-FC77     = ifort -FI -c
-LD       = ifort $(FFLAGS) -i-static
-FFLAGS   = -O3 -r8
-MKLPATH  = /apps64/intel/cmkl/8.1/lib/32
-LFLAGS   = $(FFLAGS) -i-static
-LIBS     = $(MKLPATH)/libmkl_lapack.a\
-           $(MKLPATH)/libmkl_ia32.a\
-           $(MKLPATH)/libguide.a\
-           -lpthread
+#FC90     = ifort -FR -c
+#FC77     = ifort -FI -c
+#LD       = ifort $(FFLAGS) -i-static
+#FFLAGS   = -O3 -r8
+#MKLPATH  = /apps64/intel/cmkl/8.1/lib/32
+#LFLAGS   = $(FFLAGS) -i-static
+#LIBS     = $(MKLPATH)/libmkl_lapack.a\
+#           $(MKLPATH)/libmkl_ia32.a\
+#           $(MKLPATH)/libguide.a\
+#           -lpthread
+#G95
+FC90     = g95 -ffree-form
+FC77     = g95 -ffixed-form 
+LD       = g95
+FFLAGS   = -c
+# -g -ftrace=full -fbounds-check
+LFLAGS   =
+LIBS     = -L/users/famo/lib/Linux_HAMMER32SSE2_2 -llapack_LINUX -lf77blas -lcblas -latlas
 # NAG compiler
 #FC90     = f95 -c
 #FC77     = f95 -c
@@ -48,7 +56,7 @@ v_add.o v_add_d.o wfn_ortho.o
 #
 #
 all : 
-	gmake OPTBAS
+	make OPTBAS
 #
 OPTBAS:	$(OBJECTS)
 	$(LD) -o optbas $(OBJECTS) $(LFLAGS) $(LIBS)
