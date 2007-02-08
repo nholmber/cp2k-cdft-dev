@@ -22,7 +22,7 @@ C.....locals
       real*8	G(namax,0:lamax),H(namax,namax,0:lamax)
       real*8	gint,amin,rmax,step,f(2*lamax)
       real*8	VPSIR,Vkbr,r,v1,Vl2(0:lamax)
-      integer i,j,k,l,lambda,kappa,info
+      integer i,j,k,l,lambda,kappa,info,ir
       integer ipvt(namax)
 C     ------------------------------------------------------------------
       call calcnn(nn)
@@ -130,7 +130,8 @@ c.....determine smallest exponent
       step=rmax/300.d0
 c
       open(16,FILE='atom.proj')
-      do r=0,rmax,step
+      do ir=0,int(rmax/step)
+         r=ir*step
          i=1
          do l=0,lmax-1
 	    f(i)=VPSIR(l,r,cmat)

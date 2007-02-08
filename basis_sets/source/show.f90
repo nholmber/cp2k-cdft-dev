@@ -267,7 +267,7 @@ end subroutine showresults
   REAL(dp)   :: amin(0:lamax)
   REAL(dp)   :: cmat(namax,namax,0:lamax)
   REAL(dp)   :: orbit(namax),r,rmax(0:lamax),step(0:lamax)
-  integer    :: i,j,l
+  INTEGER    :: i,j,l, ir
   REAL(dp), PARAMETER :: PI=3.14159265358979323846264_dp
   REAL(dp):: psi
 !------------------------------------------------------------------------------!
@@ -298,7 +298,8 @@ end subroutine showresults
   WRITE (*,*) 'created file "atom.s1".'
 
   open(12,FILE='atom.sorbits')
-  do r=0,rmax(0),step(0)
+  DO ir=0,int(rmax(0)/step(0))
+    r=ir*step(0)
     do i=1,nalpha(0)
       orbit(i)=0.D0
       do j=1,nalpha(0)
@@ -312,7 +313,8 @@ end subroutine showresults
   write (*,*) 'created file "atom.sorbits".'
 
   open(12,FILE='atom.chi_1s')
-  do r=0,rmax(0),step(0)
+  DO ir=0,int(rmax(0)/step(0))
+    r=ir*step(0)
     do i=1,nalpha(0)
       orbit(i)=0.D0
       do j=i,nalpha(0)
@@ -326,7 +328,8 @@ end subroutine showresults
   write (*,*) 'created file "atom.chi_s".'
 
   open(12,FILE='atom.chi_2s')
-  do r=0,rmax(0),step(0)
+  DO ir=0,int(rmax(0)/step(0))
+    r=ir*step(0)
     do i=1,nalpha(0)
       orbit(i)=0.D0
       do j=i,nalpha(0)
@@ -340,7 +343,8 @@ end subroutine showresults
   write (*,*) 'created file "atom.chi_s".'
 
   open(12,FILE='atom.chi_3s')
-  do r=0,rmax(0),step(0)
+  DO ir=0,int(rmax(0)/step(0))
+    r=ir*step(0)
     do i=1,nalpha(0)
       orbit(i)=0.D0
       do j=i,nalpha(0)
@@ -355,7 +359,8 @@ end subroutine showresults
 
   if (lmax.ge.1) then
     open(12,FILE='atom.porbits')
-    do r=0,rmax(1),step(1)
+    DO ir=0,int(rmax(1)/step(1))
+      r=ir*step(1)
       do i=1,nalpha(1)
         orbit(i)=0.D0
         do j=1,nalpha(1)
@@ -370,7 +375,8 @@ end subroutine showresults
   endif
 
   open(12,FILE='atom.chi_p')
-  do r=0,rmax(0),step(0)
+  DO ir=0,int(rmax(0)/step(0))
+    r=ir*step(0)
     do i=1,nalpha(0)
       orbit(i)=0.D0
       do j=i,nalpha(0)
@@ -385,7 +391,8 @@ end subroutine showresults
 
   if (lmax.ge.2) then
     open(12,FILE='atom.dorbits')
-    do r=0,rmax(2),step(2)
+    DO ir=0,INT(rmax(2)/step(2))
+      r=ir*step(2)
       do i=1,nalpha(2)
         orbit(i)=0.D0
         do j=1,nalpha(2)
@@ -441,7 +448,7 @@ end subroutine showdensities
   use pspot
   implicit none
 !locals:
-  integer   :: i,l
+  INTEGER   :: i,l,ir
   REAL(dp)  :: Vps(0:PPlmax),g(0:PPlmax),amin,v,r,rmax,step,erf
 !------------------------------------------------------------------------------!
 !..Determine smallest exponent
@@ -459,7 +466,8 @@ end subroutine showdensities
 
   open (12,FILE='atom.pspot')
   
-  do r=1.D-10,rmax,step
+  DO ir=0,INT((rmax-1.D-10)/step)
+    r=1.D-10+ir*step
     v=0.D0
     do i=1,ERFnr
       v=v-Zeff/r* PPLerf(i)*ERF(PPNerf(i)*r)

@@ -6,7 +6,7 @@
       implicit real*8(a-h,o-z)
 C..local
       parameter(pi=3.14159265358979323846264D0)
-      character*8 string,estr
+      character*10 string,estr
       character*80 line
       logical err,ppsg,pp_read
 C..defaults
@@ -64,10 +64,12 @@ C..look for section ATOM
       endif
 C..input section &ATOM
  100  continue
+      string =' '
       call cfield(string,4)
       if(index(string,'&END').ne.0) then
          goto 101
       elseif(index(string,'NAME').ne.0) then
+         string=' '
          call cfield(atomname,2)
          goto 100
       elseif(index(string,'ZVAL').ne.0) then
@@ -209,6 +211,7 @@ C..input section &ATOM
          endif
          goto 100
       elseif(index(string,'EXCF').ne.0) then
+         string = ' '
          call cfield(string,4)
          xcfstring=string
          if (index(string,'NONE').ne.0) then
@@ -236,6 +239,7 @@ C..input section &ATOM
          endif
          goto 100
       elseif(index(string,'EXGC').ne.0) then
+         string = ' '
          call cfield(string,4)
          gcxstring=string
          if (index(string,'NONE').ne.0) then
@@ -249,6 +253,7 @@ C..input section &ATOM
          endif
          goto 100
       elseif(index(string,'ECGC').ne.0) then
+         string = ' '
          call cfield(string,4)
          gccstring=string
          if (index(string,'NONE').ne.0) then
@@ -307,6 +312,7 @@ C..look for section BASIS
       endif
 C..input section &BASIS
  200  continue
+      string = ' '
       call cfield(string,4)
       if(index(string,'&END').ne.0) then
          goto 201
@@ -345,6 +351,7 @@ c                                        POTENTIAL !!!
             pp_read=.true.
 C..input section &PSEUDO
  400        continue
+            string = ' '
             call cfield(string,4)
             if(index(string,'&END').ne.0) then
                goto 401
