@@ -1,0 +1,7 @@
+  Fit                        Parameter
+ f    t t f f                alpz,gpot(1,..,4)
+           2                 lmax
+ t    t f t f f t            alps(1),h11,h12,h22,h13,h23,h33 (l=0)
+ t    t f t f f t            alps(2),h11,h12,h22,h13,h23,h33 (l=1)
+ t    t f t f f f            alps(3),h11,h12,h22,h13,h23,h33 (l=2)
+ f    f f f f f f            alps(4),h11,h12,h22,h13,h23,h33 (l=3)

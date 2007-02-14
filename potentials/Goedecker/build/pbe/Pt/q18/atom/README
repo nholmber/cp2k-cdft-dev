@@ -1,0 +1,5 @@
+to get an 18e psp modify the file atom.ae
+after generation: reduce number of orbitals by 2
+and delete the values for both 4f states (search for
+the string "4 3 ") modify also the files "psp.par" and
+"weight.par"
