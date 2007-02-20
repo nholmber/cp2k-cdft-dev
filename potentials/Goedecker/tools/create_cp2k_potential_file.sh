@@ -17,9 +17,11 @@
 # -----------------------------------------------------
 #
 # Literature: - S. Goedecker, M. Teter, and J. Hutter,
-#               Phys. Rev. B 54, 1703 (1996).
+#               Phys. Rev. B 54, 1703 (1996)
 #             - C. Hartwigsen, S. Goedecker, and J. Hutter,
-#               Phys. Rev. B 58, 3641 (1998).
+#               Phys. Rev. B 58, 3641 (1998)
+#             - M. Krack,
+#               Theor. Chem. Acc. 114, 145 (2005)
 #
 # GTH-potential format:
 #
