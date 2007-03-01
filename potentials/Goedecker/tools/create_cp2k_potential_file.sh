@@ -10,6 +10,7 @@
 #          - Electronic configurations added (11.05.2000,MK)
 #          - GTH-PP for first-row transition metal added (18.03.2003,MK)
 #          - Automatic update (16.12.2003,MK)
+#          - Last update ($(date +%d.%m.%y),MK)
 #
 ################################################################################
 #
