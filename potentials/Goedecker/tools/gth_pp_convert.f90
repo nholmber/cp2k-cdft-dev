@@ -30,6 +30,10 @@ PROGRAM gth_pp_convert
 
   CHARACTER(LEN=200) :: input_file1,input_file2,input_file3,line
   CHARACTER(LEN=80)  :: elec_string,string
+  CHARACTER(LEN=56)  :: fmtstr7
+  CHARACTER(LEN=48)  :: fmtstr5
+  CHARACTER(LEN=47)  :: fmtstr4
+  CHARACTER(LEN=46)  :: fmtstr6
   CHARACTER(LEN=17)  :: fmtstr1
   CHARACTER(LEN=16)  :: fmtstr3
   CHARACTER(LEN=12)  :: fmtstr2,xc_string,xcf_psp_par
@@ -418,17 +422,60 @@ PROGRAM gth_pp_convert
 
   ! TeX tabular format (TEXTAB)
 
-  WRITE (UNIT=unit_textab,FMT="(T2,A5,I3,A3,F10.6,4(A3,F13.6),A)")&
-    elesym(iz)//" & ",izeff," & ",rloc,(" & ",cppl(i),i=1,4),"\\\\"
+  IF (nppl == 0) THEN
+    WRITE (UNIT=unit_textab,FMT="(T2,A5,I3,A3,F10.6,4(A3,13X),T87,A))")&
+      elesym(iz)//" & ",izeff," & ",rloc,(" & ",i=1,4),"\\"
+  ELSE IF (nppl == 4) THEN
+    WRITE (UNIT=unit_textab,FMT="(T2,A5,I3,A3,F10.6,4(A3,F13.6),T87,A))")&
+      elesym(iz)//" & ",izeff," & ",rloc,(" & ",cppl(i),i=1,4),"\\"
+  ELSE
+    fmtstr4 = "(T2,A5,I3,A3,F10.6, (A3,F13.6), (A3,13X),T87,A)"
+    WRITE (UNIT=fmtstr4(20:20),FMT="(I1)") nppl
+    WRITE (UNIT=fmtstr4(32:32),FMT="(I1)") 4-nppl
+    WRITE (UNIT=unit_textab,FMT=fmtstr4)&
+      elesym(iz)//" & ",izeff," & ",rloc,&
+      (" & ",cppl(i),i=1,nppl),&
+      (" &",i=1,4-nppl),"\\"
+  END IF
+
+  fmtstr5 = "(T5,A1,T11,A2,F10.6, (A3,F13.6), (A3,13X),T87,A)"
+  fmtstr6 = "(T5,A1,T11,A2,10X, (A3,F13.6), (A3,13X),T87,A)"
+  fmtstr7 = "(T5,A1,T11,A1,T23, (A3,13X), (A3,F13.6), (A3,13X),T87,A)"
 
   DO ippnl=1,nppnl_max
     IF (nppnl(ippnl) > 0) THEN
-      WRITE (UNIT=unit_textab,FMT="(T2,A11,F10.6,4(A3,F13.6),A)")&
-        "   &     & ",rppnl(ippnl),(" & ",hppnl(1,j,ippnl),j=1,4),"\\\\"
+      WRITE (UNIT=fmtstr5(21:21),FMT="(I1)") nppnl(ippnl)
+      WRITE (UNIT=fmtstr5(33:33),FMT="(I1)") 4-nppnl(ippnl)
+      WRITE (UNIT=unit_textab,FMT=fmtstr5)&
+        "&","& ",rppnl(ippnl),&
+        (" & ",hppnl(1,j,ippnl),j=1,nppnl(ippnl)),&
+        (" & ",j=1,4-nppnl(ippnl)),"\\"
       DO i=2,nppnl(ippnl)
-        WRITE (UNIT=unit_textab,FMT="(T5,A1,T11,A1,T23,3(A3,F13.6),T72,A1,T87,A)")&
-          "&","&",(" & ",hppnl(i,j,ippnl),j=1,3),"&","\\\\"
+        WRITE (UNIT=fmtstr7(19:19),FMT="(I1)") i-1
+        WRITE (UNIT=fmtstr7(29:29),FMT="(I1)") nppnl(ippnl)-i+1
+        WRITE (UNIT=fmtstr7(41:41),FMT="(I1)") 4-nppnl(ippnl)
+        WRITE (UNIT=unit_textab,FMT=fmtstr7)&
+          "&","&",(" & ",j=1,i-1),&
+          (" & ",hppnl(i,j,ippnl),j=i,nppnl(ippnl)),&
+          (" & ",j=1,4-nppnl(ippnl)),"\\"
       END DO
+      IF (ippnl > 1) THEN
+        WRITE (UNIT=fmtstr6(19:19),FMT="(I1)") nppnl(ippnl)
+        WRITE (UNIT=fmtstr6(31:31),FMT="(I1)") 4-nppnl(ippnl)
+        WRITE (UNIT=unit_textab,FMT=fmtstr6)&
+          "&","& ",&
+          (" & ",kppnl(1,j,ippnl),j=1,nppnl(ippnl)),&
+          (" & ",j=1,4-nppnl(ippnl)),"\\"
+        DO i=2,nppnl(ippnl)
+          WRITE (UNIT=fmtstr7(19:19),FMT="(I1)") i-1
+          WRITE (UNIT=fmtstr7(29:29),FMT="(I1)") nppnl(ippnl)-i+1
+          WRITE (UNIT=fmtstr7(41:41),FMT="(I1)") 4-nppnl(ippnl)
+          WRITE (UNIT=unit_textab,FMT=fmtstr7)&
+            "&","&",(" & ",j=1,i-1),&
+            (" & ",kppnl(i,j,ippnl),j=i,nppnl(ippnl)),&
+            (" & ",j=1,4-nppnl(ippnl)),"\\"
+        END DO
+      END IF
     END IF
   END DO
 
