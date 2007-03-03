@@ -226,34 +226,34 @@ PROGRAM gth_pp_convert
   SELECT CASE (xc_code)
   CASE (1312)
     xc_string = "BLYP"
-    xc_code_abinit = 0
+    xc_code_abinit = 18
   CASE (1111)
     xc_string = "BP"
-    xc_code_abinit = 0
+    xc_code_abinit = 19
   CASE (0900)
     xc_string = "PADE"
     xc_code_abinit = 1
   CASE (0055)
     xc_string = "HCTH" ! CPMD version of HCTH120
-    xc_code_abinit = 16
+    xc_code_abinit = 17
   CASE (0066)
     xc_string = "HCTH93"
-    xc_code_abinit = 0
+    xc_code_abinit = 16
   CASE (0077)
     xc_string = "HCTH120"
-    xc_code_abinit = 16
+    xc_code_abinit = 17
   CASE (0088)
     xc_string = "HCTH147"
-    xc_code_abinit = 0
+    xc_code_abinit = 26
   CASE (0099)
     xc_string = "HCTH407"
-    xc_code_abinit = 0
+    xc_code_abinit = 27
   CASE (1134)
     xc_string = "PBE"
     xc_code_abinit = 11
   CASE (0302)
     xc_string = "OLYP"
-    xc_code_abinit = 0
+    xc_code_abinit = 25
   CASE DEFAULT
     PRINT*,"ERROR: Invalid XC code found in the first input file "//TRIM(input_file1)
     STOP
@@ -523,21 +523,21 @@ PROGRAM gth_pp_convert
   WRITE (UNIT=unit_abinit,FMT="(I5,I4,A)")&
     iz,izeff,"  070301 zatom,zion,pspdat"
   WRITE (UNIT=unit_abinit,FMT="(I2,2I3,I2,I5,I2,A)")&
-    3,xc_code_abinit,lppnl_max,MAX(0,2*(nppl-1)),2001,0,&
+    10,xc_code_abinit,lppnl_max,MAX(0,2*(nppl-1)),2001,0,&
     "  pspcod,pspxc,lmax,lloc,mmax,r2well"
   line = " "
   WRITE (UNIT=line,FMT=fmtstr1)&
     rloc,nppl,(cppl(i),i=1,nppl)
-  WRITE (UNIT=line(70:),FMT="(A,4(A2,I1))")&
+  WRITE (UNIT=line(85:),FMT="(A,4(A2,I1))")&
     "rloc nloc",(" c",i,i=1,nppl)
   WRITE (UNIT=unit_abinit,FMT="(A)") TRIM(line)
-  WRITE (UNIT=unit_abinit,FMT="(I5,T70,A)")&
+  WRITE (UNIT=unit_abinit,FMT="(I5,T85,A)")&
     nppnl_max,"nnonloc"
   DO ippnl=1,nppnl_max
     line = " "
     WRITE (UNIT=line,FMT=fmtstr1)&
       rppnl(ippnl),nppnl(ippnl),(hppnl(1,j,ippnl),j=1,nppnl(ippnl))
-    WRITE (UNIT=line(70:),FMT="(A,3(A3,I2))")&
+    WRITE (UNIT=line(85:),FMT="(A,3(A3,I2))")&
       "r"//llabel(ippnl)//" n"//llabel(ippnl),&
       (" h"//llabel(ippnl),10+j,j=1,nppnl(ippnl))
     WRITE (UNIT=unit_abinit,FMT="(A)") TRIM(line)
@@ -546,7 +546,7 @@ PROGRAM gth_pp_convert
       line = " "
       WRITE (UNIT=line,FMT=fmtstr2)&
         (hppnl(i,j,ippnl),j=i,nppnl(ippnl))
-      WRITE (UNIT=line(70+5*i:),FMT="(3(A3,I2))")&
+      WRITE (UNIT=line(85+5*i:),FMT="(3(A3,I2))")&
         (" h"//llabel(ippnl),10*i+j,j=i,nppnl(ippnl))
       WRITE (UNIT=unit_abinit,FMT="(A)") TRIM(line)
     END DO
@@ -556,7 +556,7 @@ PROGRAM gth_pp_convert
         line = " "
         WRITE (UNIT=line,FMT=fmtstr2)&
           (kppnl(i,j,ippnl),j=i,nppnl(ippnl))
-        WRITE (UNIT=line(70+5*i:),FMT="(3(A3,I2))")&
+        WRITE (UNIT=line(85+5*i:),FMT="(3(A3,I2))")&
           (" k"//llabel(ippnl),10*i+j,j=i,nppnl(ippnl))
         WRITE (UNIT=unit_abinit,FMT="(A)") TRIM(line)
       END DO
