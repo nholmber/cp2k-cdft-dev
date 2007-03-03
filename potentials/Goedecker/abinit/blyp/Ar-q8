@@ -1,0 +1,9 @@
+Goedecker pseudopotential for Ar
+   18   8  070301 zatom,zion,pspdat
+10 18  1 0 2001 0  pspcod,pspxc,lmax,lloc,mmax,r2well
+     0.40000000    1    -7.10000000                                                 rloc nloc c1
+    2                                                                               nnonloc
+     0.32154985    2    16.80099893    -5.32871056                                  rs ns hs11 hs12
+                                        6.87933576                                             hs22
+     0.35544413    1     4.87719604                                                 rp np hp11
+                         0.05618134                                                       kp11

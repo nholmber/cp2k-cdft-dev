@@ -1,0 +1,11 @@
+Goedecker pseudopotential for K
+   19   9  070301 zatom,zion,pspdat
+10 18  1 2 2001 0  pspcod,pspxc,lmax,lloc,mmax,r2well
+     0.40000000    2    -2.88013377    -1.21143500                                  rloc nloc c1 c2
+    2                                                                               nnonloc
+     0.30634684    2    17.51002284    -5.61037883                                  rs ns hs11 hs12
+                                        7.24296793                                             hs22
+     0.32105825    2     6.90321066    -2.19925814                                  rp np hp11 hp12
+                                        2.60219733                                             hp22
+                         0.08354010    -0.05991894                                        kp11 kp12
+                                        0.07089704                                             kp22

@@ -1,0 +1,13 @@
+Goedecker pseudopotential for Mn
+   25  15  070301 zatom,zion,pspdat
+10 19  2 2 2001 0  pspcod,pspxc,lmax,lloc,mmax,r2well
+     0.36500000    2     6.08697327    -0.45767880                                  rloc nloc c1 c2
+    3                                                                               nnonloc
+     0.29664936    2     1.82641604     6.37301365                                  rs ns hs11 hs12
+                                       -8.22752524                                             hs22
+     0.24691092    2    -6.51555304     7.91051030                                  rp np hp11 hp12
+                                       -9.35984202                                             hp22
+                         0.16696062    -0.01974191                                        kp11 kp12
+                                        0.02335894                                             kp22
+     0.22235797    1   -11.61828411                                                 rd nd hd11
+                         0.00954509                                                       kd11

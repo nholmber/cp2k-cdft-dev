@@ -1,0 +1,7 @@
+Goedecker pseudopotential for F
+    9   7  070301 zatom,zion,pspdat
+10 19  1 2 2001 0  pspcod,pspxc,lmax,lloc,mmax,r2well
+     0.21448854    2   -21.61832219     3.20543202                                  rloc nloc c1 c2
+    2                                                                               nnonloc
+     0.19461036    1    23.75712327                                                 rs ns hs11
+     0.18640875    0                                                                rp np

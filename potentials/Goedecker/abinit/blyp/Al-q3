@@ -1,0 +1,9 @@
+Goedecker pseudopotential for Al
+   13   3  070301 zatom,zion,pspdat
+10 18  1 0 2001 0  pspcod,pspxc,lmax,lloc,mmax,r2well
+     0.45000000    1    -7.66683204                                                 rloc nloc c1
+    2                                                                               nnonloc
+     0.49773601    2     6.46303151    -1.58386957                                  rs ns hs11 hs12
+                                        2.04476682                                             hs22
+     0.56545785    1     1.81826715                                                 rp np hp11
+                         0.01317681                                                       kp11

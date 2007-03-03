@@ -1,0 +1,14 @@
+Goedecker pseudopotential for Te
+   52   6  070301 zatom,zion,pspdat
+10 19  2 0 2001 0  pspcod,pspxc,lmax,lloc,mmax,r2well
+     0.57500000    1     8.45045608                                                 rloc nloc c1
+    3                                                                               nnonloc
+     0.57841719    3     1.43632249     1.01620377    -0.52198665                   rs ns hs11 hs12 hs13
+                                       -2.16092478     1.34776374                              hs22 hs23
+                                                      -1.06975431                                   hs33
+     0.60416533    2     0.67900355     0.42745229                                  rp np hp11 hp12
+                                       -0.50576837                                             hp22
+                         0.26232651    -0.10115664                                        kp11 kp12
+                                        0.11969015                                             kp22
+     0.80633893    1     0.35636810                                                 rd nd hd11
+                         0.00968443                                                       kd11

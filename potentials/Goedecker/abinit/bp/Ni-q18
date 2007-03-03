@@ -1,0 +1,13 @@
+Goedecker pseudopotential for Ni
+   28  18  070301 zatom,zion,pspdat
+10 19  2 2 2001 0  pspcod,pspxc,lmax,lloc,mmax,r2well
+     0.35000000    2     1.98092026     0.67873534                                  rloc nloc c1 c2
+    3                                                                               nnonloc
+     0.26151729    2     0.64051423     9.97129765                                  rs ns hs11 hs12
+                                      -12.87288991                                             hs22
+     0.22299669    2   -11.03584887    12.32415881                                  rp np hp11 hp12
+                                      -14.58214136                                             hp22
+                         0.19014350     0.06109536                                        kp11 kp12
+                                       -0.07228901                                             kp22
+     0.21531615    1   -12.60737765                                                 rd nd hd11
+                         0.01349958                                                       kd11

@@ -1,0 +1,14 @@
+Goedecker pseudopotential for Se
+   34   6  070301 zatom,zion,pspdat
+10 19  2 0 2001 0  pspcod,pspxc,lmax,lloc,mmax,r2well
+     0.51000000    0                                                                rloc nloc
+    3                                                                               nnonloc
+     0.43378134    3     6.42760223    -0.11666018    -1.25092543                   rs ns hs11 hs12 hs13
+                                       -1.88402272     3.22987558                              hs22 hs23
+                                                      -2.56363426                                   hs33
+     0.47287696    2     2.19350862     0.46354749                                  rp np hp11 hp12
+                                       -0.54847679                                             hp22
+                         0.15174716    -0.08868825                                        kp11 kp12
+                                        0.10493735                                             kp22
+     0.61779280    1     0.45787624                                                 rd nd hd11
+                         0.00521157                                                       kd11

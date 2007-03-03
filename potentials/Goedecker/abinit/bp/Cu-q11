@@ -1,0 +1,14 @@
+Goedecker pseudopotential for Cu
+   29  11  070301 zatom,zion,pspdat
+10 19  2 0 2001 0  pspcod,pspxc,lmax,lloc,mmax,r2well
+     0.53000000    0                                                                rloc nloc
+    3                                                                               nnonloc
+     0.42826021    3     9.92997278    -6.73378071     2.06123370                   rs ns hs11 hs12 hs13
+                                       12.04587038    -5.32208253                              hs22 hs23
+                                                       4.22427205                                   hs33
+     0.56179993    2     2.52706517    -0.76026621                                  rp np hp11 hp12
+                                        0.89955911                                             hp22
+                         0.09134356    -0.11282255                                        kp11 kp12
+                                        0.13349344                                             kp22
+     0.26481830    1   -12.79028986                                                 rd nd hd11
+                         0.01047246                                                       kd11

@@ -1,0 +1,14 @@
+Goedecker pseudopotential for Ba
+   56   2  070301 zatom,zion,pspdat
+10 18  2 0 2001 0  pspcod,pspxc,lmax,lloc,mmax,r2well
+     1.20000000    0                                                                rloc nloc
+    3                                                                               nnonloc
+     1.03638675    3     1.42164527    -0.44534139    -0.07451309                   rs ns hs11 hs12 hs13
+                                        0.45373771     0.19239197                              hs22 hs23
+                                                      -0.15270639                                   hs33
+     1.25440147    2     0.73041014    -0.29211206                                  rp np hp11 hp12
+                                        0.34563165                                             hp22
+                         0.08616271    -0.10792940                                        kp11 kp12
+                                        0.12770379                                             kp22
+     0.87881774    1    -0.85472852                                                 rd nd hd11
+                         0.00643586                                                       kd11

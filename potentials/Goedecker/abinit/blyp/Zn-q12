@@ -1,0 +1,14 @@
+Goedecker pseudopotential for Zn
+   30  12  070301 zatom,zion,pspdat
+10 18  2 0 2001 0  pspcod,pspxc,lmax,lloc,mmax,r2well
+     0.51000000    0                                                                rloc nloc
+    3                                                                               nnonloc
+     0.39855016    3    11.95945993    -8.66522085     2.80807710                   rs ns hs11 hs12 hs13
+                                       15.75408976    -7.25042390                              hs22 hs23
+                                                       5.75484556                                   hs33
+     0.54556247    2     2.51050004    -0.44032483                                  rp np hp11 hp12
+                                        0.52099937                                             hp22
+                         0.09865412    -0.10272221                                        kp11 kp12
+                                        0.12154255                                             kp22
+     0.25168465    1   -14.32309848                                                 rd nd hd11
+                         0.01276596                                                       kd11

@@ -1,0 +1,14 @@
+Goedecker pseudopotential for Ge
+   32   4  070301 zatom,zion,pspdat
+10 18  2 0 2001 0  pspcod,pspxc,lmax,lloc,mmax,r2well
+     0.54000000    0                                                                rloc nloc
+    3                                                                               nnonloc
+     0.42737427    3     7.55651469    -0.07090242    -1.72596317                   rs ns hs11 hs12 hs13
+                                       -2.71574467     4.45641774                              hs22 hs23
+                                                      -3.53717192                                   hs33
+     0.57489897    2     0.80056266     0.71307408                                  rp np hp11 hp12
+                                       -0.84372063                                             hp22
+                         0.07276265    -0.02664803                                        kp11 kp12
+                                        0.03153038                                             kp22
+     0.78547258    1     0.21870790                                                 rd nd hd11
+                         0.00244567                                                       kd11
