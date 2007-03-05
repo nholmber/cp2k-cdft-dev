@@ -2,8 +2,18 @@
 #
   texfile=$(pwd)/../tex/GTH_POTENTIALS.tex
   cat <<*** >$texfile
-\documentclass{article}
+\documentclass[10pt,a4paper,twoside]{article}
 \usepackage{supertabular}
+\setlength{\paperheight}{297 true mm}
+\setlength{\paperwidth}{210 true mm}
+\setlength{\textheight}{230 true mm}
+\setlength{\textwidth}{155 true mm}
+\setlength{\evensidemargin}{-0.4 true mm}
+\setlength{\oddsidemargin}{4.6 true mm}
+\setlength{\topmargin}{-5.4 true mm}
+\setlength{\overfullrule}{2pt}
+\setlength{\parindent}{0pt}
+\setlength{\parskip}{0pt}
 \begin{document}
 ***
   for xcfun in blyp bp hcth120 hcth407 pade pbe olyp; do
