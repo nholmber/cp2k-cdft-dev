@@ -71,8 +71,10 @@
              Bi Po At Rn Fr Ra Ac Th Pa U Np Pu Am Cm Bk Cf\
              Es Fm Md No Lr; do
       for f in $(ls ${e}-q* 2>/dev/null); do
-        cat $f >>$potential_file
-        echo "#" >>$potential_file
+        if [[ -s $f ]]; then
+          cat $f >>$potential_file
+          echo "#" >>$potential_file
+        fi
       done
     done
     cd - >/dev/null
