@@ -1,27 +1,27 @@
  &ATOM
-  Z  =      6.000000000000000     
-  ZV =      4.000000000000000     
+  Z  =      7.000000000000000     
+  ZV =      5.000000000000000     
   XC = 0077   0.6666666667
   TYPE = NORMCONSERVING GOEDECKER
  &END
  &INFO
  ****************************************************************
 
- Atomic symbol                       : C
+ Atomic symbol                       : N
 
- Atomic number                       :   6
- Effective core charge               :   4
+ Atomic number                       :   7
+ Effective core charge               :   5
  Number of core states               :   1
  Number of valence states            :   9
- Electronic configuration (s,p,d,...):     2    2
+ Electronic configuration (s,p,d,...):     2    3
 
  Exchange-correlation functional     : HCTH120
 
        r(loc)         C(1)         C(2)
-     0.334763    -8.737996     1.355921
+     0.282897   -12.194890     1.839899
 
          r(0)     h(i,j)^0
-     0.302243     9.605620
+     0.255265    13.604203
 
  Please cite:
 
@@ -37,8 +37,8 @@
  &POTENTIAL
      GOEDECKER
             2                                    LMAX
-      0.334763268                                 RC
-   2    -8.737996342     1.355920588   #C  C1 C2
-      0.302242586  1   9.605620259 H(s) 11                 
-      0.291507757  0 H(p) no projector       
+      0.282897055                                 RC
+   2   -12.194889930     1.839899177   #C  C1 C2
+      0.255265401  1  13.604202730 H(s) 11                 
+      0.246184817  0 H(p) no projector       
  &END
