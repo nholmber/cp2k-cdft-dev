@@ -1112,7 +1112,7 @@ c      the periodic table
      +       'LA','CE','PR','ND','PM','SM','EU','GD','TB','DY',
      +                                'HO','ER','TM','YB','LU',
      +            'HF','TA','W ','RE','OS','IR','PT','AU','HG',
-     +            'TI','PB','BI','PO','AT','RN',
+     +            'TL','PB','BI','PO','AT','RN',
      +  'FR','RA',
      +       'AC','TH','PA','U ','NP','PU','AM','CM','BK','CF',
      +                               'ES','FM','MD','NO','LW'/
