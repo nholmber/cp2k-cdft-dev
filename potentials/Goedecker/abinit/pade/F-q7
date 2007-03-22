@@ -4,4 +4,5 @@ Goedecker pseudopotential for F
      0.21852465    2   -21.30736112     3.07286942                                  rloc nloc c1 c2
     2                                                                               nnonloc
      0.19556721    1    23.58494211                                                 rs ns hs11
-     0.17426832    0                                                                rp np
+     0.17426832    1     0.00000000                                                 rp np hp11
+                         0.01510589                                                       kp11

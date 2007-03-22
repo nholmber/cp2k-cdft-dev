@@ -4,4 +4,5 @@ Goedecker pseudopotential for O
      0.24455430    2   -16.66721480     2.48731132                                  rloc nloc c1 c2
     2                                                                               nnonloc
      0.22095592    1    18.33745811                                                 rs ns hs11
-     0.21133247    0                                                                rp np
+     0.21133247    1     0.00000000                                                 rp np hp11
+                         0.00755927                                                       kp11

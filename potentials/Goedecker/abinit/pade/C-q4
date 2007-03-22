@@ -4,4 +4,5 @@ Goedecker pseudopotential for C
      0.34883045    2    -8.51377110     1.22843203                                  rloc nloc c1 c2
     2                                                                               nnonloc
      0.30455321    1     9.52284179                                                 rs ns hs11
-     0.23267730    0                                                                rp np
+     0.23267730    1     0.00000000                                                 rp np hp11
+                         0.00410365                                                       kp11

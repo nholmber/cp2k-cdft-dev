@@ -4,4 +4,5 @@ Goedecker pseudopotential for B
      0.41899145    2    -5.85946171     0.90375643                                  rloc nloc c1 c2
     2                                                                               nnonloc
      0.37132046    1     6.29728018                                                 rs ns hs11
-     0.36456308    0                                                                rp np
+     0.36456308    1     0.00000000                                                 rp np hp11
+                         0.00085498                                                       kp11

@@ -57,7 +57,7 @@ PROGRAM gth_pp_convert
   REAL(KIND=wp), DIMENSION(3,3,max_ppnl)   :: hppnl,kppnl,xx_hppnl
   REAL(KIND=wp), DIMENSION(3,3,max_ppnl,2) :: cppnl
 
-  INTEGER, DIMENSION(max_ppnl) :: nppnl
+  INTEGER, DIMENSION(max_ppnl) :: nppnl,xx_nppnl
 
   INTEGER :: iargc
   LOGICAL :: frac_elec
@@ -88,6 +88,7 @@ PROGRAM gth_pp_convert
   cppnl(:,:,:,:) = 0.0_wp
 
   nppnl(:) = 0
+  xx_nppnl(:) = 0
 
   ! Check the number of arguments
 
@@ -268,8 +269,8 @@ PROGRAM gth_pp_convert
   READ (UNIT=unit_xx,FMT=*) xx_rloc
   READ (UNIT=unit_xx,FMT=*) nppl,(xx_cppl(i),i=1,nppl)
   DO ippnl=1,nppnl_max
-    READ (UNIT=unit_xx,FMT=*) xx_rppnl(ippnl),nppnl(ippnl),&
-      ((xx_hppnl(i,j,ippnl),j=i,nppnl(ippnl)),i=1,nppnl(ippnl))
+    READ (UNIT=unit_xx,FMT=*) xx_rppnl(ippnl),xx_nppnl(ippnl),&
+      ((xx_hppnl(i,j,ippnl),j=i,xx_nppnl(ippnl)),i=1,xx_nppnl(ippnl))
   END DO
 
   ! Read input file psp.par and compare to the XX data
@@ -305,6 +306,10 @@ PROGRAM gth_pp_convert
   DO ippnl=1,nppnl_max
     READ (UNIT=unit_psp_par,FMT=*) rppnl(ippnl),&
       ((cppnl(j,i,ippnl,1),j=1,i),i=1,3)
+    ! Find number of non-local projectors for l = ippnl + 1
+    DO i=1,3
+      IF (cppnl(i,i,ippnl,1) /= 0.0_wp) nppnl(ippnl) = i
+    END DO
     IF (ABS(rppnl(ippnl) - xx_rppnl(ippnl)) > eps_zero) THEN
       PRINT*,"ERROR: rppnl(",ippnl,") values do not match:",rppnl(ippnl),xx_rppnl(ippnl)
       STOP
@@ -435,7 +440,7 @@ PROGRAM gth_pp_convert
     WRITE (UNIT=unit_textab,FMT=fmtstr4)&
       elesym(iz)//" & ",izeff," & ",rloc,&
       (" & ",cppl(i),i=1,nppl),&
-      (" &",i=1,4-nppl),"\\"
+      (" & ",i=1,4-nppl),"\\"
   END IF
 
   fmtstr5 = "(T5,A1,T11,A2,F10.6, (A3,F13.6), (A3,13X),T87,A)"
@@ -509,10 +514,10 @@ PROGRAM gth_pp_convert
   WRITE (UNIT=unit_cp2k,FMT="(I5)") nppnl_max
   DO ippnl=1,nppnl_max
     WRITE (UNIT=unit_cp2k,FMT=fmtstr1)&
-      rppnl(ippnl),nppnl(ippnl),(hppnl(1,j,ippnl),j=1,nppnl(ippnl))
-    DO i=2,nppnl(ippnl)
+      rppnl(ippnl),xx_nppnl(ippnl),(hppnl(1,j,ippnl),j=1,xx_nppnl(ippnl))
+    DO i=2,xx_nppnl(ippnl)
       WRITE (UNIT=fmtstr2(3:4),FMT="(I2)") 15*i + 6
-      WRITE (UNIT=unit_cp2k,FMT=fmtstr2) (hppnl(i,j,ippnl),j=i,nppnl(ippnl))
+      WRITE (UNIT=unit_cp2k,FMT=fmtstr2) (hppnl(i,j,ippnl),j=i,xx_nppnl(ippnl))
     END DO
   END DO
 
@@ -583,7 +588,7 @@ PROGRAM gth_pp_convert
   WRITE (UNIT=unit_info,FMT=fmtstr3) rloc,(cppl(i),i=1,nppl)
 
   DO ippnl=1,nppnl_max
-    IF (nppnl(ippnl) > 0) THEN
+    IF (xx_nppnl(ippnl) > 0) THEN
       IF (ippnl == 1) THEN
         WRITE (UNIT=unit_info,FMT="(/,9X,A2,I1,A1,5X,A,I1)",ADVANCE="NO")&
           "r(",ippnl-1,")","h(i,j)^",ippnl-1
@@ -592,12 +597,12 @@ PROGRAM gth_pp_convert
           "r(",ippnl-1,")","h(i,j)^",ippnl-1
       END IF
       WRITE (UNIT=unit_info,FMT=fmtstr3)&
-        rppnl(ippnl),(hppnl(1,j,ippnl),j=1,nppnl(ippnl))
+        rppnl(ippnl),(hppnl(1,j,ippnl),j=1,xx_nppnl(ippnl))
       fmtstr2 = "(T  ,4F13. )"
       WRITE (UNIT=fmtstr2(11:11),FMT="(I1)") idigits
-      DO i=2,nppnl(ippnl)
+      DO i=2,xx_nppnl(ippnl)
         WRITE (UNIT=fmtstr2(3:4),FMT="(I2)") 13*i + 1
-        WRITE (UNIT=unit_info,FMT=fmtstr2) (hppnl(i,j,ippnl),j=i,nppnl(ippnl))
+        WRITE (UNIT=unit_info,FMT=fmtstr2) (hppnl(i,j,ippnl),j=i,xx_nppnl(ippnl))
       END DO
     END IF
   END DO
