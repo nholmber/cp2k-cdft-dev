@@ -55,7 +55,7 @@ O DZVP-GTH-LDA-q6 DZVP-GTH-PADE-q6 DZVP-GTH-q6
 #
 Ag SZV-GTH-LDA-q11-very-confined SZV-GTH-PADE-q11-very-confined SZV-GTH-q11-very-confined
   1
-  5  0  2  4  1  1  1        5s             5p             4d
+  5  0  2  5  1  1  1        5s             5p             4d
           2.46486383     0.03590417     0.00493595    -0.22559876
           1.31100278    -0.00894223    -0.00107367    -0.35505993
           0.60768504    -0.49964372    -0.14096849    -0.36256473
