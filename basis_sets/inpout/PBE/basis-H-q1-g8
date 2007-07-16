@@ -1,0 +1,28 @@
+&ATOM
+  NAME  H
+  PPOT
+  ZVAL  1
+  ZEFF  1
+  LMAX  0
+  OCCU
+           1          1
+  MIXI  0.2
+  CONV  1.0D-12
+  ITER  200
+  IPPN  100
+  XCFN  PBE
+&END
+
+&BASIS
+  GAUS
+  8 
+     12.920064838043      5.396899271357      2.184230763247      0.926368651166      0.406026555908      0.180079313835      0.081825867003      0.036050050392 
+ 1 2 3 4 5 6 7 8
+
+&END
+ &POTENTIAL
+     GOEDECKER
+ 0                                    LMAX
+       .200000000                                 RC
+   2    -4.178900438      .724463313   #C  C1 C2
+ &END
