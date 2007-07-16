@@ -1,0 +1,164 @@
+  
+        PROGRAM ATOM
+        ------------
+ reading input file...
+  LMAX = 0
+  OCCU( 1 , 0 ) =  2.
+  NALPHA( 0 ) =  3
+  GAUS( 1 , 0 ) =  10.932080729923001
+  GAUS( 2 , 0 ) =  0.863600991806
+  GAUS( 3 , 0 ) =  0.07426634760700002
+  ALPP( 1 , 0 ) =  1
+  ALPP( 2 , 0 ) =  2
+  ALPP( 3 , 0 ) =  3
+  Unknown keyword :          
+ Zval =  12.
+ finished reading input file.
+  
+  
+ Total energy calculation for atom MG
+  
+ Pseudopotential calculation with   2.00 valence electrons.
+ Goedecker pseudopotential
+ Effective core charge is   2.0 .
+  
+ The exchange correlation functional is PBE .
+  
+  
+   100 points
+
+r(1) =       0.000000007128
+r(n) =      27.592628200894
+     1         2.00000000000000   1.332E-15        -0.82139462052172
+     2         2.00000000000000   2.220E-15        -0.82290774976231
+     3         2.00000000000000   1.332E-15        -0.82290865918346
+     4         2.00000000000000   1.776E-15        -0.82290865919378
+     5         2.00000000000000   0.000E+00        -0.82290865919385
+   scf-loop:  5  steps        E= -0.8229086591938504
+ Final total energy is:   -0.8229086591938504
+   100 points
+
+r(1) =       0.000000007128
+r(n) =      27.592628200894
+     1         2.00000000000000   0.000E+00        -0.82290865919385
+     2         2.00000000000000   1.998E-15        -0.82290865919385
+   scf-loop:  2  steps        E= -0.8229086591938504
+ gradient test:
+  
+ energies:    etot = -0.8229086591938504
+              esum = -0.8229086591938501
+              ekin = 0.2614323555897899
+              epot = -1.3374096671041238
+              epadd= 0.
+              exc  = -0.3262531175303374
+              ecoul= 0.5793217698508211
+  
+ gradients:
+ l= 0   i= 1  analytical/numerical
+  
+  g_ekin =    -0.00001     -0.00001
+  g_epot =     0.00001      0.00001
+  g_epadd=     0.00000      0.00000
+  g_exc  =    -0.00000     -0.00000
+  g_ecoul=     0.00000      0.00000
+  g_const=     0.00000      0.00000
+  g_etot =    -0.00000     -0.00000
+  
+ gradients:
+ l= 0   i= 2  analytical/numerical
+  
+  g_ekin =     0.11798      0.11798
+  g_epot =    -0.23789     -0.23789
+  g_epadd=     0.00000      0.00000
+  g_exc  =    -0.05540     -0.05540
+  g_ecoul=     0.14123      0.14123
+  g_const=     0.03409      0.00000
+  g_etot =    -0.03409     -0.03409
+  
+ gradients:
+ l= 0   i= 3  analytical/numerical
+  
+  g_ekin =     2.14946      2.14946
+  g_epot =    -2.62238     -2.62238
+  g_epadd=     0.00000      0.00000
+  g_exc  =    -1.38859     -1.38859
+  g_ecoul=     2.25793      2.25793
+  g_const=    -0.39642      0.00000
+  g_etot =     0.39642      0.39642
+  
+  
+  
+  
+ Final results:
+  
+                Total energy=   -0.82290865919385
+  
+    Kohn-Sham EV:
+      l= 0      
+   -0.16907820481954
+    1.62970005979361
+   14.68888687410583
+  
+ Exponents for l= 0 :
+  
+   10.93208072992300    0.86360099180600    0.07426634760700
+  
+ Coefficients:
+  
+   -0.00029705006907   -0.16481541554070    1.05390573983619
+  
+ Gradients for l= 0 :
+  
+    0.00000000000874   -0.00000039306257    0.00000000502057
+  
+  
+  
+  
+ created file "atom.output".
+ created file "atom.s1".
+ created file "atom.sorbits".
+ created file "atom.chi_s".
+ created file "atom.chi_s".
+ created file "atom.chi_s".
+ created file "atom.chi_p".
+ created file "atom.pspot".
+
+
+ QUICKSTEP input: 
+  
+ &MG_2el_PBE
+ # Info: 
+ # Not optimized basis for MG
+ # ^^^
+ # Nuclear charge is  12.0 .
+ # Goedecker pseudopotential calculation with   2.00 valence electrons
+ # XC functional is PBE
+ # Kohn-Sham energy is   -0.822909 Hartree
+ # 
+ # 
+ # 
+ # 
+ &POTENTIAL
+      12       2           Z    Zeff
+    GOEDECKER    PBE
+       2                LMAX
+   0.576960169            RC
+       1  -2.690407438     #C  C1  
+   0.593923500   2   3.503210990  -0.716771672   0.925348250     RS  #PRJ  H(S)  11  12  22    
+   0.707157279   1   0.831158477     RP  #PRJ  H(P)  11    
+ &END
+  
+ &BASIS
+  MG_2el_PBE_(4S/3)_f 
+   EXP S   10.932080729923    0.863600991806    0.074266347607
+   CS1     -0.000297050069   -0.164815415541    1.053905739836
+   CS2     -0.008793343035    1.080537196003   -0.276878491342
+  MG_2el_PBE_[1P/3]_f 
+   EXP     10.932080729923    0.863600991806    0.074266347607
+   CP1     -0.008793343035    1.080537196003   -0.276878491342
+ &END
+  
+ rhotot = 1.999999999999998
+ created file "atom.densities".
+  
+ ATOM finished.

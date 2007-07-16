@@ -1,0 +1,225 @@
+  
+        PROGRAM ATOM
+        ------------
+ reading input file...
+  LMAX = 1
+  OCCU( 1 , 0 ) =  2.
+  OCCU( 1 , 1 ) =  3.
+  NALPHA( 0 ) =  3
+  GAUS( 1 , 0 ) =  1.311838026129
+  GAUS( 2 , 0 ) =  0.345440245416
+  GAUS( 3 , 0 ) =  0.10270301945600002
+  ALPP( 1 , 0 ) =  1
+  ALPP( 2 , 0 ) =  2
+  ALPP( 3 , 0 ) =  3
+  NALPHA( 1 ) =  3
+  GAUS( 1 , 1 ) =  1.311838026129
+  GAUS( 2 , 1 ) =  0.345440245416
+  GAUS( 3 , 1 ) =  0.10270301945600002
+  ALPP( 1 , 1 ) =  1
+  ALPP( 2 , 1 ) =  2
+  ALPP( 3 , 1 ) =  3
+  Unknown keyword :          
+ Zval =  33.
+ finished reading input file.
+  
+  
+ Total energy calculation for atom AS
+  
+ Pseudopotential calculation with   5.00 valence electrons.
+ Goedecker pseudopotential
+ Effective core charge is   5.0 .
+  
+ The exchange correlation functional is PBE .
+  
+  
+   100 points
+
+r(1) =       0.000000007128
+r(n) =      27.592628200894
+     1         5.00000000000001  -6.217E-15        -5.72266799420958
+     2         5.00000000000000  -4.441E-15        -6.01815616395751
+     3         5.00000000000000  -4.441E-15        -6.13456531077410
+     4         5.00000000000001  -7.994E-15        -6.13498333701620
+     5         5.00000000000000  -4.441E-15        -6.13498393455285
+     6         5.00000000000001  -5.329E-15        -6.13498394540871
+     7         5.00000000000000  -4.441E-15        -6.13498394540889
+   scf-loop:  7  steps        E= -6.134983945408891
+ Final total energy is:   -6.134983945408891
+   100 points
+
+r(1) =       0.000000007128
+r(n) =      27.592628200894
+     1         5.00000000000000  -4.441E-15        -6.13498394540889
+     2         5.00000000000001  -6.217E-15        -6.13498394540889
+   scf-loop:  2  steps        E= -6.134983945408887
+ gradient test:
+  
+ energies:    etot = -6.134983945408887
+              esum = -6.134983945408887
+              ekin = 2.1470160707278025
+              epot = -11.798921830025042
+              epadd= 0.
+              exc  = -1.4227323749902556
+              ecoul= 4.939654188878608
+  
+ gradients:
+ l= 0   i= 1  analytical/numerical
+  
+  g_ekin =     0.59334      0.59334
+  g_epot =    -1.60566     -1.60566
+  g_epadd=     0.00000      0.00000
+  g_exc  =    -0.20953     -0.20952
+  g_ecoul=     1.00863      1.00863
+  g_const=     0.22437      0.00000
+  g_etot =    -0.21322     -0.21322
+  
+ gradients:
+ l= 0   i= 2  analytical/numerical
+  
+  g_ekin =    -0.83106     -0.83106
+  g_epot =     5.42404      5.42404
+  g_epadd=     0.00000      0.00000
+  g_exc  =     0.77580      0.77581
+  g_ecoul=    -3.99536     -3.99536
+  g_const=    -1.30585      0.00000
+  g_etot =     1.37343      1.37344
+  
+ gradients:
+ l= 0   i= 3  analytical/numerical
+  
+  g_ekin =     2.64744      2.64744
+  g_epot =   -11.49641    -11.49641
+  g_epadd=     0.00000      0.00000
+  g_exc  =    -1.99336     -1.99336
+  g_ecoul=     9.15664      9.15664
+  g_const=     1.52631      0.00000
+  g_etot =    -1.68569     -1.68568
+  
+ gradients:
+ l= 1   i= 1  analytical/numerical
+  
+  g_ekin =     0.11214      0.11214
+  g_epot =    -0.32485     -0.32485
+  g_epadd=     0.00000      0.00000
+  g_exc  =    -0.05073     -0.05073
+  g_ecoul=     0.23315      0.23315
+  g_const=     0.01914      0.00000
+  g_etot =    -0.03029     -0.03029
+  
+ gradients:
+ l= 1   i= 2  analytical/numerical
+  
+  g_ekin =     0.89360      0.89360
+  g_epot =     2.12368      2.12368
+  g_epadd=     0.00000      0.00000
+  g_exc  =     0.33429      0.33429
+  g_ecoul=    -2.92068     -2.92068
+  g_const=    -0.49848      0.00000
+  g_etot =     0.43090      0.43090
+  
+ gradients:
+ l= 1   i= 3  analytical/numerical
+  
+  g_ekin =     9.03605      9.03605
+  g_epot =   -27.73039    -27.73039
+  g_epadd=     0.00000      0.00000
+  g_exc  =    -4.87071     -4.87071
+  g_ecoul=    22.29227     22.29227
+  g_const=     1.43215      0.00000
+  g_etot =    -1.27278     -1.27278
+  
+  
+  
+  
+ Final results:
+  
+                Total energy=   -6.13498394540889
+  
+    Kohn-Sham EV:
+      l= 0           l= 1      
+   -0.52679285275035   -0.18532905992641
+    0.23578724768422    0.32666833784127
+    3.77993923572335    2.68057471744282
+  
+ Exponents for l= 0 :
+  
+    1.31183802612900    0.34544024541600    0.10270301945600
+  
+ Coefficients:
+  
+   -0.38018261890487    0.79308221300167    0.47328867921706
+  
+ Gradients for l= 0 :
+  
+    0.01114746264610    0.06758462956604   -0.15937264169411
+  
+  
+ Exponents for l= 1 :
+  
+    1.31183802612900    0.34544024541600    0.10270301945600
+  
+ Coefficients:
+  
+   -0.06294103900459    0.55062450567117    0.57894331475527
+  
+ Gradients for l= 1 :
+  
+   -0.01114895464000   -0.06758648546874    0.15937517117483
+  
+  
+  
+  
+ created file "atom.output".
+ created file "atom.s1".
+ created file "atom.sorbits".
+ created file "atom.chi_s".
+ created file "atom.chi_s".
+ created file "atom.chi_s".
+ created file "atom.porbits".
+ created file "atom.chi_p".
+ created file "atom.pspot".
+
+
+ QUICKSTEP input: 
+  
+ &AS_5el_PBE
+ # Info: 
+ # Not optimized basis for AS
+ # ^^^
+ # Nuclear charge is  33.0 .
+ # Goedecker pseudopotential calculation with   5.00 valence electrons
+ # XC functional is PBE
+ # Kohn-Sham energy is   -6.134984 Hartree
+ # 
+ # 
+ # 
+ # 
+ &POTENTIAL
+      33       5           Z    Zeff
+    GOEDECKER    PBE
+       3                LMAX
+   0.520000000            RC
+       0     #C  
+   0.455549569   3   5.520673271   0.035122203  -1.061082389  -1.771193204   2.739702948  -2.174571800     RS  #PRJ  H(S)  11  12  13  22  23  33    
+   0.554605572   2   1.021791564   0.629208256  -0.744489248     RP  #PRJ  H(P)  11  12  22    
+   0.703688724   1   0.314795037     RD  #PRJ  H(D)  11    
+ &END
+  
+ &BASIS
+  AS_5el_PBE_(4SP/3)_f 
+   EXP S    1.311838026129    0.345440245416    0.102703019456
+   CS1     -0.380182618905    0.793082213002    0.473288679217
+   CS2     -0.499269000903    1.961407913325   -1.630483838010
+   EXP P    1.311838026129    0.345440245416    0.102703019456
+   CP1     -0.062941039005    0.550624505671    0.578943314755
+   CP2     -0.110449343948    1.296593783601   -1.202088591023
+  AS_5el_PBE_[1D/3]_f 
+   EXP      1.311838026129    0.345440245416    0.102703019456
+   CD1     -0.110449343948    1.296593783601   -1.202088591023
+ &END
+  
+ rhotot = 5.000000000000006
+ created file "atom.densities".
+  
+ ATOM finished.

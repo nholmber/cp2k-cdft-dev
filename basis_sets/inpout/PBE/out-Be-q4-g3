@@ -1,0 +1,173 @@
+  
+        PROGRAM ATOM
+        ------------
+ reading input file...
+  LMAX = 0
+  OCCU( 1 , 0 ) =  2.
+  OCCU( 2 , 0 ) =  2.
+  NALPHA( 0 ) =  3
+  GAUS( 1 , 0 ) =  9.740228865691996
+  GAUS( 2 , 0 ) =  1.944751914064
+  GAUS( 3 , 0 ) =  0.10803654636300003
+  ALPP( 1 , 0 ) =  1
+  ALPP( 2 , 0 ) =  2
+  ALPP( 3 , 0 ) =  3
+  Unknown keyword :3         
+  Unknown keyword :9.74      
+  Unknown keyword :1.94      
+  Unknown keyword :0.10      
+  Unknown keyword :1         
+  Unknown keyword :2         
+  Unknown keyword :3         
+  Unknown keyword :          
+ Zval =  4.
+ finished reading input file.
+  
+  
+ Total energy calculation for atom BE
+  
+ Pseudopotential calculation with   4.00 valence electrons.
+ Goedecker pseudopotential
+ Effective core charge is   4.0 .
+  
+ The exchange correlation functional is PBE .
+  
+  
+   100 points
+
+r(1) =       0.000000007128
+r(n) =      27.592628200894
+     1         3.99999999999999   7.105E-15       -14.35713551979892
+     2         3.99999999999999   5.773E-15       -14.46389215856392
+     3         3.99999999999999   7.105E-15       -14.48420681987528
+     4         3.99999999999999   6.217E-15       -14.48925693517816
+     5         4.00000000000000   4.441E-15       -14.48925693518742
+     6         4.00000000000000   3.997E-15       -14.48925693518744
+   scf-loop:  6  steps        E= -14.489256935187443
+ Final total energy is:   -14.489256935187443
+   100 points
+
+r(1) =       0.000000007128
+r(n) =      27.592628200894
+     1         4.00000000000000   3.997E-15       -14.48925693518744
+     2         3.99999999999999   8.438E-15       -14.48925693518745
+   scf-loop:  2  steps        E= -14.489256935187449
+ gradient test:
+  
+ energies:    etot = -14.489256935187449
+              esum = -14.48925693518744
+              ekin = 12.931597137532567
+              epot = -31.855416260034538
+              epadd= 0.
+              exc  = -2.6645291111594793
+              ecoul= 7.0990912984740095
+  
+ gradients:
+ l= 0   i= 1  analytical/numerical
+  
+  g_ekin =     0.50243      0.50243
+  g_epot =    -0.24469     -0.24469
+  g_epadd=     0.00000      0.00000
+  g_exc  =     0.00326      0.00326
+  g_ecoul=    -0.11191     -0.11191
+  g_const=    -0.14908      0.00000
+  g_etot =     0.14908      0.14908
+  
+ gradients:
+ l= 0   i= 2  analytical/numerical
+  
+  g_ekin =     4.02257      4.02257
+  g_epot =    -6.13830     -6.13830
+  g_epadd=     0.00000      0.00000
+  g_exc  =    -0.63008     -0.63008
+  g_ecoul=     2.02473      2.02473
+  g_const=     0.72107      0.00000
+  g_etot =    -0.72107     -0.72107
+  
+ gradients:
+ l= 0   i= 3  analytical/numerical
+  
+  g_ekin =     1.98930      1.98930
+  g_epot =    -8.02021     -8.02021
+  g_epadd=     0.00000      0.00000
+  g_exc  =    -0.92744     -0.92744
+  g_ecoul=     6.49771      6.49771
+  g_const=     0.46064      0.00000
+  g_etot =    -0.46064     -0.46065
+  
+  
+  
+  
+ Final results:
+  
+                Total energy=  -14.48925693518744
+  
+    Kohn-Sham EV:
+      l= 0      
+   -3.87457428662456
+   -0.19491308398660
+    7.86122273546384
+  
+ Exponents for l= 0 :
+  
+    9.74022886569200    1.94475191406400    0.10803654636300
+  
+ Coefficients:
+  
+    0.44970827340852    0.63997212290500    0.03597825274121
+   -0.09468394820531   -0.20970991376683    1.03421435316471
+  
+ Gradients for l= 0 :
+  
+    0.00000026992001   -0.00000015826472    0.00000152176421
+  
+  
+  
+  
+ created file "atom.output".
+ created file "atom.s1".
+ created file "atom.sorbits".
+ created file "atom.chi_s".
+ created file "atom.chi_s".
+ created file "atom.chi_s".
+ created file "atom.chi_p".
+ created file "atom.pspot".
+
+
+ QUICKSTEP input: 
+  
+ &BE_4el_PBE
+ # Info: 
+ # Not optimized basis for BE
+ # ^^^
+ # Nuclear charge is   4.0 .
+ # Goedecker pseudopotential calculation with   4.00 valence electrons
+ # XC functional is PBE
+ # Kohn-Sham energy is  -14.489257 Hartree
+ # 
+ # 
+ # 
+ # 
+ &POTENTIAL
+       4       4           Z    Zeff
+    GOEDECKER    PBE
+       0                LMAX
+   0.325000000            RC
+       4 -24.067466840  17.279021860  -3.339106289   0.165549125     #C  C1  C2  C3  C4  
+ &END
+  
+ &BASIS
+  BE_4el_PBE_(5S/3)_f 
+   EXP S    9.740228865692    1.944751914064    0.108036546363
+   CS1      0.449708273409    0.639972122905    0.035978252741
+   CS2     -0.094683948205   -0.209709913767    1.034214353165
+   CS3     -1.234471711289    1.197501075749   -0.215573710135
+  BE_4el_PBE_[2P/3]_f 
+   EXP      9.740228865692    1.944751914064    0.108036546363
+   CP1     -1.234471711289    1.197501075749   -0.215573710135
+ &END
+  
+ rhotot = 3.9999999999999916
+ created file "atom.densities".
+  
+ ATOM finished.
