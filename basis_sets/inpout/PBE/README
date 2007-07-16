@@ -1,4 +1,4 @@
-#
+# 
 # This directory contains inputs (basis-X-Y-Z) for the optbas program containing
 # optimised exponents for the atom and the corresponding PBE pseudopotential 
 # for each atom 3-9 exponents have been optimised. Even though some care has been
