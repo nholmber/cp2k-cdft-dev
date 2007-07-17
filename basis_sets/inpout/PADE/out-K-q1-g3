@@ -1,0 +1,164 @@
+  
+        PROGRAM ATOM
+        ------------
+ reading input file...
+  LMAX = 0
+  OCCU( 1 , 0 ) =  1.
+  NALPHA( 0 ) =  3
+  GAUS( 1 , 0 ) =  0.47912519428200007
+  GAUS( 2 , 0 ) =  0.4779249792190002
+  GAUS( 3 , 0 ) =  0.030954132693000003
+  ALPP( 1 , 0 ) =  1
+  ALPP( 2 , 0 ) =  2
+  ALPP( 3 , 0 ) =  3
+  Unknown keyword :          
+ Zval =  19.
+ finished reading input file.
+  
+  
+ Total energy calculation for atom K 
+  
+ Pseudopotential calculation with   1.00 valence electrons.
+ Goedecker pseudopotential
+ Effective core charge is   1.0 .
+  
+ The exchange correlation functional is LDA .
+  
+  
+   100 points
+
+r(1) =       0.000000007128
+r(n) =      27.592628200894
+     1         1.00000000000068  -6.772E-13        -0.15451499159641
+     2         1.00000000000071  -7.054E-13        -0.15460355575638
+     3         1.00000000000071  -7.143E-13        -0.15460372055594
+     4         1.00000000000075  -7.478E-13        -0.15460372055618
+   scf-loop:  4  steps        E= -0.15460372055617927
+ Final total energy is:   -0.15460372055617927
+   100 points
+
+r(1) =       0.000000007128
+r(n) =      27.592628200894
+     1         1.00000000000075  -7.478E-13        -0.15460372055618
+     2         1.00000000000103  -1.027E-12        -0.15460372055591
+   scf-loop:  2  steps        E= -0.1546037205559052
+ gradient test:
+  
+ energies:    etot = -0.1546037205559052
+              esum = -0.15460372055613078
+              ekin = 0.05858324772088075
+              epot = -0.21878713372712733
+              epadd= 0.
+              exc  = -0.08675253552428265
+              ecoul= 0.09235270097439843
+  
+ gradients:
+ l= 0   i= 1  analytical/numerical
+  
+  g_ekin =    -5.20526     -5.20526
+  g_epot =    10.19067     10.19067
+  g_epadd=     0.00000      0.00000
+  g_exc  =     3.91831      3.91831
+  g_ecoul=    -6.41259     -6.41260
+  g_const=    -2.49112      0.00000
+  g_etot =     2.49113      2.49112
+  
+ gradients:
+ l= 0   i= 2  analytical/numerical
+  
+  g_ekin =     5.28052      5.28052
+  g_epot =   -10.31849    -10.31849
+  g_epadd=     0.00000      0.00000
+  g_exc  =    -3.96250     -3.96249
+  g_ecoul=     6.48203      6.48204
+  g_const=     2.51843      0.00000
+  g_etot =    -2.51843     -2.51843
+  
+ gradients:
+ l= 0   i= 3  analytical/numerical
+  
+  g_ekin =     0.93253      0.93253
+  g_epot =    -0.54880     -0.54880
+  g_epadd=     0.00000      0.00000
+  g_exc  =    -0.72664     -0.72664
+  g_ecoul=     0.66827      0.66827
+  g_const=    -0.32508      0.00000
+  g_etot =     0.32536      0.32536
+  
+  
+  
+  
+ Final results:
+  
+                Total energy=   -0.15460372055618
+  
+    Kohn-Sham EV:
+      l= 0      
+   -0.08818906587509
+    0.80019490701893
+    1.82836940477087
+  
+ Exponents for l= 0 :
+  
+    0.47912519428200    0.47792497921900    0.03095413269300
+  
+ Coefficients:
+  
+   33.84817805152586  -34.04893767488481    1.06674703308795
+  
+ Gradients for l= 0 :
+  
+    0.00000150029384    0.00000139550889    0.00028084269502
+  
+  
+  
+  
+ created file "atom.output".
+ created file "atom.s1".
+ created file "atom.sorbits".
+ created file "atom.chi_s".
+ created file "atom.chi_s".
+ created file "atom.chi_s".
+ created file "atom.chi_p".
+ created file "atom.pspot".
+
+
+ QUICKSTEP input: 
+  
+ &K_1el_LDA
+ # Info: 
+ # Not optimized basis for K 
+ # ^^^
+ # Nuclear charge is  19.0 .
+ # Goedecker pseudopotential calculation with   1.00 valence electrons
+ # XC functional is LDA
+ # Kohn-Sham energy is   -0.154604 Hartree
+ # 
+ # 
+ # 
+ # 
+ &POTENTIAL
+      19       1           Z    Zeff
+    GOEDECKER    LDA
+       3                LMAX
+   0.950000000            RC
+       0     #C  
+   0.955363955   3   0.914612001  -0.111368001  -0.073247122   0.287550943   0.189123256  -0.300223861     RS  #PRJ  H(S)  11  12  13  22  23  33    
+   1.086410633   2   0.315461772  -0.028817265   0.068194095     RP  #PRJ  H(P)  11  12  22    
+   0.720606082   1  -1.529513607     RD  #PRJ  H(D)  11    
+ &END
+  
+ &BASIS
+  K_1el_LDA_(4S/3)_f 
+   EXP S    0.479125194282    0.477924979219    0.030954132693
+   CS1     33.848178051526  -34.048937674885    1.066747033088
+   CS2    419.025860933639 -419.940175924062    0.355570123629
+  K_1el_LDA_[1P/3]_f 
+   EXP      0.479125194282    0.477924979219    0.030954132693
+   CP1    419.025860933639 -419.940175924062    0.355570123629
+ &END
+  
+ rhotot = 1.000000000001027
+ created file "atom.densities".
+  
+ ATOM finished.

@@ -1,0 +1,206 @@
+  
+        PROGRAM ATOM
+        ------------
+ reading input file...
+  LMAX = 0
+  OCCU( 1 , 0 ) =  2.
+  OCCU( 2 , 0 ) =  1.
+  NALPHA( 0 ) =  5
+  GAUS( 1 , 0 ) =  7.261042013738001
+  GAUS( 2 , 0 ) =  2.1056556147759995
+  GAUS( 3 , 0 ) =  0.6439897231580002
+  GAUS( 4 , 0 ) =  0.07971463828200002
+  GAUS( 5 , 0 ) =  0.029402793004
+  ALPP( 1 , 0 ) =  1
+  ALPP( 2 , 0 ) =  2
+  ALPP( 3 , 0 ) =  3
+  ALPP( 4 , 0 ) =  4
+  ALPP( 5 , 0 ) =  5
+  Unknown keyword :5         
+  Unknown keyword :7.26      
+  Unknown keyword :2.10      
+  Unknown keyword :0.64      
+  Unknown keyword :0.07      
+  Unknown keyword :0.02      
+  Unknown keyword :1         
+  Unknown keyword :2         
+  Unknown keyword :3         
+  Unknown keyword :4         
+  Unknown keyword :5         
+  Unknown keyword :          
+ Zval =  3.
+ finished reading input file.
+  
+  
+ Total energy calculation for atom LI
+  
+ Pseudopotential calculation with   3.00 valence electrons.
+ Goedecker pseudopotential
+ Effective core charge is   3.0 .
+  
+ The exchange correlation functional is LDA .
+  
+  
+   100 points
+
+r(1) =       0.000000007128
+r(n) =      27.592628200894
+     1         3.00000000000000  -3.109E-15        -6.95731494961344
+     2         3.00000000000001  -1.288E-14        -7.22456975065350
+     3         3.00000000000001  -1.332E-14        -7.29100102691549
+     4         3.00000000000001  -6.217E-15        -7.29109486236035
+     5         3.00000000000001  -7.550E-15        -7.29109555752811
+     6         3.00000000000001  -5.329E-15        -7.29109555753953
+     7         3.00000000000001  -1.243E-14        -7.29109555753970
+   scf-loop:  7  steps        E= -7.2910955575397045
+ Final total energy is:   -7.2910955575397045
+   100 points
+
+r(1) =       0.000000007128
+r(n) =      27.592628200894
+     1         3.00000000000001  -1.243E-14        -7.29109555753970
+     2         3.00000000000001  -1.021E-14        -7.29109555753971
+   scf-loop:  2  steps        E= -7.29109555753971
+ gradient test:
+  
+ energies:    etot = -7.29109555753971
+              esum = -7.291095557539711
+              ekin = 6.491119859253362
+              epot = -16.100144939801886
+              epadd= 0.
+              exc  = -1.6231209216971856
+              ecoul= 3.9410504447059993
+  
+ gradients:
+ l= 0   i= 1  analytical/numerical
+  
+  g_ekin =     0.16483      0.16483
+  g_epot =    -0.01831     -0.01831
+  g_epadd=     0.00000      0.00000
+  g_exc  =     0.01881      0.01881
+  g_ecoul=    -0.09527     -0.09527
+  g_const=    -0.07006      0.00000
+  g_etot =     0.07006      0.07006
+  
+ gradients:
+ l= 0   i= 2  analytical/numerical
+  
+  g_ekin =     1.63379      1.63379
+  g_epot =    -1.77491     -1.77491
+  g_epadd=     0.00000      0.00000
+  g_exc  =    -0.17835     -0.17835
+  g_ecoul=     0.37767      0.37767
+  g_const=    -0.05820      0.00000
+  g_etot =     0.05820      0.05820
+  
+ gradients:
+ l= 0   i= 3  analytical/numerical
+  
+  g_ekin =     2.80945      2.80945
+  g_epot =    -5.54986     -5.54986
+  g_epadd=     0.00000      0.00000
+  g_exc  =    -0.76238     -0.76238
+  g_ecoul=     2.55844      2.55844
+  g_const=     0.94435      0.00000
+  g_etot =    -0.94435     -0.94435
+  
+ gradients:
+ l= 0   i= 4  analytical/numerical
+  
+  g_ekin =     0.05752      0.05752
+  g_epot =    -0.29618     -0.29618
+  g_epadd=     0.00000      0.00000
+  g_exc  =     0.03849      0.03849
+  g_ecoul=    -0.05342     -0.05342
+  g_const=     0.25359      0.00000
+  g_etot =    -0.25359     -0.25359
+  
+ gradients:
+ l= 0   i= 5  analytical/numerical
+  
+  g_ekin =     1.36976      1.36976
+  g_epot =    -7.81581     -7.81581
+  g_epadd=     0.00000      0.00000
+  g_exc  =    -1.25896     -1.25896
+  g_ecoul=     7.60732      7.60732
+  g_const=     0.09769      0.00000
+  g_etot =    -0.09769     -0.09769
+  
+  
+  
+  
+ Final results:
+  
+                Total energy=   -7.29109555753970
+  
+    Kohn-Sham EV:
+      l= 0      
+   -1.87695417211038
+   -0.10539889713867
+    0.06223008341059
+    1.68766934394880
+   11.95768667350772
+  
+ Exponents for l= 0 :
+  
+    7.26104201373800    2.10565561477600    0.64398972315800    0.07971463828200    0.02940279300400
+  
+ Coefficients:
+  
+    0.27986312393221    0.44774242159613    0.39129246330019    0.02824065430119   -0.01065420133098
+    0.05018408379808    0.10842043113306    0.14483595394906   -0.46430802550560   -0.62201546369652
+  
+ Gradients for l= 0 :
+  
+   -0.00000002298992    0.00000004580000   -0.00000004955325   -0.00000023247615    0.00000008781972
+  
+  
+  
+  
+ created file "atom.output".
+ created file "atom.s1".
+ created file "atom.sorbits".
+ created file "atom.chi_s".
+ created file "atom.chi_s".
+ created file "atom.chi_s".
+ created file "atom.chi_p".
+ created file "atom.pspot".
+
+
+ QUICKSTEP input: 
+  
+ &LI_3el_LDA
+ # Info: 
+ # Not optimized basis for LI
+ # ^^^
+ # Nuclear charge is   3.0 .
+ # Goedecker pseudopotential calculation with   3.00 valence electrons
+ # XC functional is LDA
+ # Kohn-Sham energy is   -7.291096 Hartree
+ # 
+ # 
+ # 
+ # 
+ &POTENTIAL
+       3       3           Z    Zeff
+    GOEDECKER    LDA
+       0                LMAX
+   0.400000000            RC
+       4 -14.034868490   9.553476269  -1.766488167   0.084369981     #C  C1  C2  C3  C4  
+ &END
+  
+ &BASIS
+  LI_3el_LDA_(5S/5)_f 
+   EXP S    7.261042013738    2.105655614776    0.643989723158    0.079714638282    0.029402793004
+   CS1      0.279863123932    0.447742421596    0.391292463300    0.028240654301   -0.010654201331
+   CS2      0.050184083798    0.108420431133    0.144835953949   -0.464308025506   -0.622015463697
+   CS3      0.058792540799    0.105169727125    0.234885185953   -1.953056644210    1.781611975038
+  LI_3el_LDA_[2P/5]_f 
+   EXP      7.261042013738    2.105655614776    0.643989723158    0.079714638282    0.029402793004
+   CP1      0.058792540799    0.105169727125    0.234885185953   -1.953056644210    1.781611975038
+ &END
+  
+ rhotot = 3.00000000000001
+ created file "atom.densities".
+  
+ ATOM finished.

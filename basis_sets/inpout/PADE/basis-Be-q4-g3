@@ -1,0 +1,31 @@
+&ATOM
+  NAME  Be
+  PPOT
+  ZVAL  4
+  ZEFF  4
+  LMAX  0
+  OCCU
+           2        2 2
+  MIXI  0.2
+  CONV  1.0D-12
+  ITER  200
+  IPPN  100
+  XCFN  PADE
+&END
+
+&BASIS
+  GAUS
+  3 
+      9.681507220358      1.925609759685      0.107076272696 
+ 1 2 3
+3 
+      9.681507220358      1.925609759685      0.107076272696 
+ 1 2 3
+
+&END
+ &POTENTIAL
+     GOEDECKER
+ 0                                    LMAX
+       .325000000                                 RC
+   4   -24.015040920    17.204014440    -3.326390182      .165419428   #C  C1 C2 C3 C4
+ &END

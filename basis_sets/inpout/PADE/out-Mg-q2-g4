@@ -1,0 +1,179 @@
+  
+        PROGRAM ATOM
+        ------------
+ reading input file...
+  LMAX = 0
+  OCCU( 1 , 0 ) =  2.
+  NALPHA( 0 ) =  4
+  GAUS( 1 , 0 ) =  3.032588642998
+  GAUS( 2 , 0 ) =  0.804235573781
+  GAUS( 3 , 0 ) =  0.11269856923100001
+  GAUS( 4 , 0 ) =  0.04137568314100001
+  ALPP( 1 , 0 ) =  1
+  ALPP( 2 , 0 ) =  2
+  ALPP( 3 , 0 ) =  3
+  ALPP( 4 , 0 ) =  4
+  Unknown keyword :          
+ Zval =  12.
+ finished reading input file.
+  
+  
+ Total energy calculation for atom MG
+  
+ Pseudopotential calculation with   2.00 valence electrons.
+ Goedecker pseudopotential
+ Effective core charge is   2.0 .
+  
+ The exchange correlation functional is LDA .
+  
+  
+   100 points
+
+r(1) =       0.000000007128
+r(n) =      27.592628200894
+     1         2.00000000000000  -2.665E-15        -0.81580749594854
+     2         2.00000000000000  -2.220E-15        -0.83267824507047
+     3         2.00000000000000  -3.553E-15        -0.83311114159892
+     4         2.00000000000000  -2.220E-15        -0.83311214569636
+     5         2.00000000000000  -2.665E-15        -0.83311214607070
+     6         2.00000000000000  -1.332E-15        -0.83311214607096
+   scf-loop:  6  steps        E= -0.8331121460709612
+ Final total energy is:   -0.8331121460709612
+   100 points
+
+r(1) =       0.000000007128
+r(n) =      27.592628200894
+     1         2.00000000000000  -1.332E-15        -0.83311214607096
+     2         2.00000000000000  -3.109E-15        -0.83311214607096
+   scf-loop:  2  steps        E= -0.8331121460709612
+ gradient test:
+  
+ energies:    etot = -0.8331121460709612
+              esum = -0.8331121460709611
+              ekin = 0.26484005136751
+              epot = -1.3588310749139239
+              epadd= 0.
+              exc  = -0.3158424391799154
+              ecoul= 0.5767213166553681
+  
+ gradients:
+ l= 0   i= 1  analytical/numerical
+  
+  g_ekin =     0.00011      0.00011
+  g_epot =     0.00006      0.00006
+  g_epadd=     0.00000      0.00000
+  g_exc  =     0.00005      0.00005
+  g_ecoul=    -0.00018     -0.00018
+  g_const=    -0.00004      0.00000
+  g_etot =     0.00004      0.00004
+  
+ gradients:
+ l= 0   i= 2  analytical/numerical
+  
+  g_ekin =     0.17908      0.17908
+  g_epot =    -0.35513     -0.35513
+  g_epadd=     0.00000      0.00000
+  g_exc  =    -0.07833     -0.07833
+  g_ecoul=     0.20326      0.20326
+  g_const=     0.05113      0.00000
+  g_etot =    -0.05113     -0.05113
+  
+ gradients:
+ l= 0   i= 3  analytical/numerical
+  
+  g_ekin =     0.11897      0.11897
+  g_epot =     1.63782      1.63782
+  g_epadd=     0.00000      0.00000
+  g_exc  =     0.27553      0.27553
+  g_ecoul=    -1.23121     -1.23121
+  g_const=    -0.80111      0.00000
+  g_etot =     0.80111      0.80111
+  
+ gradients:
+ l= 0   i= 4  analytical/numerical
+  
+  g_ekin =     2.58784      2.58784
+  g_epot =    -7.49931     -7.49931
+  g_epadd=     0.00000      0.00000
+  g_exc  =    -2.66497     -2.66497
+  g_ecoul=     6.38508      6.38508
+  g_const=     1.19136      0.00000
+  g_etot =    -1.19136     -1.19136
+  
+  
+  
+  
+ Final results:
+  
+                Total energy=   -0.83311214607096
+  
+    Kohn-Sham EV:
+      l= 0      
+   -0.17554624851171
+    0.08114617041338
+    1.65911462496539
+    4.74469348757893
+  
+ Exponents for l= 0 :
+  
+    3.03258864299800    0.80423557378100    0.11269856923100    0.04137568314100
+  
+ Coefficients:
+  
+   -0.00243007116030    0.20574507469064   -0.64554937022667   -0.47500772832204
+  
+ Gradients for l= 0 :
+  
+    0.00000000004839   -0.00000000060952    0.00000000262156    0.00000000582585
+  
+  
+  
+  
+ created file "atom.output".
+ created file "atom.s1".
+ created file "atom.sorbits".
+ created file "atom.chi_s".
+ created file "atom.chi_s".
+ created file "atom.chi_s".
+ created file "atom.chi_p".
+ created file "atom.pspot".
+
+
+ QUICKSTEP input: 
+  
+ &MG_2el_LDA
+ # Info: 
+ # Not optimized basis for MG
+ # ^^^
+ # Nuclear charge is  12.0 .
+ # Goedecker pseudopotential calculation with   2.00 valence electrons
+ # XC functional is LDA
+ # Kohn-Sham energy is   -0.833112 Hartree
+ # 
+ # 
+ # 
+ # 
+ &POTENTIAL
+      12       2           Z    Zeff
+    GOEDECKER    LDA
+       2                LMAX
+   0.651811694            RC
+       1  -2.864297464     #C  C1  
+   0.556478140   2   2.970957125  -0.515083901   1.329940914     RS  #PRJ  H(S)  11  12  22    
+   0.677568814   1   1.049881007     RP  #PRJ  H(P)  11    
+ &END
+  
+ &BASIS
+  MG_2el_LDA_(4S/4)_f 
+   EXP S    3.032588642998    0.804235573781    0.112698569231    0.041375683141
+   CS1     -0.002430071160    0.205745074691   -0.645549370227   -0.475007728322
+   CS2      0.012949886581   -0.269634909879    1.961087373432   -1.837885236645
+  MG_2el_LDA_[1P/4]_f 
+   EXP      3.032588642998    0.804235573781    0.112698569231    0.041375683141
+   CP1      0.012949886581   -0.269634909879    1.961087373432   -1.837885236645
+ &END
+  
+ rhotot = 2.000000000000003
+ created file "atom.densities".
+  
+ ATOM finished.

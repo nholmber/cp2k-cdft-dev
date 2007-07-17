@@ -1,0 +1,30 @@
+&ATOM
+  NAME  Li
+  PPOT
+  ZVAL  3
+  ZEFF  1
+  LMAX  0
+  OCCU
+           1          1
+  MIXI  0.2
+  CONV  1.0D-12
+  ITER  200
+  IPPN  100
+  XCFN  PADE
+&END
+
+&BASIS
+  GAUS
+  3 
+      2.793705433134      0.829873563538      0.045377233848 
+ 1 2 3
+
+&END
+ &POTENTIAL
+     GOEDECKER
+ 2                                    LMAX
+       .787553050                                 RC
+   2    -1.892612470      .286059679   #C  C1 C2
+       .666375178  1   1.858811106 H(s) 11                 
+      1.079305606  1   -.005895038 H(p) 11                 
+ &END

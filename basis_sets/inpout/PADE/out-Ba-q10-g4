@@ -1,0 +1,70 @@
+  
+        PROGRAM ATOM
+        ------------
+ reading input file...
+  LMAX = 1
+  OCCU( 1 , 0 ) =  2.
+  OCCU( 2 , 0 ) =  2.
+  OCCU( 1 , 1 ) =  6.
+  NALPHA( 0 ) =  4
+  GAUS( 1 , 0 ) =  0.8823203848079999
+  GAUS( 2 , 0 ) =  0.8789500023520002
+  GAUS( 3 , 0 ) =  0.23330314517700004
+  GAUS( 4 , 0 ) =  0.03930017828900001
+  ALPP( 1 , 0 ) =  1
+  ALPP( 2 , 0 ) =  2
+  ALPP( 3 , 0 ) =  3
+  ALPP( 4 , 0 ) =  4
+  NALPHA( 1 ) =  4
+  GAUS( 1 , 1 ) =  0.8823203848079999
+  GAUS( 2 , 1 ) =  0.8789500023520002
+  GAUS( 3 , 1 ) =  0.23330314517700004
+  GAUS( 4 , 1 ) =  0.03930017828900001
+  ALPP( 1 , 1 ) =  1
+  ALPP( 2 , 1 ) =  2
+  ALPP( 3 , 1 ) =  3
+  ALPP( 4 , 1 ) =  4
+  Unknown keyword :4         
+  Unknown keyword :0.88      
+  Unknown keyword :0.87      
+  Unknown keyword :0.23      
+  Unknown keyword :0.03      
+  Unknown keyword :1         
+  Unknown keyword :2         
+  Unknown keyword :3         
+  Unknown keyword :4         
+  Unknown keyword :          
+ Zval =  56.
+ finished reading input file.
+  
+  
+ Total energy calculation for atom BA
+  
+ Pseudopotential calculation with  10.00 valence electrons.
+ Goedecker pseudopotential
+ Effective core charge is  10.0 .
+  
+ The exchange correlation functional is LDA .
+  
+  
+   100 points
+
+r(1) =       0.000000007128
+r(n) =      27.592628200894
+ ndep = 1
+ Overlap matrix S
+    1.000000    0.999997    0.733548    0.256881
+    0.999997    1.000000    0.734773    0.257556
+    0.733548    0.734773    1.000000    0.588823
+    0.256881    0.257556    0.588823    1.000000
+ Eigenvalues and eigenvectors of the overlap matrix S
+    0.000001    0.706326   -0.274459    0.348622    0.551578
+    0.202275   -0.707883   -0.270937    0.347736    0.551883
+    0.934041    0.002283    0.817566   -0.209565    0.536342
+    2.863683   -0.000467   -0.427612   -0.844763    0.321751
+ alpha:  
+        0.8823203848        0.8789500024        0.2333031452        0.0393001783
+        0.8823203848        0.8789500024        0.2333031452        0.0393001783
+ galpha:  
+        0.0000000000        0.0000000000        0.0000000000        0.0000000000
+        0.0000000000        0.0000000000        0.0000000000        0.0000000000

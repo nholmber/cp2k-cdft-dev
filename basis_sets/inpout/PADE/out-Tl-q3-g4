@@ -1,0 +1,60 @@
+  
+        PROGRAM ATOM
+        ------------
+ reading input file...
+  LMAX = 1
+  OCCU( 1 , 0 ) =  2.
+  OCCU( 1 , 1 ) =  1.
+  NALPHA( 0 ) =  4
+  GAUS( 1 , 0 ) =  1.0063710821079999
+  GAUS( 2 , 0 ) =  1.0032041170509998
+  GAUS( 3 , 0 ) =  0.16555214054700004
+  GAUS( 4 , 0 ) =  0.050025843146000004
+  ALPP( 1 , 0 ) =  1
+  ALPP( 2 , 0 ) =  2
+  ALPP( 3 , 0 ) =  3
+  ALPP( 4 , 0 ) =  4
+  NALPHA( 1 ) =  4
+  GAUS( 1 , 1 ) =  1.0063710821079999
+  GAUS( 2 , 1 ) =  1.0032041170509998
+  GAUS( 3 , 1 ) =  0.16555214054700004
+  GAUS( 4 , 1 ) =  0.050025843146000004
+  ALPP( 1 , 1 ) =  1
+  ALPP( 2 , 1 ) =  2
+  ALPP( 3 , 1 ) =  3
+  ALPP( 4 , 1 ) =  4
+  Unknown keyword :          
+ Zval =  81.
+ finished reading input file.
+  
+  
+ Total energy calculation for atom TL
+  
+ Pseudopotential calculation with   3.00 valence electrons.
+ Goedecker pseudopotential
+ Effective core charge is   3.0 .
+  
+ The exchange correlation functional is LDA .
+  
+  
+   100 points
+
+r(1) =       0.000000007128
+r(n) =      27.592628200894
+ ndep = 1
+ Overlap matrix S
+    1.000000    0.999998    0.581388    0.276865
+    0.999998    1.000000    0.582374    0.277458
+    0.581388    0.582374    1.000000    0.775774
+    0.276865    0.277458    0.775774    1.000000
+ Eigenvalues and eigenvectors of the overlap matrix S
+    0.000001    0.706713    0.152038   -0.438669    0.533864
+    0.157270   -0.707498    0.149518   -0.437940    0.534134
+    1.067771    0.001658   -0.766219    0.373477    0.522896
+    2.774958   -0.000649    0.606166    0.690140    0.395309
+ alpha:  
+        1.0063710821        1.0032041171        0.1655521405        0.0500258431
+        1.0063710821        1.0032041171        0.1655521405        0.0500258431
+ galpha:  
+        0.0000000000        0.0000000000        0.0000000000        0.0000000000
+        0.0000000000        0.0000000000        0.0000000000        0.0000000000

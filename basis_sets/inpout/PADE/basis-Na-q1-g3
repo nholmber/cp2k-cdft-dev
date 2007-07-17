@@ -1,0 +1,30 @@
+&ATOM
+  NAME  Na
+  PPOT
+  ZVAL  11
+  ZEFF  1
+  LMAX  0
+  OCCU
+           1          1
+  MIXI  0.2
+  CONV  1.0D-12
+  ITER  200
+  IPPN  100
+  XCFN  PADE
+&END
+
+&BASIS
+  GAUS
+  3 
+      0.579190445799      0.064192577112      0.023915723752 
+ 1 2 3
+
+&END
+ &POTENTIAL
+     GOEDECKER
+ 2                                    LMAX
+       .885509379                                 RC
+   1    -1.238867131   #C  C1
+       .661103898  2   1.847271347   -.225409032    .582003617 H(s) 11 12 22           
+       .857119282  1    .471132576 H(p) 11                 
+ &END

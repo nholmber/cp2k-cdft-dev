@@ -1,0 +1,282 @@
+  
+        PROGRAM ATOM
+        ------------
+ reading input file...
+  LMAX = 2
+  OCCU( 1 , 0 ) =  2.
+  OCCU( 1 , 1 ) =  0.
+  OCCU( 1 , 2 ) =  1.
+  NALPHA( 0 ) =  3
+  GAUS( 1 , 0 ) =  0.792741485936
+  GAUS( 2 , 0 ) =  0.260079448613
+  GAUS( 3 , 0 ) =  0.0603510857
+  ALPP( 1 , 0 ) =  1
+  ALPP( 2 , 0 ) =  2
+  ALPP( 3 , 0 ) =  3
+  NALPHA( 1 ) =  3
+  GAUS( 1 , 1 ) =  0.792741485936
+  GAUS( 2 , 1 ) =  0.260079448613
+  GAUS( 3 , 1 ) =  0.0603510857
+  ALPP( 1 , 1 ) =  1
+  ALPP( 2 , 1 ) =  2
+  ALPP( 3 , 1 ) =  3
+  NALPHA( 2 ) =  3
+  GAUS( 1 , 2 ) =  0.792741485936
+  GAUS( 2 , 2 ) =  0.260079448613
+  GAUS( 3 , 2 ) =  0.0603510857
+  ALPP( 1 , 2 ) =  1
+  ALPP( 2 , 2 ) =  2
+  ALPP( 3 , 2 ) =  3
+  Unknown keyword :          
+ Zval =  39.
+ finished reading input file.
+  
+  
+ Total energy calculation for atom Y 
+  
+ Pseudopotential calculation with   3.00 valence electrons.
+ Goedecker pseudopotential
+ Effective core charge is   3.0 .
+  
+ The exchange correlation functional is LDA .
+  
+  
+   100 points
+
+r(1) =       0.000000007128
+r(n) =      27.592628200894
+     1         3.00000000000000  -3.553E-15        -1.36893018763425
+     2         3.00000000000000  -3.109E-15        -1.40208606765960
+     3         3.00000000000000  -2.665E-15        -1.40443109339537
+     4         3.00000000000001  -5.329E-15        -1.40445054190708
+     5         3.00000000000000  -3.997E-15        -1.40445054207516
+     6         3.00000000000000  -3.997E-15        -1.40445054207541
+   scf-loop:  6  steps        E= -1.4044505420754074
+ Final total energy is:   -1.4044505420754074
+   100 points
+
+r(1) =       0.000000007128
+r(n) =      27.592628200894
+     1         3.00000000000000  -3.997E-15        -1.40445054207541
+     2         3.00000000000000  -3.553E-15        -1.40445054207541
+   scf-loop:  2  steps        E= -1.4044505420754079
+ gradient test:
+  
+ energies:    etot = -1.4044505420754079
+              esum = -1.4044505420754079
+              ekin = 1.2049201765168112
+              epot = -3.288452727661422
+              epadd= 0.
+              exc  = -0.47920767046532964
+              ecoul= 1.1582896795345325
+  
+ gradients:
+ l= 0   i= 1  analytical/numerical
+  
+  g_ekin =     0.00302      0.00302
+  g_epot =    -0.01492     -0.01492
+  g_epadd=     0.00000      0.00000
+  g_exc  =    -0.00451     -0.00451
+  g_ecoul=     0.01599      0.01599
+  g_const=     0.00251      0.00000
+  g_etot =    -0.00043     -0.00043
+  
+ gradients:
+ l= 0   i= 2  analytical/numerical
+  
+  g_ekin =     0.83745      0.83745
+  g_epot =    -2.82228     -2.82228
+  g_epadd=     0.00000      0.00000
+  g_exc  =    -0.58922     -0.58922
+  g_ecoul=     2.12637      2.12637
+  g_const=     0.39667      0.00000
+  g_etot =    -0.44768     -0.44768
+  
+ gradients:
+ l= 0   i= 3  analytical/numerical
+  
+  g_ekin =    -0.04315     -0.04315
+  g_epot =     4.35445      4.35445
+  g_epadd=     0.00000      0.00000
+  g_exc  =    -0.20714     -0.20714
+  g_ecoul=    -2.17544     -2.17544
+  g_const=    -1.74240      0.00000
+  g_etot =     1.92872      1.92872
+  
+ gradients:
+ l= 1   i= 1  analytical/numerical
+  
+  g_ekin =     0.00000      0.00000
+  g_epot =     0.00000      0.00000
+  g_epadd=     0.00000      0.00000
+  g_exc  =     0.00000      0.00000
+  g_ecoul=     0.00000      0.00000
+  g_const=     0.00000      0.00000
+  g_etot =     0.00000      0.00000
+  
+ gradients:
+ l= 1   i= 2  analytical/numerical
+  
+  g_ekin =     0.00000      0.00000
+  g_epot =     0.00000      0.00000
+  g_epadd=     0.00000      0.00000
+  g_exc  =     0.00000      0.00000
+  g_ecoul=     0.00000      0.00000
+  g_const=     0.00000      0.00000
+  g_etot =     0.00000      0.00000
+  
+ gradients:
+ l= 1   i= 3  analytical/numerical
+  
+  g_ekin =     0.00000      0.00000
+  g_epot =     0.00000      0.00000
+  g_epadd=     0.00000      0.00000
+  g_exc  =     0.00000      0.00000
+  g_ecoul=     0.00000      0.00000
+  g_const=     0.00000      0.00000
+  g_etot =     0.00000      0.00000
+  
+ gradients:
+ l= 2   i= 1  analytical/numerical
+  
+  g_ekin =     0.12268      0.12268
+  g_epot =     0.08056      0.08056
+  g_epadd=     0.00000      0.00000
+  g_exc  =     0.07617      0.07617
+  g_ecoul=    -0.25469     -0.25469
+  g_const=    -0.02681      0.00000
+  g_etot =     0.02473      0.02473
+  
+ gradients:
+ l= 2   i= 2  analytical/numerical
+  
+  g_ekin =     2.74016      2.74016
+  g_epot =    -2.96132     -2.96132
+  g_epadd=     0.00000      0.00000
+  g_exc  =    -0.12698     -0.12698
+  g_ecoul=     0.40214      0.40214
+  g_const=    -0.00300      0.00000
+  g_etot =     0.05401      0.05401
+  
+ gradients:
+ l= 2   i= 3  analytical/numerical
+  
+  g_ekin =     2.93971      2.93971
+  g_epot =    -6.28317     -6.28317
+  g_epadd=     0.00000      0.00000
+  g_exc  =    -1.21864     -1.21864
+  g_ecoul=     4.01069      4.01069
+  g_const=     0.36508      0.00000
+  g_etot =    -0.55141     -0.55141
+  
+  
+  
+  
+ Final results:
+  
+                Total energy=   -1.40445054207541
+  
+    Kohn-Sham EV:
+      l= 0           l= 1           l= 2      
+   -0.14890003827003   -0.04285277021665   -0.09203214080055
+    0.67614828260651    0.54530933441469    0.12803005265388
+    1.31967840558085    1.66326136366090    1.41708752918958
+  
+ Exponents for l= 0 :
+  
+    0.79274148593600    0.26007944861300    0.06035108570000
+  
+ Coefficients:
+  
+   -0.02010842145437   -0.42324793513413    1.24708089666292
+  
+ Gradients for l= 0 :
+  
+    0.00208467369735   -0.05101377559887    0.18631892910364
+  
+  
+ Exponents for l= 1 :
+  
+    0.79274148593600    0.26007944861300    0.06035108570000
+  
+ Coefficients:
+  
+   -0.01236232358107   -0.11288582709579    1.05794916925584
+  
+ Gradients for l= 1 :
+  
+    0.00000000000000    0.00000000000000    0.00000000000000
+  
+  
+ Exponents for l= 2 :
+  
+    0.79274148593600    0.26007944861300    0.06035108570000
+  
+ Coefficients:
+  
+   -0.33008174968061   -0.55447379204042   -0.39424760373242
+  
+ Gradients for l= 2 :
+  
+   -0.00208456352711    0.05101481018980   -0.18632435534244
+  
+  
+  
+  
+ created file "atom.output".
+ created file "atom.s1".
+ created file "atom.sorbits".
+ created file "atom.chi_s".
+ created file "atom.chi_s".
+ created file "atom.chi_s".
+ created file "atom.porbits".
+ created file "atom.chi_p".
+ created file "atom.dorbits".
+ created file "atom.pspot".
+
+
+ QUICKSTEP input: 
+  
+ &Y_3el_LDA
+ # Info: 
+ # Not optimized basis for Y 
+ # ^^^
+ # Nuclear charge is  39.0 .
+ # Goedecker pseudopotential calculation with   3.00 valence electrons
+ # XC functional is LDA
+ # Kohn-Sham energy is   -1.404451 Hartree
+ # 
+ # 
+ # 
+ # 
+ &POTENTIAL
+      39       3           Z    Zeff
+    GOEDECKER    LDA
+       3                LMAX
+   0.900000000            RC
+       1  -0.343891323     #C  C1  
+   0.782456989   3   1.520654661  -0.574893395  -0.046114532   1.484368364   0.119067209  -0.189013335     RS  #PRJ  H(S)  11  12  13  22  23  33    
+   0.949863749   2   0.780949999  -0.155820641   0.368738938     RP  #PRJ  H(P)  11  12  22    
+   0.653850595   2  -1.256929789   0.033234151  -0.075367971     RD  #PRJ  H(D)  11  12  22    
+ &END
+  
+ &BASIS
+  Y_3el_LDA_(4SPD/3)_f 
+   EXP S    0.792741485936    0.260079448613    0.060351085700
+   CS1     -0.020108421454   -0.423247935134    1.247080896663
+   CS2     -0.573839104720    1.849763081881   -0.766355743965
+   EXP P    0.792741485936    0.260079448613    0.060351085700
+   CP1     -0.012362323581   -0.112885827096    1.057949169256
+   CP2     -0.199983974739    1.337782262432   -0.584249897303
+   EXP D    0.792741485936    0.260079448613    0.060351085700
+   CD1     -0.330081749681   -0.554473792040   -0.394247603732
+   CD2      0.235704718552    0.541460774179   -1.001694747862
+  Y_3el_LDA_[1F/3]_f 
+   EXP      0.792741485936    0.260079448613    0.060351085700
+   CF1      0.235704718552    0.541460774179   -1.001694747862
+ &END
+  
+ rhotot = 3.0000000000000036
+ created file "atom.densities".
+  
+ ATOM finished.

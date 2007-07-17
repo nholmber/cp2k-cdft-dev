@@ -1,0 +1,166 @@
+  
+        PROGRAM ATOM
+        ------------
+ reading input file...
+  LMAX = 0
+  OCCU( 1 , 0 ) =  2.
+  NALPHA( 0 ) =  3
+  GAUS( 1 , 0 ) =  0.8362507025730002
+  GAUS( 2 , 0 ) =  0.21411298090600003
+  GAUS( 3 , 0 ) =  0.06703139062399999
+  ALPP( 1 , 0 ) =  1
+  ALPP( 2 , 0 ) =  2
+  ALPP( 3 , 0 ) =  3
+  Unknown keyword :          
+ Zval =  30.
+ finished reading input file.
+  
+  
+ Total energy calculation for atom ZN
+  
+ Pseudopotential calculation with   2.00 valence electrons.
+ Goedecker pseudopotential
+ Effective core charge is   2.0 .
+  
+ The exchange correlation functional is LDA .
+  
+  
+   100 points
+
+r(1) =       0.000000007128
+r(n) =      27.592628200894
+     1         2.00000000000000   2.220E-16        -1.01261755358702
+     2         2.00000000000000   6.661E-16        -1.02960537859727
+     3         2.00000000000000   1.776E-15        -1.02986794043949
+     4         2.00000000000000   8.882E-16        -1.02986801007226
+     5         2.00000000000000  -1.332E-15        -1.02986801007952
+     6         2.00000000000000   2.220E-16        -1.02986801007952
+   scf-loop:  6  steps        E= -1.0298680100795163
+ Final total energy is:   -1.0298680100795163
+   100 points
+
+r(1) =       0.000000007128
+r(n) =      27.592628200894
+     1         2.00000000000000   2.220E-16        -1.02986801007952
+     2         2.00000000000000  -8.882E-16        -1.02986801007952
+   scf-loop:  2  steps        E= -1.029868010079517
+ gradient test:
+  
+ energies:    etot = -1.029868010079517
+              esum = -1.029868010079517
+              ekin = 0.4008158489560743
+              epot = -1.745863630391896
+              epadd= 0.
+              exc  = -0.371437830183974
+              ecoul= 0.6866176015402787
+  
+ gradients:
+ l= 0   i= 1  analytical/numerical
+  
+  g_ekin =     0.42018      0.42018
+  g_epot =    -0.79359     -0.79359
+  g_epadd=     0.00000      0.00000
+  g_exc  =    -0.15974     -0.15974
+  g_ecoul=     0.41510      0.41510
+  g_const=     0.11804      0.00000
+  g_etot =    -0.11805     -0.11805
+  
+ gradients:
+ l= 0   i= 2  analytical/numerical
+  
+  g_ekin =    -0.68508     -0.68508
+  g_epot =     2.55197      2.55197
+  g_epadd=     0.00000      0.00000
+  g_exc  =     0.55221      0.55221
+  g_ecoul=    -1.67640     -1.67640
+  g_const=    -0.74272      0.00000
+  g_etot =     0.74270      0.74270
+  
+ gradients:
+ l= 0   i= 3  analytical/numerical
+  
+  g_ekin =     2.92591      2.92591
+  g_epot =    -6.85275     -6.85275
+  g_epadd=     0.00000      0.00000
+  g_exc  =    -2.27073     -2.27073
+  g_ecoul=     5.29782      5.29782
+  g_const=     0.89981      0.00000
+  g_etot =    -0.89974     -0.89974
+  
+  
+  
+  
+ Final results:
+  
+                Total energy=   -1.02986801007952
+  
+    Kohn-Sham EV:
+      l= 0      
+   -0.22747690106442
+    0.21812610842043
+    2.42624301229085
+  
+ Exponents for l= 0 :
+  
+    0.83625070257300    0.21411298090600    0.06703139062400
+  
+ Coefficients:
+  
+   -0.31741627801723    0.59454002909445    0.62191280093547
+  
+ Gradients for l= 0 :
+  
+   -0.00000705905925   -0.00002405224960    0.00006557966837
+  
+  
+  
+  
+ created file "atom.output".
+ created file "atom.s1".
+ created file "atom.sorbits".
+ created file "atom.chi_s".
+ created file "atom.chi_s".
+ created file "atom.chi_s".
+ created file "atom.chi_p".
+ created file "atom.pspot".
+
+
+ QUICKSTEP input: 
+  
+ &ZN_2el_LDA
+ # Info: 
+ # Not optimized basis for ZN
+ # ^^^
+ # Nuclear charge is  30.0 .
+ # Goedecker pseudopotential calculation with   2.00 valence electrons
+ # XC functional is LDA
+ # Kohn-Sham energy is   -1.029868 Hartree
+ # 
+ # 
+ # 
+ # 
+ &POTENTIAL
+      30       2           Z    Zeff
+    GOEDECKER    LDA
+       3                LMAX
+   0.570000000            RC
+       0     #C  
+   0.640712185   3   2.088557243   0.084535702  -0.229657731  -0.218270243   0.592973712  -0.941316585     RS  #PRJ  H(S)  11  12  13  22  23  33    
+   0.967604830   2   0.163545996   0.095961498  -0.227086352     RP  #PRJ  H(P)  11  12  22    
+   1.330351999   1   0.010485782     RD  #PRJ  H(D)  11    
+ &END
+  
+ &BASIS
+  ZN_2el_LDA_(4S/3)_f 
+   EXP S    0.836250702573    0.214112980906    0.067031390624
+   CS1     -0.317416278017    0.594540029094    0.621912800935
+   CS2     -0.530036615386    2.083687676056   -1.645962740925
+  ZN_2el_LDA_[1P/3]_f 
+   EXP      0.836250702573    0.214112980906    0.067031390624
+   CP1     -0.530036615386    2.083687676056   -1.645962740925
+ &END
+  
+ rhotot = 2.000000000000001
+ created file "atom.densities".
+  
+ ATOM finished.
