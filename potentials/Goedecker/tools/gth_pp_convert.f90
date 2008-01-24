@@ -428,10 +428,10 @@ PROGRAM gth_pp_convert
   ! TeX tabular format (TEXTAB)
 
   IF (nppl == 0) THEN
-    WRITE (UNIT=unit_textab,FMT="(T2,A5,I3,A3,F10.6,4(A3,13X),T87,A))")&
+    WRITE (UNIT=unit_textab,FMT="(T2,A5,I3,A3,F10.6,4(A3,13X),T87,A)")&
       elesym(iz)//" & ",izeff," & ",rloc,(" & ",i=1,4),"\\"
   ELSE IF (nppl == 4) THEN
-    WRITE (UNIT=unit_textab,FMT="(T2,A5,I3,A3,F10.6,4(A3,F13.6),T87,A))")&
+    WRITE (UNIT=unit_textab,FMT="(T2,A5,I3,A3,F10.6,4(A3,F13.6),T87,A)")&
       elesym(iz)//" & ",izeff," & ",rloc,(" & ",cppl(i),i=1,4),"\\"
   ELSE
     fmtstr4 = "(T2,A5,I3,A3,F10.6, (A3,F13.6), (A3,13X),T87,A)"
