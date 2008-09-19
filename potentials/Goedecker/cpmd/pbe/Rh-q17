@@ -1,0 +1,52 @@
+ &ATOM
+  Z  =   45.
+  ZV =   17.
+  XC = 1134   0.6666666667
+  TYPE = NORMCONSERVING GOEDECKER
+ &END
+ &INFO
+ ****************************************************************
+
+ Atomic symbol                       : Rh
+
+ Atomic number                       :  45
+ Effective core charge               :  17
+ Number of core states               :   6
+ Number of valence states            :  13
+ Electronic configuration (s,p,d,...):     3    6    8
+
+ Exchange-correlation functional     : PBE
+
+       r(loc)         C(1)         C(2)
+     0.420000    26.206793    -4.937383
+
+         r(0)     h(i,j)^0
+     0.345446    -0.452482     3.892804
+                              -5.025589
+         r(1)     h(i,j)^1
+     0.378380    -0.941112    -0.005699
+                               0.006744
+         r(2)     h(i,j)^2
+     0.433747     1.574236    -3.012172
+                               3.415482
+
+ Please cite:
+
+ - S. Goedecker, M. Teter, and J. Hutter,
+   Phys. Rev. B 54, 1703 (1996)
+ - C. Hartwigsen, S. Goedecker, and J. Hutter,
+   Phys. Rev. B 58, 3641 (1998)
+ - M. Krack,
+   Theor. Chem. Acc. 114, 145 (2005)
+
+ ****************************************************************
+ &END
+ &POTENTIAL
+     GOEDECKER
+ 3                                    LMAX
+      0.420000000                                 RC
+   2    26.206793400    -4.937383353   #C  C1 C2
+      0.345446223  2  -0.452482316   3.892804383  -5.025588848 H(s) 11 12 22           
+      0.378380138  2  -0.941112423  -0.005699308   0.006743513 H(p) 11 12 22           
+      0.433747254  2   1.574236216  -3.012171697   3.415481664 H(d) 11 12 22           
+ &END
