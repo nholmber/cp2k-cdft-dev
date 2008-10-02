@@ -1,0 +1,52 @@
+ &ATOM
+  Z  =   46.
+  ZV =   18.
+  XC = 1134   0.6666666667
+  TYPE = NORMCONSERVING GOEDECKER
+ &END
+ &INFO
+ ****************************************************************
+
+ Atomic symbol                       : Pd
+
+ Atomic number                       :  46
+ Effective core charge               :  18
+ Number of core states               :   6
+ Number of valence states            :  13
+ Electronic configuration (s,p,d,...):     2    6   10
+
+ Exchange-correlation functional     : PBE
+
+       r(loc)         C(1)         C(2)
+     0.410000    26.783659    -4.931306
+
+         r(0)     h(i,j)^0
+     0.337971    -0.718729     4.384867
+                              -5.660838
+         r(1)     h(i,j)^1
+     0.415196    -0.046244    -1.077952
+                               1.275450
+         r(2)     h(i,j)^2
+     0.440270     1.639164    -3.093688
+                               3.507912
+
+ Please cite:
+
+ - S. Goedecker, M. Teter, and J. Hutter,
+   Phys. Rev. B 54, 1703 (1996)
+ - C. Hartwigsen, S. Goedecker, and J. Hutter,
+   Phys. Rev. B 58, 3641 (1998)
+ - M. Krack,
+   Theor. Chem. Acc. 114, 145 (2005)
+
+ ****************************************************************
+ &END
+ &POTENTIAL
+     GOEDECKER
+ 3                                    LMAX
+      0.410000000                                 RC
+   2    26.783659170    -4.931305943   #C  C1 C2
+      0.337970769  2  -0.718728752   4.384866568  -5.660838397 H(s) 11 12 22           
+      0.415195915  2  -0.046244485  -1.077952329   1.275450397 H(p) 11 12 22           
+      0.440270489  2   1.639163582  -3.093687955   3.507912412 H(d) 11 12 22           
+ &END

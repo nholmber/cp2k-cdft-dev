@@ -1,0 +1,52 @@
+ &ATOM
+  Z  =   44.
+  ZV =   16.
+  XC = 1312   0.6666666667
+  TYPE = NORMCONSERVING GOEDECKER
+ &END
+ &INFO
+ ****************************************************************
+
+ Atomic symbol                       : Ru
+
+ Atomic number                       :  44
+ Effective core charge               :  16
+ Number of core states               :   6
+ Number of valence states            :  13
+ Electronic configuration (s,p,d,...):     3    6    7
+
+ Exchange-correlation functional     : BLYP
+
+       r(loc)         C(1)         C(2)
+     0.430000    26.859741    -5.057495
+
+         r(0)     h(i,j)^0
+     0.338946    -0.504468     3.700951
+                              -4.777908
+         r(1)     h(i,j)^1
+     0.428235     0.150241    -1.325231
+                               1.568035
+         r(2)     h(i,j)^2
+     0.437528     1.529729    -2.963353
+                               3.360126
+
+ Please cite:
+
+ - S. Goedecker, M. Teter, and J. Hutter,
+   Phys. Rev. B 54, 1703 (1996)
+ - C. Hartwigsen, S. Goedecker, and J. Hutter,
+   Phys. Rev. B 58, 3641 (1998)
+ - M. Krack,
+   Theor. Chem. Acc. 114, 145 (2005)
+
+ ****************************************************************
+ &END
+ &POTENTIAL
+     GOEDECKER
+ 3                                    LMAX
+      0.430000000                                 RC
+   2    26.859741240    -5.057494552   #C  C1 C2
+      0.338946167  2  -0.504468334   3.700951329  -4.777907621 H(s) 11 12 22           
+      0.428234855  2   0.150241452  -1.325231260   1.568034772 H(p) 11 12 22           
+      0.437528319  2   1.529728810  -2.963352853   3.360126298 H(d) 11 12 22           
+ &END
