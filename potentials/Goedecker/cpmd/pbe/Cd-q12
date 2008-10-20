@@ -1,0 +1,53 @@
+ &ATOM
+  Z  =   48.
+  ZV =   12.
+  XC = 1134   0.6666666667
+  TYPE = NORMCONSERVING GOEDECKER
+ &END
+ &INFO
+ ****************************************************************
+
+ Atomic symbol                       : Cd
+
+ Atomic number                       :  48
+ Effective core charge               :  12
+ Number of core states               :   8
+ Number of valence states            :  13
+ Electronic configuration (s,p,d,...):     2    0   10
+
+ Exchange-correlation functional     : PBE
+
+       r(loc)         C(1)
+     0.550000     3.633959
+
+         r(0)     h(i,j)^0
+     0.491279    10.111382    -6.506954     1.804577
+                              11.335586    -4.659397
+                                            3.698282
+         r(1)     h(i,j)^1
+     0.599710     4.001487    -1.883936
+                               2.229103
+         r(2)     h(i,j)^2
+     0.377873    -6.137032     1.535711
+                              -1.741332
+
+ Please cite:
+
+ - S. Goedecker, M. Teter, and J. Hutter,
+   Phys. Rev. B 54, 1703 (1996)
+ - C. Hartwigsen, S. Goedecker, and J. Hutter,
+   Phys. Rev. B 58, 3641 (1998)
+ - M. Krack,
+   Theor. Chem. Acc. 114, 145 (2005)
+
+ ****************************************************************
+ &END
+ &POTENTIAL
+     GOEDECKER
+ 3                                    LMAX
+      0.550000000                                 RC
+   1     3.633958577   #C  C1
+      0.491279001  3  10.111382280  -6.506954091   1.804576792  11.335585980  -4.659397241   3.698281908 H(s) 11 12 13 22 23 33  
+      0.599709989  2   4.001487293  -1.883935782   2.229102879 H(p) 11 12 22           
+      0.377872562  2  -6.137032227   1.535710553  -1.741332089 H(d) 11 12 22           
+ &END

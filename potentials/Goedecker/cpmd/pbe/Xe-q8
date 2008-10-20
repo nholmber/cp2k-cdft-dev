@@ -1,0 +1,52 @@
+ &ATOM
+  Z  =   54.
+  ZV =   8.
+  XC = 1134   0.6666666667
+  TYPE = NORMCONSERVING GOEDECKER
+ &END
+ &INFO
+ ****************************************************************
+
+ Atomic symbol                       : Xe
+
+ Atomic number                       :  54
+ Effective core charge               :   8
+ Number of core states               :   9
+ Number of valence states            :  13
+ Electronic configuration (s,p,d,...):     2    6
+
+ Exchange-correlation functional     : PBE
+
+       r(loc)         C(1)
+     0.560000     8.036363
+
+         r(0)     h(i,j)^0
+     0.530494     2.232021     1.200358    -0.998498
+                              -3.173713     2.578111
+                                           -2.046312
+         r(1)     h(i,j)^1
+     0.581775     0.796982     0.591233
+                              -0.699556
+         r(2)     h(i,j)^2
+     0.685545     0.560189
+
+ Please cite:
+
+ - S. Goedecker, M. Teter, and J. Hutter,
+   Phys. Rev. B 54, 1703 (1996)
+ - C. Hartwigsen, S. Goedecker, and J. Hutter,
+   Phys. Rev. B 58, 3641 (1998)
+ - M. Krack,
+   Theor. Chem. Acc. 114, 145 (2005)
+
+ ****************************************************************
+ &END
+ &POTENTIAL
+     GOEDECKER
+ 3                                    LMAX
+      0.560000000                                 RC
+   1     8.036362618   #C  C1
+      0.530494202  3   2.232021484   1.200358362  -0.998498236  -3.173713483   2.578111359  -2.046312452 H(s) 11 12 13 22 23 33  
+      0.581774835  2   0.796981807   0.591232643  -0.699555897 H(p) 11 12 22           
+      0.685545086  1   0.560188998 H(d) 11                 
+ &END
