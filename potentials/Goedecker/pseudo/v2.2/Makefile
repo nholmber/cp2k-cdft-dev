@@ -16,13 +16,13 @@ TARGET		= $(PROGRAM)
 
 #
 #   for PGI Fortran Compiler
-F90C		= pgf90 -Mfree
-FC		= pgf90 -Mfixed
-FFLAGS		= -fast
+#F90C		= pgf90 -Mfree
+#FC		= pgf90 -Mfixed
+#FFLAGS		= -fast
 #   Linker/Loader
-LD		= pgf90
-LFLAGS		= $(FFLAGS)
-LIBS		= -llapack -lblas
+#LD		= pgf90
+#LFLAGS		= $(FFLAGS)
+#LIBS		= -llapack -lblas
 #
 #   for ibm/aix:
 #   Fortran Compiler
@@ -56,6 +56,14 @@ LIBS		= -llapack -lblas
 # Linker/Loader
 #LD              = f90
 #LDFLAGS         = -l /opt/ctl/craylibs/craylibs/libblas.a  
+
+FC = gfortran
+F90 = gfortran
+F90C = gfortran -ffree-form
+FFLAGS = -g -O3 -ffast-math -funroll-loops -ftree-vectorize -march=native 
+LIBS = /users/vondele/LAPACK/liblapack_gfortran_x86.a /users/vondele/LAPACK/libblas_gfortran_x86.a
+LD = gfortran
+LDFLAGS =
 
 
 # Shell Command
