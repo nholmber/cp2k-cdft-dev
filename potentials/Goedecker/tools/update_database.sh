@@ -5,12 +5,12 @@
 
 # Generate the CP2K and ABINIT files by converting the
 # psp.par files in the build/ tree
-  gth_pp_convert.sh
+  ./gth_pp_convert.sh
 
 # Copy all XX files to the database in ../cpmd
 # copy all CP2K files to the database in ../cp2k
 # copy all ABINIT files to the database in ../abinit
-  collect_files.sh
+  ./collect_files.sh
 
 # Remove files in the build/ tree
   echo Removing all the CP2K files in the build/ tree ...
@@ -25,7 +25,7 @@
   find ../build -name TEXTAB -exec rm {} \;
 
 # Create a new GTH_POTENTIALS database file for CP2K/Quickstep
-  create_cp2k_potential_file.sh
-  create_tex_file.sh
+  ./create_cp2k_potential_file.sh
+  ./create_tex_file.sh
 
   echo GTH PP database update finished
