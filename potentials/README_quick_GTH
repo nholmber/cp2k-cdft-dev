@@ -45,11 +45,21 @@ cp ../atom/atom.ae .
 vi psp.par 
 
 # l1so zeros the l=1 angular momentum channel (for consistency with other e.g. PADE pseudos)
-# improved initial guess can be obtained with -c20 -n600 [-l1so]
-~/potentials/Goedecker/pseudo/v2.2/pseudo.x -c10 -orth -plot -denbas -fullacc [-l1so] 
+# improved initial guess can be obtained with
+# ~/potentials/Goedecker/pseudo/v2.2/pseudo.x -orth -c1000 -n400
+# and iterate till convergence with
+~/potentials/Goedecker/pseudo/v2.2/pseudo.x -orth -c1000 -n400 -denbas -fullacc [-l1so]
 
 # visual inspection of the wavefunctions [press return]
 gnuplot pswf.gnu 
 
 # generate QS format pseudo
  ~/potentials/Goedecker/tools/cpmd_to_qs.x XX ../atom/atom.dat C-GTH-HCTH407-q4
+
+# to update the full database
+ cd potentials/Goedecker/tools
+ g95 -o gth_pp_convert.x gth_pp_convert.f90 (just needed the first time)
+ export G95_MINUS_ZERO=true
+ update_database.sh
+
+# cvs add and ci of all new files in build/ abinit/ cpmd/ cp2k/
