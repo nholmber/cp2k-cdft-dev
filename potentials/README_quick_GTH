@@ -46,7 +46,7 @@ vi psp.par
 # improved initial guess can be obtained with
 # ~/potentials/Goedecker/pseudo/v2.2/pseudo.x -orth -c1000 -n400
 # and iterate till convergence with
-~/potentials/Goedecker/pseudo/v2.2/pseudo.x -orth -c1000 -n400 -denbas -fullacc [-l1so]
+~/potentials/Goedecker/pseudo/v2.2/pseudo.x -orth -plot -c1000 -n400 -denbas -fullacc [-l1so]
 
 # visual inspection of the wavefunctions [press return]
 gnuplot pswf.gnu 
