@@ -12,11 +12,9 @@ cvs co potentials
 
 # build all needed executables (ifc seems to be buggy here for making executables)
 # makefiles might need modifications for your system
-cd ~/potentials/Goedecker/tools
-pgf90 cpmd_to_qs.f90 -o cpmd_to_qs.x
 
 cd ~/potentials/Goedecker/atom 
-pgf90 atom.f hcth.f90 -o atom.x 
+g95 -O2 atom.f hcth.f90 -o atom.x
 
 cd ~/potentials/Goedecker/pseudo/v2.2
 make
@@ -53,8 +51,6 @@ vi psp.par
 # visual inspection of the wavefunctions [press return]
 gnuplot pswf.gnu 
 
-# generate QS format pseudo
- ~/potentials/Goedecker/tools/cpmd_to_qs.x XX ../atom/atom.dat C-GTH-HCTH407-q4
 
 # to update the full database
  cd potentials/Goedecker/tools
