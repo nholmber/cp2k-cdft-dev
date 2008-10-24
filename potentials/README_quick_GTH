@@ -29,7 +29,8 @@ vi atom.dat ! replace BLYP with HCTH407
 
 # hoping for the best concerning convergence, GGA 
 # typically don't reach the convergence of 1E-11, but e.g. 1E-7 or worse
-~/potentials/Goedecker/atom/atom.x
+# you may try to reduce aa in atom.dat to 5.0 or 4.0 for a better convergence
+~/potentials/Goedecker/atom/atom.x C
 
 # pseudo
 cd ~/potentials/Goedecker/build/hcth407/C/psp_hcth407
@@ -42,15 +43,25 @@ cp ../atom/atom.ae .
 # replace BLYP with HCTH407
 vi psp.par 
 
-# l1so zeros the l=1 angular momentum channel (for consistency with other e.g. PADE pseudos)
+# -l1so zeros the l=1 angular momentum channel (for consistency with other e.g. PADE pseudos)
 # improved initial guess can be obtained with
-# ~/potentials/Goedecker/pseudo/v2.2/pseudo.x -orth -c1000 -n400
+~/potentials/Goedecker/pseudo/v2.2/pseudo.x -orth -c1000 -n400
 # and iterate till convergence with
-~/potentials/Goedecker/pseudo/v2.2/pseudo.x -orth -plot -c1000 -n400 -denbas -fullacc [-l1so]
+~/potentials/Goedecker/pseudo/v2.2/pseudo.x -orth -c1000 -n400 -denbas -fullacc [-l1so]
 
-# visual inspection of the wavefunctions [press return]
-gnuplot pswf.gnu 
+# you may force the start of a new amoeba cycle with
+touch NEXT
+# before 400 iterations are completed. Values in the range 400 to 800 are appropriate for the
+# -n option. The actual value for the -c option does not matter that much, since a pseudo.x run
+# can always be stopped softly with
+touch EXIT
 
+# For the final check of the obtained fit just add the -plot option to the command used for
+# the fit
+~/potentials/Goedecker/pseudo/v2.2/pseudo.x -orth -c1000 -n400 -denbas -fullacc [-l1so] -plot
+# A set of data files is generated which allows a visual inspection of all fitted wavefunctions.
+# Moreover, a command file pswf.gnu is created which can directly be loaded with
+gnuplot pswf.gnu
 
 # to update the full database
  cd potentials/Goedecker/tools
