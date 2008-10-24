@@ -65,8 +65,9 @@ gnuplot pswf.gnu
 
 # to update the full database
  cd potentials/Goedecker/tools
- g95 -o gth_pp_convert.x gth_pp_convert.f90 (just needed the first time)
+# (just needed the first time)
+ g95 -o gth_pp_convert.x gth_pp_convert.f90 
  export G95_MINUS_ZERO=true
- update_database.sh
+ ./update_database.sh
 
 # cvs add and ci of all new files in build/ abinit/ cpmd/ cp2k/
