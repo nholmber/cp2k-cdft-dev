@@ -1,0 +1,54 @@
+ &ATOM
+  Z  =     56.000000000000000     
+  ZV =    10.0000000000000000     
+  XC = 1134   0.6666666667
+  TYPE = NORMCONSERVING GOEDECKER
+ &END
+ &INFO
+ ****************************************************************
+
+ Atomic symbol                       : Ba
+
+ Atomic number                       :  56
+ Effective core charge               :  10
+ Number of core states               :   9
+ Number of valence states            :  13
+ Electronic configuration (s,p,d,...):     4    6
+
+ Exchange-correlation functional     : PBE
+
+       r(loc)         C(1)         C(2)
+     0.540000    24.526781    -2.468670
+
+         r(0)     h(i,j)^0
+     0.492068     0.095151     1.169318
+                              -1.509584
+         r(1)     h(i,j)^1
+     0.391489     0.800183    -1.616839
+                               1.913070
+         r(2)     h(i,j)^2
+     0.672173     0.388531
+         r(3)     h(i,j)^3
+     0.300498   -19.653795
+
+ Please cite:
+
+ - S. Goedecker, M. Teter, and J. Hutter,
+   Phys. Rev. B 54, 1703 (1996)
+ - C. Hartwigsen, S. Goedecker, and J. Hutter,
+   Phys. Rev. B 58, 3641 (1998)
+ - M. Krack,
+   Theor. Chem. Acc. 114, 145 (2005)
+
+ ****************************************************************
+ &END
+ &POTENTIAL
+     GOEDECKER
+           4                                    LMAX
+      0.540000000                                 RC
+   2    24.526780700    -2.468670009   #C  C1 C2
+      0.492068391  2   0.095150934   1.169318402  -1.509583566 H(s) 11 12 22           
+      0.391489297  2   0.800182610  -1.616839075   1.913069793 H(p) 11 12 22           
+      0.672173485  1   0.388530999 H(d) 11                 
+      0.300497732  1 -19.653794525 H(f) 11                 
+ &END
