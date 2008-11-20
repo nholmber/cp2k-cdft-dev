@@ -1,0 +1,52 @@
+ &ATOM
+  Z  =   82.
+  ZV =   4.
+  XC = 1134   0.6666666667
+  TYPE = NORMCONSERVING GOEDECKER
+ &END
+ &INFO
+ ****************************************************************
+
+ Atomic symbol                       : Pb
+
+ Atomic number                       :  82
+ Effective core charge               :   4
+ Number of core states               :  13
+ Number of valence states            :  11
+ Electronic configuration (s,p,d,...):     2    2
+
+ Exchange-correlation functional     : PBE
+
+       r(loc)         C(1)
+     0.617500     4.672384
+
+         r(0)     h(i,j)^0
+     0.622359     0.879918     2.081148    -1.431257
+                              -5.014690     3.695490
+                                           -2.933204
+         r(1)     h(i,j)^1
+     0.812002     0.153457     0.478898
+                              -0.566640
+         r(2)     h(i,j)^2
+     1.025015     0.301702
+
+ Please cite:
+
+ - S. Goedecker, M. Teter, and J. Hutter,
+   Phys. Rev. B 54, 1703 (1996)
+ - C. Hartwigsen, S. Goedecker, and J. Hutter,
+   Phys. Rev. B 58, 3641 (1998)
+ - M. Krack,
+   Theor. Chem. Acc. 114, 145 (2005)
+
+ ****************************************************************
+ &END
+ &POTENTIAL
+     GOEDECKER
+ 3                                    LMAX
+      0.617500000                                 RC
+   1     4.672384277   #C  C1
+      0.622358808  3   0.879917676   2.081147841  -1.431257101  -5.014690159   3.695489945  -2.933204210 H(s) 11 12 13 22 23 33  
+      0.812002022  2   0.153456788   0.478897850  -0.566639578 H(p) 11 12 22           
+      1.025015253  1   0.301702063 H(d) 11                 
+ &END
