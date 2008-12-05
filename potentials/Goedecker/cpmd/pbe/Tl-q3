@@ -1,0 +1,52 @@
+ &ATOM
+  Z  =   81.
+  ZV =   3.
+  XC = 1134   0.6666666667
+  TYPE = NORMCONSERVING GOEDECKER
+ &END
+ &INFO
+ ****************************************************************
+
+ Atomic symbol                       : Tl
+
+ Atomic number                       :  81
+ Effective core charge               :   3
+ Number of core states               :  13
+ Number of valence states            :  11
+ Electronic configuration (s,p,d,...):     2    1
+
+ Exchange-correlation functional     : PBE
+
+       r(loc)         C(1)
+     0.630000     1.452721
+
+         r(0)     h(i,j)^0
+     0.780768     0.379730     1.209128    -0.458568
+                              -2.306838     1.184017
+                                           -0.939785
+         r(1)     h(i,j)^1
+     0.897050    -0.024236     0.582356
+                              -0.689053
+         r(2)     h(i,j)^2
+     1.093792     0.227642
+
+ Please cite:
+
+ - S. Goedecker, M. Teter, and J. Hutter,
+   Phys. Rev. B 54, 1703 (1996)
+ - C. Hartwigsen, S. Goedecker, and J. Hutter,
+   Phys. Rev. B 58, 3641 (1998)
+ - M. Krack,
+   Theor. Chem. Acc. 114, 145 (2005)
+
+ ****************************************************************
+ &END
+ &POTENTIAL
+     GOEDECKER
+ 3                                    LMAX
+      0.630000000                                 RC
+   1     1.452720826   #C  C1
+      0.780767876  3   0.379730430   1.209128022  -0.458567916  -2.306838336   1.184017268  -0.939784572 H(s) 11 12 13 22 23 33  
+      0.897050091  2  -0.024235962   0.582355815  -0.689052693 H(p) 11 12 22           
+      1.093791943  1   0.227641518 H(d) 11                 
+ &END
