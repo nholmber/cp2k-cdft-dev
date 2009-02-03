@@ -1,0 +1,52 @@
+ &ATOM
+  Z  =   73.
+  ZV =   5.
+  XC = 1134   0.6666666667
+  TYPE = NORMCONSERVING GOEDECKER
+ &END
+ &INFO
+ ****************************************************************
+
+ Atomic symbol                       : Ta
+
+ Atomic number                       :  73
+ Effective core charge               :   5
+ Number of core states               :  12
+ Number of valence states            :  11
+ Electronic configuration (s,p,d,...):     2    0    3
+
+ Exchange-correlation functional     : PBE
+
+       r(loc)         C(1)
+     0.744000     9.839343
+
+         r(0)     h(i,j)^0
+     0.452397     6.123381    -2.168903
+                               2.800042
+         r(1)     h(i,j)^1
+     0.751644     1.649701    -2.514810
+                               2.975564
+         r(2)     h(i,j)^2
+     0.501142   -12.423345     9.014734
+                             -10.221747
+
+ Please cite:
+
+ - S. Goedecker, M. Teter, and J. Hutter,
+   Phys. Rev. B 54, 1703 (1996)
+ - C. Hartwigsen, S. Goedecker, and J. Hutter,
+   Phys. Rev. B 58, 3641 (1998)
+ - M. Krack,
+   Theor. Chem. Acc. 114, 145 (2005)
+
+ ****************************************************************
+ &END
+ &POTENTIAL
+     GOEDECKER
+ 3                                    LMAX
+      0.744000000                                 RC
+   1     9.839342572   #C  C1
+      0.452396664  2   6.123380660  -2.168903347   2.800042181 H(s) 11 12 22           
+      0.751643898  2   1.649701033  -2.514810383   2.975563773 H(p) 11 12 22           
+      0.501141809  2 -12.423344768   9.014733812 -10.221747345 H(d) 11 12 22           
+ &END
