@@ -3,6 +3,8 @@
 # pseudopotentials (GTH PP) in CPMD format, CP2K/Quickstep,
 # and ABINIT format
 
+  export G95_MINUS_ZERO=true
+
 # Generate the CP2K and ABINIT files by converting the
 # psp.par files in the build/ tree
   ./gth_pp_convert.sh
