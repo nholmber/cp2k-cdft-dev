@@ -840,8 +840,8 @@ c      for use in routine atomwr:
        dimension nc(15),lc(15),nomin(5),iray(2)
        character iray*8,name*3
 c
-       data nc /1,2,2,3,3,3,4,4,4,5,5,4,5,6,6/
-       data lc /0,0,1,0,1,2,0,1,2,0,1,3,2,0,1/
+       data nc /1,2,2,3,3,3,4,4,4,4,5,5,5,6,6/
+       data lc /0,0,1,0,1,2,0,1,2,3,0,1,2,0,1/
        data nomin /5*10/
        data spdf /'s','p','d','f','g'/
       data blank /' '/
