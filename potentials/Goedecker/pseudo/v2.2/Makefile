@@ -4,6 +4,13 @@ LIBRARY		= libout.a
 PROGRAM		= pseudo.x
 TARGET		= $(PROGRAM)
 
+F90C		= g95 -ffree-form
+FC		= g95 -ffixed-form
+FFLAGS		= 
+LD		= g95
+LFLAGS		= 
+LIBS		= -llapack-g95 -lblas
+
 #   Compilers, Programs and Flags
 #   for Intel Fortran Compiler (Pentium4)
 #F90C		= ifc -FR
