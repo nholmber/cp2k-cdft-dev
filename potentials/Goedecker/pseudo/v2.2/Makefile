@@ -4,12 +4,15 @@ LIBRARY		= libout.a
 PROGRAM		= pseudo.x
 TARGET		= $(PROGRAM)
 
-F90C		= g95 -ffree-form
-FC		= g95 -ffixed-form
+F90C		= ifort -free -O
+FC		= ifort -fixed -O
 FFLAGS		= 
-LD		= g95
-LFLAGS		= 
-LIBS		= -llapack-g95 -lblas
+LD		= ifort
+#LFLAGS		=  -L/opt/intel/mkl/10.0.2.018/lib/em64t -Wl,-rpath,/opt/intel/mkl/10.0.2.018/lib/em64t
+#LFLAGS		= -Vaxlib -L/opt/intel/mkl/10.0.2.018/lib/32 -Wl,-rpath,/opt/intel/mkl/10.0.2.018/lib/32
+#LIBS		= -lmkl_sequential -lmkl_lapack -lmkl_em64t
+LFLAGS          = -L/work/famo/libIntel101 -Wl,-rpath,/work/famo/libIntel101
+LIBS            = /work/famo/libIntel101/lapack_LINUX.a -lgoto -pthread
 
 #   Compilers, Programs and Flags
 #   for Intel Fortran Compiler (Pentium4)
@@ -64,13 +67,13 @@ LIBS		= -llapack-g95 -lblas
 #LD              = f90
 #LDFLAGS         = -l /opt/ctl/craylibs/craylibs/libblas.a  
 
-FC = gfortran
-F90 = gfortran
-F90C = gfortran -ffree-form
-FFLAGS = -g -O3 -ffast-math -funroll-loops -ftree-vectorize -march=native 
-LIBS = /users/vondele/LAPACK/liblapack_gfortran_x86.a /users/vondele/LAPACK/libblas_gfortran_x86.a
-LD = gfortran
-LDFLAGS =
+#FC = g95
+#F90 = g95
+#F90C = g95 -ffree-form
+#FFLAGS = -g -O3
+#LIBS = -Wl,-framework -Wl,vecLib -Wl,-Y -Wl,10
+#LD = g95
+#LDFLAGS =
 
 
 # Shell Command
@@ -126,18 +129,20 @@ OBJS	= pseudo.o \
 	xcfunction.o\
 	zbrent.o\
 	ggaenergy_15.o\
-	hcth.o
+	hcth.o\
+	xc_b97.o
 #        sub_lapack.o\
 #        sub_blas.o
 
 #-----------------------------------------
-
 $(PROGRAM):	$(OBJS)
 		@echo "Linking $(PROGRAM) ..."
 		$(LD) $(LFLAGS) -o $(PROGRAM) $(OBJS) $(LIBS)
 		@echo "done"
 
-hcth.o: hcth.f
+functionals.o : xc_b97.o
+
+%.o: %.f90
 	$(F90C) $(FFLAGS) -c $<
 
 .f.o:

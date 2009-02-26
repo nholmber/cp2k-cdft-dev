@@ -75,6 +75,7 @@ C     ==--------------------------------------------------------------==
       END
 C     ==================================================================
       SUBROUTINE GCXC(RHO,GRHO,SX,SC,V1X,V2X,V1C,V2C)
+      use xc_b97, only: eval_b97
 C     ==--------------------------------------------------------------==
 C     ==  GRADIENT CORRECTIONS FOR EXCHANGE AND CORRELATION           ==
 C     ==                                                              ==
@@ -133,6 +134,16 @@ C..Exchange
         V2C=0.0D0
       ELSEIF(MGCX.EQ.10) THEN
         CALL OPTX(RHO,GRHO,SX,V1X,V2X)
+      ELSEIF(MGCX.EQ.11) THEN
+        CALL eval_b97(1,RHO,GRHO,SX,V1X,V2X)
+        SC=0.0D0
+        V1C=0.0D0
+        V2C=0.0D0
+      ELSEIF(MGCX.EQ.12) THEN
+        CALL eval_b97(2,RHO,GRHO,SX,V1X,V2X)
+        SC=0.0D0
+        V1C=0.0D0
+        V2C=0.0D0
       ELSE
         SX=0.0D0
         V1X=0.0D0

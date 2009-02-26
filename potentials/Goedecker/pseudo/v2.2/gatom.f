@@ -5,6 +5,7 @@
      :     vh,xp,rmt,rmtg,ud,nint,ng,ngmx,psi,igrad,
      :     rr,rw,rd,ntime,itertot)
 
+      
 c optimized version of gatom with level 2 BLAS calls
       implicit real*8 (a-h,o-z)
       dimension occup(noccmx,lmx,nsmx),
@@ -301,10 +302,13 @@ c     for minimum number of scf iterations
             nscfo = nscf
             nscf = 0
          endif
+c     F90 intrinsic
+         call random_number(rmix)
+         rmix = delta + (.5d0-delta/2.d0)*rmix
 c     Intel (ifc)
 c        rmix = delta + (.5d0-delta/2.d0)*dble(rand(0.0d0))
 c     IBM/DEC/PGI
-        rmix = delta + (.5d0-delta/2.d0)*dble(rand())
+c        rmix = delta + (.5d0-delta/2.d0)*dble(rand())
 c     CRAY
 c        rmix = delta + (.5d0-delta/2.d0)*ranf()
 c     rmix = delta

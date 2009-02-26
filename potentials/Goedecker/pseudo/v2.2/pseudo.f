@@ -1,5 +1,4 @@
 C finds approximate pseudopotential parameters by simplex downhill method
-
       implicit real*8 (a-h,o-z)
       logical fullac, avgl1,avgl2,avgl3,plotwf,denbas,ignore,
      :     ortprj, litprj, energ,igrad,info
@@ -557,6 +556,17 @@ C..   functionals
                mgcx=10
                mgcc=2
                igrad=.true.
+           elseif(index(icorr,'B97').ne.0) then
+              mfxcx=0
+              mfxcc=0
+              IF (INDEX(icorr,'GRIMME').NE.0) THEN
+                mgcx=12
+              ELSE
+                PRINT *,"b97 needs exact exchange"
+                mgcx=11
+              END IF
+              mgcc=mgcx
+              igrad=.true.
             else
                write(6,*) 'Unknown functional(s): ',icorr
                stop
@@ -710,10 +720,13 @@ c
             enddo
             dh=0.2d0
             do i=1,nfit
+c     f90 intrinsic
+              call random_number(randNr)
+              pp(i+i*nfit)=pp(i)+dh*1.0d0*(randNr-.5d0)
 c     Intel (ifc)
 c              pp(i+i*nfit)=pp(i)+dh*1.0d0*(dble(rand(0.0d0))-.5d0)
 c     IBM/DEC/PGI
-              pp(i+i*nfit)=pp(i)+dh*1.0d0*(dble(rand())-.5d0)
+c              pp(i+i*nfit)=pp(i)+dh*1.0d0*(dble(rand())-.5d0)
 c     CRAY
 c             pp(i+i*nfit)=pp(i)+dh*1.0d0*(ranf()-.5d0)
             enddo
@@ -1017,7 +1030,7 @@ c
         write(3,*) ' Z  =  ',znuc
         write(3,*) ' ZV =  ' ,zion
         write(3,'(a,4i1,f15.10)')
-     :       '  XC = ',mfxcx,mfxcc,MODULO(mgcx,10),mgcc,salpha ! MODULO needed to preserve scheme
+     :       '  XC = ',mfxcx,mfxcc,MODULO(mgcx,10),MODULO(mgcc,10),salpha ! MODULO needed to preserve scheme
                                                                ! obviously pretty dangerous 
                                                                ! hcthxxx anyway is different from cpmd
         write(3,*) ' TYPE = NORMCONSERVING GOEDECKER'
