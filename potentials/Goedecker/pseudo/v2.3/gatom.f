@@ -297,6 +297,9 @@ c     for minimum number of scf iterations
             nscfo = nscf
             nscf = 0
          endif
+c     f90 intrinsic
+c         call random_number(rmix)
+c         rmix = delta + (.5d0-delta/2.d0)*rmix
 c     IBM/DEC
 c         rmix = delta + (.5d0-delta/2.d0)*dble(rand())
 c     CRAY

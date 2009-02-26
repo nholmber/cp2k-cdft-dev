@@ -15,7 +15,7 @@ c     amoeba also returns's
       implicit real*8 (a-h,o-z)
       logical   avgl1,avgl2,avgl3,ortprj,litprj,igrad,lnext,lexit
       PARAMETER (NMAX=50,ALPHA=1.0d0,BETA=0.5d0,GAMMA=2.0d0)
-      parameter ( trymax = 200 )
+      parameter ( trymax = 300 )
 
       DIMENSION P(ndim,ndim+1),Y(ndim+1),PR(NMAX),PRR(NMAX),PBAR(NMAX)
       dimension no(*),lo(*),so(*),ev(*),crcov(*),dcrcov(*),ddcrcov(*),

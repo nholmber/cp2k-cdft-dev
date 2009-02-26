@@ -571,6 +571,40 @@ C..   functionals
                mgcx=1
                mgcc=2
                igrad=.true.
+            elseif(index(icorr,'HCTH').ne.0) then
+               mfxcx=0
+               mfxcc=0
+               IF (INDEX(icorr,'93').NE.0) THEN
+                 mgcx=6
+               ELSE IF (INDEX(icorr,'120').NE.0) THEN
+                 mgcx=7
+               ELSE IF (INDEX(icorr,'147').NE.0) THEN
+                 mgcx=8
+               ELSE IF (INDEX(icorr,'407').NE.0) THEN
+                 mgcx=9
+               ELSE
+                 icorr='HCTH'
+                 mgcx=5
+               END IF
+               mgcc=mgcx
+               igrad=.true.
+            elseif(index(icorr,'OLYP').ne.0) then
+               mfxcx=0
+               mfxcc=3
+               mgcx=10
+               mgcc=2
+               igrad=.true.
+            elseif(index(icorr,'B97').ne.0) then
+               mfxcx=0
+               mfxcc=0
+               IF (INDEX(icorr,'GRIMME').NE.0) THEN
+                 mgcx=12
+               ELSE
+                 PRINT *,"b97 needs exact exchange"
+                 mgcx=11
+               END IF
+               mgcc=mgcx
+               igrad=.true.
             else
                write(6,*) 'Unknown functional(s): ',icorr
                stop
@@ -730,8 +764,11 @@ c
             enddo
             dh=0.1d-0
             do i=1,nfit
+c     F90 intrinsic
+               call random_number(rand_nr)
+               pp(i+i*nfit)=pp(i)+dh*1.0d0*(rand_nr-.5d0)
 c     IBM/DEC
-               pp(i+i*nfit)=pp(i)+dh*1.0d0*(dble(rand())-.5d0)
+c               pp(i+i*nfit)=pp(i)+dh*1.0d0*(dble(rand())-.5d0)
 c     CRAY
 c            pp(i+i*nfit)=pp(i)+dh*1.0d0*(ranf()-.5d0)
             enddo
@@ -1077,7 +1114,7 @@ c
 	write(3,*) ' Z  =  ',znuc 
 	write(3,*) ' ZV =  ' ,zion 
 	write(3,'(a,4i1,f15.10)')
-     :       '  XC = ',mfxcx,mfxcc,mgcx,mgcc,salpha 
+     :       '  XC = ',mfxcx,mfxcc,MODULO(mgcx,10),MODULO(mgcc,10),salpha ! MODULO needed to preserve scheme
 	write(3,*) ' TYPE = NORMCONSERVING GOEDECKER' 
 	write(3,*) '&END' 
 	write(3,*) '&INFO' 

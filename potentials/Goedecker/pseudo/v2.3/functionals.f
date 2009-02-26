@@ -12,11 +12,11 @@ C     ==                WIGNER                                        ==
 C     ==                HEDIN & LUNDQVIST                             ==
 C     ==                ORTIZ & BALLONE (PERDEW-ZUNGER FORMULA)       ==
 C     ==                ORTIZ & BALLONE (PERDEW-WANG FORMULA)         ==
+C     ==                HCTH                                          ==
 C     ==--------------------------------------------------------------==
-CMK   use xcfcn
       IMPLICIT REAL*8 (A-H,O-Z)
       INCLUDE 'func.inc'
-      PARAMETER (SMALL=1.D-24)
+      PARAMETER (SMALL=1.D-10)
       PARAMETER (PI34= 0.75D0 / 3.1415 92653 58979 3D+00
      +         ,THIRD=1.D0/3.D0)
 C     ==--------------------------------------------------------------==
@@ -75,20 +75,23 @@ C     ==--------------------------------------------------------------==
       END
 C     ==================================================================
       SUBROUTINE GCXC(RHO,GRHO,SX,SC,V1X,V2X,V1C,V2C)
+      use xc_b97, only: eval_b97
 C     ==--------------------------------------------------------------==
 C     ==  GRADIENT CORRECTIONS FOR EXCHANGE AND CORRELATION           ==
 C     ==                                                              ==
 C     ==  EXCHANGE  :  BECKE88                                        ==
 C     ==               GGAX                                           ==
 C     ==               PBEX                                           ==
+C     ==               revPBEX                                        ==
+C     ==               HCTH                                           ==
 C     ==  CORRELATION : PERDEW86                                      ==
 C     ==                LEE, YANG & PARR                              ==
 C     ==                GGAC                                          ==
 C     ==                PBEC                                          ==
+C     ==                HCTH                                          ==
 C     ==--------------------------------------------------------------==
-CMK   use xcfcn
       IMPLICIT REAL*8 (A-H,O-Z)
-      PARAMETER (SMALL=1.D-8)
+      PARAMETER (SMALL=1.D-10)
       INCLUDE 'func.inc'
 C     ==--------------------------------------------------------------==
 C..Exchange
@@ -102,6 +105,45 @@ C..Exchange
         CALL GGAX(RHO,GRHO,SX,V1X,V2X)
       ELSEIF(MGCX.EQ.3) THEN
         CALL PBEX(RHO,GRHO,SX,V1X,V2X)
+      ELSEIF(MGCX.EQ.4) THEN
+        CALL revPBEX(RHO,GRHO,SX,V1X,V2X)
+      ELSEIF(MGCX.EQ.5.AND.MGCC.EQ.5) THEN
+        CALL HCTH120(RHO,GRHO,SX,V1X,V2X) ! x&c
+        SC=0.0D0
+        V1C=0.0D0 
+        V2C=0.0D0
+      ELSEIF(MGCX.EQ.6.AND.MGCC.EQ.6) THEN
+        CALL HCTH(93,RHO,SQRT(GRHO),SX,V1X,V2X)
+        SC=0.0D0
+        V1C=0.0D0
+        V2C=0.0D0
+      ELSEIF(MGCX.EQ.7.AND.MGCC.EQ.7) THEN
+        CALL HCTH(120,RHO,SQRT(GRHO),SX,V1X,V2X)
+        SC=0.0D0
+        V1C=0.0D0
+        V2C=0.0D0
+      ELSEIF(MGCX.EQ.8.AND.MGCC.EQ.8) THEN
+        CALL HCTH(147,RHO,SQRT(GRHO),SX,V1X,V2X)
+        SC=0.0D0
+        V1C=0.0D0
+        V2C=0.0D0
+      ELSEIF(MGCX.EQ.9.AND.MGCC.EQ.9) THEN
+        CALL HCTH(407,RHO,SQRT(GRHO),SX,V1X,V2X)
+        SC=0.0D0
+        V1C=0.0D0
+        V2C=0.0D0
+      ELSEIF(MGCX.EQ.10) THEN
+        CALL OPTX(RHO,GRHO,SX,V1X,V2X)
+      ELSEIF(MGCX.EQ.11) THEN
+        CALL eval_b97(1,RHO,GRHO,SX,V1X,V2X)
+        SC=0.0D0
+        V1C=0.0D0
+        V2C=0.0D0
+      ELSEIF(MGCX.EQ.12) THEN
+        CALL eval_b97(2,RHO,GRHO,SX,V1X,V2X)
+        SC=0.0D0
+        V1C=0.0D0
+        V2C=0.0D0
       ELSE
         SX=0.0D0
         V1X=0.0D0
@@ -132,7 +174,7 @@ C     ==================================================================
       SUBROUTINE SLATERX(RHO,EX,VX,ALPHA)
 C     ==--------------------------------------------------------------==
       IMPLICIT REAL*8 (A-H,O-Z)
-      PARAMETER (SMALL=1.D-24)
+      PARAMETER (SMALL=1.D-10)
       PARAMETER (F1 = -1.10783814957303361D0)
       PARAMETER (THIRD=1.D0/3.D0,F43=4.D0/3.D0)
 C     ==--------------------------------------------------------------==
@@ -145,6 +187,43 @@ C     ==--------------------------------------------------------------==
         VX = F43*F1*ALPHA*RS
       ENDIF
 C     ==--------------------------------------------------------------==
+      RETURN
+      END
+C     ==================================================================
+      SUBROUTINE OPTX(rho,grho,sx,v1x,v2x)
+C     OPTX, Handy et al. JCP 116, p. 5411 (2002) and refs. therein
+C     Present release: Tsukuba, 20/6/2002
+c--------------------------------------------------------------------------
+c     rhoa = rhob = 0.5 * rho in LDA implementation
+c     grho is the SQUARE of the gradient of rho! --> gr=sqrt(grho)
+c     sx  : total exchange correlation energy at point r
+c     v1x : d(sx)/drho
+c     v2x : 1/gr*d(sx)/d(gr)
+c--------------------------------------------------------------------------
+      IMPLICIT REAL*8 (a-h,o-z)
+      PARAMETER(SMALL=1.D-20,SMAL2=1.D-08)
+C.......coefficients and exponents....................
+      PARAMETER(o43=4.0d0/3.0d0,two13=1.259921049894873D0
+     .         ,two53=3.174802103936399D0,gam=0.006D0
+     .         ,a1cx=0.9784571170284421D0,a2=1.43169D0)
+C.......OPTX in compact form..........................
+      IF(RHO.LE.SMALL) THEN
+       sx=0.0D0
+       v1x=0.0D0
+       v2x=0.0D0
+      ELSE
+       gr=DMAX1(grho,SMAL2)
+       rho43=rho**o43
+       xa=two13*DSQRT(gr)/rho43
+       gamx2=gam*xa*xa
+       uden=1.d+00/(1.d+00+gamx2)
+       uu=a2*gamx2*gamx2*uden*uden
+       uden=rho43*uu*uden
+       sx=-rho43*(a1cx+uu)/two13
+       v1x=o43*(sx+two53*uden)/rho
+       v2x=-two53*uden/gr
+      ENDIF
+C
       RETURN
       END
 C     ==================================================================
@@ -433,10 +512,31 @@ C     ==--------------------------------------------------------------==
 C     ==================================================================
       SUBROUTINE PBEX(RHO,GRHO,SX,V1X,V2X)
 C     ==--------------------------------------------------------------==
-C J.P.PERDEW ET AL. PRL XX XXXX (1996)
+C J.P.PERDEW ET AL. PRL 77 3865 (1996)
       IMPLICIT REAL*8 (A-H,O-Z)
       PARAMETER(US=0.161620459673995492D0,AX=-0.738558766382022406D0,
      *          UM=0.2195149727645171D0,UK=0.8040D0,UL=UM/UK)
+C     ==--------------------------------------------------------------==
+      AA    = GRHO
+      RR    = RHO**(-4./3.)
+      EX    = AX/RR
+      S2    = AA*RR*RR*US*US
+      PO    = 1.D0/(1.D0 + UL*S2)
+      FX    = UK-UK*PO
+      SX    = EX*FX
+      DFX   = 2.D0*UK*UL*PO*PO
+      V1X   = 1.33333333333333D0*AX*RHO**0.333333333333D0*(FX-S2*DFX)
+      V2X   = EX*DFX*(US*RR)**2
+C     ==--------------------------------------------------------------==
+      RETURN
+      END
+C     ==================================================================
+      SUBROUTINE revPBEX(RHO,GRHO,SX,V1X,V2X)
+C     ==--------------------------------------------------------------==
+C Y. ZHANG ET AL. PRL 80 890 (1998)
+      IMPLICIT REAL*8 (A-H,O-Z)
+      PARAMETER(US=0.161620459673995492D0,AX=-0.738558766382022406D0,
+     *          UM=0.2195149727645171D0,UK=1.2450D0,UL=UM/UK)
 C     ==--------------------------------------------------------------==
       AA    = GRHO
       RR    = RHO**(-4./3.)
@@ -508,7 +608,7 @@ C     ==--------------------------------------------------------------==
 C     ==================================================================
       SUBROUTINE GGAC(RHO,GRHO,SC,V1C,V2C)
 C     ==--------------------------------------------------------------==
-C PERDEW & WANG GGA CORRELATION PART
+C PERDEW & WANG GGA CORRELATION PART      
       IMPLICIT REAL*8 (A-H,O-Z)
       PARAMETER(AL=0.09,PA=0.023266D0,PB=7.389D-6,PC=8.723D0,PD=0.472D0)
       PARAMETER(CX=-0.001667D0,CXC0=0.002568,CC0=-CX+CXC0)
@@ -555,22 +655,12 @@ C     ==================================================================
       SUBROUTINE PBEC(RHO,GRHO,SC,V1C,V2C)
 C     ==--------------------------------------------------------------==
 C PBE Correlation functional
-CMK   use xcfcn
       IMPLICIT REAL*8 (A-H,O-Z)
       PARAMETER(BE=0.06672455060314922D0,GA=0.031090690869654895D0)
       PARAMETER(CX=-0.001667D0,CXC0=0.002568,CC0=-CX+CXC0)
       PARAMETER(OB3=1.D0/3.D0, PI=3.141592653589793D0)
-      PARAMETER(F1X = -1.10783814957303361D0)
-      INCLUDE 'func.inc'
 C     ==--------------------------------------------------------------==
       CALL XC(RHO,EX,EC,VX,VC)
-      IF(MFXCC.EQ.9) THEN
-        FA1=F1X*2.D0/3.D0
-        FA2=FA1*4.d0/3.d0
-        X1=RHO**OB3
-        EC=EC-FA1*X1
-        VC=VC-FA2*X1
-      ENDIF
       AA    = GRHO
       A     = SQRT(AA)
       RS    = (3./(4.*PI*RHO))**OB3
@@ -597,3 +687,129 @@ C     ==--------------------------------------------------------------==
       RETURN
       END
 C     ==================================================================
+      SUBROUTINE hcth120(rho,grho,sx,v1x,v2x)
+C     HCTH, JCP 109, 6264 (1998)
+C     Parameters set-up after N.L. Doltsisnis & M. Sprik (1999)
+C     Present release: Tsukuba, 24/11/2000
+c--------------------------------------------------------------------------
+c     rhoa = rhob = 0.5 * rho
+c     grho is the SQUARE of the gradient of rho! --> gr=sqrt(grho)
+c     sx  : total exchange correlation energy at point r 
+c     v1x : d(sx)/drho  (eq. dfdra = dfdrb in original)
+c     v2x : 1/gr*d(sx)/d(gr) (eq. 0.5 * dfdza = 0.5 * dfdzb in original)
+c--------------------------------------------------------------------------
+      IMPLICIT REAL*8 (a-h,o-z)
+      PARAMETER(pi=3.141592653589793d0,o3=1.0d0/3.0d0,o34=4.0d0/3.0d0
+     .         ,fr83=8./3.)
+      DIMENSION cg0(6),cg1(6),caa(6),cab(6),cx(6)
+      r3q2=2.d0**(-o3)
+      r3pi=(3.d0/pi)**o3
+c.....coefficients for PW correlation......................................
+      cg0(1)= 0.031091d0
+      cg0(2)= 0.213700d0
+      cg0(3)= 7.595700d0
+      cg0(4)= 3.587600d0
+      cg0(5)= 1.638200d0
+      cg0(6)= 0.492940d0
+      cg1(1)= 0.015545d0
+      cg1(2)= 0.205480d0
+      cg1(3)=14.118900d0
+      cg1(4)= 6.197700d0
+      cg1(5)= 3.366200d0
+      cg1(6)= 0.625170d0
+C......HCTH-19-4.....................................
+      caa(1)=  0.489508D+00
+      caa(2)= -0.260699D+00
+      caa(3)=  0.432917D+00
+      caa(4)= -0.199247D+01
+      caa(5)=  0.248531D+01
+      caa(6)=  0.200000D+00
+      cab(1)=  0.514730D+00
+      cab(2)=  0.692982D+01
+      cab(3)= -0.247073D+02
+      cab(4)=  0.231098D+02
+      cab(5)= -0.113234D+02
+      cab(6)=  0.006000D+00
+      cx(1) =  0.109163D+01
+      cx(2) = -0.747215D+00
+      cx(3) =  0.507833D+01
+      cx(4) = -0.410746D+01
+      cx(5) =  0.117173D+01
+      cx(6)=   0.004000D+00
+c...........................................................................
+      gr=DSQRT(grho)
+      xa=2.0d0**o3*gr/rho**(4.0d0*o3)
+      xa2=xa*xa
+      ra=(3.0d0/(2.0d0*pi*rho))**o3
+      rab=r3q2*ra
+      dra_drho=-(18d0*pi*rho**4.0d0)**(-o3)
+      drab_drho=r3q2*dra_drho
+      CALL pwcorr(ra,cg1,g,dg)
+      era1=g
+      dera1_dra=dg
+      CALL pwcorr(rab,cg0,g,dg)
+      erab0=g
+      derab0_drab=dg
+      ex=-0.75d0*r3pi*rho**o34
+      dex_drho=-r3pi*rho**o3
+      uaa=caa(6)*xa2
+      uaa=uaa/(1.0d0+uaa)
+      uab=cab(6)*xa2
+      uab=uab/(1.0d0+uab)
+      ux=cx(6)*xa2
+      ux=ux/(1.0d0+ux)
+      ffaa=rho*era1
+      ffab=rho*erab0-ffaa
+      dffaa_drho=era1+rho*dera1_dra*dra_drho
+      dffab_drho=erab0+rho*derab0_drab*drab_drho-dffaa_drho
+      gaa=0d0
+      gab=0d0
+      gx=0d0
+      dgaa_drho=0d0
+      dgab_drho=0d0
+      dgx_drho=0d0
+      dgaa_dgr=0d0
+      dgab_dgr=0d0
+      dgx_dgr=0d0
+cmb-> non i-dependent stuff
+      denaa=1.d0/(1.0d0+caa(6)*xa2)
+      denab=1.d0/(1.0d0+cab(6)*xa2)
+      denx =1.d0/(1.0d0+cx(6)*xa2)
+      f83rho=fr83/rho
+      bygr=2.0d0/gr
+      DO i=0,4
+         taa=caa(i+1)*uaa**i
+         tab=cab(i+1)*uab**i
+         txx=cx(i+1)*ux**i
+         gaa=gaa+taa
+         gab=gab+tab
+         gx=gx+txx
+         dgaa_drho=dgaa_drho-f83rho*denaa*taa*DFLOAT(i)
+         dgab_drho=dgab_drho-f83rho*denab*tab*DFLOAT(i)
+         dgx_drho=dgx_drho-f83rho*denx*txx*DFLOAT(i)
+         dgaa_dgr=dgaa_dgr+bygr*denaa*taa*DFLOAT(i)
+         dgab_dgr=dgab_dgr+bygr*denab*tab*DFLOAT(i)
+         dgx_dgr=dgx_dgr+bygr*denx*txx*DFLOAT(i)
+      ENDDO
+      sx=ex*gx+ffaa*gaa+ffab*gab
+      v1x=dex_drho*gx+ex*dgx_drho
+     .   +dffaa_drho*gaa+ffaa*dgaa_drho
+     .   +dffab_drho*gab+ffab*dgab_drho
+      v2x=(ex*dgx_dgr+ffaa*dgaa_dgr+ffab*dgab_dgr)/gr
+      RETURN
+      END
+C =-------------------------------------------------------------------=
+      SUBROUTINE pwcorr(r,c,g,dg)
+      IMPLICIT real*8 (a-h,o-z)
+      DIMENSION c(6)
+      r12=dsqrt(r)
+      r32=r*r12
+      r2=r*r
+      rb=c(3)*r12+c(4)*r+c(5)*r32+c(6)*r2
+      sb=1.0d0+1.0d0/(2.0d0*c(1)*rb)
+      g=-2.0d0*c(1)*(1.0d0+c(2)*r)*dlog(sb)
+      drb=c(3)/(2.0d0*r12)+c(4)+1.5d0*c(5)*r12+2.0d0*c(6)*r
+      dg=(1.0d0+c(2)*r)*drb/(rb**2.0d0*sb)-2.0d0*c(1)*c(2)*dlog(sb)
+      RETURN
+      END 
+c-----------------------------------------------------------------------------
