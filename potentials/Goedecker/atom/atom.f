@@ -463,7 +463,7 @@ c     c.hartwig give energies in hartree; no virial correction
      5 /,28h vxc    correction         =,f18.8,
      7 /,28h exchange + corr energy    =,f18.8,
      8 /,28h kinetic energy from ev    =,f18.8,
-     9 /,28h potential energy          =,f18.8,/,1x,45('-'),
+     9 /,28h potential energy          =,e18.8,/,1x,45('-'),
      X /,28h total energy              =,f18.8)
        return
        end
@@ -758,6 +758,16 @@ C..functionals
           mfxcc=3 ! lyp lda cc
           mgcx=10 ! optx gga x ! mgcx is different from CPMD since HCTH uses the numbers...!?
           mgcc=2  ! lyp cc 
+       elseif(index(icorr,'B97').ne.0) then
+          mfxcx=0
+          mfxcc=0
+          IF (INDEX(icorr,'GRIMME').NE.0) THEN
+            mgcx=12
+          ELSE
+            PRINT *,"b97 needs exact exchange"
+            mgcx=11
+          END IF
+          mgcc=mgcx
        else
           write(6,*) 'Unknown functional(s): ',icorr
           stop
@@ -3437,6 +3447,7 @@ C     ==--------------------------------------------------------------==
       END
 C     ==================================================================
       SUBROUTINE GCXC(RHO,GRHO,SX,SC,V1X,V2X,V1C,V2C)
+      use xc_b97, only: eval_b97
 C     ==--------------------------------------------------------------==
 C     ==  GRADIENT CORRECTIONS FOR EXCHANGE AND CORRELATION           ==
 C     ==                                                              ==
@@ -3495,6 +3506,16 @@ C..Exchange
         V2C=0.0D0
       ELSEIF(MGCX.EQ.10) THEN
         CALL OPTX(RHO,GRHO,SX,V1X,V2X)
+      ELSEIF(MGCX.EQ.11) THEN
+        CALL eval_b97(1,RHO,GRHO,SX,V1X,V2X)
+        SC=0.0D0
+        V1C=0.0D0
+        V2C=0.0D0
+      ELSEIF(MGCX.EQ.12) THEN
+        CALL eval_b97(2,RHO,GRHO,SX,V1X,V2X)
+        SC=0.0D0
+        V1C=0.0D0
+        V2C=0.0D0
       ELSE
         SX=0.0D0
         V1X=0.0D0

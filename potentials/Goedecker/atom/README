@@ -4,7 +4,7 @@ pgf90 -fast -o atom.x atom.f hcth.f90
 
 or Intel(R) Fortran Compiler for 32-bit applications, Version 9.0:
 
-ifort -O3 -i-static -o atom.x atom.f hcth.f90
+ifort -O3 -i-static -o atom.x hcth.f90 xc_b97.f90 atom.f 
 
 ***********************************************************
 *                                                         *
