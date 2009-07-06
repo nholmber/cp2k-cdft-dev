@@ -1030,9 +1030,10 @@ c
         write(3,*) ' Z  =  ',znuc
         write(3,*) ' ZV =  ' ,zion
         write(3,'(a,4i1,f15.10)')
-     :       '  XC = ',mfxcx,mfxcc,MODULO(mgcx,10),MODULO(mgcc,10),salpha ! MODULO needed to preserve scheme
-                                                               ! obviously pretty dangerous 
-                                                               ! hcthxxx anyway is different from cpmd
+     :       '  XC = ',mfxcx,mfxcc,MODULO(mgcx,10),MODULO(mgcc,10),
+     :                 salpha ! MODULO needed to preserve scheme
+                              ! obviously pretty dangerous 
+                              ! hcthxxx anyway is different from cpmd
         write(3,*) ' TYPE = NORMCONSERVING GOEDECKER'
         write(3,*) '&END'
         write(3,*) '&INFO'

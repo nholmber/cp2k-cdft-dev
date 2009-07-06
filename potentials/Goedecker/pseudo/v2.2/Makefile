@@ -4,15 +4,15 @@ LIBRARY		= libout.a
 PROGRAM		= pseudo.x
 TARGET		= $(PROGRAM)
 
-F90C		= ifort -free -O
-FC		= ifort -fixed -O
-FFLAGS		= 
-LD		= ifort
+#F90C		= ifort -free -O
+#FC		= ifort -fixed -O
+#FFLAGS		= 
+#LD		= ifort
 #LFLAGS		=  -L/opt/intel/mkl/10.0.2.018/lib/em64t -Wl,-rpath,/opt/intel/mkl/10.0.2.018/lib/em64t
 #LFLAGS		= -Vaxlib -L/opt/intel/mkl/10.0.2.018/lib/32 -Wl,-rpath,/opt/intel/mkl/10.0.2.018/lib/32
 #LIBS		= -lmkl_sequential -lmkl_lapack -lmkl_em64t
-LFLAGS          = -L/work/famo/libIntel101 -Wl,-rpath,/work/famo/libIntel101
-LIBS            = /work/famo/libIntel101/lapack_LINUX.a -lgoto -pthread
+#LFLAGS          = -L/work/famo/libIntel101 -Wl,-rpath,/work/famo/libIntel101
+#LIBS            = /work/famo/libIntel101/lapack_LINUX.a -lgoto -pthread
 
 #   Compilers, Programs and Flags
 #   for Intel Fortran Compiler (Pentium4)
@@ -67,14 +67,12 @@ LIBS            = /work/famo/libIntel101/lapack_LINUX.a -lgoto -pthread
 #LD              = f90
 #LDFLAGS         = -l /opt/ctl/craylibs/craylibs/libblas.a  
 
-#FC = g95
-#F90 = g95
-#F90C = g95 -ffree-form
-#FFLAGS = -g -O3
-#LIBS = -Wl,-framework -Wl,vecLib -Wl,-Y -Wl,10
-#LD = g95
-#LDFLAGS =
-
+FC = g95
+F90C = g95 -ffree-form
+FFLAGS = -O3 -march=opteron -ffast-math
+LD = g95
+LDFLAGS =
+LIBS = -llapack -lblas
 
 # Shell Command
 #SHELL		= /bin/ksh
