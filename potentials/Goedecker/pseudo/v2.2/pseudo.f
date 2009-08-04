@@ -481,96 +481,117 @@ C..   functionals
             salpha=2.D0/3.D0
             bbeta=0.0042D0
             betapp=0.0042D0
-            if(index(icorr,'BP/PADE').ne.0) then
-               mfxcx=0
-               mfxcc=9
-               mgcx=1
-               mgcc=1
-               igrad=.true.
-            elseif(index(icorr,'PBE/PADE').ne.0) then
-               mfxcx=0
-               mfxcc=9
-               mgcx=3
-               mgcc=4
-               igrad=.true.
-            elseif(index(icorr,'LDA').ne.0) then
-               mfxcx=1
-               mfxcc=1
-               mgcx=0
-               mgcc=0
-            elseif(index(icorr,'PADE').ne.0) then
-               mfxcx=0
-               mfxcc=9
-               mgcx=0
-               mgcc=0
-            elseif(index(icorr,'BONL').ne.0) then
-               mfxcx=1
-               mfxcc=1
-               mgcx=1
-               mgcc=0
-               igrad=.true.
-            elseif(index(icorr,'BP').ne.0) then
-               mfxcx=1
-               mfxcc=1
-               mgcx=1
-               mgcc=1
-               igrad=.true.
-            elseif(index(icorr,'PW').ne.0) then
-               mfxcx=1
-               mfxcc=1
-               mgcx=2
-               mgcc=3
-               igrad=.true.
-            elseif(index(icorr,'PBE').ne.0) then
-               mfxcx=1
-               mfxcc=1
-               mgcx=3
-               mgcc=4
-               igrad=.true.
-            elseif(index(icorr,'BLYP').ne.0) then
-               mfxcx=1
-               mfxcc=3
-               mgcx=1
-               mgcc=2
-               igrad=.true.
-            elseif(index(icorr,'HCTH').ne.0) then
-               mfxcx=0
-               mfxcc=0
-               IF (INDEX(icorr,'93').NE.0) THEN
-                 mgcx=6
-               ELSE IF (INDEX(icorr,'120').NE.0) THEN
-                 mgcx=7
-               ELSE IF (INDEX(icorr,'147').NE.0) THEN
-                 mgcx=8
-               ELSE IF (INDEX(icorr,'407').NE.0) THEN
-                 mgcx=9
-               ELSE
-                 icorr='HCTH'
-                 mgcx=5
-               END IF
-               mgcc=mgcx
-               igrad=.true.
-            elseif(index(icorr,'OLYP').ne.0) then
-               mfxcx=0
-               mfxcc=3
-               mgcx=10
-               mgcc=2
-               igrad=.true.
-           elseif(index(icorr,'B97').ne.0) then
-              mfxcx=0
-              mfxcc=0
-              IF (INDEX(icorr,'GRIMME').NE.0) THEN
-                mgcx=12
+            igrad = .TRUE.
+            IF (INDEX(icorr,"NONE").NE.0) THEN
+              mfxcx = 0
+              mfxcc = 0
+              mgcx  = 0
+              mgcc  = 0
+              igrad = .FALSE.
+            ELSE IF (INDEX(icorr,"SONLY").NE.0) THEN
+              mfxcx = 1
+              mfxcc = 0
+              mgcx  = 0
+              mgcc  = 0
+              igrad = .FALSE.
+            ELSE IF (INDEX(icorr,"LDA").NE.0) THEN
+              mfxcx = 1
+              mfxcc = 1
+              mgcx  = 0
+              mgcc  = 0
+              igrad = .FALSE.
+            ELSE IF (INDEX(icorr,"PADE").NE.0) THEN
+              mfxcx = 0
+              mfxcc = 9
+              mgcx  = 0
+              mgcc  = 0
+              igrad = .FALSE.
+            ELSE IF (INDEX(icorr,"BONLY").NE.0) THEN
+              mfxcx = 1
+              mfxcc = 1
+              mgcx  = 1
+              mgcc  = 0
+            ELSE IF (INDEX(icorr,"BP").NE.0) THEN
+              mfxcx = 1
+              mfxcc = 1
+              mgcx  = 1
+              mgcc  = 1
+            ELSE IF (INDEX(icorr,"BLYP").NE.0) THEN
+              mfxcx = 1
+              mfxcc = 3
+              mgcx  = 1
+              mgcc  = 2
+            ELSE IF (INDEX(icorr,"XLYP").NE.0) THEN
+              mfxcx = 1
+              mfxcc = 3
+              mgcx  = 7
+              mgcc  = 2
+            ELSE IF (INDEX(icorr,"PW91").NE.0) THEN
+              mfxcx = 1
+              mfxcc = 1
+              mgcx  = 2
+              mgcc  = 3
+            ELSE IF (INDEX(icorr,"PBE1W").NE.0) THEN
+              mfxcx = 1
+              mfxcc = 1
+              mgcx  = 3
+              mgcc  = 6
+            ELSE IF (INDEX(icorr,"REVPBE").NE.0) THEN
+              mfxcx = 1
+              mfxcc = 1
+              mgcx  = 4
+              mgcc  = 4
+            ELSE IF (INDEX(icorr,"PBES").NE.0) THEN
+              mfxcx = 1
+              mfxcc = 1
+              mgcx  = 9
+              mgcc  = 7
+            ELSE IF (INDEX(icorr,"PBE").NE.0) THEN
+              mfxcx = 1
+              mfxcc = 1
+              mgcx  = 3
+              mgcc  = 4
+            ELSE IF (INDEX(icorr,"HCTH").NE.0) THEN
+              mfxcx = 0
+              mfxcc = 0
+              IF (INDEX(icorr,"93").NE.0) THEN
+                mgcx = 13
+              ELSE IF (INDEX(icorr,"120").NE.0) THEN
+                mgcx = 14
+              ELSE IF (INDEX(icorr,"147").NE.0) THEN
+                mgcx = 15
+              ELSE IF (INDEX(icorr,"407").NE.0) THEN
+                mgcx = 16
               ELSE
-                PRINT *,"b97 needs exact exchange"
-                mgcx=11
+CMK             HCTH/120 implemented in CPMD
+                icorr = "HCTH"
+                mgcx = 5
               END IF
-              mgcc=mgcx
-              igrad=.true.
-            else
-               write(6,*) 'Unknown functional(s): ',icorr
-               stop
-            endif
+              mgcc = mgcx
+            ELSE IF (INDEX(icorr,"OPTX").NE.0) THEN
+              mfxcx = 0
+              mfxcc = 0
+              mgcx  = 6
+              mgcc  = 6
+            ELSE IF (INDEX(icorr,"OLYP").NE.0) THEN
+              mfxcx = 0
+              mfxcc = 3
+              mgcx  = 6
+              mgcc  = 2
+            ELSE IF (INDEX(icorr,"B97").NE.0) THEN
+              mfxcx = 0
+              mfxcc = 0
+              IF (INDEX(icorr,'GRIMME').NE.0) THEN
+                mgcx = 12
+              ELSE
+                PRINT *,"B97 needs exact exchange"
+                mgcx = 11
+              END IF
+              mgcc = mgcx
+            ELSE
+              WRITE (6,*) 'Unknown functional(s): ',icorr
+              STOP
+            END IF
             read(23,*) znuc, zion, rloc, gpot(1),gpot(2),gpot(3),gpot(4)
             if (znucp.ne.znuc) then
                write(6,*) 'znuc from atom.ae and psp.par not identical'
@@ -1029,11 +1050,14 @@ c
         write(3,*) '&ATOM'
         write(3,*) ' Z  =  ',znuc
         write(3,*) ' ZV =  ' ,zion
-        write(3,'(a,4i1,f15.10)')
-     :       '  XC = ',mfxcx,mfxcc,MODULO(mgcx,10),MODULO(mgcc,10),
-     :                 salpha ! MODULO needed to preserve scheme
-                              ! obviously pretty dangerous 
-                              ! hcthxxx anyway is different from cpmd
+        IF ((mgcx < 10).AND.(mgcc < 10)) THEN
+          WRITE (3,'(A,4I1,F15.10)')
+     +      '  XC = ',mfxcx,mfxcc,mgcx,mgcc,salpha
+        ELSE
+          WRITE (3,'(A,4I1,F15.10,A)')
+     +      '  XC = ',0,0,0,0,salpha,
+     +      '  CPMD functional code for '//TRIM(icorr)//' unknown'
+        END IF
         write(3,*) ' TYPE = NORMCONSERVING GOEDECKER'
         write(3,*) '&END'
         write(3,*) '&INFO'
