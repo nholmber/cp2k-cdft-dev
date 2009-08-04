@@ -225,34 +225,70 @@ PROGRAM gth_pp_convert
   END IF
 
   SELECT CASE (xc_code)
-  CASE (1312)
-    xc_string = "BLYP"
-    xc_code_abinit = 18
-  CASE (1111)
-    xc_string = "BP"
-    xc_code_abinit = 19
+  CASE (0000)
+    xc_string = "NONE"
+    xc_code_abinit = 0
+  CASE (1000)
+    xc_string = "SONLY"
+    xc_code_abinit = 0
   CASE (0900)
     xc_string = "PADE"
     xc_code_abinit = 1
+  CASE (1100)
+    xc_string = "LDA"
+    xc_code_abinit = 1
+  CASE (0910)
+    xc_string = "BONLY"
+    xc_code_abinit = 0
+  CASE (0911,1111)
+    xc_string = "BP"
+    xc_code_abinit = 19
+  CASE (1312)
+    xc_string = "BLYP"
+    xc_code_abinit = 18
+  CASE (1372)
+    xc_string = "XLYP"
+    xc_code_abinit = 0
+  CASE (0923,1123)
+    xc_string = "PW91"
+    xc_code_abinit = 0
+  CASE (1136)
+    xc_string = "PBE1W"
+    xc_code_abinit = 0
+  CASE (0944,1144)
+    xc_string = "REVPBE"
+    xc_code_abinit = 0
+  CASE (0997,1197)
+    xc_string = "PBES"
+    xc_code_abinit = 0
+  CASE (0934,1134)
+    xc_string = "PBE"
+    xc_code_abinit = 11
   CASE (0055)
     xc_string = "HCTH" ! CPMD version of HCTH120
     xc_code_abinit = 17
-  CASE (0066)
+  CASE (-11) ! Not yet supported by CPMD
+    xc_string = "B97"
+    xc_code_abinit = 0
+   CASE (-12) ! Not yet supported by CPMD
+    xc_string = "B97/GRIMME"
+    xc_code_abinit = 0
+   CASE (-13) ! Not yet supported by CPMD
     xc_string = "HCTH93"
     xc_code_abinit = 16
-  CASE (0077)
+  CASE (-14) ! Equivalent to HCTH in CPMD
     xc_string = "HCTH120"
     xc_code_abinit = 17
-  CASE (0088)
+  CASE (-15) ! Not yet supported by CPMD
     xc_string = "HCTH147"
     xc_code_abinit = 26
-  CASE (0099)
+  CASE (-16) ! Not yet supported by CPMD
     xc_string = "HCTH407"
     xc_code_abinit = 27
-  CASE (1134)
-    xc_string = "PBE"
-    xc_code_abinit = 11
-  CASE (0302)
+  CASE (0066)
+    xc_string = "OPTX"
+    xc_code_abinit = 0
+  CASE (0362)
     xc_string = "OLYP"
     xc_code_abinit = 25
   CASE DEFAULT

@@ -1,7 +1,7 @@
  &ATOM
   Z  =      7.000000000000000     
   ZV =      5.000000000000000     
-  XC = 0077   0.6666666667
+  XC =  -14   0.6666666667  CPMD functional code for HCTH120 unknown
   TYPE = NORMCONSERVING GOEDECKER
  &END
  &INFO
