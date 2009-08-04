@@ -1054,8 +1054,8 @@ c
           WRITE (3,'(A,4I1,F15.10)')
      +      '  XC = ',mfxcx,mfxcc,mgcx,mgcc,salpha
         ELSE
-          WRITE (3,'(A,4I1,F15.10,A)')
-     +      '  XC = ',0,0,0,0,salpha,
+          WRITE (3,'(A,I4,F15.10,A)')
+     +      '  XC = ',-mgcx,salpha,
      +      '  CPMD functional code for '//TRIM(icorr)//' unknown'
         END IF
         write(3,*) ' TYPE = NORMCONSERVING GOEDECKER'
