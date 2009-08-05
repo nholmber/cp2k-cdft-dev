@@ -68,6 +68,7 @@ c
       energ=.false.
       igrad=.false.
       info=.false.
+      ignore=.false.
 c
 c     read command line options
 c
