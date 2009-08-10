@@ -69,7 +69,7 @@ TARGET		= $(PROGRAM)
 
 FC = g95
 F90C = g95 -ffree-form
-FFLAGS = -O3 -march=opteron -ffast-math
+FFLAGS = -O0 -g -march=opteron -ffast-math
 LD = g95
 LDFLAGS =
 LIBS = -llapack -lblas
