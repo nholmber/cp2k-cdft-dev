@@ -52,7 +52,7 @@
 # hprj_ppnl: Coefficients of the non-local projector functions
 #
 ***
-  for xcfun in blyp bp hcth120 hcth407 pade pbe olyp; do
+  for xcfun in blyp bp hcth120 hcth407 pade pbe pbesol olyp; do
     cd ../cp2k/$xcfun
     XCFUN=$(echo $xcfun | tr [:lower:] [:upper:])
     cat <<*** >>$potential_file

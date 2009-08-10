@@ -9,7 +9,7 @@
   texlibpath=../tex
   cd ../build
   echo Collecting new XX, CP2K, and ABINIT files ...
-  for xcfun in blyp bp hcth120 hcth407 pade pbe olyp; do
+  for xcfun in blyp bp hcth120 hcth407 pade pbe pbesol olyp; do
     for xxfile in $(find $xcfun -name XX); do
       el=$(echo $xxfile | cut -d"/" -f2)
       q=$(head -3 $xxfile | tail -n 1 | cut -d"=" -f2 | cut -d"." -f1)

@@ -16,7 +16,7 @@
 \setlength{\parskip}{0pt}
 \begin{document}
 ***
-  for xcfun in blyp bp hcth120 hcth407 pade pbe olyp; do
+  for xcfun in blyp bp hcth120 hcth407 pade pbe pbesol olyp; do
     cd ../tex/$xcfun
     XCFUN=$(echo $xcfun | tr [:lower:] [:upper:])
     cat <<*** >>$texfile

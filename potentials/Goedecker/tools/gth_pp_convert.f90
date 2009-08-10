@@ -259,7 +259,7 @@ PROGRAM gth_pp_convert
     xc_string = "REVPBE"
     xc_code_abinit = 0
   CASE (0997,1197)
-    xc_string = "PBES"
+    xc_string = "PBESol"
     xc_code_abinit = 0
   CASE (0934,1134)
     xc_string = "PBE"
