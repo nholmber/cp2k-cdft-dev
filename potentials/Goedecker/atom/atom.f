@@ -1150,7 +1150,7 @@ c      the periodic table
      +            'TL','PB','BI','PO','AT','RN',
      +  'FR','RA',
      +       'AC','TH','PA','U ','NP','PU','AM','CM','BK','CF',
-     +                               'ES','FM','MD','NO','LW'/
+     +                                'ES','FM','MD','NO','LR'/
 c
 c      convert the name to upper-case, and possibly left-justify
 c
