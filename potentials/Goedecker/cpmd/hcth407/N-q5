@@ -1,0 +1,44 @@
+ &ATOM
+  Z  =   7.
+  ZV =   5.
+  XC =  -16   0.6666666667  CPMD functional code for HCTH407 unknown
+  TYPE = NORMCONSERVING GOEDECKER
+ &END
+ &INFO
+ ****************************************************************
+
+ Atomic symbol                       : N
+
+ Atomic number                       :   7
+ Effective core charge               :   5
+ Number of core states               :   1
+ Number of valence states            :   9
+ Electronic configuration (s,p,d,...):     2    3
+
+ Exchange-correlation functional     : HCTH407
+
+       r(loc)         C(1)         C(2)
+     0.285809   -12.167237     1.858144
+
+         r(0)     h(i,j)^0
+     0.255339    13.606654
+
+ Please cite:
+
+ - S. Goedecker, M. Teter, and J. Hutter,
+   Phys. Rev. B 54, 1703 (1996)
+ - C. Hartwigsen, S. Goedecker, and J. Hutter,
+   Phys. Rev. B 58, 3641 (1998)
+ - M. Krack,
+   Theor. Chem. Acc. 114, 145 (2005)
+
+ ****************************************************************
+ &END
+ &POTENTIAL
+     GOEDECKER
+ 2                                    LMAX
+      0.285809269                                 RC
+   2   -12.167237040     1.858144136   #C  C1 C2
+      0.255339101  1  13.606653700 H(s) 11                 
+      0.246458011  0 H(p) no projector       
+ &END
