@@ -1,0 +1,17 @@
+ &ATOM
+  Z  =   6.
+  ZV =   4.
+  XC =  -16   0.6666666667  CPMD functional code for HCTH407 unknown
+  TYPE = NORMCONSERVING GOEDECKER
+ &END
+ &INFO
+   Goedecker/Hartwigsen s ? PP
+ &END
+ &POTENTIAL
+     GOEDECKER
+ 2                                    LMAX
+      0.338954485                                 RC
+   2    -8.640704323     1.357625168   #C  C1 C2
+      0.302362201  1   9.596811735 H(s) 11                 
+      0.291592772  0 H(p) no projector       
+ &END
