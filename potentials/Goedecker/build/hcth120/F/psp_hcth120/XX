@@ -1,0 +1,17 @@
+ &ATOM
+  Z  =   9.
+  ZV =   7.
+  XC =  -14   0.6666666667  CPMD functional code for HCTH120 unknown
+  TYPE = NORMCONSERVING GOEDECKER
+ &END
+ &INFO
+   Goedecker/Hartwigsen s ? PP
+ &END
+ &POTENTIAL
+     GOEDECKER
+ 2                                    LMAX
+      0.215558775                                 RC
+   2   -21.214021360     3.115244964   #C  C1 C2
+      0.194726615  1  23.687892890 H(s) 11                 
+      0.186674911  0 H(p) no projector       
+ &END
