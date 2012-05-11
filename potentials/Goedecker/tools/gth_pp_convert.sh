@@ -4,7 +4,7 @@
   echo Scanning build/ tree ... this may take some time, please wait
   for xx in $(find ../build -name XX); do
     cd $(dirname $xx) >/dev/null
-    echo New directory: $(pwd)
+    echo Processing: $(pwd)
     $exe XX ../atom/atom.dat psp.par
 #   cat INFO
     cd - >/dev/null

@@ -25,6 +25,8 @@ PROGRAM gth_pp_convert
 
   REAL(KIND=wp), PARAMETER :: eps_zero = 1.0E-8_wp
 
+  CHARACTER(LEN=4), PARAMETER :: cr = "\\\\"
+
   CHARACTER(LEN=1), DIMENSION(7), PARAMETER :: llabel = (/"s","p","d","f",&
                                                           "g","h","i"/)
 
@@ -465,10 +467,10 @@ PROGRAM gth_pp_convert
 
   IF (nppl == 0) THEN
     WRITE (UNIT=unit_textab,FMT="(T2,A5,I3,A3,F10.6,4(A3,13X),T87,A)")&
-      elesym(iz)//" & ",izeff," & ",rloc,(" & ",i=1,4),"\\"
+      elesym(iz)//" & ",izeff," & ",rloc,(" & ",i=1,4),cr
   ELSE IF (nppl == 4) THEN
     WRITE (UNIT=unit_textab,FMT="(T2,A5,I3,A3,F10.6,4(A3,F13.6),T87,A)")&
-      elesym(iz)//" & ",izeff," & ",rloc,(" & ",cppl(i),i=1,4),"\\"
+      elesym(iz)//" & ",izeff," & ",rloc,(" & ",cppl(i),i=1,4),cr
   ELSE
     fmtstr4 = "(T2,A5,I3,A3,F10.6, (A3,F13.6), (A3,13X),T87,A)"
     WRITE (UNIT=fmtstr4(20:20),FMT="(I1)") nppl
@@ -476,7 +478,7 @@ PROGRAM gth_pp_convert
     WRITE (UNIT=unit_textab,FMT=fmtstr4)&
       elesym(iz)//" & ",izeff," & ",rloc,&
       (" & ",cppl(i),i=1,nppl),&
-      (" & ",i=1,4-nppl),"\\"
+      (" & ",i=1,4-nppl),cr
   END IF
 
   fmtstr5 = "(T5,A1,T11,A2,F10.6, (A3,F13.6), (A3,13X),T87,A)"
@@ -490,7 +492,7 @@ PROGRAM gth_pp_convert
       WRITE (UNIT=unit_textab,FMT=fmtstr5)&
         "&","& ",rppnl(ippnl),&
         (" & ",hppnl(1,j,ippnl),j=1,nppnl(ippnl)),&
-        (" & ",j=1,4-nppnl(ippnl)),"\\"
+        (" & ",j=1,4-nppnl(ippnl)),cr
       DO i=2,nppnl(ippnl)
         WRITE (UNIT=fmtstr7(19:19),FMT="(I1)") i-1
         WRITE (UNIT=fmtstr7(29:29),FMT="(I1)") nppnl(ippnl)-i+1
@@ -498,7 +500,7 @@ PROGRAM gth_pp_convert
         WRITE (UNIT=unit_textab,FMT=fmtstr7)&
           "&","&",(" & ",j=1,i-1),&
           (" & ",hppnl(i,j,ippnl),j=i,nppnl(ippnl)),&
-          (" & ",j=1,4-nppnl(ippnl)),"\\"
+          (" & ",j=1,4-nppnl(ippnl)),cr
       END DO
       IF (ippnl > 1) THEN
         WRITE (UNIT=fmtstr6(19:19),FMT="(I1)") nppnl(ippnl)
@@ -506,7 +508,7 @@ PROGRAM gth_pp_convert
         WRITE (UNIT=unit_textab,FMT=fmtstr6)&
           "&","& ",&
           (" & ",kppnl(1,j,ippnl),j=1,nppnl(ippnl)),&
-          (" & ",j=1,4-nppnl(ippnl)),"\\"
+          (" & ",j=1,4-nppnl(ippnl)),cr
         DO i=2,nppnl(ippnl)
           WRITE (UNIT=fmtstr7(19:19),FMT="(I1)") i-1
           WRITE (UNIT=fmtstr7(29:29),FMT="(I1)") nppnl(ippnl)-i+1
@@ -514,7 +516,7 @@ PROGRAM gth_pp_convert
           WRITE (UNIT=unit_textab,FMT=fmtstr7)&
             "&","&",(" & ",j=1,i-1),&
             (" & ",kppnl(i,j,ippnl),j=i,nppnl(ippnl)),&
-            (" & ",j=1,4-nppnl(ippnl)),"\\"
+            (" & ",j=1,4-nppnl(ippnl)),cr
         END DO
       END IF
     END IF

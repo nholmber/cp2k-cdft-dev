@@ -1,7 +1,7 @@
 #!/bin/sh
 #
   texfile=$(pwd)/../tex/GTH_POTENTIALS.tex
-  cat <<*** >$texfile
+  cat <<*** >${texfile}
 \documentclass[10pt,a4paper,twoside]{article}
 \usepackage{supertabular}
 \setlength{\paperheight}{297 true mm}
@@ -17,9 +17,14 @@
 \begin{document}
 ***
   for xcfun in blyp bp hcth120 hcth407 pade pbe pbesol olyp; do
-    cd ../tex/$xcfun
-    XCFUN=$(echo $xcfun | tr [:lower:] [:upper:])
-    cat <<*** >>$texfile
+    if [[ -d $(pwd)/../tex/${xcfun} ]]; then
+      cd $(pwd)/../tex/${xcfun}
+    else
+      echo "ERROR: Directory $(pwd)/../tex/${xcfun} not found"
+      exit 1
+    fi
+    XCFUN=$(echo ${xcfun} | tr [:lower:] [:upper:])
+    cat <<*** >>${texfile}
 $XCFUN:
 
 \vspace{5mm}
@@ -34,16 +39,16 @@ $XCFUN:
              Bi Po At Rn Fr Ra Ac Th Pa U Np Pu Am Cm Bk Cf\
              Es Fm Md No Lr; do
       for f in $(ls ${e}-q* 2>/dev/null); do
-        cat $f >>$texfile
+        cat ${f} >>${texfile}
       done
     done
-    cat <<*** >>$texfile
+    cat <<*** >>${texfile}
 \end{supertabular}
 \newpage
 ***
-    cd - >/dev/null
+    cd ${OLDPWD}
   done
-  cat <<*** >>$texfile
+  cat <<*** >>${texfile}
 \end{document}
 ***
   echo New LaTeX file created
