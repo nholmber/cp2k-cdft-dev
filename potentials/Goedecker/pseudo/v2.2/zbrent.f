@@ -18,7 +18,7 @@ c      FB=FUNC(B)
       FB=func(ng,l,xp,psi(0,nocc,l+1,ispin),B)
       IF(FB*FA.GT.0.d0) then
          print*,FA,FB
-         PAUSE 'Root must be bracketed for ZBRENT.'
+         STOP 'Root must be bracketed for ZBRENT.'
       endif
       FC=FB
       DO 11 ITER=1,ITMAX
@@ -76,7 +76,7 @@ c        TOL1=2.d0*EPS*ABS(B)+0.5d0*TOL
         ENDIF
         FB=func(ng,l,xp,psi(0,nocc,l+1,ispin),B)
 11    CONTINUE
-      PAUSE 'ZBRENT exceeding maximum iterations.'
+      STOP 'ZBRENT exceeding maximum iterations.'
       ZBRENT=B
       RETURN
       END

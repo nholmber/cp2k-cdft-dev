@@ -944,7 +944,7 @@ c
          if (plotwf) then
             call detnp(ngrid,rae,5*rcov,np)
             open(32,file='pswf.gnu',form='formatted',status='unknown')
-            write (32,*) 'set data style lines'
+            write (32,*) 'set style data lines'
             do iorb=1,norb
                nocc=no(iorb)
                l=lo(iorb)

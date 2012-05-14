@@ -4,75 +4,19 @@ LIBRARY		= libout.a
 PROGRAM		= pseudo.x
 TARGET		= $(PROGRAM)
 
-#F90C		= ifort -free -O
-#FC		= ifort -fixed -O
-#FFLAGS		= 
-#LD		= ifort
-#LFLAGS		=  -L/opt/intel/mkl/10.0.2.018/lib/em64t -Wl,-rpath,/opt/intel/mkl/10.0.2.018/lib/em64t
-#LFLAGS		= -Vaxlib -L/opt/intel/mkl/10.0.2.018/lib/32 -Wl,-rpath,/opt/intel/mkl/10.0.2.018/lib/32
-#LIBS		= -lmkl_sequential -lmkl_lapack -lmkl_em64t
-#LFLAGS          = -L/work/famo/libIntel101 -Wl,-rpath,/work/famo/libIntel101
-#LIBS            = /work/famo/libIntel101/lapack_LINUX.a -lgoto -pthread
-
-#   Compilers, Programs and Flags
-#   for Intel Fortran Compiler (Pentium4)
-#F90C		= ifc -FR
-#FC		= ifc -FI
-#FFLAGS		= -O3 -tpp7
-#   Linker/Loader
-#LD		= ifc
-#LFLAGS		= $(FFLAGS) -Vaxlib -L/usr/local/intel/mkl60/lib/32/
-#LIBS		= -lmkl_lapack -lmkl_ia32 -lguide
-
-#
-#   for PGI Fortran Compiler
-#F90C		= pgf90 -Mfree
-#FC		= pgf90 -Mfixed
-#FFLAGS		= -fast
-#   Linker/Loader
-#LD		= pgf90
-#LFLAGS		= $(FFLAGS)
-#LIBS		= -llapack -lblas
-#
-#   for ibm/aix:
-#   Fortran Compiler
-#F90C		= xlf95
-#FC		= xlf
-#FFLAGS		= -O -q32 -qarch=auto -qmaxmem=-1 -qtune=auto
-#   Linker/Loader
-#LD		= xlf95
-#LFLAGS		= $(FFLAGS) -L/users/krack/lib/32 -L/apps/mass/lib
-#LIBS		= -lmass -llapack3 -lessl
-# to link libaries static: -bnso -bI:/usr/lib/syscalls.exp
-
-#   for SGI/IRIX 6.3 (O2):
-#   Fortran Compiler
-#FC		= f77
-#FFLAGS		= -O2 -mips4 -n32 -r10000
-#   Linker/Loader
-#LD		= f77
-#LFLAGS		= $(FFLAGS)
-#LIBS		= -lcomplib.sgimath -lfastm
-
-#   for DEC
-#   Fortran Compiler
-#FC		= f90 
-#   Linker/Loader
-#LD              = f90 -ldxml
-
-#   for cray-td3
-#FC              = f90 
-#FFLAGS          = -dp -O2  
-# Linker/Loader
-#LD              = f90
-#LDFLAGS         = -l /opt/ctl/craylibs/craylibs/libblas.a  
-
 FC = g95
 F90C = g95 -ffree-form
-FFLAGS = -O0 -g -march=opteron -ffast-math
+FFLAGS = -O0 -g
 LD = g95
 LDFLAGS =
 LIBS = -llapack -lblas
+
+#FC = gfortran
+#F90C = gfortran -ffree-form
+#FFLAGS = -O2 -ffast-math -funroll-loops
+#LD = gfortran
+#LDFLAGS =
+#LIBS = -llapack -lblas
 
 # Shell Command
 #SHELL		= /bin/ksh
@@ -103,8 +47,8 @@ SCRS	= pseudo.f \
 	xcfunction.f\
 	zbrent.f\
 	ggaenergy_15.f
-#        sub_lapack.f\
-#        sub_blas.f
+#       sub_lapack.f\
+#       sub_blas.f
 
 OBJS	= pseudo.o \
 	crtvh.o \
@@ -129,13 +73,12 @@ OBJS	= pseudo.o \
 	ggaenergy_15.o\
 	hcth.o\
 	xc_b97.o
-#        sub_lapack.o\
-#        sub_blas.o
+#       sub_lapack.o\
+#       sub_blas.o
 
-#-----------------------------------------
 $(PROGRAM):	$(OBJS)
 		@echo "Linking $(PROGRAM) ..."
-		$(LD) $(LFLAGS) -o $(PROGRAM) $(OBJS) $(LIBS)
+		$(LD) $(LDFLAGS) -o $(PROGRAM) $(OBJS) $(LIBS)
 		@echo "done"
 
 functionals.o : xc_b97.o
@@ -147,8 +90,7 @@ functionals.o : xc_b97.o
 	$(FC) $(FFLAGS) -c $<
 
 clean:
-		rm -f *.o
+		rm -f *.o *.mod
 
 realclean:
-		rm -f *.o $(PROGRAM)
-
+		rm -f *.o *.mod $(PROGRAM)
