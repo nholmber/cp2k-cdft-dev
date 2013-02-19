@@ -1,0 +1,51 @@
+ &ATOM
+  Z  =   29.
+  ZV =   19.
+  XC = 0900   0.6666666667
+  TYPE = NORMCONSERVING GOEDECKER
+ &END
+ &INFO
+ ****************************************************************
+
+ Atomic symbol                       : Cu
+
+ Atomic number                       :  29
+ Effective core charge               :  19
+ Number of core states               :   3
+ Number of valence states            :  16
+ Electronic configuration (s,p,d,...):     3    6   10
+
+ Exchange-correlation functional     : PADE
+
+       r(loc)         C(1)         C(2)
+     0.345000     0.381589     1.386801
+
+         r(0)     h(i,j)^0
+     0.251319     0.034004    11.198623
+                             -14.457360
+         r(1)     h(i,j)^1
+     0.220381   -14.271601    16.044035
+                             -18.983558
+         r(2)     h(i,j)^2
+     0.217739   -12.508310
+
+ Please cite:
+
+ - S. Goedecker, M. Teter, and J. Hutter,
+   Phys. Rev. B 54, 1703 (1996)
+ - C. Hartwigsen, S. Goedecker, and J. Hutter,
+   Phys. Rev. B 58, 3641 (1998)
+ - M. Krack,
+   Theor. Chem. Acc. 114, 145 (2005)
+
+ ****************************************************************
+ &END
+ &POTENTIAL
+     GOEDECKER
+ 3                                    LMAX
+      0.345000000                                 RC
+   2     0.381588664     1.386801113   #C  C1 C2
+      0.251319270  2   0.034003603  11.198622930 -14.457360040 H(s) 11 12 22           
+      0.220381471  2 -14.271600963  16.044035070 -18.983558303 H(p) 11 12 22           
+      0.217738969  1 -12.508309970 H(d) 11                 
+ &END
