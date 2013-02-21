@@ -1,0 +1,51 @@
+ &ATOM
+  Z  =   30.
+  ZV =   20.
+  XC = 1134   0.6666666667
+  TYPE = NORMCONSERVING GOEDECKER
+ &END
+ &INFO
+ ****************************************************************
+
+ Atomic symbol                       : Zn
+
+ Atomic number                       :  30
+ Effective core charge               :  20
+ Number of core states               :   3
+ Number of valence states            :  16
+ Electronic configuration (s,p,d,...):     4    6   10
+
+ Exchange-correlation functional     : PBE
+
+       r(loc)         C(1)         C(2)
+     0.340000     0.551885     1.243944
+
+         r(0)     h(i,j)^0
+     0.243949    -1.347627    12.793131
+                             -16.515861
+         r(1)     h(i,j)^1
+     0.239754    -9.721458     8.071144
+                              -9.549906
+         r(2)     h(i,j)^2
+     0.208552   -14.193809
+
+ Please cite:
+
+ - S. Goedecker, M. Teter, and J. Hutter,
+   Phys. Rev. B 54, 1703 (1996)
+ - C. Hartwigsen, S. Goedecker, and J. Hutter,
+   Phys. Rev. B 58, 3641 (1998)
+ - M. Krack,
+   Theor. Chem. Acc. 114, 145 (2005)
+
+ ****************************************************************
+ &END
+ &POTENTIAL
+     GOEDECKER
+ 3                                    LMAX
+      0.340000000                                 RC
+   2     0.551884615     1.243943559   #C  C1 C2
+      0.243948897  2  -1.347626987  12.793131220 -16.515861390 H(s) 11 12 22           
+      0.239753575  2  -9.721457766   8.071143567  -9.549905856 H(p) 11 12 22           
+      0.208551952  1 -14.193808732 H(d) 11                 
+ &END

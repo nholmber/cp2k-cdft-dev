@@ -5,7 +5,7 @@ C finds approximate pseudopotential parameters by simplex downhill method
 
       parameter ( norbmx=40, nrmax=10000, maxdim=30 )
       parameter ( lmx=5, lpmx= 4, noccmx=7, nsmx=2 )
-      parameter ( ngmx=32, nintmx=5*(ngmx+14) )
+      parameter ( ngmx=40, nintmx=5*(ngmx+14) )
 
       dimension aeval(noccmx,lmx,nsmx),chrg(noccmx,lmx,nsmx),
      1     dhrg(noccmx,lmx,nsmx),ehrg(noccmx,lmx,nsmx),

@@ -6,14 +6,14 @@ TARGET		= $(PROGRAM)
 
 FC = g95
 F90C = g95 -ffree-form
-FFLAGS = -O0 -g
+FFLAGS = -O2 -g
 LD = g95
 LDFLAGS =
 LIBS = -llapack -lblas
 
 #FC = gfortran
 #F90C = gfortran -ffree-form
-#FFLAGS = -O2 -ffast-math -funroll-loops
+#FFLAGS = -O2 -g
 #LD = gfortran
 #LDFLAGS =
 #LIBS = -llapack -lblas
@@ -92,5 +92,5 @@ functionals.o : xc_b97.o
 clean:
 		rm -f *.o *.mod
 
-realclean:
+distclean:
 		rm -f *.o *.mod $(PROGRAM)

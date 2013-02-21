@@ -577,7 +577,7 @@ c
        common  y,yp,ypp,w,s1,s2
 c
 c      for use in routine atomwr:
-       parameter (ntitle = 40)
+       parameter (ntitle = 60)
        character*40 text(ntitle)
        character irel*3, xccore*4, cdtyp*2
 
@@ -700,6 +700,11 @@ C..functionals
        ELSE IF (INDEX(icorr,"SONLY").NE.0) THEN
          mfxcx = 1
          mfxcc = 0
+         mgcx  = 0
+         mgcc  = 0
+       ELSE IF (INDEX(icorr,"VWN").NE.0) THEN
+         mfxcx = 1
+         mfxcc = 2
          mgcx  = 0
          mgcc  = 0
        ELSE IF (INDEX(icorr,"LDA").NE.0) THEN
@@ -867,7 +872,7 @@ c
 
 
 c      for use in routine atomwr:
-       parameter (ntitle = 40)
+       parameter (ntitle = 60)
        character*40 text(ntitle)
        character*80 instrg
        character irel*3, icalc*2, cdtyp*2
