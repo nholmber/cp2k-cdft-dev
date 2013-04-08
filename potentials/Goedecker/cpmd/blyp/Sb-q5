@@ -1,0 +1,52 @@
+ &ATOM
+  Z  =   51.
+  ZV =   5.
+  XC = 1312   0.6666666667
+  TYPE = NORMCONSERVING GOEDECKER
+ &END
+ &INFO
+ ****************************************************************
+
+ Atomic symbol                       : Sb
+
+ Atomic number                       :  51
+ Effective core charge               :   5
+ Number of core states               :   9
+ Number of valence states            :  13
+ Electronic configuration (s,p,d,...):     2    3
+
+ Exchange-correlation functional     : BLYP
+
+       r(loc)         C(1)
+     0.590000     7.715208
+
+         r(0)     h(i,j)^0
+     0.562815     1.461355     1.281193    -0.948566
+                              -3.196856     2.449186
+                                           -1.943981
+         r(1)     h(i,j)^1
+     0.647463     0.460867     0.438571
+                              -0.518924
+         r(2)     h(i,j)^2
+     0.859202     0.312558
+
+ Please cite:
+
+ - S. Goedecker, M. Teter, and J. Hutter,
+   Phys. Rev. B 54, 1703 (1996)
+ - C. Hartwigsen, S. Goedecker, and J. Hutter,
+   Phys. Rev. B 58, 3641 (1998)
+ - M. Krack,
+   Theor. Chem. Acc. 114, 145 (2005)
+
+ ****************************************************************
+ &END
+ &POTENTIAL
+     GOEDECKER
+ 3                                    LMAX
+      0.590000000                                 RC
+   1     7.715208107   #C  C1
+      0.562815171  3   1.461354684   1.281193329  -0.948565756  -3.196855793   2.449186251  -1.943981320 H(s) 11 12 13 22 23 33  
+      0.647463178  2   0.460866934   0.438570965  -0.518924164 H(p) 11 12 22           
+      0.859201738  1   0.312557714 H(d) 11                 
+ &END
