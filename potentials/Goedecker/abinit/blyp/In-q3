@@ -1,0 +1,14 @@
+Goedecker pseudopotential for In
+   49   3  070301 zatom,zion,pspdat
+10 18  2 0 2001 0  pspcod,pspxc,lmax,lloc,mmax,r2well
+     0.61000000    1     3.20683546                                                 rloc nloc c1
+    3                                                                               nnonloc
+     0.72668632    3     0.70288050     1.01907230    -0.54239646                   rs ns hs11 hs12 hs13
+                                       -2.19782459     1.40046163                              hs22 hs23
+                                                      -1.11158196                                   hs33
+     0.85226033    2     0.01176733     0.48673996                                  rp np hp11 hp12
+                                       -0.57591849                                             hp22
+                         0.06279077     0.00256869                                        kp11 kp12
+                                       -0.00303932                                             kp22
+     1.06121328    1     0.15160282                                                 rd nd hd11
+                         0.00295816                                                       kd11
