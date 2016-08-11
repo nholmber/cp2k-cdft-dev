@@ -1,0 +1,54 @@
+ &ATOM
+  Z  =     64.000000000000000     
+  ZV =     18.000000000000000     
+  XC = 1134   0.6666666667
+  TYPE = NORMCONSERVING GOEDECKER
+ &END
+ &INFO
+ ****************************************************************
+
+ Atomic symbol                       : Gd
+
+ Atomic number                       :  64
+ Effective core charge               :  18
+ Number of core states               :   9
+ Number of valence states            :  13
+ Electronic configuration (s,p,d,...):     4    6    1    7
+
+ Exchange-correlation functional     : PBE
+
+       r(loc)         C(1)         C(2)
+     0.521268    18.103132    -0.514408
+
+         r(0)     h(i,j)^0
+     0.458059    -2.874818     3.916611
+                              -5.056324
+         r(1)     h(i,j)^1
+     0.461250    -3.054067     2.551974
+                              -3.019536
+         r(2)     h(i,j)^2
+     0.483330    -0.843482
+         r(3)     h(i,j)^3
+     0.275591   -22.183906
+
+ Please cite:
+
+ - S. Goedecker, M. Teter, and J. Hutter,
+   Phys. Rev. B 54, 1703 (1996)
+ - C. Hartwigsen, S. Goedecker, and J. Hutter,
+   Phys. Rev. B 58, 3641 (1998)
+ - M. Krack,
+   Theor. Chem. Acc. 114, 145 (2005)
+
+ ****************************************************************
+ &END
+ &POTENTIAL
+     GOEDECKER
+           4                                    LMAX
+      0.521267990                                 RC
+   2    18.103131960    -0.514407696   #C  C1 C2
+      0.458058768  2  -2.874817609   3.916611362  -5.056323526 H(s) 11 12 22           
+      0.461249635  2  -3.054067497   2.551973750  -3.019536062 H(p) 11 12 22           
+      0.483329924  1  -0.843481878 H(d) 11                 
+      0.275591436  1 -22.183906064 H(f) 11                 
+ &END

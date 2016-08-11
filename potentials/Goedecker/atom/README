@@ -1,6 +1,6 @@
-Building atom.x (e.g. with the G95 compiler):
+Building atom.x (e.g. with the GFortran compiler):
 
-g95 hcth.f90 xc_b97.f90 atom.f -o atom.x
+gfortran -O2 -g hcth.f90 xc_b97.f90 atom.f -o atom.x
 
 ***********************************************************
 *                                                         *

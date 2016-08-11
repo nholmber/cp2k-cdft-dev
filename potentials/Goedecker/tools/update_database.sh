@@ -8,7 +8,7 @@
 # Generate the CP2K and ABINIT files by converting the
 # psp.par files in the build/ tree
   if [[ ! -f gth_pp_convert.x ]]; then
-    g95 -o gth_pp_convert.x gth_pp_convert.f90
+    gfortran -fno-sign-zero -o gth_pp_convert.x gth_pp_convert.f90
   fi
   ./gth_pp_convert.sh
 

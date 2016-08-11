@@ -4,27 +4,12 @@ LIBRARY		= libout.a
 PROGRAM		= pseudo.x
 TARGET		= $(PROGRAM)
 
-FC = g95
-F90C = g95 -ffree-form
+FC = gfortran
+F90C = gfortran -ffree-form
 FFLAGS = -O2 -g
-LD = g95
-LDFLAGS =
+LD = gfortran
+LDFLAGS = -static
 LIBS = -llapack -lblas
-
-#FC = gfortran
-#F90C = gfortran -ffree-form
-#FFLAGS = -O2 -g
-#LD = gfortran
-#LDFLAGS =
-#LIBS = -llapack -lblas
-
-# Shell Command
-#SHELL		= /bin/ksh
-
-#   Sources Headers and Objects 
-#   if the librarys lapack & blas are not available
-#   add the files sub_lapack.f and sub_blas.f
-
 
 SCRS	= pseudo.f \
 	crtvh.f \

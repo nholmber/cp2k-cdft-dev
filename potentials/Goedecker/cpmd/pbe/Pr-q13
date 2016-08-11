@@ -1,0 +1,54 @@
+ &ATOM
+  Z  =     59.000000000000000     
+  ZV =     13.000000000000000     
+  XC = 1134   0.6666666667
+  TYPE = NORMCONSERVING GOEDECKER
+ &END
+ &INFO
+ ****************************************************************
+
+ Atomic symbol                       : Pr
+
+ Atomic number                       :  59
+ Effective core charge               :  13
+ Number of core states               :   9
+ Number of valence states            :  13
+ Electronic configuration (s,p,d,...):     4    6    0    3
+
+ Exchange-correlation functional     : PBE
+
+       r(loc)         C(1)         C(2)
+     0.531890    16.835514    -0.432356
+
+         r(0)     h(i,j)^0
+     0.524151    -0.509754     1.840378
+                              -2.375918
+         r(1)     h(i,j)^1
+     0.485467    -0.981896     1.604459
+                              -1.898422
+         r(2)     h(i,j)^2
+     0.716533     0.055750
+         r(3)     h(i,j)^3
+     0.299373   -17.495501
+
+ Please cite:
+
+ - S. Goedecker, M. Teter, and J. Hutter,
+   Phys. Rev. B 54, 1703 (1996)
+ - C. Hartwigsen, S. Goedecker, and J. Hutter,
+   Phys. Rev. B 58, 3641 (1998)
+ - M. Krack,
+   Theor. Chem. Acc. 114, 145 (2005)
+
+ ****************************************************************
+ &END
+ &POTENTIAL
+     GOEDECKER
+           4                                    LMAX
+      0.531889755                                 RC
+   2    16.835514140    -0.432356488   #C  C1 C2
+      0.524151031  2  -0.509754057   1.840377833  -2.375917565 H(s) 11 12 22           
+      0.485467352  2  -0.981896161   1.604459075  -1.898421580 H(p) 11 12 22           
+      0.716533438  1   0.055750456 H(d) 11                 
+      0.299373294  1 -17.495500690 H(f) 11                 
+ &END
