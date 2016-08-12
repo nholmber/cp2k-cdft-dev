@@ -8,7 +8,6 @@
  <meta name="keywords" content="GTH, Goedecker, pseudopotentials, download, CP2K, CPMD, Abinit, ab-initio, molecular dynamics, Quickstep,MD, QM"/>
  <meta name="description" content="Goedecker-Teter-Hutter pseudopotentials"/>
  <meta name="author" content="Matthias Krack"/>
- <link rel="shortcut icon" href="../favicon.png" type="image/png"/>
 
  <style type="text/css">
   table.periodic_table
@@ -85,7 +84,7 @@
    alert("Please, select an exchange-correlation functional");
    exit(1);
   }
-  var file_name = "../" + format + "/" + xcf + "/" + ppfile;
+  var file_name = "./" + format + "/" + xcf + "/" + ppfile;
   // document.location.href = file_name;
   window.open(file_name,name="_blank",specs="menubar=0,toolbar=0,titlebar=0,height=600,width=800");
  }
