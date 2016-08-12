@@ -1,7 +1,7 @@
 #!/bin/sh
 #
   potential_file=$(pwd)/../cp2k/GTH_POTENTIALS
-  cat <<*** >$potential_file
+  cat <<*** >${potential_file}
 ################################################################################
 #
 # Potential data base file for CP2K (Quickstep)
@@ -16,7 +16,8 @@
 #             - GTH-PP for first-row transition metal added (18.03.2003,MK)
 #             - Automatic update (16.12.2003,MK)
 #             - PBE GTH-PPs for the Lanthanides added (30.11.2012,MK)
-#             - Last update ($(date +%d.%m.%y),MK)
+#             - Set default GTH PPs (12.08.2016,MK)
+#             - Last update ($(date +%d.%m.%Y),MK)
 #
 # Literature: - S. Goedecker, M. Teter, and J. Hutter,
 #               Phys. Rev. B 54, 1703 (1996)
@@ -54,12 +55,12 @@
 #
 ***
   for xcfun in blyp bp hcth120 hcth407 pade pbe pbesol olyp; do
-    cd ../cp2k/$xcfun
-    XCFUN=$(echo $xcfun | tr [:lower:] [:upper:])
-    cat <<*** >>$potential_file
+    cd ../cp2k/${xcfun}
+    XCFUN=$(echo ${xcfun} | tr [:lower:] [:upper:])
+    cat <<*** >>${potential_file}
 ################################################################################
 #
-# $XCFUN functional
+# ${XCFUN} functional
 #
 ################################################################################
 #
@@ -72,12 +73,13 @@
              Bi Po At Rn Fr Ra Ac Th Pa U Np Pu Am Cm Bk Cf\
              Es Fm Md No Lr; do
       for f in $(ls ${e}-q* 2>/dev/null); do
-        if [[ -s $f ]]; then
-          cat $f >>$potential_file
-          echo "#" >>$potential_file
+        if [[ -s ${f} ]]; then
+          cat $f >>${potential_file}
+          echo "#" >>${potential_file}
         fi
       done
     done
     cd - >/dev/null
   done
+  set_default_pp.sh ${potential_file}
   echo New CP2K/Quickstep PP database file created
