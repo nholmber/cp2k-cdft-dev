@@ -1,0 +1,15 @@
+Goedecker pseudopotential for Au
+   79  11  070301 zatom,zion,pspdat
+10 19  2 0 2001 0  pspcod,pspxc,lmax,lloc,mmax,r2well
+     0.59000000    1    10.62376865                                                 rloc nloc c1
+    3                                                                               nnonloc
+     0.53803750    2     6.00785520    -2.34452337                                  rs ns hs11 hs12
+                                        3.02676666                                             hs22
+     0.60560054    2     4.37533897    -4.26458410                                  rp np hp11 hp12
+                                        5.04592396                                             hp22
+                         1.28088214    -2.50839829                                        kp11 kp12
+                                        2.96797689                                             kp22
+     0.43922932    2    -7.29174553     2.89836819                                  rd nd hd11 hd12
+                                       -3.28644061                                             hd22
+                        -0.12553595     0.26743662                                        kd11 kd12
+                                       -0.30324462                                             kd22

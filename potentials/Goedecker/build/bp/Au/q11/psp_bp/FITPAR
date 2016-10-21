@@ -1,0 +1,7 @@
+  Fit                        Parameter             
+ f    t f f f                rloc,gpot(1,..,4)
+	    2                lmax
+ t    t f t f f f            r_l(1),h11,h12,h22,h13,h23,h33 (l=0)
+ t    t f t f f f            r_l(2),h11,h12,h22,h13,h23,h33 (l=1)
+ t    t f t f f f            r_l(3),h11,h12,h22,h13,h23,h33 (l=2)
+ f    f f f f f f            r_l(4),h11,h12,h22,h13,h23,h33 (l=3)
