@@ -37,22 +37,164 @@
    text-align: center;
    text-decoration: none;
   }
-  a.out
+  a.AlkaliMetal
   {
    height: 35px;
    width: 35px;
    display: block;
-   color: #000000;
-   background-color: #D8BFD8;
+   background-color: #ffb399;
    text-decoration: none;
   }
-  a.out:hover
+  a.AlkaliMetal:hover
   {
    height: 35px;
    width: 35px;
    display: block;
-   color: #000000;
-   background-color: #FFBFC8;
+   background-color: #ff6633;
+   text-decoration: none;
+  }
+  a.AlkalineEarth
+  {
+   height: 35px;
+   width: 35px;
+   display: block;
+   background-color: #ffe066;
+   text-decoration: none;
+  }
+  a.AlkalineEarth:hover
+  {
+   height: 35px;
+   width: 35px;
+   display: block;
+   background-color: #ffcc00;
+   text-decoration: none;
+  }
+  a.TransitionMetal
+  {
+   height: 35px;
+   width: 35px;
+   display: block;
+   background-color: #ffffcc;
+   text-decoration: none;
+  }
+  a.TransitionMetal:hover
+  {
+   height: 35px;
+   width: 35px;
+   display: block;
+   background-color: #ffff66;
+   text-decoration: none;
+  }
+  a.BasicMetal
+  {
+   height: 35px;
+   width: 35px;
+   display: block;
+   background-color: #99ff99;
+   text-decoration: none;
+  }
+  a.BasicMetal:hover
+  {
+   height: 35px;
+   width: 35px;
+   display: block;
+   background-color: #33ff33;
+   text-decoration: none;
+  }
+  a.SemiMetal
+  {
+   height: 35px;
+   width: 35px;
+   display: block;
+   background-color: #ff99ff;
+   text-decoration: none;
+  }
+  a.SemiMetal:hover
+  {
+   height: 35px;
+   width: 35px;
+   display: block;
+   background-color: #ff33ff;
+   text-decoration: none;
+  }
+  a.Nonmetal
+  {
+   height: 35px;
+   width: 35px;
+   display: block;
+   background-color: #ccccff;
+   text-decoration: none;
+  }
+  a.Nonmetal:hover
+  {
+   height: 35px;
+   width: 35px;
+   display: block;
+   background-color: #6666ff;
+   text-decoration: none;
+  }
+  a.Halogen
+  {
+   height: 35px;
+   width: 35px;
+   display: block;
+   background-color: #3366ff;
+   text-decoration: none;
+  }
+  a.Halogen:hover
+  {
+   height: 35px;
+   width: 35px;
+   display: block;
+   background-color: #0033cc;
+   text-decoration: none;
+  }
+  a.NobleGas
+  {
+   height: 35px;
+   width: 35px;
+   display: block;
+   background-color: #ff33ff;
+   text-decoration: none;
+  }
+  a.NobleGas:hover
+  {
+   height: 35px;
+   width: 35px;
+   display: block;
+   background-color: #cc00cc;
+   text-decoration: none;
+  }
+  a.Lanthanide
+  {
+   height: 35px;
+   width: 35px;
+   display: block;
+   background-color: #ffccdd;
+   text-decoration: none;
+  }
+  a.Lanthanide:hover
+  {
+   height: 35px;
+   width: 35px;
+   display: block;
+   background-color: #ff6699;
+   text-decoration: none;
+  }
+  a.Actinide
+  {
+   height: 35px;
+   width: 35px;
+   display: block;
+   background-color: #ff9999;
+   text-decoration: none;
+  }
+  a.Actinide:hover
+  {
+   height: 35px;
+   width: 35px;
+   display: block;
+   background-color: #ff3333;
    text-decoration: none;
   }
   a.reference
@@ -141,9 +283,9 @@ Select an element from the periodic table below to update the pseudopotential fi
 </p>
 
 <p>
-  <table class="periodic_table" bgcolor="#E4EBF6" border="3" cellpadding="0" cellspacing="3" rules="none">
+  <table class="periodic_table" bgcolor="#f2f2f2" border="1" cellpadding="0" cellspacing="4" rules="none">
    <tr>
-    <td class="n"><a onclick="javascript:updateppfilelist(Array('H-q1'))" class="out" id="1" value="H" title="Hydrogen, Wasserstoff"><small>1</small><br/>H</a></td>
+    <td class="n"><a onclick="javascript:updateppfilelist(Array('H-q1'))"                    class="Nonmetal"        id="1" value="H" title="Hydrogen, Wasserstoff"><small>1</small><br/>H</a></td>
     <td class="n"></td>
     <td class="n"></td>
     <td class="i"></td>
@@ -161,11 +303,11 @@ Select an element from the periodic table below to update the pseudopotential fi
     <td class="n"></td>
     <td class="n"></td>
     <td class="n"></td>
-    <td class="n"><a onclick="javascript:updateppfilelist(Array('He-q2'))" class="out" id="2" value="He" title="Helium"><small>2</small><br/>He</a></td>
+    <td class="n"><a onclick="javascript:updateppfilelist(Array('He-q2'))"                   class="NobleGas"        id="2" value="He" title="Helium"><small>2</small><br/>He</a></td>
    </tr>
    <tr>
-    <td class="n"><a onclick="javascript:updateppfilelist(Array('Li-q3'))" class="out" id="3" value="Li" title="Lithium"  ><small>3</small><br/>Li</a></td>
-    <td class="n"><a onclick="javascript:updateppfilelist(Array('Be-q4'))" class="out" id="4" value="Be" title="Beryllium"><small>4</small><br/>Be</a></td>
+    <td class="n"><a onclick="javascript:updateppfilelist(Array('Li-q1','Li-q3'))"           class="AlkaliMetal"     id="3" value="Li" title="Lithium"  ><small>3</small><br/>Li</a></td>
+    <td class="n"><a onclick="javascript:updateppfilelist(Array('Be-q2','Be-q4'))"           class="AlkalineEarth"   id="4" value="Be" title="Beryllium"><small>4</small><br/>Be</a></td>
     <td class="n"></td>
     <td class="i"></td>
     <td class="n"></td>
@@ -177,16 +319,16 @@ Select an element from the periodic table below to update the pseudopotential fi
     <td class="n"></td>
     <td class="n"></td>
     <td class="n"></td>
-    <td class="n"><a onclick="javascript:updateppfilelist(Array('B-q3'))"  class="out" id="5"  value="B"  title="Boron, Bor"          ><small>5</small><br/>B</a></td>
-    <td class="n"><a onclick="javascript:updateppfilelist(Array('C-q4'))"  class="out" id="6"  value="C"  title="Carbon, Kohlenstoff" ><small>6</small><br/>C</a></td>
-    <td class="n"><a onclick="javascript:updateppfilelist(Array('N-q5'))"  class="out" id="7"  value="N"  title="Nitrogen, Stickstoff"><small>7</small><br/>N</a></td>
-    <td class="n"><a onclick="javascript:updateppfilelist(Array('O-q6'))"  class="out" id="8"  value="O"  title="Oxygen, Sauerstoff"  ><small>8</small><br/>O</a></td>
-    <td class="n"><a onclick="javascript:updateppfilelist(Array('F-q7'))"  class="out" id="9"  value="F"  title="Fluorine, Fluor"     ><small>9</small><br/>F</a></td>
-    <td class="n"><a onclick="javascript:updateppfilelist(Array('Ne-q8'))" class="out" id="10" value="Ne" title="Neon"                ><small>10</small><br/>Ne</a></td>
+    <td class="n"><a onclick="javascript:updateppfilelist(Array('B-q3'))"                    class="SemiMetal"       id="5"  value="B"  title="Boron, Bor"          ><small>5</small><br/>B</a></td>
+    <td class="n"><a onclick="javascript:updateppfilelist(Array('C-q4'))"                    class="Nonmetal"        id="6"  value="C"  title="Carbon, Kohlenstoff" ><small>6</small><br/>C</a></td>
+    <td class="n"><a onclick="javascript:updateppfilelist(Array('N-q5'))"                    class="Nonmetal"        id="7"  value="N"  title="Nitrogen, Stickstoff"><small>7</small><br/>N</a></td>
+    <td class="n"><a onclick="javascript:updateppfilelist(Array('O-q6'))"                    class="Nonmetal"        id="8"  value="O"  title="Oxygen, Sauerstoff"  ><small>8</small><br/>O</a></td>
+    <td class="n"><a onclick="javascript:updateppfilelist(Array('F-q7'))"                    class="Halogen"         id="9"  value="F"  title="Fluorine, Fluor"     ><small>9</small><br/>F</a></td>
+    <td class="n"><a onclick="javascript:updateppfilelist(Array('Ne-q8'))"                   class="NobleGas"        id="10" value="Ne" title="Neon"                ><small>10</small><br/>Ne</a></td>
    </tr>
    <tr>
-    <td class="n"><a onclick="javascript:updateppfilelist(Array('Na-q1','Na-q9'))"  class="out" id="11" value="Na" title="Sodium, Natrium"><small>11</small><br/>Na</a></td>
-    <td class="n"><a onclick="javascript:updateppfilelist(Array('Mg-q2','Mg-q10'))" class="out" id="12" value="Mg" title="Magnesium"      ><small>12</small><br/>Mg</a></td>
+    <td class="n"><a onclick="javascript:updateppfilelist(Array('Na-q1','Na-q9'))"           class="AlkaliMetal"     id="11" value="Na" title="Sodium, Natrium"><small>11</small><br/>Na</a></td>
+    <td class="n"><a onclick="javascript:updateppfilelist(Array('Mg-q2','Mg-q10'))"          class="AlkalineEarth"   id="12" value="Mg" title="Magnesium"      ><small>12</small><br/>Mg</a></td>
     <td class="n"></td>
     <td class="i"></td>
     <td class="n"></td>
@@ -198,96 +340,96 @@ Select an element from the periodic table below to update the pseudopotential fi
     <td class="n"></td>
     <td class="n"></td>
     <td class="n"></td>
-    <td class="n"><a onclick="javascript:updateppfilelist(Array('Al-q3'))" class="out" id="13" value="Al" title="Aluminum, Aluminium"  ><small>13</small><br/>Al</a></td>
-    <td class="n"><a onclick="javascript:updateppfilelist(Array('Si-q4'))" class="out" id="14" value="Si" title="Silicon, Silicium"    ><small>14</small><br/>Si</a></td>
-    <td class="n"><a onclick="javascript:updateppfilelist(Array('P-q5'))"  class="out" id="15" value="P"  title="Phosphorous, Phosphor"><small>15</small><br/>P</a></td>
-    <td class="n"><a onclick="javascript:updateppfilelist(Array('S-q6'))"  class="out" id="16" value="S"  title="Sulfur, Schwefel"     ><small>16</small><br/>S</a></td>
-    <td class="n"><a onclick="javascript:updateppfilelist(Array('Cl-q7'))" class="out" id="17" value="Cl" title="Chlorine, Chlor"      ><small>17</small><br/>Cl</a></td>
-    <td class="n"><a onclick="javascript:updateppfilelist(Array('Ar-q8'))" class="out" id="18" value="Ar" title="Argon"                ><small>18</small><br/>Ar</a></td>
+    <td class="n"><a onclick="javascript:updateppfilelist(Array('Al-q3'))"                   class="BasicMetal"      id="13" value="Al" title="Aluminum, Aluminium"  ><small>13</small><br/>Al</a></td>
+    <td class="n"><a onclick="javascript:updateppfilelist(Array('Si-q4'))"                   class="SemiMetal"       id="14" value="Si" title="Silicon, Silicium"    ><small>14</small><br/>Si</a></td>
+    <td class="n"><a onclick="javascript:updateppfilelist(Array('P-q5'))"                    class="Nonmetal"        id="15" value="P"  title="Phosphorous, Phosphor"><small>15</small><br/>P</a></td>
+    <td class="n"><a onclick="javascript:updateppfilelist(Array('S-q6'))"                    class="Nonmetal"        id="16" value="S"  title="Sulfur, Schwefel"     ><small>16</small><br/>S</a></td>
+    <td class="n"><a onclick="javascript:updateppfilelist(Array('Cl-q7'))"                   class="Halogen"         id="17" value="Cl" title="Chlorine, Chlor"      ><small>17</small><br/>Cl</a></td>
+    <td class="n"><a onclick="javascript:updateppfilelist(Array('Ar-q8'))"                   class="NobleGas"        id="18" value="Ar" title="Argon"                ><small>18</small><br/>Ar</a></td>
    </tr>
    <tr>
-    <td class="n"><a onclick="javascript:updateppfilelist(Array('K-q1','K-q9'))"    class="out" id="19" value="K"  title="Potassium, Kalium"><small>19</small><br/>K</a></td>
-    <td class="n"><a onclick="javascript:updateppfilelist(Array('Ca-q2','Ca-q10'))" class="out" id="20" value="Ca" title="Calcium"          ><small>20</small><br/>Ca</a></td>
-    <td class="n"><a onclick="javascript:updateppfilelist(Array('Sc-q3','Sc-q11'))" class="out" id="21" value="Sc" title="Scandium"         ><small>21</small><br/>Sc</a></td>
+    <td class="n"><a onclick="javascript:updateppfilelist(Array('K-q1','K-q9'))"             class="AlkaliMetal"     id="19" value="K"  title="Potassium, Kalium"><small>19</small><br/>K</a></td>
+    <td class="n"><a onclick="javascript:updateppfilelist(Array('Ca-q2','Ca-q10'))"          class="AlkalineEarth"   id="20" value="Ca" title="Calcium"          ><small>20</small><br/>Ca</a></td>
+    <td class="n"><a onclick="javascript:updateppfilelist(Array('Sc-q3','Sc-q11'))"          class="TransitionMetal" id="21" value="Sc" title="Scandium"         ><small>21</small><br/>Sc</a></td>
     <td class="i"></td>
-    <td class="n"><a onclick="javascript:updateppfilelist(Array('Ti-q4','Ti-q12'))"          class="out" id="22" value="Ti" title="Titanium, Titan"  ><small>22</small><br/>Ti</a></td>
-    <td class="n"><a onclick="javascript:updateppfilelist(Array('V-q5','V-q13'))"            class="out" id="23" value="V"  title="Vanadium"         ><small>23</small><br/>V</a></td>
-    <td class="n"><a onclick="javascript:updateppfilelist(Array('Cr-q6','Cr-q14'))"          class="out" id="24" value="Cr" title="Chromium, Chrom"  ><small>24</small><br/>Cr</a></td>
-    <td class="n"><a onclick="javascript:updateppfilelist(Array('Mn-q7','Mn-q15'))"          class="out" id="25" value="Mn" title="Manganese, Mangan"><small>25</small><br/>Mn</a></td>
-    <td class="n"><a onclick="javascript:updateppfilelist(Array('Fe-q8','Fe-q16'))"          class="out" id="26" value="Fe" title="Iron, Eisen"      ><small>26</small><br/>Fe</a></td>
-    <td class="n"><a onclick="javascript:updateppfilelist(Array('Co-q9','Co-q17'))"          class="out" id="27" value="Co" title="Cobalt, Kobalt"   ><small>27</small><br/>Co</a></td>
-    <td class="n"><a onclick="javascript:updateppfilelist(Array('Ni-q10','Ni-q18'))"         class="out" id="28" value="Ni" title="Nickel"           ><small>28</small><br/>Ni</a></td>
-    <td class="n"><a onclick="javascript:updateppfilelist(Array('Cu-q1','Cu-q11','Cu-q19'))" class="out" id="29" value="Cu" title="Copper, Kupfer"   ><small>29</small><br/>Cu</a></td>
-    <td class="n"><a onclick="javascript:updateppfilelist(Array('Zn-q2','Zn-q12','Zn-q20'))" class="out" id="30" value="Zn" title="Zinc, Zink"       ><small>30</small><br/>Zn</a></td>
-    <td class="n"><a onclick="javascript:updateppfilelist(Array('Ga-q3','Ga-q13'))"          class="out" id="31" value="Ga" title="Gallium"          ><small>31</small><br/>Ga</a></td>
-    <td class="n"><a onclick="javascript:updateppfilelist(Array('Ge-q4','Ge-q14'))"          class="out" id="32" value="Ge" title="Germanium"        ><small>32</small><br/>Ge</a></td>
-    <td class="n"><a onclick="javascript:updateppfilelist(Array('As-q5'))"                   class="out" id="33" value="As" title="Arsenic, Arsen"   ><small>33</small><br/>As</a></td>
-    <td class="n"><a onclick="javascript:updateppfilelist(Array('Se-q6'))"                   class="out" id="34" value="Se" title="Selenium, Selen"  ><small>34</small><br/>Se</a></td>
-    <td class="n"><a onclick="javascript:updateppfilelist(Array('Br-q7'))"                   class="out" id="35" value="Br" title="Bromine, Brom"    ><small>35</small><br/>Br</a></td>
-    <td class="n"><a onclick="javascript:updateppfilelist(Array('Kr-q8'))"                   class="out" id="36" value="Kr" title="Krypton"          ><small>36</small><br/>Kr</a></td>
+    <td class="n"><a onclick="javascript:updateppfilelist(Array('Ti-q4','Ti-q12'))"          class="TransitionMetal" id="22" value="Ti" title="Titanium, Titan"  ><small>22</small><br/>Ti</a></td>
+    <td class="n"><a onclick="javascript:updateppfilelist(Array('V-q5','V-q13'))"            class="TransitionMetal" id="23" value="V"  title="Vanadium"         ><small>23</small><br/>V</a></td>
+    <td class="n"><a onclick="javascript:updateppfilelist(Array('Cr-q6','Cr-q14'))"          class="TransitionMetal" id="24" value="Cr" title="Chromium, Chrom"  ><small>24</small><br/>Cr</a></td>
+    <td class="n"><a onclick="javascript:updateppfilelist(Array('Mn-q7','Mn-q15'))"          class="TransitionMetal" id="25" value="Mn" title="Manganese, Mangan"><small>25</small><br/>Mn</a></td>
+    <td class="n"><a onclick="javascript:updateppfilelist(Array('Fe-q8','Fe-q16'))"          class="TransitionMetal" id="26" value="Fe" title="Iron, Eisen"      ><small>26</small><br/>Fe</a></td>
+    <td class="n"><a onclick="javascript:updateppfilelist(Array('Co-q9','Co-q17'))"          class="TransitionMetal" id="27" value="Co" title="Cobalt, Kobalt"   ><small>27</small><br/>Co</a></td>
+    <td class="n"><a onclick="javascript:updateppfilelist(Array('Ni-q10','Ni-q18'))"         class="TransitionMetal" id="28" value="Ni" title="Nickel"           ><small>28</small><br/>Ni</a></td>
+    <td class="n"><a onclick="javascript:updateppfilelist(Array('Cu-q1','Cu-q11','Cu-q19'))" class="TransitionMetal" id="29" value="Cu" title="Copper, Kupfer"   ><small>29</small><br/>Cu</a></td>
+    <td class="n"><a onclick="javascript:updateppfilelist(Array('Zn-q2','Zn-q12','Zn-q20'))" class="TransitionMetal" id="30" value="Zn" title="Zinc, Zink"       ><small>30</small><br/>Zn</a></td>
+    <td class="n"><a onclick="javascript:updateppfilelist(Array('Ga-q3','Ga-q13'))"          class="BasicMetal"      id="31" value="Ga" title="Gallium"          ><small>31</small><br/>Ga</a></td>
+    <td class="n"><a onclick="javascript:updateppfilelist(Array('Ge-q4','Ge-q14'))"          class="SemiMetal"       id="32" value="Ge" title="Germanium"        ><small>32</small><br/>Ge</a></td>
+    <td class="n"><a onclick="javascript:updateppfilelist(Array('As-q5'))"                   class="SemiMetal"       id="33" value="As" title="Arsenic, Arsen"   ><small>33</small><br/>As</a></td>
+    <td class="n"><a onclick="javascript:updateppfilelist(Array('Se-q6'))"                   class="Nonmetal"        id="34" value="Se" title="Selenium, Selen"  ><small>34</small><br/>Se</a></td>
+    <td class="n"><a onclick="javascript:updateppfilelist(Array('Br-q7'))"                   class="Halogen"         id="35" value="Br" title="Bromine, Brom"    ><small>35</small><br/>Br</a></td>
+    <td class="n"><a onclick="javascript:updateppfilelist(Array('Kr-q8'))"                   class="NobleGas"        id="36" value="Kr" title="Krypton"          ><small>36</small><br/>Kr</a></td>
    </tr>
    <tr>
-    <td class="n"><a onclick="javascript:updateppfilelist(Array('Rb-q1','Rb-q9'))"  class="out" id="37" value="Rb" title="Rubidium" ><small>37</small><br/>Rb</a></td>
-    <td class="n"><a onclick="javascript:updateppfilelist(Array('Sr-q2','Sr-q10'))" class="out" id="38" value="Sr" title="Strontium"><small>38</small><br/>Sr</a></td>
-    <td class="n"><a onclick="javascript:updateppfilelist(Array('Y-q3','Y-q11'))"   class="out" id="39" value="Y"  title="Yttrium"  ><small>39</small><br/>Y</a></td>
+    <td class="n"><a onclick="javascript:updateppfilelist(Array('Rb-q1','Rb-q9'))"           class="AlkaliMetal"     id="37" value="Rb" title="Rubidium" ><small>37</small><br/>Rb</a></td>
+    <td class="n"><a onclick="javascript:updateppfilelist(Array('Sr-q2','Sr-q10'))"          class="AlkalineEarth"   id="38" value="Sr" title="Strontium"><small>38</small><br/>Sr</a></td>
+    <td class="n"><a onclick="javascript:updateppfilelist(Array('Y-q3','Y-q11'))"            class="TransitionMetal" id="39" value="Y"  title="Yttrium"  ><small>39</small><br/>Y</a></td>
     <td class="i"></td>
-    <td class="n"><a onclick="javascript:updateppfilelist(Array('Zr-q4','Zr-q12'))"          class="out" id="40" value="Zr" title="Zirconium"        ><small>40</small><br/>Zr</a></td>
-    <td class="n"><a onclick="javascript:updateppfilelist(Array('Nb-q5','Nb-q13'))"          class="out" id="41" value="Nb" title="Niobium, Niob"    ><small>41</small><br/>Nb</a></td>
-    <td class="n"><a onclick="javascript:updateppfilelist(Array('Mo-q6','Mo-q14'))"          class="out" id="42" value="Mo" title="Molybdenum"       ><small>42</small><br/>Mo</a></td>
-    <td class="n"><a onclick="javascript:updateppfilelist(Array('Tc-q7','Tc-q15'))"          class="out" id="43" value="Tc" title="Technetium"       ><small>43</small><br/>Tc</a></td>
-    <td class="n"><a onclick="javascript:updateppfilelist(Array('Ru-q8','Ru-q16'))"          class="out" id="44" value="Ru" title="Ruthenium"        ><small>44</small><br/>Ru</a></td>
-    <td class="n"><a onclick="javascript:updateppfilelist(Array('Rh-q9','Rh-q17'))"          class="out" id="45" value="Rh" title="Rhodium"          ><small>45</small><br/>Rh</a></td>
-    <td class="n"><a onclick="javascript:updateppfilelist(Array('Pd-q10','Pd-q18'))"         class="out" id="46" value="Pd" title="Palladium"        ><small>46</small><br/>Pd</a></td>
-    <td class="n"><a onclick="javascript:updateppfilelist(Array('Ag-q1','Ag-q11','Ag-q19'))" class="out" id="47" value="Ag" title="Silver, Silber"   ><small>47</small><br/>Ag</a></td>
-    <td class="n"><a onclick="javascript:updateppfilelist(Array('Cd-q2','Cd-q12'))"          class="out" id="48" value="Cd" title="Cadmium"          ><small>48</small><br/>Cd</a></td>
-    <td class="n"><a onclick="javascript:updateppfilelist(Array('In-q3','In-q13'))"          class="out" id="49" value="In" title="Indium"           ><small>49</small><br/>In</a></td>
-    <td class="n"><a onclick="javascript:updateppfilelist(Array('Sn-q4'))"                   class="out" id="50" value="Sn" title="Tin, Zinn"        ><small>50</small><br/>Sn</a></td>
-    <td class="n"><a onclick="javascript:updateppfilelist(Array('Sb-q5'))"                   class="out" id="51" value="Sb" title="Antimony, Antimon"><small>51</small><br/>Sb</a></td>
-    <td class="n"><a onclick="javascript:updateppfilelist(Array('Te-q6'))"                   class="out" id="52" value="Te" title="Tellurium, Tellur"><small>52</small><br/>Te</a></td>
-    <td class="n"><a onclick="javascript:updateppfilelist(Array('I-q7'))"                    class="out" id="53" value="I"  title="Iodine, Jod"      ><small>53</small><br/>I</a></td>
-    <td class="n"><a onclick="javascript:updateppfilelist(Array('Xe-q8'))"                   class="out" id="54" value="Xe" title="Xenon"            ><small>54</small><br/>Xe</a></td>
+    <td class="n"><a onclick="javascript:updateppfilelist(Array('Zr-q4','Zr-q12'))"          class="TransitionMetal" id="40" value="Zr" title="Zirconium"        ><small>40</small><br/>Zr</a></td>
+    <td class="n"><a onclick="javascript:updateppfilelist(Array('Nb-q5','Nb-q13'))"          class="TransitionMetal" id="41" value="Nb" title="Niobium, Niob"    ><small>41</small><br/>Nb</a></td>
+    <td class="n"><a onclick="javascript:updateppfilelist(Array('Mo-q6','Mo-q14'))"          class="TransitionMetal" id="42" value="Mo" title="Molybdenum"       ><small>42</small><br/>Mo</a></td>
+    <td class="n"><a onclick="javascript:updateppfilelist(Array('Tc-q7','Tc-q15'))"          class="TransitionMetal" id="43" value="Tc" title="Technetium"       ><small>43</small><br/>Tc</a></td>
+    <td class="n"><a onclick="javascript:updateppfilelist(Array('Ru-q8','Ru-q16'))"          class="TransitionMetal" id="44" value="Ru" title="Ruthenium"        ><small>44</small><br/>Ru</a></td>
+    <td class="n"><a onclick="javascript:updateppfilelist(Array('Rh-q9','Rh-q17'))"          class="TransitionMetal" id="45" value="Rh" title="Rhodium"          ><small>45</small><br/>Rh</a></td>
+    <td class="n"><a onclick="javascript:updateppfilelist(Array('Pd-q10','Pd-q18'))"         class="TransitionMetal" id="46" value="Pd" title="Palladium"        ><small>46</small><br/>Pd</a></td>
+    <td class="n"><a onclick="javascript:updateppfilelist(Array('Ag-q1','Ag-q11','Ag-q19'))" class="TransitionMetal" id="47" value="Ag" title="Silver, Silber"   ><small>47</small><br/>Ag</a></td>
+    <td class="n"><a onclick="javascript:updateppfilelist(Array('Cd-q2','Cd-q12'))"          class="TransitionMetal" id="48" value="Cd" title="Cadmium"          ><small>48</small><br/>Cd</a></td>
+    <td class="n"><a onclick="javascript:updateppfilelist(Array('In-q3','In-q13'))"          class="BasicMetal"      id="49" value="In" title="Indium"           ><small>49</small><br/>In</a></td>
+    <td class="n"><a onclick="javascript:updateppfilelist(Array('Sn-q4'))"                   class="BasicMetal"      id="50" value="Sn" title="Tin, Zinn"        ><small>50</small><br/>Sn</a></td>
+    <td class="n"><a onclick="javascript:updateppfilelist(Array('Sb-q5'))"                   class="SemiMetal"       id="51" value="Sb" title="Antimony, Antimon"><small>51</small><br/>Sb</a></td>
+    <td class="n"><a onclick="javascript:updateppfilelist(Array('Te-q6'))"                   class="SemiMetal"       id="52" value="Te" title="Tellurium, Tellur"><small>52</small><br/>Te</a></td>
+    <td class="n"><a onclick="javascript:updateppfilelist(Array('I-q7'))"                    class="Halogen"         id="53" value="I"  title="Iodine, Jod"      ><small>53</small><br/>I</a></td>
+    <td class="n"><a onclick="javascript:updateppfilelist(Array('Xe-q8'))"                   class="NobleGas"        id="54" value="Xe" title="Xenon"            ><small>54</small><br/>Xe</a></td>
    </tr>
    <tr>
-    <td class="n"><a onclick="javascript:updateppfilelist(Array('Cs-q1','Cs-q9'))"  class="out" id="55" value="Cs" title="Cesium, Caesium"   ><small>55</small><br/>Cs</a></td>
-    <td class="n"><a onclick="javascript:updateppfilelist(Array('Ba-q2','Ba-q10'))" class="out" id="56" value="Ba" title="Barium"            ><small>56</small><br/>Ba</a></td>
-    <td class="n"><a onclick="javascript:updateppfilelist(Array('La-q3','La-q11'))" class="out" id="57" value="La" title="Lanthanum, Lanthan"><small>57</small><br/>La</a></td>
+    <td class="n"><a onclick="javascript:updateppfilelist(Array('Cs-q1','Cs-q9'))"           class="AlkaliMetal"     id="55" value="Cs" title="Cesium, Caesium"   ><small>55</small><br/>Cs</a></td>
+    <td class="n"><a onclick="javascript:updateppfilelist(Array('Ba-q2','Ba-q10'))"          class="AlkalineEarth"   id="56" value="Ba" title="Barium"            ><small>56</small><br/>Ba</a></td>
+    <td class="n"><a onclick="javascript:updateppfilelist(Array('La-q3','La-q11'))"          class="Lanthanide"      id="57" value="La" title="Lanthanum, Lanthan"><small>57</small><br/>La</a></td>
     <td class="i"><small>[Ln]</small></td>
-    <td class="n"><a onclick="javascript:updateppfilelist(Array('Hf-q4','Hf-q12'))"          class="out" id="72" value="Hf" title="Hafnium"             ><small>72</small><br/>Hf</a></td>
-    <td class="n"><a onclick="javascript:updateppfilelist(Array('Ta-q5','Ta-q13'))"          class="out" id="73" value="Ta" title="Tantalum, Tantal"    ><small>73</small><br/>Ta</a></td>
-    <td class="n"><a onclick="javascript:updateppfilelist(Array('W-q6','W-q14'))"            class="out" id="74" value="W"  title="Tungsten, Wolfram"   ><small>74</small><br/>W</a></td>
-    <td class="n"><a onclick="javascript:updateppfilelist(Array('Re-q7','Re-q15'))"          class="out" id="75" value="Re" title="Rhenium"             ><small>75</small><br/>Re</a></td>
-    <td class="n"><a onclick="javascript:updateppfilelist(Array('Os-q8','Os-q16'))"          class="out" id="76" value="Os" title="Osmium"              ><small>76</small><br/>Os</a></td>
-    <td class="n"><a onclick="javascript:updateppfilelist(Array('Ir-q9','Ir-q17'))"          class="out" id="77" value="Ir" title="Iridium"             ><small>77</small><br/>Ir</a></td>
-    <td class="n"><a onclick="javascript:updateppfilelist(Array('Pt-q10','Pt-q18'))"         class="out" id="78" value="Pt" title="Platinum, Platin"    ><small>78</small><br/>Pt</a></td>
-    <td class="n"><a onclick="javascript:updateppfilelist(Array('Au-q1','Au-q11','Au-q19'))" class="out" id="79" value="Au" title="Gold"                ><small>79</small><br/>Au</a></td>
-    <td class="n"><a onclick="javascript:updateppfilelist(Array('Hg-q2','Hg-q12'))"          class="out" id="80" value="Hg" title="Mercury, Quecksilber"><small>80</small><br/>Hg</a></td>
-    <td class="n"><a onclick="javascript:updateppfilelist(Array('Tl-q3','Tl-q13'))"          class="out" id="81" value="Tl" title="Thallium"            ><small>81</small><br/>Tl</a></td>
-    <td class="n"><a onclick="javascript:updateppfilelist(Array('Pb-q4','Pb-q14'))"          class="out" id="82" value="Pb" title="Lead, Blei"          ><small>82</small><br/>Pb</a></td>
-    <td class="n"><a onclick="javascript:updateppfilelist(Array('Bi-q5','Bi-q15'))"          class="out" id="83" value="Bi" title="Bismuth"             ><small>83</small><br/>Bi</a></td>
-    <td class="n"><a onclick="javascript:updateppfilelist(Array('Po-q6'))"                   class="out" id="84" value="Po" title="Polonium"            ><small>84</small><br/>Po</a></td>
-    <td class="n"><a onclick="javascript:updateppfilelist(Array('At-q7'))"                   class="out" id="85" value="At" title="Astatine, Astat"     ><small>85</small><br/>At</a></td>
-    <td class="n"><a onclick="javascript:updateppfilelist(Array('Rn-q8'))"                   class="out" id="86" value="Rn" title="Radon"               ><small>86</small><br/>Rn</a></td>
+    <td class="n"><a onclick="javascript:updateppfilelist(Array('Hf-q4','Hf-q12'))"          class="TransitionMetal" id="72" value="Hf" title="Hafnium"             ><small>72</small><br/>Hf</a></td>
+    <td class="n"><a onclick="javascript:updateppfilelist(Array('Ta-q5','Ta-q13'))"          class="TransitionMetal" id="73" value="Ta" title="Tantalum, Tantal"    ><small>73</small><br/>Ta</a></td>
+    <td class="n"><a onclick="javascript:updateppfilelist(Array('W-q6','W-q14'))"            class="TransitionMetal" id="74" value="W"  title="Tungsten, Wolfram"   ><small>74</small><br/>W</a></td>
+    <td class="n"><a onclick="javascript:updateppfilelist(Array('Re-q7','Re-q15'))"          class="TransitionMetal" id="75" value="Re" title="Rhenium"             ><small>75</small><br/>Re</a></td>
+    <td class="n"><a onclick="javascript:updateppfilelist(Array('Os-q8','Os-q16'))"          class="TransitionMetal" id="76" value="Os" title="Osmium"              ><small>76</small><br/>Os</a></td>
+    <td class="n"><a onclick="javascript:updateppfilelist(Array('Ir-q9','Ir-q17'))"          class="TransitionMetal" id="77" value="Ir" title="Iridium"             ><small>77</small><br/>Ir</a></td>
+    <td class="n"><a onclick="javascript:updateppfilelist(Array('Pt-q10','Pt-q18'))"         class="TransitionMetal" id="78" value="Pt" title="Platinum, Platin"    ><small>78</small><br/>Pt</a></td>
+    <td class="n"><a onclick="javascript:updateppfilelist(Array('Au-q1','Au-q11','Au-q19'))" class="TransitionMetal" id="79" value="Au" title="Gold"                ><small>79</small><br/>Au</a></td>
+    <td class="n"><a onclick="javascript:updateppfilelist(Array('Hg-q2','Hg-q12'))"          class="TransitionMetal" id="80" value="Hg" title="Mercury, Quecksilber"><small>80</small><br/>Hg</a></td>
+    <td class="n"><a onclick="javascript:updateppfilelist(Array('Tl-q3','Tl-q13'))"          class="BasicMetal"      id="81" value="Tl" title="Thallium"            ><small>81</small><br/>Tl</a></td>
+    <td class="n"><a onclick="javascript:updateppfilelist(Array('Pb-q4','Pb-q14'))"          class="BasicMetal"      id="82" value="Pb" title="Lead, Blei"          ><small>82</small><br/>Pb</a></td>
+    <td class="n"><a onclick="javascript:updateppfilelist(Array('Bi-q5','Bi-q15'))"          class="BasicMetal"      id="83" value="Bi" title="Bismuth"             ><small>83</small><br/>Bi</a></td>
+    <td class="n"><a onclick="javascript:updateppfilelist(Array('Po-q6'))"                   class="SemiMetal"       id="84" value="Po" title="Polonium"            ><small>84</small><br/>Po</a></td>
+    <td class="n"><a onclick="javascript:updateppfilelist(Array('At-q7'))"                   class="Halogen"         id="85" value="At" title="Astatine, Astat"     ><small>85</small><br/>At</a></td>
+    <td class="n"><a onclick="javascript:updateppfilelist(Array('Rn-q8'))"                   class="NobleGas"        id="86" value="Rn" title="Radon"               ><small>86</small><br/>Rn</a></td>
    </tr>
    <tr>
-    <td class="n"><a onclick="javascript:updateppfilelist(Array('no','Fr-q1','Fr-q9'))"  class="out" id="87" value="Fr" title="Francium"><small>87</small><br/>Fr</a></td>
-    <td class="n"><a onclick="javascript:updateppfilelist(Array('no','Ra-q2','Ra-q10'))" class="out" id="88" value="Ra" title="Radium"  ><small>88</small><br/>Ra</a></td>
-    <td class="n"><a onclick="javascript:updateppfilelist(Array('no','Ac-q3','Ac-q11'))" class="out" id="89" value="Ac" title="Actinium"><small>89</small><br/>Ac</a></td>
+    <td class="n"><a onclick="javascript:updateppfilelist(Array('no','Fr-q1','Fr-q9'))"      class="AlkaliMetal"     id="87" value="Fr" title="Francium"><small>87</small><br/>Fr</a></td>
+    <td class="n"><a onclick="javascript:updateppfilelist(Array('no','Ra-q2','Ra-q10'))"     class="AlkalineEarth"   id="88" value="Ra" title="Radium"  ><small>88</small><br/>Ra</a></td>
+    <td class="n"><a onclick="javascript:updateppfilelist(Array('no','Ac-q3','Ac-q11'))"     class="Actinide"        id="89" value="Ac" title="Actinium"><small>89</small><br/>Ac</a></td>
     <td class="i"><small>[An]</small></td>
-    <td class="n"><a onclick="javascript:updateppfilelist(Array('no','Rf-q12'))"  class="out" id="104" value="Rf"  title="Rutherfordium"><small>104</small><br/>Rf</a></td>
-    <td class="n"><a onclick="javascript:updateppfilelist(Array('no','Db-q13'))"  class="out" id="105" value="Db"  title="Dubnium"      ><small>105</small><br/>Db</a></td>
-    <td class="n"><a onclick="javascript:updateppfilelist(Array('no','Sg-q14'))"  class="out" id="106" value="Sg"  title="Seaborgium"   ><small>106</small><br/>Sg</a></td>
-    <td class="n"><a onclick="javascript:updateppfilelist(Array('no','Bh-q15'))"  class="out" id="107" value="Bh"  title="Bohrium"      ><small>107</small><br/>Bh</a></td>
-    <td class="n"><a onclick="javascript:updateppfilelist(Array('no','Hs-q16'))"  class="out" id="108" value="Hs"  title="Hassium"      ><small>108</small><br/>Hs</a></td>
-    <td class="n"><a onclick="javascript:updateppfilelist(Array('no','Mt-q17'))"  class="out" id="109" value="Mt"  title="Meitnerium"   ><small>109</small><br/>Mt</a></td>
-    <td class="n"><a onclick="javascript:updateppfilelist(Array('no','Ds-q18'))"  class="out" id="110" value="Ds"  title="Darmstadtium" ><small>110</small><br/>Ds</a></td>
-    <td class="n"><a onclick="javascript:updateppfilelist(Array('no','Rg-q11'))"  class="out" id="111" value="Rg"  title="Roentgenium"  ><small>111</small><br/>Rg</a></td>
-    <td class="n"><a onclick="javascript:updateppfilelist(Array('no','Cn-q12'))"  class="out" id="112" value="Cn"  title="Copernicium"  ><small>112</small><br/>Cn</a></td>
-    <td class="n"><a onclick="javascript:updateppfilelist(Array('no','Uut-q3'))"  class="out" id="113" value="Uut" title="Ununtrium"    ><small>113</small><br/>Uut</a></td>
-    <td class="n"><a onclick="javascript:updateppfilelist(Array('no','Uuq-q4'))"  class="out" id="114" value="Uuq" title="Ununquadium"  ><small>114</small><br/>Uuq</a></td>
-    <td class="n"><a onclick="javascript:updateppfilelist(Array('no','Uup-q5'))"  class="out" id="115" value="Uup" title="Ununpentium"  ><small>115</small><br/>Uup</a></td>
-    <td class="n"><a onclick="javascript:updateppfilelist(Array('no','Uuh-q6'))"  class="out" id="116" value="Uuh" title="Ununhexium"   ><small>116</small><br/>Uuh</a></td>
-    <td class="n"><a onclick="javascript:updateppfilelist(Array('no','Uus-q7'))"  class="out" id="117" value="Uus" title="Ununseptium"  ><small>117</small><br/>Uus</a></td>
-    <td class="n"><a onclick="javascript:updateppfilelist(Array('no','Uuo-q8'))"  class="out" id="118" value="Uuo" title="Ununoctium"   ><small>118</small><br/>Uuo</a></td>
+    <td class="n"><a onclick="javascript:updateppfilelist(Array('no','Rf-q12'))"             class="TransitionMetal" id="104" value="Rf"  title="Rutherfordium"><small>104</small><br/>Rf</a></td>
+    <td class="n"><a onclick="javascript:updateppfilelist(Array('no','Db-q13'))"             class="TransitionMetal" id="105" value="Db"  title="Dubnium"      ><small>105</small><br/>Db</a></td>
+    <td class="n"><a onclick="javascript:updateppfilelist(Array('no','Sg-q14'))"             class="TransitionMetal" id="106" value="Sg"  title="Seaborgium"   ><small>106</small><br/>Sg</a></td>
+    <td class="n"><a onclick="javascript:updateppfilelist(Array('no','Bh-q15'))"             class="TransitionMetal" id="107" value="Bh"  title="Bohrium"      ><small>107</small><br/>Bh</a></td>
+    <td class="n"><a onclick="javascript:updateppfilelist(Array('no','Hs-q16'))"             class="TransitionMetal" id="108" value="Hs"  title="Hassium"      ><small>108</small><br/>Hs</a></td>
+    <td class="n"><a onclick="javascript:updateppfilelist(Array('no','Mt-q17'))"             class="TransitionMetal" id="109" value="Mt"  title="Meitnerium"   ><small>109</small><br/>Mt</a></td>
+    <td class="n"><a onclick="javascript:updateppfilelist(Array('no','Ds-q18'))"             class="TransitionMetal" id="110" value="Ds"  title="Darmstadtium" ><small>110</small><br/>Ds</a></td>
+    <td class="n"><a onclick="javascript:updateppfilelist(Array('no','Rg-q11'))"             class="TransitionMetal" id="111" value="Rg"  title="Roentgenium"  ><small>111</small><br/>Rg</a></td>
+    <td class="n"><a onclick="javascript:updateppfilelist(Array('no','Cn-q12'))"             class="TransitionMetal" id="112" value="Cn"  title="Copernicium"  ><small>112</small><br/>Cn</a></td>
+    <td class="n"><a onclick="javascript:updateppfilelist(Array('no','Uut-q3'))"             class="BasicMetal"      id="113" value="Uut" title="Ununtrium"    ><small>113</small><br/>Uut</a></td>
+    <td class="n"><a onclick="javascript:updateppfilelist(Array('no','Uuq-q4'))"             class="BasicMetal"      id="114" value="Fl"  title="Flerovium"    ><small>114</small><br/>Fl</a></td>
+    <td class="n"><a onclick="javascript:updateppfilelist(Array('no','Uup-q5'))"             class="BasicMetal"      id="115" value="Uup" title="Ununpentium"  ><small>115</small><br/>Uup</a></td>
+    <td class="n"><a onclick="javascript:updateppfilelist(Array('no','Uuh-q6'))"             class="BasicMetal"      id="116" value="Lv"  title="Livermorium"  ><small>116</small><br/>Lv</a></td>
+    <td class="n"><a onclick="javascript:updateppfilelist(Array('no','Uus-q7'))"             class="Halogen"         id="117" value="Uus" title="Ununseptium"  ><small>117</small><br/>Uus</a></td>
+    <td class="n"><a onclick="javascript:updateppfilelist(Array('no','Uuo-q8'))"             class="NobleGas"        id="118" value="Uuo" title="Ununoctium"   ><small>118</small><br/>Uuo</a></td>
    </tr>
    <tr>
     <td class="s"></td>
@@ -297,20 +439,20 @@ Select an element from the periodic table below to update the pseudopotential fi
     <td class="n"></td>
     <td class="n"></td>
     <td class="i"><small>Ln:</small></td>
-    <td class="n"><a onclick="javascript:updateppfilelist(Array('Ce-q12'))" class="out" id="58" value="Ce" title="Cerium, Cer"            ><small>58</small><br/>Ce</a></td>
-    <td class="n"><a onclick="javascript:updateppfilelist(Array('Pr-q13'))" class="out" id="59" value="Pr" title="Praseodymium, Praseodym"><small>59</small><br/>Pr</a></td>
-    <td class="n"><a onclick="javascript:updateppfilelist(Array('Nd-q14'))" class="out" id="60" value="Nd" title="Neodymium, Neodym"      ><small>60</small><br/>Nd</a></td>
-    <td class="n"><a onclick="javascript:updateppfilelist(Array('Pm-q15'))" class="out" id="61" value="Pm" title="Promethium"             ><small>61</small><br/>Pm</a></td>
-    <td class="n"><a onclick="javascript:updateppfilelist(Array('Sm-q16'))" class="out" id="62" value="Sm" title="Samarium"               ><small>62</small><br/>Sm</a></td>
-    <td class="n"><a onclick="javascript:updateppfilelist(Array('Eu-q17'))" class="out" id="63" value="Eu" title="Europium"               ><small>63</small><br/>Eu</a></td>
-    <td class="n"><a onclick="javascript:updateppfilelist(Array('Gd-q18'))" class="out" id="64" value="Gd" title="Gadolinium"             ><small>64</small><br/>Gd</a></td>
-    <td class="n"><a onclick="javascript:updateppfilelist(Array('Tb-q19'))" class="out" id="65" value="Tb" title="Terbium"                ><small>65</small><br/>Tb</a></td>
-    <td class="n"><a onclick="javascript:updateppfilelist(Array('Dy-q20'))" class="out" id="66" value="Dy" title="Dysprosium"             ><small>66</small><br/>Dy</a></td>
-    <td class="n"><a onclick="javascript:updateppfilelist(Array('Ho-q21'))" class="out" id="67" value="Ho" title="Holmium"                ><small>67</small><br/>Ho</a></td>
-    <td class="n"><a onclick="javascript:updateppfilelist(Array('Er-q22'))" class="out" id="68" value="Er" title="Erbium"                 ><small>68</small><br/>Er</a></td>
-    <td class="n"><a onclick="javascript:updateppfilelist(Array('Tm-q23'))" class="out" id="69" value="Tm" title="Thulium"                ><small>69</small><br/>Tm</a></td>
-    <td class="n"><a onclick="javascript:updateppfilelist(Array('Yb-q24'))" class="out" id="70" value="Yb" title="Ytterbium"              ><small>70</small><br/>Yb</a></td>
-    <td class="n"><a onclick="javascript:updateppfilelist(Array('Lu-q25'))" class="out" id="71" value="Lu" title="Lutetium"               ><small>71</small><br/>Lu</a></td>
+    <td class="n"><a onclick="javascript:updateppfilelist(Array('Ce-q12','Ce-q30'))"         class="Lanthanide"      id="58" value="Ce" title="Cerium, Cer"            ><small>58</small><br/>Ce</a></td>
+    <td class="n"><a onclick="javascript:updateppfilelist(Array('Pr-q13'))"                  class="Lanthanide"      id="59" value="Pr" title="Praseodymium, Praseodym"><small>59</small><br/>Pr</a></td>
+    <td class="n"><a onclick="javascript:updateppfilelist(Array('Nd-q14'))"                  class="Lanthanide"      id="60" value="Nd" title="Neodymium, Neodym"      ><small>60</small><br/>Nd</a></td>
+    <td class="n"><a onclick="javascript:updateppfilelist(Array('Pm-q15'))"                  class="Lanthanide"      id="61" value="Pm" title="Promethium"             ><small>61</small><br/>Pm</a></td>
+    <td class="n"><a onclick="javascript:updateppfilelist(Array('Sm-q16'))"                  class="Lanthanide"      id="62" value="Sm" title="Samarium"               ><small>62</small><br/>Sm</a></td>
+    <td class="n"><a onclick="javascript:updateppfilelist(Array('Eu-q17'))"                  class="Lanthanide"      id="63" value="Eu" title="Europium"               ><small>63</small><br/>Eu</a></td>
+    <td class="n"><a onclick="javascript:updateppfilelist(Array('Gd-q18'))"                  class="Lanthanide"      id="64" value="Gd" title="Gadolinium"             ><small>64</small><br/>Gd</a></td>
+    <td class="n"><a onclick="javascript:updateppfilelist(Array('Tb-q19'))"                  class="Lanthanide"      id="65" value="Tb" title="Terbium"                ><small>65</small><br/>Tb</a></td>
+    <td class="n"><a onclick="javascript:updateppfilelist(Array('Dy-q20'))"                  class="Lanthanide"      id="66" value="Dy" title="Dysprosium"             ><small>66</small><br/>Dy</a></td>
+    <td class="n"><a onclick="javascript:updateppfilelist(Array('Ho-q21'))"                  class="Lanthanide"      id="67" value="Ho" title="Holmium"                ><small>67</small><br/>Ho</a></td>
+    <td class="n"><a onclick="javascript:updateppfilelist(Array('Er-q22'))"                  class="Lanthanide"      id="68" value="Er" title="Erbium"                 ><small>68</small><br/>Er</a></td>
+    <td class="n"><a onclick="javascript:updateppfilelist(Array('Tm-q23'))"                  class="Lanthanide"      id="69" value="Tm" title="Thulium"                ><small>69</small><br/>Tm</a></td>
+    <td class="n"><a onclick="javascript:updateppfilelist(Array('Yb-q24'))"                  class="Lanthanide"      id="70" value="Yb" title="Ytterbium"              ><small>70</small><br/>Yb</a></td>
+    <td class="n"><a onclick="javascript:updateppfilelist(Array('Lu-q25'))"                  class="Lanthanide"      id="71" value="Lu" title="Lutetium"               ><small>71</small><br/>Lu</a></td>
     <td class="n"></td>
    </tr>
    <tr>
@@ -318,20 +460,20 @@ Select an element from the periodic table below to update the pseudopotential fi
     <td class="n"></td>
     <td class="n"></td>
     <td class="i"><small>An:</small></td>
-    <td class="n"><a onclick="javascript:updateppfilelist(Array('no','Th-q12'))"        class="out" id="90"  value="Th" title="Thorium"      ><small>90</small><br/>Th</a></td>
-    <td class="n"><a onclick="javascript:updateppfilelist(Array('no','Pa-q13'))"        class="out" id="91"  value="Pa" title="Protactinium" ><small>91</small><br/>Pa</a></td>
-    <td class="n"><a onclick="javascript:updateppfilelist(Array('no','U-q14','U-q32'))" class="out" id="92"  value="U"  title="Uranium, Uran"><small>92</small><br/>U</a></td>
-    <td class="n"><a onclick="javascript:updateppfilelist(Array('no','Np-q15'))"        class="out" id="93"  value="Np" title="Neptunium"    ><small>93</small><br/>Np</a></td>
-    <td class="n"><a onclick="javascript:updateppfilelist(Array('no','Pu-q16'))"        class="out" id="94"  value="Pu" title="Plutonium"    ><small>94</small><br/>Pu</a></td>
-    <td class="n"><a onclick="javascript:updateppfilelist(Array('no','Am-q17'))"        class="out" id="95"  value="Am" title="Americium"    ><small>95</small><br/>Am</a></td>
-    <td class="n"><a onclick="javascript:updateppfilelist(Array('no','Cm-q18'))"        class="out" id="96"  value="Cm" title="Curium"       ><small>96</small><br/>Cm</a></td>
-    <td class="n"><a onclick="javascript:updateppfilelist(Array('no','Bk-q19'))"        class="out" id="97"  value="Bk" title="Berkelium"    ><small>97</small><br/>Bk</a></td>
-    <td class="n"><a onclick="javascript:updateppfilelist(Array('no','Cf-q20'))"        class="out" id="98"  value="Cf" title="Californium"  ><small>98</small><br/>Cf</a></td>
-    <td class="n"><a onclick="javascript:updateppfilelist(Array('no','Es-q21'))"        class="out" id="99"  value="Es" title="Einsteinium"  ><small>99</small><br/>Es</a></td>
-    <td class="n"><a onclick="javascript:updateppfilelist(Array('no','Fm-q22'))"        class="out" id="100" value="Fm" title="Fermium"      ><small>100</small><br/>Fm</a></td>
-    <td class="n"><a onclick="javascript:updateppfilelist(Array('no','Md-q23'))"        class="out" id="101" value="Md" title="Mendelevium"  ><small>101</small><br/>Md</a></td>
-    <td class="n"><a onclick="javascript:updateppfilelist(Array('no','No-q24'))"        class="out" id="102" value="No" title="Nobelium"     ><small>102</small><br/>No</a></td>
-    <td class="n"><a onclick="javascript:updateppfilelist(Array('no','Lr-q25'))"        class="out" id="103" value="Lr" title="Lawrencium"   ><small>103</small><br/>Lr</a></td>
+    <td class="n"><a onclick="javascript:updateppfilelist(Array('no','Th-q12'))"             class="Actinide"        id="90"  value="Th" title="Thorium"      ><small>90</small><br/>Th</a></td>
+    <td class="n"><a onclick="javascript:updateppfilelist(Array('no','Pa-q13'))"             class="Actinide"        id="91"  value="Pa" title="Protactinium" ><small>91</small><br/>Pa</a></td>
+    <td class="n"><a onclick="javascript:updateppfilelist(Array('no','U-q14','U-q32'))"      class="Actinide"        id="92"  value="U"  title="Uranium, Uran"><small>92</small><br/>U</a></td>
+    <td class="n"><a onclick="javascript:updateppfilelist(Array('no','Np-q15'))"             class="Actinide"        id="93"  value="Np" title="Neptunium"    ><small>93</small><br/>Np</a></td>
+    <td class="n"><a onclick="javascript:updateppfilelist(Array('no','Pu-q16'))"             class="Actinide"        id="94"  value="Pu" title="Plutonium"    ><small>94</small><br/>Pu</a></td>
+    <td class="n"><a onclick="javascript:updateppfilelist(Array('no','Am-q17'))"             class="Actinide"        id="95"  value="Am" title="Americium"    ><small>95</small><br/>Am</a></td>
+    <td class="n"><a onclick="javascript:updateppfilelist(Array('no','Cm-q18'))"             class="Actinide"        id="96"  value="Cm" title="Curium"       ><small>96</small><br/>Cm</a></td>
+    <td class="n"><a onclick="javascript:updateppfilelist(Array('no','Bk-q19'))"             class="Actinide"        id="97"  value="Bk" title="Berkelium"    ><small>97</small><br/>Bk</a></td>
+    <td class="n"><a onclick="javascript:updateppfilelist(Array('no','Cf-q20'))"             class="Actinide"        id="98"  value="Cf" title="Californium"  ><small>98</small><br/>Cf</a></td>
+    <td class="n"><a onclick="javascript:updateppfilelist(Array('no','Es-q21'))"             class="Actinide"        id="99"  value="Es" title="Einsteinium"  ><small>99</small><br/>Es</a></td>
+    <td class="n"><a onclick="javascript:updateppfilelist(Array('no','Fm-q22'))"             class="Actinide"        id="100" value="Fm" title="Fermium"      ><small>100</small><br/>Fm</a></td>
+    <td class="n"><a onclick="javascript:updateppfilelist(Array('no','Md-q23'))"             class="Actinide"        id="101" value="Md" title="Mendelevium"  ><small>101</small><br/>Md</a></td>
+    <td class="n"><a onclick="javascript:updateppfilelist(Array('no','No-q24'))"             class="Actinide"        id="102" value="No" title="Nobelium"     ><small>102</small><br/>No</a></td>
+    <td class="n"><a onclick="javascript:updateppfilelist(Array('no','Lr-q25'))"             class="Actinide"        id="103" value="Lr" title="Lawrencium"   ><small>103</small><br/>Lr</a></td>
     <td class="n"></td>
    </tr>
    <tr>
@@ -365,6 +507,6 @@ Select an element from the periodic table below to update the pseudopotential fi
 </p>
 
 <hr>
-<i>Last update August 12, 2016 (Matthias Krack)</>
+<i>Last update October 22, 2016 (Matthias Krack)</>
 
 </html>
