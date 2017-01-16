@@ -24,6 +24,7 @@ MODULE force_env_methods
                                               scaled_to_real
    USE constraint_fxd,                  ONLY: fix_atom_control
    USE constraint_vsite,                ONLY: vsite_force_control
+   USE cp_control_types,                ONLY: dft_control_type
    USE cp_iter_types,                   ONLY: cp_iteration_info_copy_iter
    USE cp_log_handling,                 ONLY: cp_add_default_logger,&
                                               cp_get_default_logger,&
@@ -101,7 +102,10 @@ MODULE force_env_methods
                                               mixed_env_retain,&
                                               mixed_environment_type
    USE mixed_environment_utils,         ONLY: get_subsys_map_index,&
-                                              mixed_map_forces
+                                              mixed_map_forces,&
+                                              mixed_cdft_init,&
+                                              mixed_cdft_build_weight,&
+                                              mixed_cdft_coupling       
    USE particle_list_types,             ONLY: particle_list_p_type,&
                                               particle_list_type
    USE physcon,                         ONLY: debye
@@ -112,7 +116,8 @@ MODULE force_env_methods
    USE qmmmx_types,                     ONLY: qmmmx_env_retain,&
                                               qmmmx_env_type
    USE qs_environment_types,            ONLY: qs_env_retain,&
-                                              qs_environment_type
+                                              qs_environment_type,&
+                                              get_qs_env
    USE qs_force,                        ONLY: qs_calc_energy_force
    USE restraint,                       ONLY: restraint_control
    USE string_utilities,                ONLY: compress
@@ -755,6 +760,7 @@ CONTAINS
 !>       04.07  further generalization to force_eval with different geometrical
 !>              structures [tlaino]
 !>       04.08  reorganizing the genmix structure (collecting common code)
+!>       01.16  added CDFT
 !> \author Florian Schiffmann
 ! **************************************************************************************************
    SUBROUTINE mixed_energy_forces(force_env, calculate_forces)
@@ -769,9 +775,9 @@ CONTAINS
       CHARACTER(LEN=default_string_length)               :: def_error, description, this_error
       INTEGER                                            :: iforce_eval, iparticle, jparticle, &
                                                             mixing_type, my_group, natom, &
-                                                            nforce_eval, source, unit_nr
+                                                            nforce_eval, source, unit_nr, et_freq
       INTEGER, DIMENSION(:), POINTER                     :: glob_natoms, map_index
-      LOGICAL                                            :: dip_exists
+      LOGICAL                                            :: dip_exists, do_mixed_cdft, explicit
       REAL(KIND=dp)                                      :: coupling_parameter, dedf, der_1, der_2, &
                                                             dx, energy, err, lambda, lerr, &
                                                             restraint_strength, restraint_target, &
@@ -784,10 +790,12 @@ CONTAINS
       TYPE(cp_result_type), POINTER                      :: loc_results, results_mix
       TYPE(cp_subsys_p_type), DIMENSION(:), POINTER      :: subsystems
       TYPE(cp_subsys_type), POINTER                      :: subsys_mix
+      TYPE(dft_control_type), POINTER                    :: dft_control
       TYPE(mixed_energy_type), POINTER                   :: mixed_energy
       TYPE(mixed_force_type), DIMENSION(:), POINTER      :: global_forces
       TYPE(particle_list_p_type), DIMENSION(:), POINTER  :: particles
       TYPE(particle_list_type), POINTER                  :: particles_mix
+      TYPE(qs_environment_type), POINTER                 :: qs_env
       TYPE(section_vals_type), POINTER                   :: force_env_section, gen_section, &
                                                             mapping_section, mixed_section, &
                                                             root_section
@@ -806,7 +814,7 @@ CONTAINS
                          particles=particles_mix, &
                          virial=virial_mix, &
                          results=results_mix)
-      NULLIFY (map_index, glob_natoms, global_forces)
+      NULLIFY (map_index, glob_natoms, global_forces, qs_env, dft_control)
 
       nforce_eval = SIZE(force_env%sub_force_env)
       mixed_section => section_vals_get_subs_vals(force_env_section, "MIXED")
@@ -822,6 +830,33 @@ CONTAINS
       ALLOCATE (results(nforce_eval))
       energies = 0.0_dp
       glob_natoms = 0
+      ! Check if mixed CDFT calculation is requested and initialize
+      CALL section_vals_val_get(mixed_section,"MIXING_TYPE",i_val=mixing_type)
+      IF (mixing_type == mix_linear_combination .AND.&
+         .NOT. ASSOCIATED(force_env%mixed_env%cdft_control)) THEN
+         CALL section_vals_val_get(mixed_section,"LINEAR%MIXED_CDFT",l_val=do_mixed_cdft)
+         force_env%mixed_env%do_mixed_cdft = do_mixed_cdft
+         IF (force_env%mixed_env%do_mixed_cdft) THEN
+            ! Enforce some limitations
+            CPASSERT(force_env%mixed_env%ngroups==2)
+            CPASSERT(nforce_eval==2)
+            CALL section_vals_get(mapping_section, explicit=explicit)
+            ! The sub_force_envs must share the same geometrical structure
+            CPASSERT(.NOT.explicit)
+            CALL section_vals_val_get(mixed_section,"LINEAR%MIXED_CDFT_COUPLING",i_val=et_freq)
+            IF (et_freq.LT.0) THEN 
+               force_env%mixed_env%do_mixed_et = .FALSE.
+            ELSE
+               force_env%mixed_env%do_mixed_et = .TRUE.
+               IF (et_freq==0) THEN
+                  force_env%mixed_env%et_freq = 1
+               ELSE
+                  force_env%mixed_env%et_freq = et_freq
+               END IF
+            END IF
+            CALL mixed_cdft_init(force_env, calculate_forces)
+         END IF
+      END IF      
       DO iforce_eval = 1, nforce_eval
          NULLIFY (subsystems(iforce_eval)%subsys, particles(iforce_eval)%list)
          NULLIFY (results(iforce_eval)%results, virials(iforce_eval)%virial)
@@ -856,7 +891,18 @@ CONTAINS
             jparticle = map_index(iparticle)
             particles(iforce_eval)%list%els(iparticle)%r = particles_mix%els(jparticle)%r
          END DO
+         ! Mixed CDFT + QMMM: Need to translate now  
+         IF ( force_env%mixed_env%do_mixed_qmmm_cdft ) &
+            CALL apply_qmmm_translate(force_env%sub_force_env(iforce_eval)%force_env)
+      END DO
 
+      ! For mixed CDFT, build weight and gradient on all processors before splitting into groups and 
+      ! starting energy calculation
+      IF (force_env%mixed_env%do_mixed_cdft) THEN
+         CALL mixed_cdft_build_weight(force_env, calculate_forces)
+      END IF
+      DO iforce_eval = 1, nforce_eval
+         IF (.NOT.ASSOCIATED(force_env%sub_force_env(iforce_eval)%force_env)) CYCLE
          ! Calculate energy and forces for each sub_force_env
          CALL force_env_calc_energy_force(force_env%sub_force_env(iforce_eval)%force_env, &
                                           calc_force=calculate_forces, &
@@ -882,6 +928,31 @@ CONTAINS
 
       ! Handling Parallel execution
       CALL mp_sync(force_env%para_env%group)
+      ! Transfer cdft strengths for writing restart
+      IF (force_env%mixed_env%do_mixed_cdft) THEN
+         IF (.NOT. ASSOCIATED(force_env%mixed_env%strength))&
+            ALLOCATE(force_env%mixed_env%strength(2))
+         force_env%mixed_env%strength = 0.0_dp
+         DO iforce_eval = 1, nforce_eval
+            IF (.NOT.ASSOCIATED(force_env%sub_force_env(iforce_eval)%force_env)) CYCLE
+            IF (force_env%mixed_env%do_mixed_qmmm_cdft) THEN
+               CALL force_env_get(force_env%sub_force_env(iforce_eval)%force_env%sub_force_env(1)%force_env%sub_force_env(qs_subsys)%force_env,&
+                                  qs_env=qs_env)
+            ELSE
+               CALL force_env_get(force_env%sub_force_env(iforce_eval)%force_env,qs_env=qs_env)
+            END IF 
+            CALL get_qs_env(qs_env,dft_control=dft_control)
+            IF ( force_env%sub_force_env(iforce_eval)%force_env%para_env%mepos==&
+                 force_env%sub_force_env(iforce_eval)%force_env%para_env%source)&
+               force_env%mixed_env%strength(iforce_eval) = dft_control%qs_control%cdft_control%strength(1) 
+         END DO
+         CALL mp_sum(force_env%mixed_env%strength, force_env%para_env%group)
+      END IF
+      ! Mixed CDFT: calculate ET coupling
+      IF (force_env%mixed_env%do_mixed_et) THEN
+         IF (MODULO(force_env%mixed_env%cdft_control%sim_step, force_env%mixed_env%et_freq)==0)&
+            CALL mixed_cdft_coupling(force_env)
+      END IF      
       ! Let's transfer energy, natom, forces, virials
       CALL mp_sum(energies, force_env%para_env%group)
       CALL mp_sum(glob_natoms, force_env%para_env%group)

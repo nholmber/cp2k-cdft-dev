@@ -12,9 +12,17 @@
 MODULE cp_fm_basic_linalg
    USE cp_blacs_env,                    ONLY: cp_blacs_env_type
    USE cp_fm_struct,                    ONLY: cp_fm_struct_equivalent
-   USE cp_fm_types,                     ONLY: &
-        cp_fm_create, cp_fm_get_element, cp_fm_get_info, cp_fm_get_submatrix, cp_fm_p_type, &
-        cp_fm_release, cp_fm_set_all, cp_fm_set_submatrix, cp_fm_to_fm, cp_fm_type
+   USE cp_fm_types,                     ONLY: cp_fm_create,&
+                                              cp_fm_get_element,&
+                                              cp_fm_get_info,&
+                                              cp_fm_get_submatrix,&
+                                              cp_fm_p_type, &
+                                              cp_fm_release,&
+                                              cp_fm_set_all,&
+                                              cp_fm_set_submatrix,&
+                                              cp_fm_to_fm,&
+                                              cp_fm_type, &
+                                              cp_fm_set_element
    USE cp_log_handling,                 ONLY: cp_to_string
    USE kahan_sum,                       ONLY: accurate_sum
    USE kinds,                           ONLY: dp,&
@@ -1205,14 +1213,17 @@ CONTAINS
 !> \param matrix_inverse ...
 !> \param det_a ...
 !> \author Florian Schiffmann(02.2007)
-!> \note of Jan Wilhelm (12.2015)
+!> \par History
+!>      note of Jan Wilhelm (12.2015)
 !>      - computation of determinant corrected
 !>      - determinant only computed if det_a is present
+!>      12.2016 added option to use SVD instead of LU [Nico Holmberg]
 ! **************************************************************************************************
-   SUBROUTINE cp_fm_invert(matrix_a, matrix_inverse, det_a)
+   SUBROUTINE cp_fm_invert(matrix_a, matrix_inverse, det_a, eps_svd)
 
       TYPE(cp_fm_type), POINTER                :: matrix_a, matrix_inverse
       REAL(KIND=dp), INTENT(OUT), OPTIONAL     :: det_a
+      REAL(KIND=dp), INTENT(IN), OPTIONAL      :: eps_svd
 
       CHARACTER(LEN=*), PARAMETER :: routineN = 'cp_fm_invert', &
                                      routineP = moduleN//':'//routineN
@@ -1221,12 +1232,13 @@ CONTAINS
       INTEGER, ALLOCATABLE, DIMENSION(:)       :: ipivot
       REAL(KIND=dp)                            :: determinant
       REAL(KIND=dp), DIMENSION(:, :), POINTER  :: a
-      TYPE(cp_fm_type), POINTER                :: matrix_B, matrix_lu
+      TYPE(cp_fm_type), POINTER                :: matrix_B, matrix_lu,&
+                                                  u, vt, sigma, inv_sigma_ut
 #if defined(__SCALAPACK)
       INTEGER                                  :: i, info, liwork, lwork, group, exponent_of_minus_one
       INTEGER, DIMENSION(9)                    :: desca
       INTEGER, ALLOCATABLE, DIMENSION(:)       :: iwork
-      REAL(KIND=dp)                            :: alpha, beta
+      REAL(KIND=dp)                            :: alpha, beta, my_eps_svd
       REAL(KIND=dp), DIMENSION(:), POINTER     :: diag
       REAL(KIND=dp), ALLOCATABLE, DIMENSION(:) :: berr, ferr, work
 #else
@@ -1234,57 +1246,62 @@ CONTAINS
       REAL(KIND=dp)                            :: eps1
 #endif
 
+      my_eps_svd = 0.0_dp
+      IF (PRESENT(eps_svd)) my_eps_svd = eps_svd
+
       CALL cp_fm_create(matrix=matrix_lu, &
                         matrix_struct=matrix_a%matrix_struct, &
                         name="A_lu"//TRIM(ADJUSTL(cp_to_string(1)))//"MATRIX")
       CALL cp_fm_to_fm(matrix_a, matrix_lu)
 
-      CALL cp_fm_create(matrix=matrix_B, &
-                        matrix_struct=matrix_a%matrix_struct, &
-                        name="B_mat"//TRIM(ADJUSTL(cp_to_string(1)))//"MATRIX")
+      !CALL cp_fm_create(matrix=matrix_B, &
+      !                  matrix_struct=matrix_a%matrix_struct, &
+      !                  name="B_mat"//TRIM(ADJUSTL(cp_to_string(1)))//"MATRIX")
       a => matrix_lu%local_data
       n = matrix_lu%matrix_struct%nrow_global
       ALLOCATE (ipivot(n+matrix_a%matrix_struct%nrow_block))
       ipivot(:) = 0
 #if defined(__SCALAPACK)
-      ALLOCATE (ferr(n))
-      ALLOCATE (berr(n))
-      ALLOCATE (work(3*n))
-      ALLOCATE (iwork(3*N))
-      lwork = 3*n
-      liwork = 3*n
-      desca(:) = matrix_lu%matrix_struct%descriptor(:)
-      CALL pdgetrf(n, n, a(1, 1), 1, 1, desca, ipivot, info)
+      IF (my_eps_svd .EQ. 0.0_dp) THEN
+         ! Use LU decomposition
+         !ALLOCATE (ferr(n))
+         !ALLOCATE (berr(n))
+         !ALLOCATE (work(3*n))
+         !ALLOCATE (iwork(3*N))
+         lwork = 3*n
+         liwork = 3*n
+         desca(:) = matrix_lu%matrix_struct%descriptor(:)
+         CALL pdgetrf(n, n, a(1, 1), 1, 1, desca, ipivot, info)
 
-      IF (PRESENT(det_a)) THEN
+         IF (PRESENT(det_a)) THEN
 
-         ALLOCATE (diag(n))
-         diag(:) = 0.0_dp
-         DO i = 1, n
-            CALL cp_fm_get_element(matrix_lu, i, i, diag(i)) !  not completely optimal in speed i would say
-         ENDDO
+            ALLOCATE (diag(n))
+            diag(:) = 0.0_dp
+            DO i = 1, n
+               CALL cp_fm_get_element(matrix_lu, i, i, diag(i)) !  not completely optimal in speed i would say
+            ENDDO
 
-         exponent_of_minus_one = 0
-         determinant = 1.0_dp
-         DO i = 1, n
-            determinant = determinant*diag(i)
-            IF (ipivot(i) .NE. i) THEN
-               exponent_of_minus_one = exponent_of_minus_one+1
-            END IF
-         ENDDO
-         DEALLOCATE (diag)
+            exponent_of_minus_one = 0
+            determinant = 1.0_dp
+            DO i = 1, n
+               determinant = determinant*diag(i)
+               IF (ipivot(i) .NE. i) THEN
+                  exponent_of_minus_one = exponent_of_minus_one+1
+               END IF
+            ENDDO
+            DEALLOCATE (diag)
 
-         group = matrix_lu%matrix_struct%para_env%group
-         CALL mp_sum(exponent_of_minus_one, group)
+            group = matrix_lu%matrix_struct%para_env%group
+            CALL mp_sum(exponent_of_minus_one, group)
 
-         determinant = determinant*(-1.0_dp)**exponent_of_minus_one
+            determinant = determinant*(-1.0_dp)**exponent_of_minus_one
 
-      END IF
+         END IF
 
-      alpha = 0.0_dp
-      beta = 1.0_dp
-      CALL cp_fm_set_all(matrix_inverse, alpha, beta)
-      CALL pdgetrs('N', n, n, matrix_lu%local_data, 1, 1, desca, ipivot, matrix_inverse%local_data, 1, 1, desca, info)
+         alpha = 0.0_dp
+         beta = 1.0_dp
+         CALL cp_fm_set_all(matrix_inverse, alpha, beta)
+         CALL pdgetrs('N', n, n, matrix_lu%local_data, 1, 1, desca, ipivot, matrix_inverse%local_data, 1, 1, desca, info)
 !   CALL cp_fm_set_all(matrix_B,alpha,beta)
 !    DO iter=1,10
 !       CALL pdgerfs('N',n,n,matrix_a%local_data,1,1,desca,matrix_lu%local_data,&
@@ -1297,19 +1314,86 @@ CONTAINS
 !          EXIT
 !       END IF
 !    END DO
-      DEALLOCATE (ferr)
-      DEALLOCATE (berr)
-      DEALLOCATE (work)
-      DEALLOCATE (iwork)
-
+!      DEALLOCATE (ferr)
+!      DEALLOCATE (berr)
+!      DEALLOCATE (work)
+!      DEALLOCATE (iwork)
+   ELSE
+      ! Use singular value decomposition
+      CALL cp_fm_create(matrix=u,&
+                        matrix_struct=matrix_a%matrix_struct,&
+                        name="LEFT_SINGULAR_MATRIX")
+      CALL cp_fm_set_all(u,alpha=0.0_dp) 
+      CALL cp_fm_create(matrix=vt,&
+                        matrix_struct=matrix_a%matrix_struct,&
+                        name="RIGHT_SINGULAR_MATRIX",&
+                        error=error)
+      CALL cp_fm_set_all(vt,alpha=0.0_dp)
+      ALLOCATE(diag(n))
+      diag(:)=0.0_dp
+      desca(:) = matrix_lu%matrix_struct%descriptor(:)
+      ALLOCATE(work(1))
+      ! Workspace query
+      lwork=-1
+      CALL pdgesvd('V','V',n,n,matrix_lu%local_data,1,1,desca,diag,u%local_data,&
+                   1,1,desca,vt%local_data,1,1,desca,work,lwork,info)
+      lwork = INT(work(1))
+      DEALLOCATE(work)
+      ALLOCATE(work(lwork))
+      ! SVD
+      CALL pdgesvd('V','V',n,n,matrix_lu%local_data,1,1,desca,diag,u%local_data,&
+                   1,1,desca,vt%local_data,1,1,desca,work,lwork,info)
+      ! info == n+1 implies homogeneity error when the number of procs is large
+      ! this likely isnt a problem, but maybe we should handle it separately  
+      IF (info /= 0 .AND. info /= n+1) &
+         CPABORT("Singular value decomposition of matrix failed.")
+      ! (Pseudo)inverse and (pseudo)determinant
+      CALL cp_fm_create(matrix=sigma,&
+                        matrix_struct=matrix_a%matrix_struct,&
+                        name="SINGULAR_VALUE_MATRIX",&
+      CALL cp_fm_set_all(sigma,alpha=0.0_dp)
+      determinant=1.0_dp
+      ! TODO: Notify if some singular values fall below my_eps_svd
+      DO i = 1, n
+         IF (diag(i) < my_eps_svd) THEN
+            diag(i) = 0.0_dp
+         ELSE
+            determinant = determinant*diag(i)
+            diag(i) = 1.0_dp/diag(i)
+         ENDIF
+         CALL cp_fm_set_element(sigma,i,i,diag(i))
+      END DO
+      DEALLOCATE(diag)
+      ! Sigma^-1 * U^T
+      CALL cp_fm_create(matrix=inv_sigma_ut,&
+                        matrix_struct=matrix_a%matrix_struct,&
+                        name="SINGULAR_VALUE_MATRIX")
+      CALL cp_fm_set_all(inv_sigma_ut,alpha=0.0_dp)
+      CALL pdgemm('N','T',n,n,n,1.0_dp,sigma%local_data,1,1,desca,&
+                  u%local_data,1,1,desca,0.0_dp,inv_sigma_ut%local_data,1,1,desca)
+      ! A^-1 = V * (Sigma^-1 * U^T)
+      CALL cp_fm_set_all(matrix_inverse,alpha=0.0_dp)
+      CALL pdgemm('T','N',n,n,n,1.0_dp,vt%local_data,1,1,desca,&
+                  inv_sigma_ut%local_data,1,1,desca,0.0_dp,matrix_inverse%local_data,1,1,desca)
+      ! Clean up
+      DEALLOCATE(work)
+      CALL cp_fm_release(u)
+      CALL cp_fm_release(vt)
+      CALL cp_fm_release(sigma)
+      CALL cp_fm_release(inv_sigma_ut)       
+   END IF
 #else
+   IF (my_eps_svd .EQ. 0.0_dp) THEN
       sign = .TRUE.
       CALL invert_matrix(matrix_a%local_data, matrix_inverse%local_data, &
                          eval_error=eps1)
       CALL cp_fm_lu_decompose(matrix_lu, determinant, correct_sign=sign)
+   ELSE
+      CPABORT("Matrix inversion using SVD NYI without SCALAPACK.") 
+   END IF
 #endif
       CALL cp_fm_release(matrix_lu)
-      CALL cp_fm_release(matrix_B)
+!      CALL cp_fm_release(matrix_B)
       DEALLOCATE (ipivot)
       IF (PRESENT(det_a)) det_a = determinant
    END SUBROUTINE cp_fm_invert

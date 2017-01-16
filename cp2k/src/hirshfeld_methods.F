@@ -22,7 +22,11 @@ MODULE hirshfeld_methods
                                               hirshfeld_type,&
                                               set_hirshfeld_info
    USE input_constants,                 ONLY: shape_function_density,&
-                                              shape_function_gaussian
+                                              shape_function_gaussian,&
+                                              radius_covalent,&
+                                              radius_user,&
+                                              radius_single,&
+                                              radius_vdw
    USE kinds,                           ONLY: dp,&
                                               int_8
    USE mathconstants,                   ONLY: pi
@@ -131,10 +135,11 @@ CONTAINS
 !> \param qs_kind_set ...
 !> \param atomic_kind_set ...
 ! **************************************************************************************************
-   SUBROUTINE create_shape_function(hirshfeld_env, qs_kind_set, atomic_kind_set)
+   SUBROUTINE create_shape_function(hirshfeld_env, qs_kind_set, atomic_kind_set, radius)
       TYPE(hirshfeld_type), POINTER                      :: hirshfeld_env
       TYPE(qs_kind_type), DIMENSION(:), POINTER          :: qs_kind_set
       TYPE(atomic_kind_type), DIMENSION(:), POINTER      :: atomic_kind_set
+      REAL(KIND=dp), OPTIONAL                            :: radius
 
       CHARACTER(len=*), PARAMETER :: routineN = 'create_shape_function', &
          routineP = moduleN//':'//routineN
@@ -161,8 +166,20 @@ CONTAINS
             ALLOCATE (hirshfeld_env%kind_shape_fn(ikind)%coef(1))
             CALL get_qs_kind(qs_kind_set(ikind), element_symbol=esym)
             rco = 2.0_dp
-            CALL get_ptable_info(symbol=esym, covalent_radius=rco, found=found)
-            rco = MAX(rco, 1.0_dp)
+            SELECT CASE (hirshfeld_env%radius_type)
+            CASE (radius_user)
+               CALL get_ptable_info(symbol=esym,cdft_radius=rco,found=found)
+               IF(.NOT.found) rco = MAX(rco,1.0_dp)
+            CASE (radius_vdw)
+               CALL get_ptable_info(symbol=esym,vdw_radius=rco,found=found)
+               IF(.NOT.found) rco = MAX(rco,1.0_dp)
+            CASE (radius_covalent)
+               CALL get_ptable_info(symbol=esym,covalent_radius=rco,found=found)
+               IF(.NOT.found) rco = MAX(rco,1.0_dp)
+            CASE (radius_single)
+               CPASSERT(PRESENT(radius))
+               rco=radius
+            END SELECT
             al = 0.5_dp/rco**2
             hirshfeld_env%kind_shape_fn(ikind)%zet(1) = al
             hirshfeld_env%kind_shape_fn(ikind)%coef(1) = (al/pi)**1.5_dp
