@@ -43,6 +43,7 @@ MODULE kahan_sum
          kahan_sum_s5, kahan_sum_d5, kahan_sum_c5, kahan_sum_z5, &
          kahan_sum_s6, kahan_sum_d6, kahan_sum_c6, kahan_sum_z6, &
          kahan_sum_s7, kahan_sum_d7, kahan_sum_c7, kahan_sum_z7
+      MODULE PROCEDURE kahan_sum_masked_d3
    END INTERFACE accurate_sum
 CONTAINS
 ! **************************************************************************************************
@@ -426,6 +427,38 @@ CONTAINS
          ENDDO
       ENDIF
    END FUNCTION kahan_sum_d3
+
+! *****************************************************************************
+!> \brief ...
+!> \param array ...
+!> \param mask ...
+!> \retval ks ...
+! *****************************************************************************
+  FUNCTION kahan_sum_masked_d3(array1,array2,mask,th) RESULT(ks)
+    REAL(KIND=dp), DIMENSION(:, :, :),&
+      POINTER, INTENT(IN)                    :: array1,array2, mask
+    REAL(KIND=dp), INTENT(in)                :: th
+    REAL(KIND=dp)                            :: ks
+
+    INTEGER                                  :: i1, i2, i3, nflops
+    REAL(KIND=dp)                            :: c, t, y
+
+    ks = dzero ; t = dzero ; y = dzero ; c = dzero
+    DO i3=LBOUND(mask,3),UBOUND(mask,3)
+    DO i2=LBOUND(mask,2),UBOUND(mask,2)
+    DO i1=LBOUND(mask,1),UBOUND(mask,1)
+       IF (mask(i1,i2,i3            ) .GT. th) THEN
+         y  = array1(i1,i2,i3            )*array2(i1,i2,i3            ) - c
+         t  = ks + y
+         c  = (t - ks) - y
+         ks = t
+         nflops = nflops + 1
+       END IF
+    ENDDO
+    ENDDO
+    ENDDO
+
+  END FUNCTION kahan_sum_masked_d3
 
 ! **************************************************************************************************
 !> \brief ...
