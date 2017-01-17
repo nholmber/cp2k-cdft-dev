@@ -453,320 +453,321 @@ CONTAINS
       CALL qs_rho_get(rho, rho_r=rho_r)
 
       IF (dft_control%qs_control%becke_restraint) THEN
-            SELECT CASE (dft_control%qs_control%becke_control%constraint_type)
-            CASE (cdft_density_constraint)
-               nvar = 1  
-               ngrad = 1
-            CASE (cdft_magnetization_constraint)
-               nvar = 1
-               ngrad = 1
-               IF (dft_control%nspins == 1)&
-                  CPABORT("Becke magnetization density constraint requires UKS calculation.")
-            CASE (cdft_combined_constraint)
-               nvar = 2
-               IF (dft_control%nspins == 1)&
-                  CPABORT("Becke combined charge+spin constraint requires UKS calculation.")
-               SELECT CASE ( dft_control%qs_control%becke_control%combined_type )
-               CASE ( cdft_combined_all )
-                  ngrad = 1
-               CASE ( cdft_combined_acceptor, cdft_combined_donor )
-                  ngrad = 2
-               END SELECT
-            END SELECT
-            ALLOCATE(strength(nvar))
-            ALLOCATE(target_val(nvar))
-            ALLOCATE(dE(nvar))
-            strength=dft_control%qs_control%becke_control%strength
-            target_val=dft_control%qs_control%becke_control%target
-            dE=0.0_dp
-            dvol = becke_const%pw%pw_grid%dvol
-            eps_cavity = dft_control%qs_control%becke_control%eps_cavity
+          SELECT CASE (dft_control%qs_control%becke_control%constraint_type)
+          CASE (cdft_density_constraint)
+             nvar = 1  
+             ngrad = 1
+          CASE (cdft_magnetization_constraint)
+             nvar = 1
+             ngrad = 1
+             IF (dft_control%nspins == 1)&
+                CPABORT("Becke magnetization density constraint requires UKS calculation.")
+          CASE (cdft_combined_constraint)
+             nvar = 2
+             IF (dft_control%nspins == 1)&
+                CPABORT("Becke combined charge+spin constraint requires UKS calculation.")
+             SELECT CASE ( dft_control%qs_control%becke_control%combined_type )
+             CASE ( cdft_combined_all )
+                ngrad = 1
+             CASE ( cdft_combined_acceptor, cdft_combined_donor )
+                ngrad = 2
+             END SELECT
+          END SELECT
+          ALLOCATE(strength(nvar))
+          ALLOCATE(target_val(nvar))
+          ALLOCATE(dE(nvar))
+          strength=dft_control%qs_control%becke_control%strength
+          target_val=dft_control%qs_control%becke_control%target
+          dE=0.0_dp
+          dvol = becke_const%pw%pw_grid%dvol
+          eps_cavity = dft_control%qs_control%becke_control%eps_cavity
 
-            IF(calc_pot)THEN
+          IF(calc_pot)THEN
 
-            becke_const%pw%cr3d=0.0_dp
+          becke_const%pw%cr3d=0.0_dp
 
-            ! Setup cutoff scheme
-            IF(.NOT.ASSOCIATED(dft_control%qs_control%becke_control%cutoffs)) THEN
-               CALL get_qs_env(qs_env, atomic_kind_set=atomic_kind_set)
-               ALLOCATE(dft_control%qs_control%becke_control%cutoffs(natom))
-               SELECT CASE(dft_control%qs_control%becke_control%cutoff_type)
-               CASE (becke_cutoff_global)
-                  dft_control%qs_control%becke_control%cutoffs(:)=dft_control%qs_control%becke_control%rglobal
-               CASE (becke_cutoff_element)
-                  CPASSERT(SIZE(atomic_kind_set)==SIZE(dft_control%qs_control%becke_control%cutoffs_tmp))
-                  DO ikind = 1, SIZE(atomic_kind_set)
-                     CALL get_atomic_kind(atomic_kind_set(ikind), natom=katom, atom_list=atom_list)
-                     DO iatom = 1, katom
-                        atom_a = atom_list(iatom)
-                        dft_control%qs_control%becke_control%cutoffs(atom_a) = dft_control%qs_control%becke_control%cutoffs_tmp(ikind)
-                     END DO
-                  END DO
-                  DEALLOCATE(dft_control%qs_control%becke_control%cutoffs_tmp)
-               END SELECT
-            END IF
-            cutoffs => dft_control%qs_control%becke_control%cutoffs
+          ! Setup cutoff scheme
+          IF(.NOT.ASSOCIATED(dft_control%qs_control%becke_control%cutoffs)) THEN
+             CALL get_qs_env(qs_env, atomic_kind_set=atomic_kind_set)
+             ALLOCATE(dft_control%qs_control%becke_control%cutoffs(natom))
+             SELECT CASE(dft_control%qs_control%becke_control%cutoff_type)
+             CASE (becke_cutoff_global)
+                dft_control%qs_control%becke_control%cutoffs(:)=dft_control%qs_control%becke_control%rglobal
+             CASE (becke_cutoff_element)
+                IF (.NOT. SIZE(atomic_kind_set)==SIZE(dft_control%qs_control%becke_control%cutoffs_tmp))&
+                   CPABORT("Size &BECKE_RESTRAINT&ELEMENT_CUTOFFS does not match number of atomic kinds "//&
+                           " in the input coordinate file.")
+                DO ikind = 1, SIZE(atomic_kind_set)
+                   CALL get_atomic_kind(atomic_kind_set(ikind), natom=katom, atom_list=atom_list)
+                   DO iatom = 1, katom
+                      atom_a = atom_list(iatom)
+                      dft_control%qs_control%becke_control%cutoffs(atom_a) = dft_control%qs_control%becke_control%cutoffs_tmp(ikind)
+                   END DO
+                END DO
+                DEALLOCATE(dft_control%qs_control%becke_control%cutoffs_tmp)
+             END SELECT
+          END IF
+          cutoffs => dft_control%qs_control%becke_control%cutoffs
 
-            IF(dft_control%qs_control%becke_control%atomic_charges) THEN
-               DO iatom = 1, dft_control%qs_control%becke_control%natoms
-                  charge(iatom)%pw%cr3d=0.0_dp
-               END DO
-            END IF
+          IF(dft_control%qs_control%becke_control%atomic_charges) THEN
+             DO iatom = 1, dft_control%qs_control%becke_control%natoms
+                charge(iatom)%pw%cr3d=0.0_dp
+             END DO
+          END IF
           
-            build=.FALSE.
-            IF (dft_control%qs_control%becke_control%adjust .AND.&
-               .NOT. ASSOCIATED(dft_control%qs_control%becke_control%aij)) THEN
-               ALLOCATE(dft_control%qs_control%becke_control%aij(natom,natom))
-              build=.TRUE.
-            END IF
+          build=.FALSE.
+          IF (dft_control%qs_control%becke_control%adjust .AND.&
+             .NOT. ASSOCIATED(dft_control%qs_control%becke_control%aij)) THEN
+             ALLOCATE(dft_control%qs_control%becke_control%aij(natom,natom))
+            build=.TRUE.
+          END IF
+          ALLOCATE (catom(dft_control%qs_control%becke_control%natoms))          
 
-            ALLOCATE (catom(dft_control%qs_control%becke_control%natoms))          
+          IF (dft_control%qs_control%becke_control%dynamic_confine .OR.&
+              dft_control%qs_control%becke_control%save_pot .OR.&
+              dft_control%qs_control%becke_control%cavity_confine .OR.&
+              dft_control%qs_control%becke_control%should_skip) THEN
+             ALLOCATE (is_constraint(natom))
+             is_constraint=.FALSE.
+          END IF
+          ! This boolean is needed to prevent calculation of atom pairs ji when the pair ij has
+          ! already been calculated (data for pair ji is set using symmetry)
+          ! With gradient precomputation, symmetry exploited for both weight function and gradients
+          ALLOCATE(skip_me(natom))
+          in_memory = .FALSE.
+          IF (dft_control%qs_control%becke_control%save_pot) THEN
+             in_memory = dft_control%qs_control%becke_control%in_memory
+             IF (in_memory) ALLOCATE (coefficients(natom))
+          END IF
+          DO i=1,dft_control%qs_control%becke_control%natoms
+             catom(i)=dft_control%qs_control%becke_control%atoms(i)
+             IF (dft_control%qs_control%becke_control%dynamic_confine .OR. &
+                 dft_control%qs_control%becke_control%save_pot .OR.&
+                 dft_control%qs_control%becke_control%cavity_confine.OR.&
+                 dft_control%qs_control%becke_control%should_skip)&
+                is_constraint(catom(i))=.TRUE.
+             IF (in_memory)&
+                coefficients(catom(i))=dft_control%qs_control%becke_control%coeff(i)
+          ENDDO
 
-            IF (dft_control%qs_control%becke_control%dynamic_confine .OR.&
-                dft_control%qs_control%becke_control%save_pot .OR.&
-                dft_control%qs_control%becke_control%cavity_confine .OR.&
-                dft_control%qs_control%becke_control%should_skip) THEN
-               ALLOCATE (is_constraint(natom))
-               is_constraint=.FALSE.
-            END IF
-            ! This boolean is needed to prevent calculation of atom pairs ji when the pair ij has
-            ! already been calculated (data for pair ji is set using symmetry)
-            ! With gradient precomputation, symmetry exploited for both weight function and gradients
-            ALLOCATE(skip_me(natom))
-            in_memory = .FALSE.
-            IF (dft_control%qs_control%becke_control%save_pot) THEN
-               in_memory = dft_control%qs_control%becke_control%in_memory
-               IF (in_memory) ALLOCATE (coefficients(natom))
-            END IF
-            DO i=1,dft_control%qs_control%becke_control%natoms
-               catom(i)=dft_control%qs_control%becke_control%atoms(i)
-               IF (dft_control%qs_control%becke_control%dynamic_confine .OR. &
-                   dft_control%qs_control%becke_control%save_pot .OR.&
-                   dft_control%qs_control%becke_control%cavity_confine.OR.&
-                   dft_control%qs_control%becke_control%should_skip)&
-                  is_constraint(catom(i))=.TRUE.
-               IF (in_memory)&
-                  coefficients(catom(i))=dft_control%qs_control%becke_control%coeff(i)
-            ENDDO
+          bo=becke_const%pw%pw_grid%bounds_local
+          np=becke_const%pw%pw_grid%npts
+          dvol = becke_const%pw%pw_grid%dvol
+          dr=becke_const%pw%pw_grid%dr
+          np= becke_const%pw%pw_grid%npts
+          shift=-REAL(MODULO(np,2),dp)*dr/2.0_dp
 
-            bo=becke_const%pw%pw_grid%bounds_local
-            np=becke_const%pw%pw_grid%npts
-            dvol = becke_const%pw%pw_grid%dvol
-            dr=becke_const%pw%pw_grid%dr
-            np= becke_const%pw%pw_grid%npts
-            shift=-REAL(MODULO(np,2),dp)*dr/2.0_dp
+          ALLOCATE (cell_functions(natom))
+          IF (store_vectors) THEN
+             ALLOCATE (distances(natom))
+             ALLOCATE (distance_vecs(3,natom))
+             IF (in_memory) ALLOCATE (pair_dist_vecs(3,natom,natom))
+             ALLOCATE (position_vecs(3,natom))
+          END IF
+          ! Setup static/dynamic confinement
+          IF (dft_control%qs_control%becke_control%confine) THEN
+             dir = dft_control%qs_control%becke_control%confine_dir
+             lb = dft_control%qs_control%becke_control%confine_bounds(1)
+             ub = dft_control%qs_control%becke_control%confine_bounds(2)
+             ! Convert [0,L] to [-L/2, L/2]
+             lb = lb-cell%hmat(dir,dir)/2._dp
+             ub = ub-cell%hmat(dir,dir)/2._dp
+          ELSE IF (dft_control%qs_control%becke_control%dynamic_confine) THEN
+             dir = dft_control%qs_control%becke_control%confine_dir
+             lb = HUGE(0.0_dp)
+             ub = -HUGE(0.0_dp)
+             dynamic_radius = dft_control%qs_control%becke_control%dynamic_radius
+          END IF
+          ALLOCATE (R12(natom, natom))
+          IF (in_memory) THEN
+             ALLOCATE (ds_dR_j(3))
+             ALLOCATE (ds_dR_i(3))  
+             ALLOCATE (d_sum_Pm_dR(3,natom)) 
+             ALLOCATE (d_sum_const_dR(3*ngrad,natom)) 
+             ALLOCATE (dP_i_dRj(3,natom,natom)) 
+             ALLOCATE (dP_i_dRi(3,natom)) 
+             th=1.0e-8_dp
+          END IF
+          !calculate distances from target atom (only implemented for a diatomic system)
+          DO i=1,3
+             cell_v(i)=cell%hmat(i,i)
+          END DO
+          DO iatom=1,natom-1
+             DO jatom=iatom+1,natom
+                r=particle_set(iatom)%r
+                r1=particle_set(jatom)%r
+                DO i=1,3
+                   r(i)=MODULO(r(i),cell%hmat(i,i))-cell%hmat(i,i)/2._dp
+                   r1(i)=MODULO(r1(i),cell%hmat(i,i))-cell%hmat(i,i)/2._dp
+                END DO
+                dist_vec=(r-r1)-ANINT((r-r1)/cell_v)*cell_v
+                ! Store pbc corrected position and pairwise distance vectors for later reuse
+                IF (store_vectors) THEN
+                   position_vecs(:,iatom) = r(:)
+                   IF (iatom==1.AND.jatom==natom) position_vecs(:,jatom) = r1(:)
+                   IF (in_memory) THEN
+                      pair_dist_vecs(:,iatom,jatom) = dist_vec(:)
+                      pair_dist_vecs(:,jatom,iatom) = -dist_vec(:)
+                   END IF
+                END IF
+                R12(iatom,jatom)=SQRT(DOT_PRODUCT(dist_vec,dist_vec))
+                R12(jatom,iatom)=R12(iatom,jatom)
+                IF (dft_control%qs_control%becke_control%dynamic_confine.AND.&
+                  is_constraint(iatom) .AND. is_constraint(jatom)) THEN
+                   ! ub = max(r(dir)+dynamic_radius), lb = min(r(dir)-dynamic_radius)
+                   IF ((r(dir)+dynamic_radius).GT.ub) ub = r(dir)+dynamic_radius
+                   IF ((r1(dir)+dynamic_radius).GT.ub) ub = r1(dir)+dynamic_radius
+                   IF ((r(dir)-dynamic_radius).LT.lb) lb = r(dir)-dynamic_radius
+                   IF ((r1(dir)-dynamic_radius).LT.lb) lb = r1(dir)-dynamic_radius
+                END IF
+                ! Set up heteronuclear cell partitioning using user defined radii
+                IF (build) THEN
+                   CALL get_atomic_kind(atomic_kind=particle_set(iatom)%atomic_kind,&
+                                        element_symbol=element_symbol)
+                   CALL get_ptable_info(symbol=element_symbol,cdft_radius=ircov)
+                   CALL get_atomic_kind(atomic_kind=particle_set(jatom)%atomic_kind,&
+                                        element_symbol=element_symbol)
+                   CALL get_ptable_info(symbol=element_symbol,cdft_radius=jrcov)
+                   IF (ircov .NE. jrcov) THEN
+                      chi = ircov/jrcov
+                      uij = (chi-1.0_dp)/(chi+1.0_dp)
+                      dft_control%qs_control%becke_control%aij(iatom,jatom) = uij / (uij**2-1.0_dp)
+                      IF (dft_control%qs_control%becke_control%aij(iatom,jatom) .GT. 0.5_dp) THEN
+                         dft_control%qs_control%becke_control%aij(iatom,jatom) = 0.5_dp
+                      ELSE IF (dft_control%qs_control%becke_control%aij(iatom,jatom) .LT. -0.5_dp) THEN
+                         dft_control%qs_control%becke_control%aij(iatom,jatom) = -0.5_dp
+                      END IF
+                   ELSE
+                      dft_control%qs_control%becke_control%aij(iatom,jatom) = 0.0_dp
+                   END IF
+                   dft_control%qs_control%becke_control%aij(jatom,iatom) =&
+                   -dft_control%qs_control%becke_control%aij(iatom,jatom) ! Note change of sign
+                END IF
+             END DO
+          END DO
+          ! Dump some additional information about the calculation
+          IF (dft_control%qs_control%becke_control%first_iteration .AND. in_memory) THEN
+             IF (iw>0) THEN
+                WRITE(iw,'(/,T3,A,T60)')&
+                    '----------------------------- Becke atomic parameters -----------------------------'
+                IF (dft_control%qs_control%becke_control%adjust) THEN
+                   WRITE(iw,'(/,T3,A,A)')&
+                      'Atom  Element   Coefficient','     Cutoff (a.u.)    CDFT Radius (angstrom)'
+                   DO iatom = 1, natom
+                      CALL get_atomic_kind(atomic_kind=particle_set(iatom)%atomic_kind,&
+                                           element_symbol=element_symbol)
+                      CALL get_ptable_info(symbol=element_symbol,cdft_radius=ircov)
+                      IF (is_constraint(iatom)) THEN
+                         coef = coefficients(iatom)
+                      ELSE
+                         coef = 0.0_dp
+                      END IF
+                      WRITE(iw,"(i7,T15,A2,T23,F8.3,T39,F8.3,T61,F8.3,T75,F8.3)")&
+                         iatom,element_symbol,coef,&
+                         dft_control%qs_control%becke_control%cutoffs(iatom),&
+                         ircov
+                   END DO
+                ELSE 
+                   WRITE(iw,'(/,T3,A,A)')&
+                      'Atom  Element   Coefficient','     Cutoff (a.u.)'
+                   DO iatom = 1, natom
+                      CALL get_atomic_kind(atomic_kind=particle_set(iatom)%atomic_kind,&
+                                           element_symbol=element_symbol)
+                      IF (is_constraint(iatom)) THEN
+                         coef = coefficients(iatom)
+                      ELSE
+                         coef = 0.0_dp
+                      END IF
+                      WRITE(iw,"(i7,T15,A2,T23,F8.3,T39,F8.3,T61,F8.3,T75)")&
+                         iatom,element_symbol,coef,&
+                         dft_control%qs_control%becke_control%cutoffs(iatom)
+                   END DO
+                END IF
+                WRITE(iw,'(/,T3,A)')&
+                    '-----------------------------------------------------------------------------------'
+             END IF
+             dft_control%qs_control%becke_control%first_iteration = .FALSE.
+          END IF       
+          ! Convert confinement bounds to RS grid indices
+          IF (dft_control%qs_control%becke_control%dynamic_confine .OR.&
+              dft_control%qs_control%becke_control%confine) THEN      
+             tmp_const = (ub-shift(dir))/dr(dir)
+             IF (tmp_const.GE.0.0_dp) THEN
+                ub_index = CEILING(tmp_const)
+             ELSE
+                ub_index = FLOOR(tmp_const)
+             END IF
+             tmp_const = (lb-shift(dir))/dr(dir)
+             IF (tmp_const.GE.0.0_dp) THEN
+                lb_index = CEILING(tmp_const)
+             ELSE
+                lb_index = FLOOR(tmp_const)
+             END IF
+             ! Store confinement bound indices for use in force calculation
+             dft_control%qs_control%becke_control%confine_bounds_int(1) = lb_index
+             dft_control%qs_control%becke_control%confine_bounds_int(2) = ub_index
+          END IF
+          ! Setup cavity confinement using spherical Gaussians
+          IF (dft_control%qs_control%becke_control%cavity_confine) THEN
+             cavity_env => dft_control%qs_control%becke_control%cavity_env
+             CALL get_qs_env(qs_env, atomic_kind_set=atomic_kind_set, pw_env=pw_env)
+             nkind = SIZE(qs_kind_set)
+             ! Setup Gaussian shape function
+             IF(.NOT.ASSOCIATED(cavity_env%kind_shape_fn))&
+                CALL create_shape_function(cavity_env,qs_kind_set,atomic_kind_set,&
+                                           radius=dft_control%qs_control%becke_control%rcavity)
+             ! Form cavity by summing isolated Gaussian densities over constraint atoms  
+             NULLIFY(rs_cavity)
+             CALL pw_env_get(pw_env,auxbas_rs_grid=rs_cavity,&
+                             auxbas_pw_pool=auxbas_pw_pool)
+             CALL rs_grid_retain(rs_cavity)
+             CALL rs_grid_zero(rs_cavity)
+             ALLOCATE(pab(1,1))
+             nthread = 1
+             ithread = 0
 
-            ALLOCATE (cell_functions(natom))
-            IF (store_vectors) THEN
-               ALLOCATE (distances(natom))
-               ALLOCATE (distance_vecs(3,natom))
-               IF (in_memory) ALLOCATE (pair_dist_vecs(3,natom,natom))
-               ALLOCATE (position_vecs(3,natom))
-            END IF
-            ! Setup static/dynamic confinement
-            IF (dft_control%qs_control%becke_control%confine) THEN
-               dir = dft_control%qs_control%becke_control%confine_dir
-               lb = dft_control%qs_control%becke_control%confine_bounds(1)
-               ub = dft_control%qs_control%becke_control%confine_bounds(2)
-               ! Convert [0,L] to [-L/2, L/2]
-               lb = lb-cell%hmat(dir,dir)/2._dp
-               ub = ub-cell%hmat(dir,dir)/2._dp
-            ELSE IF (dft_control%qs_control%becke_control%dynamic_confine) THEN
-               dir = dft_control%qs_control%becke_control%confine_dir
-               lb = HUGE(0.0_dp)
-               ub = -HUGE(0.0_dp)
-               dynamic_radius = dft_control%qs_control%becke_control%dynamic_radius
-            END IF
-            ALLOCATE (R12(natom, natom))
-            IF (in_memory) THEN
-               ALLOCATE (ds_dR_j(3))
-               ALLOCATE (ds_dR_i(3))  
-               ALLOCATE (d_sum_Pm_dR(3,natom)) 
-               ALLOCATE (d_sum_const_dR(3*ngrad,natom)) 
-               ALLOCATE (dP_i_dRj(3,natom,natom)) 
-               ALLOCATE (dP_i_dRi(3,natom)) 
-               th=1.0e-8_dp
-            END IF
-            !calculate distances from target atom (only implemented for a diatomic system)
-            DO i=1,3
-               cell_v(i)=cell%hmat(i,i)
-            END DO
-            DO iatom=1,natom-1
-               DO jatom=iatom+1,natom
-                  r=particle_set(iatom)%r
-                  r1=particle_set(jatom)%r
-                  DO i=1,3
-                     r(i)=MODULO(r(i),cell%hmat(i,i))-cell%hmat(i,i)/2._dp
-                     r1(i)=MODULO(r1(i),cell%hmat(i,i))-cell%hmat(i,i)/2._dp
-                  END DO
-                  dist_vec=(r-r1)-ANINT((r-r1)/cell_v)*cell_v
-                  ! Store pbc corrected position and pairwise distance vectors for later reuse
-                  IF (store_vectors) THEN
-                     position_vecs(:,iatom) = r(:)
-                     IF (iatom==1.AND.jatom==natom) position_vecs(:,jatom) = r1(:)
-                     IF (in_memory) THEN
-                        pair_dist_vecs(:,iatom,jatom) = dist_vec(:)
-                        pair_dist_vecs(:,jatom,iatom) = -dist_vec(:)
-                     END IF
-                  END IF
-                  R12(iatom,jatom)=SQRT(DOT_PRODUCT(dist_vec,dist_vec))
-                  R12(jatom,iatom)=R12(iatom,jatom)
-                  IF (dft_control%qs_control%becke_control%dynamic_confine.AND.&
-                    is_constraint(iatom) .AND. is_constraint(jatom)) THEN
-                     ! ub = max(r(dir)+dynamic_radius), lb = min(r(dir)-dynamic_radius)
-                     IF ((r(dir)+dynamic_radius).GT.ub) ub = r(dir)+dynamic_radius
-                     IF ((r1(dir)+dynamic_radius).GT.ub) ub = r1(dir)+dynamic_radius
-                     IF ((r(dir)-dynamic_radius).LT.lb) lb = r(dir)-dynamic_radius
-                     IF ((r1(dir)-dynamic_radius).LT.lb) lb = r1(dir)-dynamic_radius
-                  END IF
-                  ! Set up heteronuclear cell partitioning using user defined radii
-                  IF (build) THEN
-                     CALL get_atomic_kind(atomic_kind=particle_set(iatom)%atomic_kind,&
-                                          element_symbol=element_symbol)
-                     CALL get_ptable_info(symbol=element_symbol,cdft_radius=ircov)
-                     CALL get_atomic_kind(atomic_kind=particle_set(jatom)%atomic_kind,&
-                                          element_symbol=element_symbol)
-                     CALL get_ptable_info(symbol=element_symbol,cdft_radius=jrcov)
-                     IF (ircov .NE. jrcov) THEN
-                        chi = ircov/jrcov
-                        uij = (chi-1.0_dp)/(chi+1.0_dp)
-                        dft_control%qs_control%becke_control%aij(iatom,jatom) = uij / (uij**2-1.0_dp)
-                        IF (dft_control%qs_control%becke_control%aij(iatom,jatom) .GT. 0.5_dp) THEN
-                           dft_control%qs_control%becke_control%aij(iatom,jatom) = 0.5_dp
-                        ELSE IF (dft_control%qs_control%becke_control%aij(iatom,jatom) .LT. -0.5_dp) THEN
-                           dft_control%qs_control%becke_control%aij(iatom,jatom) = -0.5_dp
-                        END IF
-                     ELSE
-                        dft_control%qs_control%becke_control%aij(iatom,jatom) = 0.0_dp
-                     END IF
-                     dft_control%qs_control%becke_control%aij(jatom,iatom) =&
-                     -dft_control%qs_control%becke_control%aij(iatom,jatom) ! Note change of sign
-                  END IF
-               END DO
-            END DO
-            ! Dump some additional information about the calculation
-            IF (dft_control%qs_control%becke_control%first_iteration .AND. in_memory) THEN
-               IF (iw>0) THEN
-                  WRITE(iw,'(/,T3,A,T60)')&
-                      '----------------------------- Becke atomic parameters -----------------------------'
-                  IF (dft_control%qs_control%becke_control%adjust) THEN
-                     WRITE(iw,'(/,T3,A,A)')&
-                        'Atom  Element   Coefficient','     Cutoff (a.u.)    CDFT Radius (angstrom)'
-                     DO iatom = 1, natom
-                        CALL get_atomic_kind(atomic_kind=particle_set(iatom)%atomic_kind,&
-                                             element_symbol=element_symbol)
-                        CALL get_ptable_info(symbol=element_symbol,cdft_radius=ircov)
-                        IF (is_constraint(iatom)) THEN
-                           coef = coefficients(iatom)
-                        ELSE
-                           coef = 0.0_dp
-                        END IF
-                        WRITE(iw,"(i7,T15,A2,T23,F8.3,T39,F8.3,T61,F8.3,T75,F8.3)")&
-                           iatom,element_symbol,coef,&
-                           dft_control%qs_control%becke_control%cutoffs(iatom),&
-                           ircov
-                     END DO
-                  ELSE 
-                     WRITE(iw,'(/,T3,A,A)')&
-                        'Atom  Element   Coefficient','     Cutoff (a.u.)'
-                     DO iatom = 1, natom
-                        CALL get_atomic_kind(atomic_kind=particle_set(iatom)%atomic_kind,&
-                                             element_symbol=element_symbol)
-                        IF (is_constraint(iatom)) THEN
-                           coef = coefficients(iatom)
-                        ELSE
-                           coef = 0.0_dp
-                        END IF
-                        WRITE(iw,"(i7,T15,A2,T23,F8.3,T39,F8.3,T61,F8.3,T75)")&
-                           iatom,element_symbol,coef,&
-                           dft_control%qs_control%becke_control%cutoffs(iatom)
-                     END DO
-                  END IF
-                  WRITE(iw,'(/,T3,A)')&
-                      '-----------------------------------------------------------------------------------'
-               END IF
-               dft_control%qs_control%becke_control%first_iteration = .FALSE.
-            END IF       
-            ! Convert confinement bounds to RS grid indices
-            IF (dft_control%qs_control%becke_control%dynamic_confine .OR.&
-                dft_control%qs_control%becke_control%confine) THEN      
-               tmp_const = (ub-shift(dir))/dr(dir)
-               IF (tmp_const.GE.0.0_dp) THEN
-                  ub_index = CEILING(tmp_const)
-               ELSE
-                  ub_index = FLOOR(tmp_const)
-               END IF
-               tmp_const = (lb-shift(dir))/dr(dir)
-               IF (tmp_const.GE.0.0_dp) THEN
-                  lb_index = CEILING(tmp_const)
-               ELSE
-                  lb_index = FLOOR(tmp_const)
-               END IF
-               ! Store confinement bound indices for use in force calculation
-               dft_control%qs_control%becke_control%confine_bounds_int(1) = lb_index
-               dft_control%qs_control%becke_control%confine_bounds_int(2) = ub_index
-            END IF
-            ! Setup cavity confinement using spherical Gaussians
-            IF (dft_control%qs_control%becke_control%cavity_confine) THEN
-               cavity_env => dft_control%qs_control%becke_control%cavity_env
-               CALL get_qs_env(qs_env, atomic_kind_set=atomic_kind_set, pw_env=pw_env)
-               nkind = SIZE(qs_kind_set)
-               ! Setup Gaussian shape function
-               IF(.NOT.ASSOCIATED(cavity_env%kind_shape_fn))&
-                  CALL create_shape_function(cavity_env,qs_kind_set,atomic_kind_set,&
-                                             radius=dft_control%qs_control%becke_control%rcavity)
-               ! Form cavity by summing isolated Gaussian densities over constraint atoms  
-               NULLIFY(rs_cavity)
-               CALL pw_env_get(pw_env,auxbas_rs_grid=rs_cavity,&
-                               auxbas_pw_pool=auxbas_pw_pool)
-               CALL rs_grid_retain(rs_cavity)
-               CALL rs_grid_zero(rs_cavity)
-               ALLOCATE(pab(1,1))
-               nthread = 1
-               ithread = 0
-
-               DO ikind=1,SIZE(atomic_kind_set)
-                  numexp = cavity_env%kind_shape_fn(ikind)%numexp
-                  IF ( numexp <= 0 ) CYCLE
-                  CALL get_atomic_kind(atomic_kind_set(ikind), natom=katom, atom_list=atom_list)
-                  ALLOCATE(cores(katom))
-                  DO iex=1,numexp
-                     alpha=cavity_env%kind_shape_fn(ikind)%zet(iex)
-                     coef =cavity_env%kind_shape_fn(ikind)%coef(iex)
-                     npme = 0
-                     cores = 0
-                     DO iatom = 1, katom
-                        IF(rs_cavity%desc%parallel .AND. .NOT. rs_cavity%desc%distributed) THEN
-                           ! replicated realspace grid, split the atoms up between procs
-                           IF (MODULO(iatom,rs_cavity%desc%group_size) == rs_cavity % desc % my_pos ) THEN
-                              npme = npme + 1
-                              cores (npme) = iatom
-                           ENDIF
-                        ELSE
-                           npme = npme + 1
-                           cores (npme) = iatom
-                        ENDIF
-                     END DO
-                     DO j=1,npme
-                        iatom = cores(j)
-                        atom_a = atom_list(iatom)
-                        pab(1,1) = coef
-                        IF (store_vectors) THEN
-                           ra(:) = position_vecs(:,atom_a)+cell_v(:)/2._dp 
-                        ELSE
-                           ra(:) = pbc(particle_set(atom_a)%r,cell)
-                        END IF
-                        IF (is_constraint(atom_a))&
-                           CALL collocate_pgf_product_rspace(0,alpha,0,0,0.0_dp,0,ra,&
-                                (/0.0_dp,0.0_dp,0.0_dp/),0.0_dp,1.0_dp,pab,0,0,rs_cavity,&
-                                cell,pw_env%cube_info(1),dft_control%qs_control%eps_rho_rspace,&
-                                ga_gb_function=FUNC_AB,ithread=ithread,use_subpatch=.TRUE.,&
-                                subpatch_pattern=0_int_8)
-                     END DO
-                  END DO
-                  DEALLOCATE(cores)
-               END DO
-               DEALLOCATE (pab)
+             DO ikind=1,SIZE(atomic_kind_set)
+                numexp = cavity_env%kind_shape_fn(ikind)%numexp
+                IF ( numexp <= 0 ) CYCLE
+                CALL get_atomic_kind(atomic_kind_set(ikind), natom=katom, atom_list=atom_list)
+                ALLOCATE(cores(katom))
+                DO iex=1,numexp
+                   alpha=cavity_env%kind_shape_fn(ikind)%zet(iex)
+                   coef =cavity_env%kind_shape_fn(ikind)%coef(iex)
+                   npme = 0
+                   cores = 0
+                   DO iatom = 1, katom
+                      IF(rs_cavity%desc%parallel .AND. .NOT. rs_cavity%desc%distributed) THEN
+                         ! replicated realspace grid, split the atoms up between procs
+                         IF (MODULO(iatom,rs_cavity%desc%group_size) == rs_cavity % desc % my_pos ) THEN
+                            npme = npme + 1
+                            cores (npme) = iatom
+                         ENDIF
+                      ELSE
+                         npme = npme + 1
+                         cores (npme) = iatom
+                      ENDIF
+                   END DO
+                   DO j=1,npme
+                      iatom = cores(j)
+                      atom_a = atom_list(iatom)
+                      pab(1,1) = coef
+                      IF (store_vectors) THEN
+                         ra(:) = position_vecs(:,atom_a)+cell_v(:)/2._dp 
+                      ELSE
+                         ra(:) = pbc(particle_set(atom_a)%r,cell)
+                      END IF
+                      IF (is_constraint(atom_a))&
+                         CALL collocate_pgf_product_rspace(0,alpha,0,0,0.0_dp,0,ra,&
+                              (/0.0_dp,0.0_dp,0.0_dp/),0.0_dp,1.0_dp,pab,0,0,rs_cavity,&
+                              cell,pw_env%cube_info(1),dft_control%qs_control%eps_rho_rspace,&
+                              ga_gb_function=FUNC_AB,ithread=ithread,use_subpatch=.TRUE.,&
+                              subpatch_pattern=0_int_8)
+                   END DO
+                END DO
+                DEALLOCATE(cores)
+             END DO
+             DEALLOCATE (pab)
               
                CALL pw_pool_create_pw(auxbas_pw_pool,dft_control%qs_control%becke_control%cavity%pw,&
                                       use_data=REALDATA3D,in_space=REALSPACE)
