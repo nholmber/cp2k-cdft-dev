@@ -5302,7 +5302,7 @@ CONTAINS
       CPASSERT(.NOT. ASSOCIATED(section))
       CALL section_create(section, "OUTER_SCF", &
                           description="parameters controlling the outer SCF loop", &
-                          n_keywords=9, n_subsections=0, repeats=.FALSE.)
+                          n_keywords=11, n_subsections=0, repeats=.FALSE.)
 
       NULLIFY (keyword)
 
@@ -5316,28 +5316,55 @@ CONTAINS
                           description="Specifies which kind of outer SCF should be employed", &
                           usage="TYPE DDAPC_CONSTRAINT ", &
                           default_i_val=outer_scf_none, &
-                          enum_c_vals=s2a("DDAPC_CONSTRAINT", "S2_CONSTRAINT", "BECKE_CONSTRAINT", "BASIS_CENTER_OPT", "NONE"), &
+                          enum_c_vals=s2a("DDAPC_CONSTRAINT", "S2_CONSTRAINT", "BECKE_CONSTRAINT", &
+                                          "BASIS_CENTER_OPT", "CDFT_CONSTRAINT", "NONE"), &
                           enum_desc=s2a("Enforce a constraint on the DDAPC, requires the corresponding section", &
                                         "Enforce a constraint on the S2, requires the corresponding section", &
                                         "Enforce a constraint on the Becke weight population,requires the corresponding section", &
+                                        "Enforce a constraint on a generic CDFT weight population, requires the corresponding section"//&
+                                        " which determines the type of weight used (currently only Gaussian Hirshfeld supported)", &
                                         "Optimize positions of basis functions, if atom types FLOATING_BASIS_CENTER are defined", &
                                         "Do nothing in the outer loop, useful for resetting the inner loop,"), &
                           enum_i_vals=(/outer_scf_ddapc_constraint, outer_scf_s2_constraint, &
-                                        outer_scf_becke_constraint, outer_scf_basis_center_opt, outer_scf_none/))
+                                        outer_scf_becke_constraint, outer_scf_basis_center_opt, &
+                                        outer_scf_cdft_constraint, outer_scf_none/))
       CALL section_add_keyword(section, keyword)
       CALL keyword_release(keyword)
 
-      CALL keyword_create( &
-         keyword, name="OPTIMIZER", &
-         description="Method used to bring the outer loop to a stationary point", &
-         usage="OPTIMIZER SD", &
-         default_i_val=outer_scf_optimizer_none, &
-         enum_c_vals=s2a("SD", "DIIS", "NONE", "BISECT"), &
-         enum_desc=s2a("Takes steps in the direction of the gradient, multiplied by step_size", &
-                       "Uses a Direct Inversion in the Iterative Subspace method", &
-                       "Do nothing, useful only with the none type", &
-                       "Bisection on the gradient, useful for difficult one dimensional cases"), &
-         enum_i_vals=(/outer_scf_optimizer_sd, outer_scf_optimizer_diis, outer_scf_optimizer_none, outer_scf_optimizer_bisect/))
+      CALL keyword_create(keyword, name="OPTIMIZER", &
+                          description="Method used to bring the outer loop to a stationary point", &
+                          usage="OPTIMIZER SD", &
+                          default_i_val=outer_scf_optimizer_none, &
+                          enum_c_vals=s2a("SD", "DIIS", "NONE", "BISECT", "BROYDEN","NEWTON"), &
+                          enum_desc=s2a("Takes steps in the direction of the gradient, multiplied by step_size", &
+                                        "Uses a Direct Inversion in the Iterative Subspace method", &
+                                        "Do nothing, useful only with the none type", &
+                                        "Bisection of the gradient, useful for difficult one dimensional cases",&
+                                        "Broyden's method. Variant defined in BROYDEN_TYPE.",&
+                                        "Newton's method."),&
+                          enum_i_vals=(/outer_scf_optimizer_sd, outer_scf_optimizer_diis, outer_scf_optimizer_none,&
+                                        outer_scf_optimizer_bisect, outer_scf_optimizer_broyden, outer_scf_optimizer_newton/))
+      CALL section_add_keyword(section, keyword)
+      CALL keyword_release(keyword)
+
+      CALL keyword_create(keyword, name="JACOBIAN_TYPE",&
+                          description="Finite difference method used to calculate the inverse Jacobian needed by some optimizers.",&
+                          usage="JACOBIAN_TYPE FD1",&
+                          default_i_val=jacobian_fd1,&
+                          enum_c_vals=s2a("FD1","FD1_BACKWARD","FD2","FD2_BACKWARD","FD1_CENTRAL"),&
+                          enum_desc=s2a("First order forward difference (one extra energy evaluation per constraint)",&
+                                        "First order backward difference (one extra energy evaluation per constraint)",&
+                                        "Second order forward difference (two extra energy evaluations per constraint)",&
+                                        "Second order backward difference (two extra energy evaluations per constraint)",&
+                                        "First order central difference (two extra energy evaluations per constraint)"),&
+                          enum_i_vals=(/jacobian_fd1,jacobian_fd1_backward,jacobian_fd2,&
+                                        jacobian_fd2_backward,jacobian_fd1_central/))
+      CALL section_add_keyword(section, keyword)
+      CALL keyword_release(keyword)
+
+      CALL keyword_create(keyword, name="JACOBIAN_STEP",&
+                          description="Step size to use in the calculation of the inverse Jacobian with finite differences.", &
+                          usage="JACOBIAN_STEP 1.0E-4 ", default_r_val=1.0E-4_dp,error=error)
       CALL section_add_keyword(section, keyword)
       CALL keyword_release(keyword)
 
