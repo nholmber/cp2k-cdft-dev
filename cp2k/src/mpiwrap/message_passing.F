@@ -1801,7 +1801,7 @@ CONTAINS
 #else
       requests = mp_request_null
 #endif
-   END SUBROUTINE mp_testall_tv
+   END FUNCTION mp_testall_tv
 
 ! *****************************************************************************
 !> \brief Tests for completion of the given request.
