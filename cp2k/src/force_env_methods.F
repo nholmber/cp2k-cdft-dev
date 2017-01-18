@@ -94,6 +94,9 @@ MODULE force_env_methods
    USE mathlib,                         ONLY: abnormal_value
    USE message_passing,                 ONLY: mp_sum,&
                                               mp_sync
+   USE mixed_cdft_methods,              ONLY: mixed_cdft_init,&
+                                              mixed_cdft_build_weight,&
+                                              mixed_cdft_calculate_coupling       
    USE metadynamics_types,              ONLY: meta_env_retain,&
                                               meta_env_type
    USE mixed_energy_types,              ONLY: mixed_energy_type,&
@@ -102,10 +105,7 @@ MODULE force_env_methods
                                               mixed_env_retain,&
                                               mixed_environment_type
    USE mixed_environment_utils,         ONLY: get_subsys_map_index,&
-                                              mixed_map_forces,&
-                                              mixed_cdft_init,&
-                                              mixed_cdft_build_weight,&
-                                              mixed_cdft_coupling       
+                                              mixed_map_forces
    USE particle_list_types,             ONLY: particle_list_p_type,&
                                               particle_list_type
    USE physcon,                         ONLY: debye
@@ -951,7 +951,7 @@ CONTAINS
       ! Mixed CDFT: calculate ET coupling
       IF (force_env%mixed_env%do_mixed_et) THEN
          IF (MODULO(force_env%mixed_env%cdft_control%sim_step, force_env%mixed_env%et_freq)==0)&
-            CALL mixed_cdft_coupling(force_env)
+            CALL mixed_cdft_calculate_coupling(force_env)
       END IF      
       ! Let's transfer energy, natom, forces, virials
       CALL mp_sum(energies, force_env%para_env%group)

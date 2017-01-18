@@ -109,13 +109,11 @@ CONTAINS
       ! Double force_eval
       CALL section_create(subsection,name="LINEAR",&
                           description="Linear combination between two force_eval:  F= lambda F1 + (1-lambda) F2",&
-                          n_keywords=11, n_subsections=0, repeats=.FALSE., &
-                          error=error)
+                          n_keywords=11, n_subsections=0, repeats=.FALSE.)
 
       CALL keyword_create(keyword, name="LAMBDA",&
                           description="Specify the mixing parameter lambda in the formula.",&
-                          usage="lambda <REAL>", type_of_var=real_t,&
-                          error=error)
+                          usage="lambda <REAL>", type_of_var=real_t)
       CALL section_add_keyword(subsection, keyword)
       CALL keyword_release(keyword)
 

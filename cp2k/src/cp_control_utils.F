@@ -1976,7 +1976,7 @@ CONTAINS
                  hirshfeld_constraint_section => section_vals_get_subs_vals(cdft_control_section,"HIRSHFELD_CONSTRAINT")
                  CALL section_vals_get(hirshfeld_constraint_section,explicit=exists)
                  IF(exists) THEN
-                    CALL read_hirshfeld_constraint_section(qs_control,hirshfeld_constraint_section,error)
+                    CALL read_hirshfeld_constraint_section(qs_control,hirshfeld_constraint_section)
                     qs_control%cdft_control%constraint_type = qs_control%cdft_control%hirshfeld_control%constraint_type
                     qs_control%cdft_control%combined_type = qs_control%cdft_control%hirshfeld_control%combined_type                  
                  ELSE

@@ -8,9 +8,9 @@
 !>      settings for the DFT-based calculations.
 ! **************************************************************************************************
 MODULE cp_control_types
-   USE cp_dbcsr_interface,              ONLY: cp_dbcsr_p_type
    USE cp_fm_types,                     ONLY: cp_fm_p_type,&
                                               cp_fm_release
+   USE dbcsr_api,                       ONLY: dbcsr_p_type
    USE hirshfeld_types,                 ONLY: hirshfeld_type,&
                                               release_hirshfeld_type                
    USE input_constants,                 ONLY: do_full_density,&
@@ -291,8 +291,8 @@ MODULE cp_control_types
                                                      reuse_precond, purge_history,&
                                                      should_purge, calculate_metric
      TYPE(cp_fm_p_type), DIMENSION(:), POINTER    :: mo_coeff
-     TYPE(cp_dbcsr_p_type)                        :: wmat, matrix_s
-     TYPE(cp_dbcsr_p_type), DIMENSION(:), POINTER :: matrix_p
+     TYPE(dbcsr_p_type)                        :: wmat, matrix_s
+     TYPE(dbcsr_p_type), DIMENSION(:), POINTER :: matrix_p
  END TYPE cdft_control_type
 
 ! **************************************************************************************************
@@ -849,7 +849,7 @@ CONTAINS
          IF (ASSOCIATED(becke_control%combined_mat)) &
             DEALLOCATE(becke_control%combined_mat)                                                       
          IF (becke_control%cavity_confine)&
-            CALL release_hirshfeld_type(becke_control%cavity_env,error)
+            CALL release_hirshfeld_type(becke_control%cavity_env)
          becke_control%ref_count=0
          becke_control%natoms=0
       ENDIF
