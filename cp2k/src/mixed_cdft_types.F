@@ -267,4 +267,4 @@ CONTAINS
 
    END SUBROUTINE mixed_cdft_buffers_release
 
-END SUBROUTINE mixed_cdft_types
+END MODULE mixed_cdft_types
