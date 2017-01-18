@@ -169,7 +169,7 @@ CONTAINS
          CALL mixed_cdft_dlb_release(cdft_control%dlb_control)
       IF (ASSOCIATED(cdft_control%sendbuff)) THEN
          DO i = 1, SIZE(cdft_control%sendbuff)
-            CALL mixed_cdft_buffers_release(cdft_control%sendbuff)
+            CALL mixed_cdft_buffers_release(cdft_control%sendbuff(i))
          END DO
       END IF
       CALL becke_control_release(cdft_control%becke_control)
@@ -271,7 +271,6 @@ CONTAINS
          END DO 
          DEALLOCATE(p_buffer%buffs)
       END IF
-      DEALLOCATE(p_buffer)
 
    END SUBROUTINE mixed_cdft_p_buffers_release
 
