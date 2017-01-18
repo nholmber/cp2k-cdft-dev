@@ -3613,7 +3613,7 @@ CONTAINS
         CALL add_reference(key=Holmberg2017, ISI_record=s2a(&
                            "AU Holmberg, N",&
                            "   Laasonen, K",&
-                           "TI Efficient Constrained Density Functional Theory Implementation for Simulation of",
+                           "TI Efficient Constrained Density Functional Theory Implementation for Simulation of",&
                            "   Condensed Phase Electron Transfer Reactions",&
                            "SO Journal of Chemical Theory and Computation",&
                            "PY 2017",&
