@@ -56,8 +56,7 @@ MODULE scf_control_types
    ! Public data types
 
    PUBLIC :: scf_control_type, &
-             smear_type,&
-             outer_scf_control_type
+             smear_type
 
    ! Public subroutines
 

@@ -24,7 +24,6 @@ MODULE cp_control_types
                                               default_string_length,&
                                               dp
    USE pw_types,                        ONLY: pw_p_type
-   USE scf_control_types,               ONLY: outer_scf_control_type
    USE xas_control,                     ONLY: xas_control_release,&
                                               xas_control_type
 #include "./base/base_uses.f90"
@@ -219,81 +218,96 @@ MODULE cp_control_types
 ! *****************************************************************************
 ! \brief some parameters useful for becke_restraints
 ! *****************************************************************************
-  TYPE becke_restraint_type
-    CHARACTER(LEN=default_path_length)            :: fragment_a_fname,&
-                                                     fragment_b_fname
-    INTEGER                                       :: ref_count
-    REAL(KIND = dp)                               :: rglobal
-    REAL(KIND = dp), DIMENSION(:), POINTER        :: target, strength,&
-                                                     becke_order_p
-    INTEGER                                       :: natoms
-    INTEGER                                       :: confine_method, cavity_shape, cutoff_type,&
-                                                     constraint_type, combined_type
-    INTEGER, POINTER, DIMENSION(:)                :: atoms
-    TYPE(pw_p_type)                               :: becke_pot, cavity, combined_weight
-    TYPE(pw_p_type), POINTER, DIMENSION(:)        :: charge, fragments
-    LOGICAL                                       :: need_pot, save_pot, in_memory,&
-                                                     adjust, atomic_charges, confine,&
-                                                     dynamic_confine, cavity_confine,&
-                                                     should_skip, print_cavity, &
-                                                     external_control, first_iteration,&
-                                                     fragment_density, fragments_integrated
-    REAL(KIND=dp), POINTER, DIMENSION(:)          :: coeff, cutoffs, cutoffs_tmp,&
-                                                     charges_fragment
-    INTEGER                                       :: confine_dir, confine_bounds_int(2)
-    REAL(KIND = dp)                               :: confine_bounds(2), dynamic_radius,&
-                                                     rcavity, eps_cavity
-    TYPE(hirshfeld_type), POINTER                 :: cavity_env
-    REAL(KIND=dp), POINTER, DIMENSION(:,:)        :: aij
-    LOGICAL, POINTER, DIMENSION(:,:,:)            :: skip_list
-    REAL(KIND=dp), POINTER,&
-      DIMENSION(:,:,:)                            :: cavity_mat, combined_mat
-    REAL(KIND=dp), POINTER,&
-      DIMENSION(:,:,:,:)                          :: gradients
- END TYPE becke_restraint_type
+   TYPE becke_restraint_type
+      CHARACTER(LEN=default_path_length)            :: fragment_a_fname,&
+                                                       fragment_b_fname
+      INTEGER                                       :: ref_count
+      REAL(KIND = dp)                               :: rglobal
+      REAL(KIND = dp), DIMENSION(:), POINTER        :: target, strength,&
+                                                       becke_order_p
+      INTEGER                                       :: natoms
+      INTEGER                                       :: confine_method, cavity_shape, cutoff_type,&
+                                                       constraint_type, combined_type
+      INTEGER, POINTER, DIMENSION(:)                :: atoms
+      TYPE(pw_p_type)                               :: becke_pot, cavity, combined_weight
+      TYPE(pw_p_type), POINTER, DIMENSION(:)        :: charge, fragments
+      LOGICAL                                       :: need_pot, save_pot, in_memory,&
+                                                       adjust, atomic_charges, confine,&
+                                                       dynamic_confine, cavity_confine,&
+                                                       should_skip, print_cavity, &
+                                                       external_control, first_iteration,&
+                                                       fragment_density, fragments_integrated
+      REAL(KIND=dp), POINTER, DIMENSION(:)          :: coeff, cutoffs, cutoffs_tmp,&
+                                                       charges_fragment
+      INTEGER                                       :: confine_dir, confine_bounds_int(2)
+      REAL(KIND = dp)                               :: confine_bounds(2), dynamic_radius,&
+                                                       rcavity, eps_cavity
+      TYPE(hirshfeld_type), POINTER                 :: cavity_env
+      REAL(KIND=dp), POINTER, DIMENSION(:,:)        :: aij
+      LOGICAL, POINTER, DIMENSION(:,:,:)            :: skip_list
+      REAL(KIND=dp), POINTER,&
+        DIMENSION(:,:,:)                            :: cavity_mat, combined_mat
+      REAL(KIND=dp), POINTER,&
+        DIMENSION(:,:,:,:)                          :: gradients
+   END TYPE becke_restraint_type
 
 ! *****************************************************************************
 ! \brief control parameters for hirshfeld constraint
 ! *****************************************************************************
- TYPE hirshfeld_constraint_type
-    TYPE(hirshfeld_type), POINTER                 :: hirshfeld_env
-    INTEGER                                       :: natoms, constraint_type,&
-                                                     combined_type
-    INTEGER, POINTER, DIMENSION(:)                :: atoms
-    REAL(KIND=dp), POINTER, DIMENSION(:)          :: coeff
- END TYPE hirshfeld_constraint_type
+   TYPE hirshfeld_constraint_type
+      TYPE(hirshfeld_type), POINTER                 :: hirshfeld_env
+      INTEGER                                       :: natoms, constraint_type,&
+                                                       combined_type
+      INTEGER, POINTER, DIMENSION(:)                :: atoms
+      REAL(KIND=dp), POINTER, DIMENSION(:)          :: coeff
+   END TYPE hirshfeld_constraint_type
 
 ! *****************************************************************************
 ! \brief control parameters for CDFT with OT
 !        TODO: make cdft_control parent section for all constraint related sections
 !              refactor to support diagonalization
 ! *****************************************************************************
-  ! Copied from qs_scf_types to avoid circular dependency
-  TYPE qs_outer_scf_type
-     INTEGER :: iter_count
-     REAL(KIND=dp), DIMENSION(:), POINTER :: energy
-     REAL(KIND=dp), DIMENSION(:,:), POINTER :: variables
-     REAL(KIND=dp), DIMENSION(:,:), POINTER :: gradient
-     INTEGER, DIMENSION(:), POINTER :: count
- END TYPE qs_outer_scf_type
+   ! Copied from qs_scf_types to avoid circular dependency
+   TYPE qs_outer_scf_type
+      INTEGER :: iter_count
+      REAL(KIND=dp), DIMENSION(:), POINTER :: energy
+      REAL(KIND=dp), DIMENSION(:,:), POINTER :: variables
+      REAL(KIND=dp), DIMENSION(:,:), POINTER :: gradient
+      INTEGER, DIMENSION(:), POINTER :: count
+   END TYPE qs_outer_scf_type
+   
+   ! Copied from scf_control_types to avoid circular dependency
+   TYPE outer_scf_control_type
+      LOGICAL       :: have_scf
+      LOGICAL       :: build_jacobian
+      INTEGER       :: max_scf
+      REAL(KIND=dp) :: eps_scf, step_size,&
+                       jacobian_step
+      INTEGER       :: TYPE
+      INTEGER       :: optimizer
+      INTEGER       :: diis_buffer_length
+      INTEGER       :: extrapolation_order
+      INTEGER       :: bisect_trust_count
+      INTEGER       :: jacobian_type
+   END TYPE outer_scf_control_type
 
- TYPE cdft_control_type
-     INTEGER                                      :: ref_count, total_steps, type,&
-                                                     precond_freq, nreused, max_reuse,&
-                                                     purge_freq, nbad_conv, purge_offset,&
-                                                     istep, constraint_type, combined_type
-     TYPE(qs_outer_scf_type)                      :: constraint
-     TYPE(outer_scf_control_type)                 :: constraint_control, ot_control
-     TYPE(hirshfeld_constraint_type), POINTER     :: hirshfeld_control
-     REAL(KIND = dp), DIMENSION(:), POINTER       :: strength, target, value
-     TYPE(pw_p_type)                              :: weight
-     LOGICAL                                      :: need_pot, save_pot, do_et, &
-                                                     reuse_precond, purge_history,&
-                                                     should_purge, calculate_metric
-     TYPE(cp_fm_p_type), DIMENSION(:), POINTER    :: mo_coeff
-     TYPE(dbcsr_p_type)                        :: wmat, matrix_s
-     TYPE(dbcsr_p_type), DIMENSION(:), POINTER :: matrix_p
- END TYPE cdft_control_type
+   TYPE cdft_control_type
+      INTEGER                                      :: ref_count, total_steps, type,&
+                                                      precond_freq, nreused, max_reuse,&
+                                                      purge_freq, nbad_conv, purge_offset,&
+                                                      istep, constraint_type, combined_type
+      TYPE(qs_outer_scf_type)                      :: constraint
+      TYPE(outer_scf_control_type)                 :: constraint_control, ot_control
+      TYPE(hirshfeld_constraint_type), POINTER     :: hirshfeld_control
+      REAL(KIND = dp), DIMENSION(:), POINTER       :: strength, target, value
+      TYPE(pw_p_type)                              :: weight
+      LOGICAL                                      :: need_pot, save_pot, do_et, &
+                                                      reuse_precond, purge_history,&
+                                                      should_purge, calculate_metric
+      TYPE(cp_fm_p_type), DIMENSION(:), POINTER    :: mo_coeff
+      TYPE(dbcsr_p_type)                           :: wmat, matrix_s
+      TYPE(dbcsr_p_type), DIMENSION(:), POINTER    :: matrix_p
+   END TYPE cdft_control_type
 
 ! **************************************************************************************************
 ! \brief some parameters useful for s2_restraints
