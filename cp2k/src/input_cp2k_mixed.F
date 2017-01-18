@@ -33,7 +33,8 @@ MODULE input_cp2k_mixed
    USE input_val_types,                 ONLY: char_t,&
                                               integer_t,&
                                               lchar_t,&
-                                              real_t
+                                              real_t,&
+                                              logical_t
    USE kinds,                           ONLY: dp
    USE string_utilities,                ONLY: s2a
 #include "./base/base_uses.f90"
