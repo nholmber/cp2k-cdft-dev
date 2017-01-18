@@ -64,6 +64,7 @@ MODULE mixed_cdft_types
          DIMENSION(:,:,:)                              :: cavity, weight
       REAL(KIND=dp), POINTER,&          
          DIMENSION(:,:,:,:)                            :: gradients
+      ! Should convert to TYPE(p_buffers), POINTER
       TYPE(buffers), DIMENSION(:), POINTER             :: sendbuff
       TYPE(p_buffers), DIMENSION(:), POINTER           :: recvbuff
       TYPE(repl_info), DIMENSION(:), POINTER           :: recv_info
@@ -139,6 +140,8 @@ CONTAINS
       CHARACTER(len=*), PARAMETER :: routineN = 'mixed_cdft_type_release', &
          routineP = moduleN//':'//routineN
 
+      INTEGER                                     :: i
+
       CALL pw_env_release(cdft_control%pw_env)
       IF (ASSOCIATED(cdft_control%dest_list)) &
          DEALLOCATE(cdft_control%dest_list)
@@ -164,8 +167,11 @@ CONTAINS
          DEALLOCATE(cdft_control%cavity)                  
       IF (ASSOCIATED(cdft_control%dlb_control)) &
          CALL mixed_cdft_dlb_release(cdft_control%dlb_control)
-      IF (ASSOCIATED(cdft_control%sendbuff)) &
-         CALL mixed_cdft_buffers_release(cdft_control%sendbuff)
+      IF (ASSOCIATED(cdft_control%sendbuff)) THEN
+         DO i = 1, SIZE(cdft_control%sendbuff)
+            CALL mixed_cdft_buffers_release(cdft_control%sendbuff)
+         END DO
+      END IF
       CALL becke_control_release(cdft_control%becke_control)
       IF (ASSOCIATED(cdft_control%blacs_env))& 
          CALL cp_blacs_env_release(cdft_control%blacs_env)
@@ -190,18 +196,22 @@ CONTAINS
 
       IF (ASSOCIATED(dlb_control%recv_work_repl)) &
          DEALLOCATE(dlb_control%recv_work_repl)
-      IF (ASSOCIATED(dlb_control%sendbuff)) &
-         CALL mixed_cdft_buffers_release(dlb_control%sendbuff)
-      IF (ASSOCIATED(dlb_control%recvbuff)) &
-         CALL mixed_cdft_p_buffers_release(dlb_control%recvbuff)
+      IF (ASSOCIATED(dlb_control%sendbuff)) THEN
+         DO i = 1, SIZE(dlb_control%sendbuff)
+            CALL mixed_cdft_buffers_release(dlb_control%sendbuff(i))
+         END DO
+      END IF
+      IF (ASSOCIATED(dlb_control%recvbuff)) THEN
+         DO i = 1, SIZE(dlb_control%sendbuff)
+            CALL mixed_cdft_p_buffers_release(dlb_control%recvbuff(i))
+         END DO
+      END IF
       IF (ASSOCIATED(dlb_control%recv_info)) THEN
          DO i = 1, SIZE(dlb_control%recv_info)
-            IF (ASSOCIATED(dlb_control%recv_info(i))) THEN
-               IF (ASSOCIATED(dlb_control%recv_info(i)%matrix_info)) &
-                  DEALLOCATE(dlb_control%recv_info(i)%matrix_info)
-               IF (ASSOCIATED(dlb_control%recv_info(i)%target_list)) &
-                  DEALLOCATE(dlb_control%recv_info(i)%target_list)
-            END IF
+            IF (ASSOCIATED(dlb_control%recv_info(i)%matrix_info)) &
+               DEALLOCATE(dlb_control%recv_info(i)%matrix_info)
+            IF (ASSOCIATED(dlb_control%recv_info(i)%target_list)) &
+               DEALLOCATE(dlb_control%recv_info(i)%target_list)
          END DO 
          DEALLOCATE(dlb_control%recv_info)
       END IF
@@ -228,7 +238,7 @@ CONTAINS
 !> \author Nico Holmberg [01.2017]
 ! **************************************************************************************************
    SUBROUTINE mixed_cdft_buffers_release(buffer)
-      TYPE(buffers), POINTER                          :: buffer
+      TYPE(buffers)                                   :: buffer
 
       CHARACTER(len=*), PARAMETER :: routineN = 'mixed_cdft_buffers_release', &
          routineP = moduleN//':'//routineN
@@ -258,8 +268,7 @@ CONTAINS
 
       IF (ASSOCIATED(p_buffer%buffs)) THEN
          DO i = 1, SIZE(p_buffer%buffs)
-            IF (ASSOCIATED(p_buffer%buffs(i))) &
-               CALL mixed_cdft_buffers_release(p_buffer%buffs(i))
+            CALL mixed_cdft_buffers_release(p_buffer%buffs(i))
          END DO 
          DEALLOCATE(p_buffer%buffs)
       END IF
