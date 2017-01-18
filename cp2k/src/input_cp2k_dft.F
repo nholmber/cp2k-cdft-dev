@@ -4394,7 +4394,7 @@ CONTAINS
 
       NULLIFY(keyword, print_key)
 
-      CPASSERT(.NOT.ASSOCIATED(section),cp_failure_level,routineP,error,failure)
+      CPASSERT(.NOT.ASSOCIATED(section))
       CALL section_create(section,"HIRSHFELD_CONSTRAINT",&
                         description="Parameters for CDFT with Hirshfeld constraint",&
                         n_keywords=10, n_subsections=0, repeats=.FALSE.)
