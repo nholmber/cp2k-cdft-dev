@@ -3493,7 +3493,8 @@ CONTAINS
                   END DO
                END IF
                ! Poll to prevent starvation
-               IF (ASSOCIATED(req_recv)) CALL mp_testall(req_recv, completed_recv)
+               IF (ASSOCIATED(req_recv)) &
+                  completed_recv = mp_testall(req_recv)
                !
                DO i=LBOUND(weight,3),UBOUND(weight,3)
                   IF (mixed_cdft%becke_control%cavity_confine) THEN
