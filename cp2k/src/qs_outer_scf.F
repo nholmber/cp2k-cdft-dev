@@ -551,7 +551,6 @@ CONTAINS
       TYPE(qs_scf_env_type), POINTER           :: scf_env
       TYPE(scf_control_type), POINTER          :: scf_control
       TYPE(cdft_control_type), POINTER         :: cdft_control
-      TYPE(cp_error_type), INTENT(inout)       :: error
       CHARACTER(len=*), PARAMETER              :: &
          routineN = 'outer_loop_switch', &
          routineP = moduleN//':'//routineN

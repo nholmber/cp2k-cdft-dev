@@ -1971,7 +1971,6 @@ CONTAINS
       TYPE(pw_type), INTENT(INOUT)             :: pw
       REAL(KIND=dp), DIMENSION(:,:,:),&
          POINTER, INTENT(IN)                   :: mask
-      TYPE(cp_error_type), INTENT(inout)       :: error
 
       CHARACTER(len=*), PARAMETER :: routineN = 'pw_set_masked_d3', &
          routineP = moduleN//':'//routineN
@@ -1979,7 +1978,7 @@ CONTAINS
       INTEGER                                  :: i, j, k, handle
 
     CALL timeset(routineN,handle)
-    CPASSERT(pw%ref_count>0,cp_failure_level,routineP,error,failure)
+    CPASSERT(pw%ref_count>0)
     IF ( pw%in_use == REALDATA3D ) THEN
        DO i = LBOUND(mask, 3), UBOUND(mask, 3)
           DO j = LBOUND(mask, 2), UBOUND(mask, 2)
