@@ -185,7 +185,7 @@ MODULE message_passing
    END INTERFACE
 
    INTERFACE mp_testall
-      MODULE PROCEDURE mp_testall_t2, mp_testall_tv
+      MODULE PROCEDURE mp_testall_tv
    END INTERFACE
 
    INTERFACE mp_test
@@ -1732,49 +1732,14 @@ CONTAINS
       CALL mp_timestop(handle)
    END SUBROUTINE mp_waitany
 
-! **************************************************************************************************
-!> \brief Tests for completion of the given requests.
-!> \brief We use mpi_test so that we can use a single status.
-!> \param requests ...
-!> \retval flag ...
-!> \par History
-!>      24.2016 created
-!> \author Alfio Lazzaro
-! **************************************************************************************************
-   FUNCTION mp_testall_t2(requests) RESULT(flag)
-      INTEGER, DIMENSION(2), INTENT(inout)  :: requests
-      LOGICAL                               :: flag
-
-      INTEGER                               :: ierr
-
-#if defined(__parallel)
-      LOGICAL                               :: flag1
-#endif
-
-      ierr = 0
-      flag = .TRUE.
-
-#if defined(__parallel)
-      CALL mpi_test(requests(1), flag, MPI_STATUS_IGNORE, ierr)
-      IF (ierr /= 0) CALL mp_stop(ierr, "mpi_testall @ mp_testall_t2")
-      !
-      CALL mpi_test(requests(2), flag1, MPI_STATUS_IGNORE, ierr)
-      IF (ierr /= 0) CALL mp_stop(ierr, "mpi_testall @ mp_testall_t2")
-      !
-      flag = flag .AND. flag1
-#else
-      requests = mp_request_null
-#endif
-   END FUNCTION mp_testall_t2
-
 ! *****************************************************************************
 !> \brief Tests for completion of the given requests.
 !> \brief We use mpi_test so that we can use a single status.
 !> \param requests ...
 !> \retval flag ...
 !> \par History
-!>      3.2016 created
-!> \author Nico Holmberg
+!>      3.2016 adapted to any shape [Nico Holmberg]
+!> \author Alfio Lazzaro
 ! *****************************************************************************
    FUNCTION mp_testall_tv(requests) RESULT (flag)
       INTEGER, DIMENSION(:)                 :: requests
