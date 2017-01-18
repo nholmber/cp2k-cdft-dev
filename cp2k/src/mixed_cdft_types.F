@@ -202,7 +202,7 @@ CONTAINS
          END DO
       END IF
       IF (ASSOCIATED(dlb_control%recvbuff)) THEN
-         DO i = 1, SIZE(dlb_control%sendbuff)
+         DO i = 1, SIZE(dlb_control%recvbuff)
             CALL mixed_cdft_p_buffers_release(dlb_control%recvbuff(i))
          END DO
       END IF
@@ -249,7 +249,6 @@ CONTAINS
          DEALLOCATE(buffer%weight)
       IF (ASSOCIATED(buffer%gradients)) &
          DEALLOCATE(buffer%gradients)
-      DEALLOCATE(buffer)
 
    END SUBROUTINE mixed_cdft_buffers_release
 
@@ -259,7 +258,7 @@ CONTAINS
 !> \author Nico Holmberg [01.2017]
 ! **************************************************************************************************
    SUBROUTINE mixed_cdft_p_buffers_release(p_buffer)
-      TYPE(p_buffers), POINTER                        :: p_buffer
+      TYPE(p_buffers)                                 :: p_buffer
 
       CHARACTER(len=*), PARAMETER :: routineN = 'mixed_cdft_p_buffers_release', &
          routineP = moduleN//':'//routineN
