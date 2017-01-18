@@ -1778,7 +1778,7 @@ CONTAINS
 ! *****************************************************************************
    FUNCTION mp_testall_tv(requests) RESULT (flag)
       INTEGER, DIMENSION(:)                 :: requests
-      LOGICAL, INTENT(out)                  :: flag
+      LOGICAL                               :: flag
 
       INTEGER                               :: ierr
 
