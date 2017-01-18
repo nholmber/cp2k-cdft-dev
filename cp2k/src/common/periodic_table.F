@@ -75,7 +75,8 @@ CONTAINS
       INTEGER, INTENT(OUT), OPTIONAL                     :: number
       REAL(KIND=dp), INTENT(OUT), OPTIONAL               :: amass
       INTEGER, INTENT(OUT), OPTIONAL                     :: ielement
-      REAL(KIND=dp), INTENT(OUT), OPTIONAL               :: covalent_radius, vdw_radius
+      REAL(KIND=dp), INTENT(OUT), OPTIONAL               :: covalent_radius, vdw_radius,&
+                                                            cdft_radius
       LOGICAL, OPTIONAL                                  :: found
 
       CHARACTER(len=*), PARAMETER :: routineN = 'get_ptable_info', &
@@ -112,7 +113,7 @@ CONTAINS
          IF (PRESENT(amass)) amass = ptable(ielem_found)%amass
          IF (PRESENT(covalent_radius)) covalent_radius = ptable(ielem_found)%covalent_radius
          IF (PRESENT(vdw_radius)) vdw_radius = ptable(ielem_found)%vdw_radius
-         IF(PRESENT(cdft_radius)) cdft_radius = ptable(ielem_found)%cdft_radius
+         IF (PRESENT(cdft_radius)) cdft_radius = ptable(ielem_found)%cdft_radius
       END IF
 
    END SUBROUTINE get_ptable_info
