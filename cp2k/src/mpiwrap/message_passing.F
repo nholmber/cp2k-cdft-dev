@@ -1776,7 +1776,7 @@ CONTAINS
 !>      3.2016 created
 !> \author Nico Holmberg
 ! *****************************************************************************
-   SUBROUTINE mp_testall_tv(requests,flag)
+   FUNCTION mp_testall_tv(requests) RESULT (flag)
       INTEGER, DIMENSION(:)                 :: requests
       LOGICAL, INTENT(out)                  :: flag
 
