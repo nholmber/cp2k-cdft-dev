@@ -2989,7 +2989,7 @@ CONTAINS
       CALL section_add_subsection(section, subsection)
       CALL section_release(subsection)
 
-      CALL create_becke_restraint_section(subsection, "BECKE_RESTRAINT",)
+      CALL create_becke_restraint_section(subsection, "BECKE_RESTRAINT")
       CALL section_add_subsection(section, subsection)
       CALL section_release(subsection)
 
