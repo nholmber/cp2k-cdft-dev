@@ -1326,8 +1326,7 @@ CONTAINS
       CALL cp_fm_set_all(u,alpha=0.0_dp) 
       CALL cp_fm_create(matrix=vt,&
                         matrix_struct=matrix_a%matrix_struct,&
-                        name="RIGHT_SINGULAR_MATRIX",&
-                        error=error)
+                        name="RIGHT_SINGULAR_MATRIX")
       CALL cp_fm_set_all(vt,alpha=0.0_dp)
       ALLOCATE(diag(n))
       diag(:)=0.0_dp
@@ -1350,7 +1349,7 @@ CONTAINS
       ! (Pseudo)inverse and (pseudo)determinant
       CALL cp_fm_create(matrix=sigma,&
                         matrix_struct=matrix_a%matrix_struct,&
-                        name="SINGULAR_VALUE_MATRIX",&
+                        name="SINGULAR_VALUE_MATRIX")
       CALL cp_fm_set_all(sigma,alpha=0.0_dp)
       determinant=1.0_dp
       ! TODO: Notify if some singular values fall below my_eps_svd
