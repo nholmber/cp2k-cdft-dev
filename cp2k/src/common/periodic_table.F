@@ -69,7 +69,7 @@ CONTAINS
 !> \author MI
 ! **************************************************************************************************
    SUBROUTINE get_ptable_info(symbol, number, amass, ielement, covalent_radius, &
-                              vdw_radius, found)
+                              vdw_radius, cdft_radius, found)
 
       CHARACTER(LEN=2), INTENT(IN)                       :: symbol
       INTEGER, INTENT(OUT), OPTIONAL                     :: number
