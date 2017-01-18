@@ -4035,7 +4035,7 @@ CONTAINS
 
       NULLIFY (keyword, print_key)
       CPASSERT(.NOT. ASSOCIATED(section))
-      CALL section_create(section, TRIM(ADJUSTL(section_name), &
+      CALL section_create(section, TRIM(ADJUSTL(section_name)), &
                           description="Use Becke weight population in a constraint ", &
                           n_keywords=24, n_subsections=0, repeats=.FALSE., &
                           citations=(/Becke1988b/))
