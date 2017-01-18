@@ -988,7 +988,7 @@ CONTAINS
          IF (ASSOCIATED(cdft_control%constraint%variables)) &
             DEALLOCATE(cdft_control%constraint%variables)
          IF (ASSOCIATED(cdft_control%constraint%count)) &
-            DEALLOCATE(cdft_control%constraint%count) &
+            DEALLOCATE(cdft_control%constraint%count)
          IF (ASSOCIATED(cdft_control%constraint%gradient)) &
             DEALLOCATE(cdft_control%constraint%gradient)
          IF (ASSOCIATED(cdft_control%constraint%energy)) &
