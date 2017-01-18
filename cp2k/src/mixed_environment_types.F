@@ -34,7 +34,7 @@ MODULE mixed_environment_types
                                               default_string_length,&
                                               dp
    USE mixed_cdft_types,                ONLY: mixed_cdft_type,&
-                                              mixed_cdft_type_release                                              
+                                              mixed_cdft_type_release
    USE mixed_energy_types,              ONLY: deallocate_mixed_energy,&
                                               mixed_energy_type
    USE molecule_kind_list_types,        ONLY: molecule_kind_list_create,&
