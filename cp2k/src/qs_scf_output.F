@@ -218,8 +218,7 @@ CONTAINS
 
       REAL(KIND=dp)                                      :: outer_loop_eps
 
-      outer_loop_eps = SQRT(SUM(scf_env%outer_scf%gradient(:, scf_env%outer_scf%iter_count)**2))/ &
-                       SIZE(scf_env%outer_scf%gradient, 1)
+      outer_loop_eps = SQRT(MAXVAL(scf_env%outer_scf%gradient(:, scf_env%outer_scf%iter_count)**2))
       IF (output_unit > 0) WRITE (output_unit, '(/,T3,A,I4,A,E10.2,A,F22.10)') &
          "outer SCF iter = ", scf_env%outer_scf%iter_count, &
          " RMS gradient = ", outer_loop_eps, " energy =", energy%total
@@ -664,7 +663,7 @@ CONTAINS
       REAL(KIND=dp)                            :: outer_loop_eps
 
       IF (cdft_loop) THEN
-         outer_loop_eps=SQRT(MAXVAL(scf_env%outer_scf%gradient(:, scf_env%outer_scf%iter_count)**2)))
+         outer_loop_eps=SQRT(MAXVAL(scf_env%outer_scf%gradient(:, scf_env%outer_scf%iter_count)**2))
          IF (output_unit>0) WRITE(output_unit,'(/,T3,A,I4,A,E10.2,A,F22.10)') &
                               "CDFT SCF iter = ", scf_env%outer_scf%iter_count, &
                               " RMS gradient = ", outer_loop_eps," energy =",energy%total
