@@ -5,7 +5,8 @@
 
 MODULE qs_scf_output
    USE atomic_kind_types,               ONLY: atomic_kind_type
-   USE cp_control_types,                ONLY: dft_control_type
+   USE cp_control_types,                ONLY: dft_control_type,&
+                                              cdft_control_type
    USE cp_dbcsr_output,                 ONLY: cp_dbcsr_write_sparse_matrix
    USE cp_log_handling,                 ONLY: cp_get_default_logger,&
                                               cp_logger_type
@@ -13,6 +14,30 @@ MODULE qs_scf_output
                                               cp_print_key_finished_output,&
                                               cp_print_key_should_output,&
                                               cp_print_key_unit_nr
+   USE input_constants,                 ONLY: outer_scf_hirshfeld_constraint,&
+                                              outer_scf_becke_constraint,&
+                                              outer_scf_optimizer_sd,&
+                                              outer_scf_optimizer_diis,&
+                                              outer_scf_optimizer_bisect,&
+                                              outer_scf_optimizer_broyden,&
+                                              becke_none_conf,&
+                                              becke_static_conf,&
+                                              becke_dynamic_conf,&
+                                              becke_cavity_conf,&
+                                              becke_mixed_conf,&
+                                              shape_function_gaussian,&
+                                              radius_user,&
+                                              radius_covalent,&
+                                              radius_single,&
+                                              radius_vdw,&
+                                              becke_cutoff_global,&
+                                              becke_cutoff_element,&
+                                              cdft_density_constraint,&
+                                              cdft_magnetization_constraint,&
+                                              cdft_combined_constraint,&
+                                              cdft_combined_all,&
+                                              cdft_combined_acceptor,&
+                                              cdft_combined_donor
    USE cp_para_types,                   ONLY: cp_para_env_type
    USE cp_units,                        ONLY: cp_unit_from_cp2k
    USE dbcsr_api,                       ONLY: dbcsr_p_type
@@ -60,7 +85,9 @@ MODULE qs_scf_output
              qs_scf_loop_print, &
              qs_scf_outer_loop_info, &
              qs_scf_initial_info, &
-             qs_scf_write_mos
+             qs_scf_write_mos,&
+             qs_scf_cdft_info,&
+             qs_scf_cdft_initial_info
 
 CONTAINS
 
@@ -603,5 +630,266 @@ CONTAINS
       CALL timestop(handle)
 
    END SUBROUTINE qs_scf_loop_print
+
+ ! *****************************************************************************
+!> \brief writes cdft constraint information and optionally cdft scf loop info
+!> \param output_unit ...
+!> \param scf_control ...
+!> \param scf_env ...
+!> \param cdft_control ...
+!> \param energy ...
+!> \param total_steps ...
+!> \param should_stop ...
+!> \param outer_loop_converged ...
+!> \param cdft_loop ...
+!> \par History
+!>      12.2015 created [Nico Holmberg]
+! *****************************************************************************
+   SUBROUTINE qs_scf_cdft_info(output_unit, scf_control, scf_env, cdft_control,&
+                               energy, total_steps, should_stop, outer_loop_converged,&
+                               cdft_loop)
+      INTEGER                                  :: output_unit
+      TYPE(scf_control_type), POINTER          :: scf_control
+      TYPE(qs_scf_env_type), POINTER           :: scf_env
+      TYPE(cdft_control_type), POINTER         :: cdft_control
+      TYPE(qs_energy_type), POINTER            :: energy
+      INTEGER                                  :: total_steps
+      LOGICAL, INTENT(IN)                      :: should_stop, &
+                                                  outer_loop_converged
+      LOGICAL, INTENT(IN)                      :: cdft_loop
+
+      CHARACTER(LEN=*), PARAMETER :: routineN = 'qs_scf_cdft_info', &
+         routineP = moduleN//':'//routineN
+
+      REAL(KIND=dp)                            :: outer_loop_eps
+
+      IF (cdft_loop) THEN
+         outer_loop_eps=SQRT(MAXVAL(scf_env%outer_scf%gradient(:, scf_env%outer_scf%iter_count)**2)))
+         IF (output_unit>0) WRITE(output_unit,'(/,T3,A,I4,A,E10.2,A,F22.10)') &
+                              "CDFT SCF iter = ", scf_env%outer_scf%iter_count, &
+                              " RMS gradient = ", outer_loop_eps," energy =",energy%total
+         IF (outer_loop_converged) THEN
+            IF (output_unit>0) WRITE(output_unit,'(T3,A,I4,A,I4,A,/)') &
+                                 "CDFT SCF loop converged in", scf_env%outer_scf%iter_count,&
+                                 " iterations or ", total_steps," steps"
+         END IF
+         IF ((scf_env%outer_scf%iter_count>scf_control%outer_scf%max_scf .OR. should_stop) &
+             .AND. .NOT. outer_loop_converged ) THEN
+            IF (output_unit>0) WRITE(output_unit,'(T3,A,I4,A,I4,A,/)') &
+                                 "CDFT SCF loop FAILED to converge after ", &
+                                 scf_env%outer_scf%iter_count," iterations or ", total_steps," steps"
+         END IF
+      END IF
+      IF (output_unit>0) THEN
+         SELECT CASE (cdft_control%type)
+         CASE (outer_scf_hirshfeld_constraint)
+            WRITE(output_unit,'(/,T3,A,T60)')&
+            '------------------- Hirshfeld constraint information -------------------'
+         CASE (outer_scf_becke_constraint)
+            WRITE(output_unit,'(/,T3,A,T60)')&
+            '--------------------- Becke constraint information ---------------------'
+         END SELECT
+         SELECT CASE (cdft_control%constraint_type)
+         CASE (cdft_density_constraint, cdft_magnetization_constraint)
+            WRITE(output_unit,'(T3,A,T54,(3X,F18.12))') &
+             'Target value of constraint        :',cdft_control%target(1)
+            WRITE(output_unit,'(T3,A,T54,(3X,F18.12))') &
+             'Current value of constraint       :',cdft_control%value(1)
+            WRITE(output_unit,'(T3,A,T59,(3X,ES13.3))')&
+             'Deviation from target             :',cdft_control%value(1)-cdft_control%target(1)
+            WRITE(output_unit,'(T3,A,T54,(3X,F18.12))') &
+             'Strength of constraint            :',cdft_control%strength(1)
+         CASE (cdft_combined_constraint)
+            WRITE(output_unit,'(T3,A,T54,(3X,F18.12))') &
+             'Target value of charge constraint :',cdft_control%target(1)
+            WRITE(output_unit,'(T3,A,T54,(3X,F18.12))') &
+             'Target value of spin constraint   :',cdft_control%target(2)             
+            WRITE(output_unit,'(T3,A,T54,(3X,F18.12))') &
+             'Current value of charge constraint:',cdft_control%value(1)
+            WRITE(output_unit,'(T3,A,T54,(3X,F18.12))') &
+             'Current value of spin constraint  :',cdft_control%value(2)            
+            WRITE(output_unit,'(T3,A,T59,(3X,ES13.3))')&
+             'Deviation from target (charge)    :',cdft_control%value(1)-cdft_control%target(1)
+            WRITE(output_unit,'(T3,A,T59,(3X,ES13.3))')&
+             'Deviation from target (spin)      :',cdft_control%value(2)-cdft_control%target(2)             
+            WRITE(output_unit,'(T3,A,T54,(3X,F18.12))') &
+             'Strength of constraint (charge)   :',cdft_control%strength(1)
+            WRITE(output_unit,'(T3,A,T54,(3X,F18.12))') &
+             'Strength of constraint (spin)     :',cdft_control%strength(2)    
+         END SELECT
+         WRITE(output_unit,'(T3,A)')&
+          '------------------------------------------------------------------------'
+      END IF 
+   END SUBROUTINE qs_scf_cdft_info
+
+! *****************************************************************************
+!> \brief writes information about the CDFT env
+!> \param output_unit ...
+!> \param scf_control ...
+!> \param cdft_control ...
+!> \par History
+!>      12.2015 created [Nico Holmberg]
+! *****************************************************************************
+   SUBROUTINE qs_scf_cdft_initial_info(output_unit, cdft_control, dft_control)
+      INTEGER                                  :: output_unit
+      TYPE(cdft_control_type), POINTER         :: cdft_control
+      TYPE(dft_control_type), POINTER          :: dft_control
+
+      CHARACTER(LEN=*), PARAMETER :: routineN = 'qs_scf_cdft_initial_info', &
+         routineP = moduleN//':'//routineN
+
+      CHARACTER, DIMENSION(3)                  :: dir=(/"x", "y", "z"/) 
+
+
+      IF (output_unit>0) THEN
+         WRITE(output_unit,'(/,A)') &
+            "  ---------------------------------- CDFT --------------------------------------"
+         SELECT CASE (cdft_control%constraint_type)
+         CASE (cdft_density_constraint)
+            WRITE(output_unit,'(A)') &
+               "  Optimizing charge density constraint in an external SCF loop "
+         CASE (cdft_magnetization_constraint)
+            WRITE(output_unit,'(A)') &
+               "  Optimizing magnetization density constraint in an external SCF loop "
+         CASE (cdft_combined_constraint)
+            WRITE(output_unit,'(A)') &
+               "  Optimizing combined charge-spin constraint in an external SCF loop "
+            SELECT CASE (cdft_control%combined_type)
+            CASE (cdft_combined_all)
+               WRITE(output_unit,'(A)') &
+                   "            spin constraint defined on all constraint atoms " 
+            CASE (cdft_combined_acceptor)
+               WRITE(output_unit,'(A)') &
+                   "            spin constraint defined on acceptor constraint atoms " 
+            CASE (cdft_combined_donor)
+               WRITE(output_unit,'(A)') &
+                  "            spin constraint defined on donor constraint atoms "    
+            END SELECT
+         END SELECT
+         SELECT CASE(cdft_control%constraint_control%optimizer)
+         CASE(outer_scf_optimizer_sd)
+            WRITE(output_unit,'(A)') &
+                "  Minimizer               : SD                  : steepest descent"
+         CASE(outer_scf_optimizer_broyden)
+            WRITE(output_unit,'(A)') &
+               "  Minimizer               : Broyden             : Broyden's method"          
+         CASE(outer_scf_optimizer_diis)
+            WRITE(output_unit,'(A)') &
+               "  Minimizer               : DIIS                : direct inversion"
+            WRITE(output_unit,'(A)') &
+               "                                                       in the iterative subspace"
+            WRITE(output_unit,'(A,I3,A)') &
+               "                                                  using ", &
+               cdft_control%constraint_control%diis_buffer_length," DIIS vectors"
+         CASE(outer_scf_optimizer_bisect)
+            WRITE(output_unit,'(A)') &
+               "  Minimizer               : BISECT              : gradient bisection"
+            WRITE(output_unit,'(A,I3)') &
+               "                                                  using a trust count of",&
+               cdft_control%constraint_control%bisect_trust_count
+         END SELECT
+         SELECT CASE (cdft_control%type)
+         CASE (outer_scf_hirshfeld_constraint)
+            WRITE(output_unit,'(A)') "  Type of constraint      : Hirshfeld"
+            ! TODO print hirshfeld settings
+         CASE (outer_scf_becke_constraint)
+            WRITE(output_unit,'(A)') "  Type of constraint      : Becke"
+            WRITE(output_unit,'(A)') "  "
+            SELECT CASE (dft_control%qs_control%becke_control%cutoff_type)
+            CASE (becke_cutoff_global)
+               WRITE(output_unit,'(A,F8.3)') &
+                  "  Cutoff for partitioning :", dft_control%qs_control%becke_control%rglobal
+            CASE (becke_cutoff_element)
+               WRITE(output_unit,'(A)') &
+                  "  Using element specific cutoffs for partitioning"
+            END SELECT
+            WRITE(output_unit,'(A,L7)') &
+               "  Skipping distant gpoints: ",dft_control%qs_control%becke_control%should_skip 
+            WRITE(output_unit,'(A,L7)') &
+               "  Precompute gradients    : ",dft_control%qs_control%becke_control%in_memory
+            WRITE(output_unit,'(A,L7)') &
+               "  Using fragment densities: ",dft_control%qs_control%becke_control%fragment_density
+            WRITE(output_unit,'(A)') "  "
+            WRITE(output_unit,'(A,L7)') &
+               "  Reusing preconditioner  : ",dft_control%qs_control%cdft_control%reuse_precond
+            IF (dft_control%qs_control%cdft_control%reuse_precond) THEN
+               WRITE(output_unit,'(A,I3,A,I3,A)') &
+                  "       using old preconditioner for upto ", &
+                  cdft_control%max_reuse, " subsequent CDFT SCF"
+               WRITE(output_unit,'(A,I3,A,I3,A)') &
+                  "       iterations if the relevant loop converged in less than ",&
+                  cdft_control%precond_freq, " steps"
+            END IF
+            WRITE(output_unit,'(A)') "  "
+            IF (dft_control%qs_control%becke_control%atomic_charges)&
+               WRITE(output_unit,'(A)') &
+                  "  Calculating atomic Becke charges"
+            IF (dft_control%qs_control%becke_control%adjust)&
+               WRITE(output_unit,'(A)') &
+                  "  Using atomic radii to generate a heteronuclear charge partitioning"
+            WRITE(output_unit,'(A)') "  "
+            SELECT CASE(dft_control%qs_control%becke_control%confine_method)
+            CASE (becke_none_conf)
+               WRITE(output_unit,'(A)') &
+                  "  No confinement is active"
+            CASE (becke_static_conf)
+               WRITE(output_unit,'(A,A3,A)') &
+                  "  Static confinement is active along ", &
+                  dir(dft_control%qs_control%becke_control%confine_dir), " axis"
+               WRITE(output_unit,'(A,F8.4,F8.4)') &
+                  "  Confinement bounds      : ", dft_control%qs_control%becke_control%confine_bounds(1), &
+                  dft_control%qs_control%becke_control%confine_bounds(2)
+            CASE (becke_dynamic_conf)
+               WRITE(output_unit,'(A,A3,A,F8.4)') &
+                  "  Dynamic confinement is active along ", dir(dft_control%qs_control%becke_control%confine_dir), &
+                  " axis using a radius of ", dft_control%qs_control%becke_control%dynamic_radius
+            CASE (becke_cavity_conf)
+               WRITE(output_unit,'(A)') "  Confinement using a Gaussian shaped cavity is active"
+               SELECT CASE(dft_control%qs_control%becke_control%cavity_shape)
+               CASE (radius_single)
+                  WRITE(output_unit,'(A,F8.4)') &
+                     "  Type of Gaussian        : Fixed radius : ", dft_control%qs_control%becke_control%rcavity
+               CASE (radius_covalent)
+                  WRITE(output_unit,'(A)') &
+                     "  Type of Gaussian        : Covalent radius "
+               CASE (radius_vdw)
+                  WRITE(output_unit,'(A)') &
+                     "  Type of Gaussian        : vdW radius "
+               CASE (radius_user)
+                  WRITE(output_unit,'(A)') &
+                     "  Type of Gaussian        : User radius "
+               END SELECT
+               WRITE(output_unit,'(A,ES12.4)') &
+                  "  Cavity threshold        : ", dft_control%qs_control%becke_control%eps_cavity
+            CASE (becke_mixed_conf)
+               WRITE(output_unit,'(A)') &
+                  "  Mixed confinement is active"
+               WRITE(output_unit,'(A,A3,A,F8.4)') &
+                  "  Dynamic confinement is active along ", dir(dft_control%qs_control%becke_control%confine_dir), &
+                  " axis using a radius of ", dft_control%qs_control%becke_control%dynamic_radius
+               WRITE(output_unit,'(A)') "  Confinement using a Gaussian shaped cavity is active"
+               SELECT CASE(dft_control%qs_control%becke_control%cavity_shape)
+               CASE (radius_single)
+                  WRITE(output_unit,'(A,F8.4)') &
+                     "  Type of Gaussian        : Fixed radius: ", dft_control%qs_control%becke_control%rcavity
+               CASE (radius_covalent)
+                  WRITE(output_unit,'(A)') &
+                     "  Type of Gaussian        : Covalent radius "
+               CASE (radius_vdw)
+                  WRITE(output_unit,'(A)') &
+                     "  Type of Gaussian        : vdW radius "
+               CASE (radius_user)
+                  WRITE(output_unit,'(A)') &
+                     "  Type of Gaussian        : User radius "
+               END SELECT
+               WRITE(output_unit,'(A,ES12.4)') &
+                  "  Cavity threshold        : ", dft_control%qs_control%becke_control%eps_cavity
+            END SELECT
+         END SELECT
+         WRITE(output_unit,'(/,A)') &
+            "  ---------------------------------- CDFT --------------------------------------"
+      END IF
+ 
+   END SUBROUTINE qs_scf_cdft_initial_info
 
 END MODULE qs_scf_output

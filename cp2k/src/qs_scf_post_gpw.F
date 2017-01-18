@@ -75,7 +75,9 @@ MODULE qs_scf_post_gpw
                                               do_loc_lumo,&
                                               ot_precond_full_all,&
                                               ref_charge_atomic,&
-                                              ref_charge_mulliken
+                                              ref_charge_mulliken,&
+                                              radius_user,&
+                                              radius_covalent
    USE input_section_types,             ONLY: section_get_ival,&
                                               section_get_ivals,&
                                               section_get_lval,&
@@ -2833,9 +2835,9 @@ CONTAINS
          routineP = moduleN//':'//routineN
 
       INTEGER                                            :: i, iat, ikind, natom, nkind, nspin, &
-                                                            refc, shapef
+                                                            refc, shapef, radius_type
       INTEGER, DIMENSION(:), POINTER                     :: atom_list
-      LOGICAL                                            :: do_sc, paw_atom
+      LOGICAL                                            :: do_sc, paw_atom, do_radius
       REAL(KIND=dp)                                      :: zeff
       REAL(KIND=dp), DIMENSION(:, :), POINTER            :: charges
       TYPE(atomic_kind_type), DIMENSION(:), POINTER      :: atomic_kind_set
@@ -2857,10 +2859,17 @@ CONTAINS
       ALLOCATE (hirshfeld_env%charges(natom))
       ! input options
       CALL section_vals_val_get(input_section, "SELF_CONSISTENT", l_val=do_sc)
+      CALL section_vals_val_get(input_section,"USER_RADIUS",l_val=do_radius)
       CALL section_vals_val_get(input_section, "SHAPE_FUNCTION", i_val=shapef)
       CALL section_vals_val_get(input_section, "REFERENCE_CHARGE", i_val=refc)
+      IF (do_radius) THEN
+         radius_type = radius_user
+      ELSE 
+         radius_type = radius_covalent
+      END IF
       CALL set_hirshfeld_info(hirshfeld_env, shape_function_type=shapef, &
-                              iterative=do_sc, ref_charge=refc)
+                              iterative=do_sc, ref_charge=refc, &
+                              radius_type=radius_type)
       ! shape function
       CALL get_qs_env(qs_env, qs_kind_set=qs_kind_set, atomic_kind_set=atomic_kind_set)
       CALL create_shape_function(hirshfeld_env, qs_kind_set, atomic_kind_set)

@@ -1173,37 +1173,37 @@ CONTAINS
                ! With external control, we can use cavity_mat as a mask to kahan sum
                IF (dft_control%qs_control%becke_control%external_control .AND.&
                    dft_control%qs_control%becke_control%cavity_confine) THEN
-                   IF (ivar == 2) THEN
-                      sign = 1.0_dp
-                      IF (i == 2) sign = -1.0_dp
-                      SELECT CASE (dft_control%qs_control%becke_control%combined_type)
-                      CASE (cdft_combined_all)
-                         dE(ivar)= dE(ivar) + sign * accurate_sum(becke_const%pw%cr3d,rho_r(i)%pw%cr3d,&
-                                   dft_control%qs_control%becke_control%cavity_mat,eps_cavity)*dvol      
-                      CASE (cdft_combined_donor, cdft_combined_acceptor)
-                         ! Transfer spin constraint weight truncated real-3D matrix -> pw%cr3d
-                         IF (ASSOCIATED(dft_control%qs_control%becke_control%combined_mat)) THEN
-                            NULLIFY(pw_env,auxbas_pw_pool)  
-                            CALL get_qs_env(qs_env,pw_env=pw_env)
-                            CALL pw_env_get(pw_env,auxbas_pw_pool=auxbas_pw_pool)                      
-                            CALL pw_pool_create_pw(auxbas_pw_pool,dft_control%qs_control%becke_control%combined_weight%pw,&
-                                                   use_data=REALDATA3D,in_space=REALSPACE)
-                            dft_control%qs_control%becke_control%combined_weight%pw%cr3d = 0.0_dp
-                            CALL pw_set_masked(dft_control%qs_control%becke_control%combined_weight%pw,&
-                                               dft_control%qs_control%becke_control%combined_mat)
-                            DEALLOCATE(dft_control%qs_control%becke_control%combined_mat)
-                         END IF
-                         dE(ivar)=dE(ivar) + sign * accurate_sum(dft_control%qs_control%becke_control%combined_weight%pw%cr3d,&
-                                  rho_r(i)%pw%cr3d,dft_control%qs_control%becke_control%cavity_mat,eps_cavity)*dvol      
-                      END SELECT
-                   ELSE
-                      sign = 1.0_dp
-                      ! Note the negative sign for beta spin if spin constraint is active
-                      IF (dft_control%qs_control%becke_control%constraint_type ==&
-                          cdft_magnetization_constraint .AND. i==2) sign = -1.0_dp
-                      dE(ivar)=dE(ivar) + sign * accurate_sum(becke_const%pw%cr3d,rho_r(i)%pw%cr3d,&
-                               dft_control%qs_control%becke_control%cavity_mat,eps_cavity)*dvol
-                   END IF 
+                     IF (ivar == 2) THEN
+                        sign = 1.0_dp
+                        IF (i == 2) sign = -1.0_dp
+                        SELECT CASE (dft_control%qs_control%becke_control%combined_type)
+                        CASE (cdft_combined_all)
+                           dE(ivar)= dE(ivar) + sign * accurate_sum(becke_const%pw%cr3d,rho_r(i)%pw%cr3d,&
+                                     dft_control%qs_control%becke_control%cavity_mat,eps_cavity)*dvol      
+                        CASE (cdft_combined_donor, cdft_combined_acceptor)
+                           ! Transfer spin constraint weight truncated real-3D matrix -> pw%cr3d
+                           IF (ASSOCIATED(dft_control%qs_control%becke_control%combined_mat)) THEN
+                              NULLIFY(pw_env,auxbas_pw_pool)  
+                              CALL get_qs_env(qs_env,pw_env=pw_env)
+                              CALL pw_env_get(pw_env,auxbas_pw_pool=auxbas_pw_pool)                      
+                              CALL pw_pool_create_pw(auxbas_pw_pool,dft_control%qs_control%becke_control%combined_weight%pw,&
+                                                     use_data=REALDATA3D,in_space=REALSPACE)
+                              dft_control%qs_control%becke_control%combined_weight%pw%cr3d = 0.0_dp
+                              CALL pw_set_masked(dft_control%qs_control%becke_control%combined_weight%pw,&
+                                                 dft_control%qs_control%becke_control%combined_mat)
+                              DEALLOCATE(dft_control%qs_control%becke_control%combined_mat)
+                           END IF
+                           dE(ivar)=dE(ivar) + sign * accurate_sum(dft_control%qs_control%becke_control%combined_weight%pw%cr3d,&
+                                    rho_r(i)%pw%cr3d,dft_control%qs_control%becke_control%cavity_mat,eps_cavity)*dvol      
+                        END SELECT
+                     ELSE
+                        sign = 1.0_dp
+                        ! Note the negative sign for beta spin if spin constraint is active
+                        IF (dft_control%qs_control%becke_control%constraint_type ==&
+                            cdft_magnetization_constraint .AND. i==2) sign = -1.0_dp
+                        dE(ivar)=dE(ivar) + sign * accurate_sum(becke_const%pw%cr3d,rho_r(i)%pw%cr3d,&
+                                 dft_control%qs_control%becke_control%cavity_mat,eps_cavity)*dvol
+                     END IF 
                ELSE
                   IF (ivar==2) THEN
                     sign = 1.0_dp
@@ -1225,9 +1225,9 @@ CONTAINS
                END IF
             END DO
             IF(dft_control%qs_control%becke_control%atomic_charges) THEN
-                DO iatom = 1, dft_control%qs_control%becke_control%natoms
-                  electronic_charge(iatom,i)=accurate_sum(charge(iatom)%pw%cr3d*rho_r(i)%pw%cr3d)*dvol
-                END DO
+               DO iatom = 1, dft_control%qs_control%becke_control%natoms
+                 electronic_charge(iatom,i)=accurate_sum(charge(iatom)%pw%cr3d*rho_r(i)%pw%cr3d)*dvol
+               END DO
             END IF
          END DO
          CALL get_qs_env(qs_env,energy=energy)
@@ -1690,9 +1690,12 @@ CONTAINS
                END DO
             END DO
             ELSE
-            DO k=LBOUND(dft_control%qs_control%becke_control%cavity_mat,1),UBOUND(dft_control%qs_control%becke_control%cavity_mat,1)
-               DO j=LBOUND(dft_control%qs_control%becke_control%cavity_mat,2),UBOUND(dft_control%qs_control%becke_control%cavity_mat,2)
-                  DO i=LBOUND(dft_control%qs_control%becke_control%cavity_mat,3),UBOUND(dft_control%qs_control%becke_control%cavity_mat,3)
+            DO k=LBOUND(dft_control%qs_control%becke_control%cavity_mat,1),&
+                 UBOUND(dft_control%qs_control%becke_control%cavity_mat,1)
+               DO j=LBOUND(dft_control%qs_control%becke_control%cavity_mat,2),&
+                    UBOUND(dft_control%qs_control%becke_control%cavity_mat,2)
+                  DO i=LBOUND(dft_control%qs_control%becke_control%cavity_mat,3),&
+                       UBOUND(dft_control%qs_control%becke_control%cavity_mat,3)
                      ! First check if this grid point should be skipped
                      IF (dft_control%qs_control%becke_control%cavity_mat(k,j,i)<eps_cavity) CYCLE
                      DO iatom=1,natom
@@ -1944,9 +1947,9 @@ CONTAINS
                                  integrated(1+3*(ngrad-1):3+3*(ngrad-1),iatom) = integrated(1+3*(ngrad-1):3+3*(ngrad-1),iatom) &
                                     + sign * dw_dR(1+3*(ngrad-1):3+3*(ngrad-1),iatom) * rho_r(ispin)%pw%cr3d(k,j,i) * dvol
                               ELSE
-                                IF (dft_control%qs_control%becke_control%constraint_type == &
-                                    cdft_magnetization_constraint .AND. ispin == 2) sign = -1.0_dp
-                                integrated(1:3,iatom)=integrated(1:3,iatom) + sign * dw_dR(1:3,iatom) * rho_r(ispin)%pw%cr3d(k,j,i) * dvol
+                                 IF (dft_control%qs_control%becke_control%constraint_type == &
+                                     cdft_magnetization_constraint .AND. ispin == 2) sign = -1.0_dp
+                                 integrated(1:3,iatom)=integrated(1:3,iatom) + sign * dw_dR(1:3,iatom) * rho_r(ispin)%pw%cr3d(k,j,i) * dvol
                               END IF
                            END DO ! ivar
                         END DO    ! ispin

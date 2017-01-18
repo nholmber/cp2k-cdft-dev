@@ -4282,8 +4282,7 @@ CONTAINS
 
       CALL cp_print_key_section_create(print_key,"PROGRAM_RUN_INFO",&
                                       description="Controls the printing of basic info about the method", &
-                                      print_level=low_print_level,add_last=add_last_numeric,filename="__STD_OUT__",&
-                                      error=error)
+                                      print_level=low_print_level,add_last=add_last_numeric,filename="__STD_OUT__")
       CALL section_add_subsection(section,print_key)
       CALL section_release(print_key)
 
@@ -4339,8 +4338,7 @@ CONTAINS
       CALL keyword_create(keyword, name="REUSE_PRECOND",&
                           description="Reuse previously built OT preconditioner if SCF converged in PRECOND_FREQ steps or less.",&
                           usage="REUSE_PRECOND yes",repeats=.FALSE.,n_var=1,&
-                          default_l_val=.FALSE.,lone_keyword_l_val=.TRUE.,&
-                          error=error)
+                          default_l_val=.FALSE.,lone_keyword_l_val=.TRUE.)
       CALL section_add_keyword(section, keyword)
       CALL keyword_release(keyword)
 
@@ -4362,8 +4360,7 @@ CONTAINS
                                       " if the counter exceeds PURGE_FREQ and PURGE_OFFSET MD steps have passed since the last purge."//&
                                       " The counter is zeroed after each purge.",&
                           usage="PURGE_HISTORY yes",repeats=.FALSE.,n_var=1,&
-                          default_l_val=.FALSE.,lone_keyword_l_val=.TRUE.,&
-                          error=error)
+                          default_l_val=.FALSE.,lone_keyword_l_val=.TRUE.)
       CALL section_add_keyword(section, keyword)
       CALL keyword_release(keyword)
 
@@ -4400,8 +4397,7 @@ CONTAINS
       CPASSERT(.NOT.ASSOCIATED(section),cp_failure_level,routineP,error,failure)
       CALL section_create(section,"HIRSHFELD_CONSTRAINT",&
                         description="Parameters for CDFT with Hirshfeld constraint",&
-                        n_keywords=10, n_subsections=0, repeats=.FALSE., &
-                        error=error)
+                        n_keywords=10, n_subsections=0, repeats=.FALSE.)
 
       CALL keyword_create(keyword, name="STRENGTH",&
                           description="Force constants of the constraints. Second value is for combined constraint and is optional.",&
@@ -4499,8 +4495,7 @@ CONTAINS
 
       CALL cp_print_key_section_create(print_key,"PROGRAM_RUN_INFO",&
                                        description="Controls the printing of basic info about the method", &
-                                       print_level=low_print_level,add_last=add_last_numeric,filename="__STD_OUT__",&
-                                       error=error)
+                                       print_level=low_print_level,add_last=add_last_numeric,filename="__STD_OUT__")
       CALL section_add_subsection(section, print_key)
       CALL section_release(print_key)
 
@@ -5364,7 +5359,7 @@ CONTAINS
 
       CALL keyword_create(keyword, name="JACOBIAN_STEP",&
                           description="Step size to use in the calculation of the inverse Jacobian with finite differences.", &
-                          usage="JACOBIAN_STEP 1.0E-4 ", default_r_val=1.0E-4_dp,error=error)
+                          usage="JACOBIAN_STEP 1.0E-4 ", default_r_val=1.0E-4_dp)
       CALL section_add_keyword(section, keyword)
       CALL keyword_release(keyword)
 
