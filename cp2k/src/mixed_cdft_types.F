@@ -198,9 +198,9 @@ CONTAINS
          DO i = 1, SIZE(dlb_control%recv_info)
             IF (ASSOCIATED(dlb_control%recv_info(i))) THEN
                IF (ASSOCIATED(dlb_control%recv_info(i)%matrix_info)) &
-                  DEALLOCATE(dlb_control%recv_info(i)%matrix_info))
+                  DEALLOCATE(dlb_control%recv_info(i)%matrix_info)
                IF (ASSOCIATED(dlb_control%recv_info(i)%target_list)) &
-                  DEALLOCATE(dlb_control%recv_info(i)%target_list))
+                  DEALLOCATE(dlb_control%recv_info(i)%target_list)
             END IF
          END DO 
          DEALLOCATE(dlb_control%recv_info)
@@ -265,6 +265,6 @@ CONTAINS
       END IF
       DEALLOCATE(p_buffer)
 
-   END SUBROUTINE mixed_cdft_buffers_release
+   END SUBROUTINE mixed_cdft_p_buffers_release
 
 END MODULE mixed_cdft_types
