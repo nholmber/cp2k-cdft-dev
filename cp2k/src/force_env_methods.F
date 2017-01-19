@@ -85,7 +85,8 @@ MODULE force_env_methods
    USE input_section_types,             ONLY: section_vals_get_subs_vals,&
                                               section_vals_retain,&
                                               section_vals_type,&
-                                              section_vals_val_get
+                                              section_vals_val_get,&
+                                              section_vals_get
    USE kahan_sum,                       ONLY: accurate_sum
    USE kinds,                           ONLY: default_path_length,&
                                               default_string_length,&
@@ -936,8 +937,7 @@ CONTAINS
          DO iforce_eval = 1, nforce_eval
             IF (.NOT.ASSOCIATED(force_env%sub_force_env(iforce_eval)%force_env)) CYCLE
             IF (force_env%mixed_env%do_mixed_qmmm_cdft) THEN
-               CALL force_env_get(force_env%sub_force_env(iforce_eval)%force_env%sub_force_env(1)%force_env%sub_force_env(qs_subsys)%force_env,&
-                                  qs_env=qs_env)
+               qs_env => force_env%sub_force_env(iforce_eval)%force_env%qmmm_env%qs_env
             ELSE
                CALL force_env_get(force_env%sub_force_env(iforce_eval)%force_env,qs_env=qs_env)
             END IF 
