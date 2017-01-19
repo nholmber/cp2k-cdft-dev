@@ -174,17 +174,18 @@ CONTAINS
 !> \param cdft_control ...
 !> \param error ...
 ! *****************************************************************************
-   SUBROUTINE qs_ks_cdft_constraint(qs_env, auxbas_pw_pool, calculate_forces)
+   SUBROUTINE qs_ks_cdft_constraint(qs_env, auxbas_pw_pool, calculate_forces, cdft_control)
       TYPE(qs_environment_type), POINTER       :: qs_env
       TYPE(pw_pool_type), POINTER              :: auxbas_pw_pool
       LOGICAL, INTENT(in)                      :: calculate_forces
+      TYPE(cdft_control_type), POINTER         :: cdft_control
+
 
       CHARACTER(LEN=*), PARAMETER :: routineN = 'qs_ks_cdft_constraint', &
          routineP = moduleN//':'//routineN
 
       REAL(KIND=dp)                            :: inv_vol
       TYPE(dft_control_type), POINTER          :: dft_control
-      TYPE(cdft_control_type), POINTER         :: cdft_control
 
       NULLIFY(dft_control)
       CALL get_qs_env(qs_env, dft_control=dft_control)
