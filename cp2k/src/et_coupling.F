@@ -283,8 +283,8 @@ CONTAINS
       END IF
       IF (dft_control%qs_control%becke_restraint) THEN
          Waa = qs_env%et_coupling%order_p
-         Wbb = dft_control%qs_control%becke_control%becke_order_p
-         strength = dft_control%qs_control%becke_control%strength
+         Wbb = dft_control%qs_control%becke_control%becke_order_p(1)
+         strength = dft_control%qs_control%becke_control%strength(1)
       END IF
 
 !!   construct S and W   !!!
@@ -764,7 +764,7 @@ CONTAINS
                               (/0.0_dp,0.0_dp,0.0_dp/),0.0_dp,1.0_dp,pab,0,0,rs_cavity,&
                               cell,pw_env%cube_info(1),dft_control%qs_control%eps_rho_rspace,&
                               ga_gb_function=FUNC_AB,ithread=ithread,use_subpatch=.TRUE.,&
-                              subpatch_pattern=0_int_8)
+                              subpatch_pattern=0_int_8,lmax_global=0)
                    END DO
                 END DO
                 DEALLOCATE(cores)
@@ -2187,14 +2187,16 @@ CONTAINS
                      CALL collocate_pgf_product_rspace(0,alpha,0,0,0.0_dp,0,ra,&
                         (/0.0_dp,0.0_dp,0.0_dp/),0.0_dp,1.0_dp,pab,0,0,rs_rho_all,&
                         cell,cube_info,eps_rho_rspace,ga_gb_function=FUNC_AB,&
-                        ithread=ithread,use_subpatch=.TRUE.,subpatch_pattern=subpatch_pattern)
+                        ithread=ithread,use_subpatch=.TRUE.,subpatch_pattern=subpatch_pattern,&
+                        lmax_global=0)
                      IF (debug_this_module .AND. is_constraint(atom_a))&
                        print *, 'Integrating', iatom, atom_a, coefficients(atom_a)
                      IF(is_constraint(atom_a))&
                         CALL collocate_pgf_product_rspace(0,alpha,0,0,0.0_dp,0,ra,&
                           (/0.0_dp,0.0_dp,0.0_dp/),0.0_dp,coefficients(atom_a),pab,0,0,&
                           rs_rho_constr,cell,cube_info,eps_rho_rspace,ga_gb_function=FUNC_AB,&
-                          ithread=ithread,use_subpatch=.TRUE.,subpatch_pattern=subpatch_pattern)
+                          ithread=ithread,use_subpatch=.TRUE.,subpatch_pattern=subpatch_pattern,&
+                          lmax_global=0)
                   END DO
                END DO
                DEALLOCATE(cores)
