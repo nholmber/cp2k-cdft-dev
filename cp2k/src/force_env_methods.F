@@ -111,6 +111,7 @@ MODULE force_env_methods
                                               particle_list_type
    USE physcon,                         ONLY: debye
    USE qmmm_force,                      ONLY: qmmm_calc_energy_force
+   USE qmmm_util,                       ONLY: apply_qmmm_translate
    USE qmmm_types,                      ONLY: qmmm_env_retain,&
                                               qmmm_env_type
    USE qmmmx_force,                     ONLY: qmmmx_calc_energy_force

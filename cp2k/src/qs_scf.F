@@ -70,7 +70,9 @@ MODULE qs_scf
                                               dbcsr_deallocate_matrix_set,&
                                               dbcsr_get_info,&
                                               dbcsr_p_type,&
-                                              dbcsr_type
+                                              dbcsr_type,&
+                                              dbcsr_init_p,&
+                                              dbcsr_set
    USE input_constants,                 ONLY: history_guess,&
                                               ot_precond_full_all,&
                                               ot_precond_full_single,&
