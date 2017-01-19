@@ -80,7 +80,8 @@ MODULE et_coupling
                                               pw_pool_type      
    USE pw_types,                        ONLY: pw_p_type,&
                                               REALSPACE,&
-                                              REALDATA3D
+                                              REALDATA3D,&
+                                              pw_release
    USE qs_collocate_density,            ONLY: collocate_pgf_product_rspace
    USE qs_energy_types,                 ONLY: qs_energy_type
    USE qs_environment_types,            ONLY: get_qs_env,&
