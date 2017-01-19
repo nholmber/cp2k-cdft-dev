@@ -63,6 +63,7 @@ MODULE mixed_cdft_methods
                                               force_env_type,&
                                               multiple_fe_list,&
                                               use_qmmm,&
+                                              use_qmmmx,&
                                               use_qs_force
    USE gaussian_gridlevels,             ONLY: init_gaussian_gridlevel
    USE global_types,                    ONLY: global_environment_type 
@@ -122,7 +123,6 @@ MODULE mixed_cdft_methods
                                               HALFSPACE,&
                                               pw_grid_type
    USE pw_methods,                      ONLY: pw_scale
-   USE qmmm_types,                      ONLY: qs_subsys
    USE qs_collocate_density,            ONLY: collocate_pgf_product_rspace
    USE qs_environment_types,            ONLY: qs_environment_type,&
                                               get_qs_env
@@ -248,10 +248,10 @@ CONTAINS
             force_env_qs => force_env%sub_force_env(iforce_eval)%force_env
          CASE ( use_qmmm )
             is_qmmm = .TRUE.
-            ! No force mixing is allowed for QM/MM with CDFT 
-            IF (SIZE(force_env%sub_force_env(iforce_eval)%force_env%sub_force_env) /= 1)&
-              CPABORT("No force mixing allowed for CDFT QM/MM")
-            force_env_qs => force_env%sub_force_env(iforce_eval)%force_env%sub_force_env(1)%force_env%sub_force_env(qs_subsys)%force_env
+            ! This is really the container for QMMM
+            force_env_qs => force_env%sub_force_env(iforce_eval)%force_env 
+         CASE ( use_qmmmx )
+            CPABORT("No force mixing allowed for mixed CDFT QM/MM")
          CASE DEFAULT
             CPASSERT(.FALSE.)
          END SELECT
@@ -265,11 +265,11 @@ CONTAINS
                             cell=cell_mix)
          CALL cp_subsys_get(subsys=subsys_mix,&
                             particles=particles_mix)
-      ELSE 
-         CALL force_env_get(force_env=force_env_qs,&
-                            subsys=subsys_mix,&
-                            force_env_section=force_env_section,&
-                            cell=cell_mix)
+      ELSE
+         CALL get_qs_env(force_env_qs%qmmm_env%qs_env,& 
+                         subsys=subsys_mix,&
+                         input=force_env_section,&
+                         cell=cell_mix)
          CALL cp_subsys_get(subsys=subsys_mix,&
                             particles=particles_mix)
       END IF
@@ -346,7 +346,11 @@ CONTAINS
       ! TODO: transfer logicals as logicals instead of ints
       DO iforce_eval = 1, nforce_eval
          IF (.NOT.ASSOCIATED(force_env%sub_force_env(iforce_eval)%force_env)) CYCLE
-         CALL force_env_get(force_env_qs, qs_env=qs_env)
+         IF (is_qmmm) THEN
+            qs_env => force_env_qs%qmmm_env%qs_env
+         ELSE   
+            CALL force_env_get(force_env_qs, qs_env=qs_env)
+         END IF
          CALL get_qs_env(qs_env, pw_env=pw_env, dft_control=dft_control, blacs_env=blacs_env)
          IF (.NOT. dft_control%qs_control%becke_restraint) &
             CPABORT("Becke constraint must be active in &QS section of both force_evals!"
@@ -855,17 +859,26 @@ CONTAINS
          CASE ( use_qs_force )
             force_env_qs => force_env%sub_force_env(iforce_eval)%force_env
          CASE ( use_qmmm )
-            force_env_qs => force_env%sub_force_env(iforce_eval)%force_env%&
-                            sub_force_env(1)%force_env%sub_force_env(qs_subsys)%force_env
+            force_env_qs => force_env%sub_force_env(iforce_eval)%force_env
          CASE DEFAULT
             CPASSERT(.FALSE.)
          END SELECT
       END DO
-      CALL force_env_get(force_env=force_env_qs,&
+      IF (.NOT. force_env%mixed_env%do_mixed_qmmm_cdft) THEN 
+         CALL force_env_get(force_env=force_env_qs,&
+                            qs_env=qs_env,&
+                            subsys=subsys_mix,&
+                            force_env_section=force_env_section)
+         CALL cp_subsys_get(subsys=subsys_mix,&
+                            particles=particles_mix)
+      ELSE
+         qs_env => force_env_qs%qmmm_env%qs_env
+         CALL get_qs_env(qs_env,& 
                          subsys=subsys_mix,&
-                         force_env_section=force_env_section)
-      CALL cp_subsys_get(subsys=subsys_mix,&
-                         particles=particles_mix)
+                         input=force_env_section)
+         CALL cp_subsys_get(subsys=subsys_mix,&
+                            particles=particles_mix)
+      END IF
       mixed_env => force_env%mixed_env
       print_section => section_vals_get_subs_vals(force_env_section, "MIXED%PRINT%PROGRAM_RUN_INFO")
       iounit = cp_print_key_unit_nr(logger,print_section,'', extension='.mixedLog')
@@ -876,7 +889,6 @@ CONTAINS
       natom = SIZE(particles_mix%els)
       CALL mixed_becke_constraint(force_env, calculate_forces)
       ! Start replicating the working arrays on both np/2 processor groups 
-      CALL force_env_get(force_env_qs, qs_env=qs_env)
       mixed_cdft%sim_step = mixed_cdft%sim_step + 1
       CALL get_qs_env(qs_env, pw_env=pw_env, dft_control=dft_control)
       CPASSERT(dft_control%qs_control%becke_restraint)
@@ -1994,13 +2006,12 @@ CONTAINS
       ELSE
          DO iforce_eval = 1, nforce_eval
             IF (.NOT.ASSOCIATED(force_env%sub_force_env(iforce_eval)%force_env)) CYCLE
-            force_env_qs => force_env%sub_force_env(iforce_eval)%&
-                            force_env%sub_force_env(1)%force_env%sub_force_env(qs_subsys)%force_env
+            force_env_qs => force_env%sub_force_env(iforce_eval)
          END DO
-         CALL force_env_get(force_env=force_env_qs,&
-                            subsys=subsys_mix,&
-                            force_env_section=force_env_section,&
-                            cell=cell)
+         CALL get_qs_env(force_env_qs%qmmm_env%qs_env,& 
+                         subsys=subsys_mix,&
+                         input=force_env_section,&
+                         cell=cell_mix)
          CALL cp_subsys_get(subsys=subsys_mix,&
                             particles=particles,&
                             particle_set=particle_set)
@@ -3213,12 +3224,11 @@ CONTAINS
       ELSE
          DO iforce_eval = 1, nforce_eval
             IF (.NOT.ASSOCIATED(force_env%sub_force_env(iforce_eval)%force_env)) CYCLE
-            force_env_qs => force_env%sub_force_env(iforce_eval)%force_env%&
-                            sub_force_env(1)%force_env%sub_force_env(qs_subsys)%force_env
+            force_env_qs => force_env%sub_force_env(iforce_eval)%force_env
          END DO
-         CALL force_env_get(force_env=force_env_qs,&
-                            subsys=subsys_mix,&
-                            cell=cell)
+         CALL get_qs_env(force_env_qs%qmmm_env%qs_env,& 
+                         subsys=subsys_mix,&
+                         cell=cell)
          CALL cp_subsys_get(subsys=subsys_mix,&
                             particles=particles,&
                             particle_set=particle_set)
