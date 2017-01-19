@@ -1027,16 +1027,16 @@ CONTAINS
          ! Store needed arrays for ET coupling calculation
          IF (cdft_control%do_et) THEN
             CALL get_qs_env(qs_env=qs_env, matrix_s=matrix_s)
-            CALL cp_dbcsr_init_p(cdft_control%wmat%matrix)
-            CALL cp_dbcsr_copy(cdft_control%wmat%matrix, matrix_s(1)%matrix, &
+            CALL dbcsr_init_p(cdft_control%wmat%matrix)
+            CALL dbcsr_copy(cdft_control%wmat%matrix, matrix_s(1)%matrix, &
                                name="ET_RESTRAINT_MATRIX")
-            CALL cp_dbcsr_set(cdft_control%wmat%matrix, 0.0_dp)
+            CALL dbcsr_set(cdft_control%wmat%matrix, 0.0_dp)
             CALL integrate_v_rspace(dft_control%qs_control%becke_control%becke_pot,&
                                     hmat=cdft_control%wmat, qs_env=qs_env,&
                                     calculate_forces=.FALSE.,&
                                     gapw=dft_control%qs_control%gapw)
-            CALL cp_dbcsr_init_p(cdft_control%matrix_s%matrix)
-            CALL cp_dbcsr_copy(cdft_control%matrix_s%matrix, matrix_s(1)%matrix, &
+            CALL dbcsr_init_p(cdft_control%matrix_s%matrix)
+            CALL dbcsr_copy(cdft_control%matrix_s%matrix, matrix_s(1)%matrix, &
                                name="OVERLAP")
             NULLIFY(cdft_control%mo_coeff)
             ALLOCATE(cdft_control%mo_coeff(dft_control%nspins))
@@ -1054,8 +1054,8 @@ CONTAINS
                ALLOCATE(cdft_control%matrix_p(dft_control%nspins))
                DO ispin=1, dft_control%nspins
                   NULLIFY(cdft_control%matrix_p(ispin)%matrix)
-                  CALL cp_dbcsr_init_p(cdft_control%matrix_p(ispin)%matrix)
-                  CALL cp_dbcsr_copy(cdft_control%matrix_p(ispin)%matrix, rho_ao(ispin)%matrix, &
+                  CALL dbcsr_init_p(cdft_control%matrix_p(ispin)%matrix)
+                  CALL dbcsr_copy(cdft_control%matrix_p(ispin)%matrix, rho_ao(ispin)%matrix, &
                                      name="DENSITY MATRIX")          
                END DO
             END IF
@@ -1182,7 +1182,7 @@ CONTAINS
       NULLIFY(energy, gradient, p_rmpv, rho_ao_kp, mos, rho,&
               mos_stashed, ks_env, scf_env, scf_control, dft_control,&
               cdft_control, input, scf_section, inv_jacobian)
-      logger => cp_get_default_logger
+      logger => cp_get_default_logger()
 
       CPASSERT(ASSOCIATED(qs_env))
       CALL get_qs_env(qs_env, scf_env=scf_env, ks_env=ks_env,&
@@ -1227,8 +1227,8 @@ CONTAINS
          ! Setup finite difference scheme
          SELECT CASE (scf_control%outer_scf%jacobian_type)
          CASE DEFAULT
-            CPABORT("Unknown Jacobian type:"//&
-                    cp_to_string(scf_control%outer_scf%jacobian_type))
+            CALL cp_abort(__LOCATION__, "Unknown Jacobian type: "//&
+                          cp_to_string(scf_control%outer_scf%jacobian_type))
          CASE (jacobian_fd1)
             nwork = 0
             pwork = 1
@@ -1301,8 +1301,8 @@ CONTAINS
             CASE (jacobian_fd1_central)   
                WRITE(output_unit,'(A)') " Type               : First order central difference"             
             CASE DEFAULT  
-               CPABORT("Unknown Jacobian type:"//&
-                       cp_to_string(scf_control%outer_scf%jacobian_type))
+               CALL cp_abort(__LOCATION__, "Unknown Jacobian type: "//&
+                             cp_to_string(scf_control%outer_scf%jacobian_type))
             END SELECT 
             WRITE(output_unit,'(A,ES12.4)') " Step size          : ", scf_control%outer_scf%jacobian_step
          END IF
