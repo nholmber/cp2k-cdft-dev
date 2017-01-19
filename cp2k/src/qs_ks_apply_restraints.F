@@ -178,7 +178,6 @@ CONTAINS
       TYPE(qs_environment_type), POINTER       :: qs_env
       TYPE(pw_pool_type), POINTER              :: auxbas_pw_pool
       LOGICAL, INTENT(in)                      :: calculate_forces
-      TYPE(dbcsr_p_type), DIMENSION(:, :), &
 
       CHARACTER(LEN=*), PARAMETER :: routineN = 'qs_ks_cdft_constraint', &
          routineP = moduleN//':'//routineN
