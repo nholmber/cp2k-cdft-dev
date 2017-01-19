@@ -497,8 +497,8 @@ CONTAINS
                 dft_control%qs_control%becke_control%cutoffs(:)=dft_control%qs_control%becke_control%rglobal
              CASE (becke_cutoff_element)
                 IF (.NOT. SIZE(atomic_kind_set)==SIZE(dft_control%qs_control%becke_control%cutoffs_tmp))&
-                   CPABORT("Length of keyword &BECKE_RESTRAINT&ELEMENT_CUTOFFS does not match number of atomic kinds "&
-                           " in the input coordinate file.")
+                   CPABORT("Length of keyword BECKE_RESTRAINT\ELEMENT_CUTOFFS does not match number of atomic kinds &
+                           &in the input coordinate file.")
                 DO ikind = 1, SIZE(atomic_kind_set)
                    CALL get_atomic_kind(atomic_kind_set(ikind), natom=katom, atom_list=atom_list)
                    DO iatom = 1, katom
@@ -1241,8 +1241,8 @@ CONTAINS
          IF(dft_control%qs_control%becke_control%fragment_density) THEN
             ! Fragment densities are meaningful only for some calculation types
             IF (.NOT. qs_env%single_point_run)&
-               CPABORT("Becke deformation density only compatible with single point calculations"&
-                       " (run_type ENERGY or ENERGY_FORCE).")
+               CPABORT("Becke deformation density only compatible with single point calculations&
+                       & (run_type ENERGY or ENERGY_FORCE).")
             IF (dft_control%qs_control%gapw)&
                CPABORT("Becke deformation density not compatible with GAPW.")
             SELECT CASE (dft_control%qs_control%becke_control%constraint_type)
@@ -1280,8 +1280,8 @@ CONTAINS
                CALL qs_subsys_get(subsys,nelectron_total=nelectron_total)
                nelectron_frag = pw_integrate_function(rho_frag%pw)
                IF (NINT(nelectron_frag) /= nelectron_total)&
-                  CPABORT("The number of electrons in the reference and interacting configurations does not match. "&
-                          "Check your fragment cube files.")
+                  CPABORT("The number of electrons in the reference and interacting configurations does not match. &
+                          &Check your fragment cube files.")
                ! Update constraint target value i.e. perform integration w*rho_frag*dr
                ! Note, we assume the weight w is defined only on one of the fragments
                dft_control%qs_control%becke_control%target = 0.0_dp

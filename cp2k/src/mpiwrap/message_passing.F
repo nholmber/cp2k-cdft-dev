@@ -484,6 +484,7 @@ MODULE message_passing
                        mp_isend_dv, mp_isend_dm2, mp_isend_dm3, mp_isend_dm4, &
                        mp_isend_cv, mp_isend_cm2, mp_isend_cm3, mp_isend_cm4, &
                        mp_isend_zv, mp_isend_zm2, mp_isend_zm3, mp_isend_zm4
+      MODULE PROCEDURE mp_isend_bv, mp_isend_bm3                 
       MODULE PROCEDURE mp_isend_custom
    END INTERFACE
 
@@ -494,6 +495,7 @@ MODULE message_passing
                        mp_irecv_dv, mp_irecv_dm2, mp_irecv_dm3, mp_irecv_dm4, &
                        mp_irecv_cv, mp_irecv_cm2, mp_irecv_cm3, mp_irecv_cm4, &
                        mp_irecv_zv, mp_irecv_zm2, mp_irecv_zm3, mp_irecv_zm4
+      MODULE PROCEDURE mp_irecv_bv, mp_irecv_bm3
       MODULE PROCEDURE mp_irecv_custom
    END INTERFACE
 
