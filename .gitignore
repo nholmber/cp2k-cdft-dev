@@ -1,0 +1,11 @@
+.svn
+cp2k/obj/
+cp2k/lib/
+cp2k/exe/
+cp2k/regtesting/
+cp2k/makefiles/*.log
+cp2k/tools/manual/*.html
+cp2k/tools/manual/*.xml
+cp2k/tools/manual/*.jar
+cp2k/tools/manual/*.vim
+cp2k/tools/manual/CP2K_INPUT/
