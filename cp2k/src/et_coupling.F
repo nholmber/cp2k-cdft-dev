@@ -122,7 +122,7 @@ MODULE et_coupling
 
 ! *** Public subroutines ***
 
-   PUBLIC :: calc_et_coupling, becke_restraint
+   PUBLIC :: calc_et_coupling, becke_restraint, hirshfeld_constraint
 
 CONTAINS
 ! **************************************************************************************************
