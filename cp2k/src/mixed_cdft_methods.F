@@ -39,7 +39,8 @@ MODULE mixed_cdft_methods
                                               cp_fm_set_all
    USE cp_gemm_interface,               ONLY: cp_gemm
    USE cp_log_handling,                 ONLY: cp_get_default_logger,&
-                                              cp_logger_type
+                                              cp_logger_type,&
+                                              cp_to_string
    USE cp_output_handling,              ONLY: cp_print_key_finished_output,&
                                               cp_print_key_unit_nr 
    USE cp_realspace_grid_cube,          ONLY: cp_pw_to_cube  
@@ -126,6 +127,7 @@ MODULE mixed_cdft_methods
                                               pw_grid_type
    USE pw_methods,                      ONLY: pw_scale
    USE qs_collocate_density,            ONLY: collocate_pgf_product_rspace
+   USE qs_energy_types,                 ONLY: qs_energy_type
    USE qs_environment_types,            ONLY: qs_environment_type,&
                                               get_qs_env
    USE qs_kind_types,                   ONLY: qs_kind_type,&
@@ -269,7 +271,7 @@ CONTAINS
                             particles=particles_mix)
       ELSE
          CALL get_qs_env(force_env_qs%qmmm_env%qs_env,& 
-                         subsys=subsys_mix,&
+                         cp_subsys=subsys_mix,&
                          input=force_env_section,&
                          cell=cell_mix)
          CALL cp_subsys_get(subsys=subsys_mix,&
@@ -408,7 +410,7 @@ CONTAINS
             IF (dft_control%qs_control%becke_control%cutoff_type == becke_cutoff_element) THEN
                nkinds = SIZE(dft_control%qs_control%becke_control%cutoffs_tmp)
                IF (nkinds .GT. max_nkinds) &
-                  CPABORT("More than "//TRIM(max_nkinds)//" unique elements were defined in &BECKE_RESTRAINT&ELEMENT_CUTOFF. "//&
+                  CPABORT("More than "//TRIM(max_nkinds)//" unique elements were defined in &BECKE_RESTRAINT&ELEMENT_CUTOFF. "&
                           "Are you sure your input is correct? If yes, please increase max_nkinds and recompile.")
                cutoffs(1:nkinds,iforce_eval)=dft_control%qs_control%becke_control%cutoffs_tmp(:)
                DEALLOCATE(dft_control%qs_control%becke_control%cutoffs_tmp) 
@@ -519,7 +521,6 @@ CONTAINS
          CPABORT("Calculation of atomic Becke charges not supported with mixed CDFT")
       IF (mixed_cdft%dlb .AND. .NOT. mixed_cdft%becke_control%cavity_confine) &
          CPABORT("Mixed CDFT load balancing requires Gaussian cavity confinement.")
-      END IF
       ! Decide what kind of layout to use and setup the grid
       ! Processor mappings currently supported:  (2np,1)  --> (np,1)
       !                                          (nx,2ny) --> (nx,ny)
@@ -562,7 +563,7 @@ CONTAINS
          IF (.NOT. pw_grid%para%rs_dims(2)==1) is_match = .FALSE.
       END IF
       IF (.NOT. is_match) &
-         CPABORT("Unable to create a suitable grid distribution for mixed CDFT calculations. "//&
+         CPABORT("Unable to create a suitable grid distribution for mixed CDFT calculations. "&
                  "Try decreasing the total number of processors or disabling xc_smoothing.")
       ! Deallocate temporaries
       DEALLOCATE(mixed_rs_dims)
@@ -876,7 +877,7 @@ CONTAINS
       ELSE
          qs_env => force_env_qs%qmmm_env%qs_env
          CALL get_qs_env(qs_env,& 
-                         subsys=subsys_mix,&
+                         cp_subsys=subsys_mix,&
                          input=force_env_section)
          CALL cp_subsys_get(subsys=subsys_mix,&
                             particles=particles_mix)
@@ -1349,7 +1350,7 @@ CONTAINS
               fm_struct_tmp, mo_mo_fmstruct, inverse_mat, SMO, Tinverse, tmp2, mo_overlap, &
               mo_tmp, mixed_matrix_s_tmp, matrix_s_tmp, mixed_wmat_tmp, wmat_tmp, rest_MO, mixed_mo_coeff, &
               mo_coeff_tmp, matrix_p_tmp, mixed_matrix_p_tmp, mixed_matrix_s, density_matrix, blacs_env, &
-              energy, mo_set, particle_set, qs_kind_set, atomic_kind_set, file_name)
+              energy, mo_set, particle_set, qs_kind_set, atomic_kind_set)
 
       logger => cp_get_default_logger()
 
@@ -1367,8 +1368,7 @@ CONTAINS
       DO iforce_eval = 1, nforce_eval
          IF (.NOT.ASSOCIATED(force_env%sub_force_env(iforce_eval)%force_env)) CYCLE
          IF (force_env%mixed_env%do_mixed_qmmm_cdft) THEN
-            CALL force_env_get(force_env%sub_force_env(iforce_eval)%force_env%sub_force_env(1)%&
-                               force_env%sub_force_env(qs_subsys)%force_env, qs_env=qs_env)
+            qs_env => force_env%sub_force_env(iforce_eval)%force_env%qmmm_env%qs_env
          ELSE
             CALL force_env_get(force_env%sub_force_env(iforce_eval)%force_env, qs_env=qs_env)
          END IF
@@ -1715,11 +1715,10 @@ CONTAINS
          CALL mp_bcast(exist, force_env%para_env%source, force_env%para_env%group)
          CALL mp_bcast(file_name, force_env%para_env%source, force_env%para_env%group)
          IF (.NOT.exist) &
-            CPABORT(&
-                   "User requested to restart the wavefunction from the file named: "//&
-                   TRIM(file_name)//". This file does not exist. Please check the existence of"//&
-                   " the file or change properly the value of the keyword WFN_RESTART_FILE_NAME in "//&
-                   " section FORCE_EVAL&MIXED&LINEAR.")
+            CPABORT("User requested to restart the wavefunction from the file named: "&
+                    //TRIM(file_name)//". This file does not exist. Please check the existence of"&
+                    " the file or change properly the value of the keyword WFN_RESTART_FILE_NAME in "&
+                    " section FORCE_EVAL&MIXED&LINEAR.")
          CALL read_mo_set(mo_array=mo_set,atomic_kind_set=atomic_kind_set,&
                           qs_kind_set=mixed_cdft%qs_kind_set,particle_set=particle_set,&
                           para_env=force_env%para_env,id_nr=0,multiplicity=mixed_cdft%multiplicity,&
@@ -2008,12 +2007,12 @@ CONTAINS
       ELSE
          DO iforce_eval = 1, nforce_eval
             IF (.NOT.ASSOCIATED(force_env%sub_force_env(iforce_eval)%force_env)) CYCLE
-            force_env_qs => force_env%sub_force_env(iforce_eval)
+            force_env_qs => force_env%sub_force_env(iforce_eval)%force_env
          END DO
          CALL get_qs_env(force_env_qs%qmmm_env%qs_env,& 
-                         subsys=subsys_mix,&
+                         cp_subsys=subsys_mix,&
                          input=force_env_section,&
-                         cell=cell_mix)
+                         cell=cell)
          CALL cp_subsys_get(subsys=subsys_mix,&
                             particles=particles,&
                             particle_set=particle_set)
@@ -2028,7 +2027,7 @@ CONTAINS
             mixed_cdft%becke_control%cutoffs(:)=mixed_cdft%becke_control%rglobal
          CASE (becke_cutoff_element)
             IF (.NOT. SIZE(atomic_kind_set)==SIZE(mixed_cdft%becke_control%cutoffs_tmp))
-               CPABORT("Size &BECKE_RESTRAINT&ELEMENT_CUTOFFS does not match number of atomic kinds "//&
+               CPABORT("Size &BECKE_RESTRAINT&ELEMENT_CUTOFFS does not match number of atomic kinds "&
                        " in the input coordinate file.")
             DO ikind=1,SIZE(atomic_kind_set)
                CALL get_atomic_kind(atomic_kind_set(ikind), natom=katom, atom_list=atom_list)
@@ -2056,7 +2055,7 @@ CONTAINS
       END IF
       in_memory = calculate_forces .AND. mixed_cdft%becke_control%in_memory
       IF (in_memory /= calculate_forces)&
-         CPABORT("The flag &BECKE_RESTRAINT&IN_MEMORY must be activated for "//&
+         CPABORT("The flag &BECKE_RESTRAINT&IN_MEMORY must be activated for "&
                  "the calculation of mixed CDFT forces")
       IF (in_memory) ALLOCATE (coefficients(natom))
       DO i=1,mixed_cdft%becke_control%natoms
@@ -2265,7 +2264,7 @@ CONTAINS
                         (/0.0_dp,0.0_dp,0.0_dp/),0.0_dp,1.0_dp,pab,0,0,rs_cavity,&
                         cell,mixed_cdft%pw_env%cube_info(1),mixed_cdft%eps_rho_rspace,&
                         ga_gb_function=FUNC_AB,ithread=ithread,use_subpatch=.TRUE.,&
-                        subpatch_pattern=0_int_8)
+                        subpatch_pattern=0_int_8,lmax_global=0)
                END DO
             END DO
             DEALLOCATE(cores)
@@ -2458,7 +2457,7 @@ CONTAINS
       mixed_cdft%dlb_control%recv_work=.FALSE.
       mixed_cdft%dlb_control%send_work=.FALSE.
       NULLIFY(expected_work, work_index, load_imbalance, work_size, &
-              cumulative_work, sendbuffer, buffsize, req_reqv, req_total,&
+              cumulative_work, sendbuffer, buffsize, req_recv, req_total,&
               tmp, nrecv, nsend_proc, targets, tmp_bo, touched,&
               mask_recv, mask_send, cavity, recvbuffer, sbuff)
       ! TODO: These numerical values control data redistribution and are system sensitive
@@ -2606,8 +2605,8 @@ CONTAINS
             IF (nsend .GT. NINT(work_factor*nsend_limit-send_total)) THEN
                nsend = NINT(work_factor*nsend_limit-send_total) 
                IF (debug_this_module) &
-                  CPWARN("MIXED_CDFT DLB: Attempted to redistribute more array slices than "//&
-                        "actually available. Leaving a fraction of the total slices on the "//&
+                  CPWARN("MIXED_CDFT DLB: Attempted to redistribute more array slices than "&
+                        "actually available. Leaving a fraction of the total slices on the "&
                         "overloaded processor. Perhaps you have set LOAD_SCALE too high?")
             END IF
             mixed_cdft%dlb_control%target_list(1,i) = work_index(my_target)-1 ! This is the actual processor rank
@@ -2709,7 +2708,7 @@ CONTAINS
             END IF          
          END DO
          IF (.NOT. consistent)&
-           CPABORT("Load balancing error: too much data to redistribute."//&
+           CPABORT("Load balancing error: too much data to redistribute."&
                    " Increase LOAD_SCALE or change the number of processors.")
       END IF
       ! Tell the target processors which grid points they should compute
@@ -3229,7 +3228,7 @@ CONTAINS
             force_env_qs => force_env%sub_force_env(iforce_eval)%force_env
          END DO
          CALL get_qs_env(force_env_qs%qmmm_env%qs_env,& 
-                         subsys=subsys_mix,&
+                         cp_subsys=subsys_mix,&
                          cell=cell)
          CALL cp_subsys_get(subsys=subsys_mix,&
                             particles=particles,&
