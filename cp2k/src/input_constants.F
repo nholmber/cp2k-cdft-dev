@@ -637,8 +637,8 @@ MODULE input_constants
                                                outer_scf_becke_constraint = 125, &
                                                outer_scf_none = 126, &
                                                outer_scf_basis_center_opt = 127,&
-                                               outer_scf_cdft_constraint=127,&
-                                               outer_scf_hirshfeld_constraint=128
+                                               outer_scf_cdft_constraint=128,&
+                                               outer_scf_hirshfeld_constraint=129
 
    ! outer scf optimizers
    INTEGER, PARAMETER, PUBLIC               :: outer_scf_optimizer_sd=1001, &
