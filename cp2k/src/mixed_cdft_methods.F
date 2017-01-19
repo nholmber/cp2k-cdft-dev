@@ -261,18 +261,17 @@ CONTAINS
          END SELECT
       END DO
       CPASSERT(ASSOCIATED(force_env_qs))
+      CALL force_env_get(force_env=force_env, force_env_section=force_env_section)
       ! Get infos about the mixed subsys
       IF ( .NOT. is_qmmm ) THEN
          CALL force_env_get(force_env=force_env,&
                             subsys=subsys_mix,&
-                            force_env_section=force_env_section,&
                             cell=cell_mix)
          CALL cp_subsys_get(subsys=subsys_mix,&
                             particles=particles_mix)
       ELSE
          CALL get_qs_env(force_env_qs%qmmm_env%qs_env,& 
                          cp_subsys=subsys_mix,&
-                         input=force_env_section,&
                          cell=cell_mix)
          CALL cp_subsys_get(subsys=subsys_mix,&
                             particles=particles_mix)
@@ -768,6 +767,7 @@ CONTAINS
       END IF
       ! Write information about the mixed CDFT calculation
       IF (iounit>0) THEN
+        WRITE(iounit,*) ""
         WRITE(iounit,FMT="(T2,A,T71)") "MIXED_CDFT| Activating mixed CDFT calculation"
         WRITE(iounit,FMT="(T2,A,T71)") "MIXED_CDFT| Becke constraint is first built using all available processors"
         WRITE(iounit,FMT="(T2,A,T71)") "MIXED_CDFT| and then copied to both states with their own processor groups"
@@ -872,15 +872,12 @@ CONTAINS
       IF (.NOT. force_env%mixed_env%do_mixed_qmmm_cdft) THEN 
          CALL force_env_get(force_env=force_env_qs,&
                             qs_env=qs_env,&
-                            subsys=subsys_mix,&
-                            force_env_section=force_env_section)
+                            subsys=subsys_mix)
          CALL cp_subsys_get(subsys=subsys_mix,&
                             particles=particles_mix)
       ELSE
          qs_env => force_env_qs%qmmm_env%qs_env
-         CALL get_qs_env(qs_env,& 
-                         cp_subsys=subsys_mix,&
-                         input=force_env_section)
+         CALL get_qs_env(qs_env, cp_subsys=subsys_mix)
          CALL cp_subsys_get(subsys=subsys_mix,&
                             particles=particles_mix)
       END IF
@@ -1998,11 +1995,11 @@ CONTAINS
       logger => cp_get_default_logger()
       nforce_eval = SIZE(force_env%sub_force_env)
       CALL timeset(routineN,handle)
+      CALL force_env_get(force_env=force_env, force_env_section=force_env_section)
       IF ( .NOT. force_env%mixed_env%do_mixed_qmmm_cdft ) THEN
          CALL force_env_get(force_env=force_env,&
                             subsys=subsys_mix,&
-                            cell=cell,&
-                            force_env_section=force_env_section)
+                            cell=cell)
          CALL cp_subsys_get(subsys=subsys_mix,&
                             particles=particles,&
                             particle_set=particle_set)
@@ -2013,7 +2010,6 @@ CONTAINS
          END DO
          CALL get_qs_env(force_env_qs%qmmm_env%qs_env,& 
                          cp_subsys=subsys_mix,&
-                         input=force_env_section,&
                          cell=cell)
          CALL cp_subsys_get(subsys=subsys_mix,&
                             particles=particles,&
