@@ -508,9 +508,6 @@ CONTAINS
 
          IF (exit_outer_loop) EXIT scf_outer_loop
 
-         ! Check if inverse Jacobian needs to be calculated
-         CALL outer_loop_calculate_inverse_jacobian(qs_env)
-
          CALL outer_loop_optimize(scf_env, scf_control)
          CALL outer_loop_update_qs_env(qs_env, scf_env)
          CALL qs_ks_did_change(ks_env, potential_changed=.TRUE.)
@@ -1154,8 +1151,7 @@ CONTAINS
                                                   iter_count, nvar, max_scf,&
                                                   output_unit, nspins, i, j,&
                                                   nwork, pwork, iwork
-      LOGICAL                                  :: converged, should_stop,&
-                                                  has_cdft                                     
+      LOGICAL                                  :: converged, should_stop                                     
       REAL(KIND=dp)                            :: dh, inv_error
       REAL(KIND=dp), DIMENSION(:),&
          ALLOCATABLE                           :: coeff, step_multiplier                                                    
@@ -1179,7 +1175,6 @@ CONTAINS
       TYPE(scf_control_type), POINTER          :: scf_control
 
       CALL timeset(routineN,handle)
-      has_cdft = .FALSE.
 
       NULLIFY(energy, gradient, p_rmpv, rho_ao_kp, mos, rho,&
               mos_stashed, ks_env, scf_env, scf_control, dft_control,&
@@ -1215,7 +1210,9 @@ CONTAINS
          CALL qs_rho_get(rho, rho_ao_kp=rho_ao_kp)
          p_rmpv => rho_ao_kp(:, 1)
          cdft_control => dft_control%qs_control%cdft_control
-         IF (ASSOCIATED(cdft_control)) has_cdft = .TRUE.
+         IF (.NOT. ASSOCIATED(cdft_control)) &
+            CALL cp_abort(__LOCATION__, "Optimizers that need the explicit Jacobian can"//&
+                          " only be used together with a valid CDFT constraint")
          ! Allocate work
          nvar = SIZE(scf_env%outer_scf%variables, 1)
          max_scf = scf_control%outer_scf%max_scf+1
@@ -1282,13 +1279,8 @@ CONTAINS
          END DO
          ! Print some info
          IF (output_unit > 0) THEN
-            IF (has_cdft) THEN
-               WRITE (output_unit,FMT="(/,A)") &
-               " ============================== CDFT SCF LOOP =================================="
-            ELSE
-               WRITE (output_unit,FMT="(/,A)") &
-               " ============================== OUTER SCF LOOP=================================="
-            END IF
+            WRITE (output_unit,FMT="(/,A)") &
+            " ============================== CDFT SCF LOOP =================================="
             WRITE (output_unit,FMT="(A)") &
             " Evaluating inverse Jacobian using finite differences"
             SELECT CASE (scf_control%outer_scf%jacobian_type)
@@ -1317,12 +1309,10 @@ CONTAINS
                                                              scf_control%outer_scf%jacobian_step
                CALL outer_loop_update_qs_env(qs_env, scf_env)
                CALL qs_ks_did_change(ks_env, potential_changed=.TRUE.)
-               IF (has_cdft)&
-                  CALL outer_loop_switch(scf_env, scf_control, cdft_control, cdft2ot)
+               CALL outer_loop_switch(scf_env, scf_control, cdft_control, cdft2ot)
                CALL scf_env_do_scf(scf_env=scf_env, scf_control=scf_control, qs_env=qs_env,  &
                                    converged=converged, should_stop=should_stop)
-               IF (has_cdft)&
-                  CALL outer_loop_switch(scf_env, scf_control, cdft_control, ot2cdft)
+               CALL outer_loop_switch(scf_env, scf_control, cdft_control, ot2cdft)
                ! Update (iter_count + 1) element of gradient
                scf_env%outer_scf%iter_count = scf_env%outer_scf%iter_count + 1
                CALL outer_loop_gradient(qs_env, scf_env)

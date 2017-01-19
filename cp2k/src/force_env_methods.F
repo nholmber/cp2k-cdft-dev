@@ -870,7 +870,6 @@ CONTAINS
          my_logger => force_env%mixed_env%sub_logger(my_group+1)%p
          ! Copy iterations info (they are updated only in the main mixed_env)
          CALL cp_iteration_info_copy_iter(logger%iter_info, my_logger%iter_info)
-         CALL cp_add_default_logger(my_logger)
 
          ! Get all available subsys
          CALL force_env_get(force_env=force_env%sub_force_env(iforce_eval)%force_env, &
@@ -905,6 +904,7 @@ CONTAINS
       END IF
       DO iforce_eval = 1, nforce_eval
          IF (.NOT.ASSOCIATED(force_env%sub_force_env(iforce_eval)%force_env)) CYCLE
+         CALL cp_add_default_logger(my_logger)
          ! Calculate energy and forces for each sub_force_env
          CALL force_env_calc_energy_force(force_env%sub_force_env(iforce_eval)%force_env, &
                                           calc_force=calculate_forces, &
