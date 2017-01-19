@@ -357,7 +357,7 @@ CONTAINS
          END IF
          CALL get_qs_env(qs_env, pw_env=pw_env, dft_control=dft_control, blacs_env=blacs_env)
          IF (.NOT. dft_control%qs_control%becke_restraint) &
-            CPABORT("Becke constraint must be active in &QS section of both force_evals!")
+            CPABORT("Becke constraint must be active in QS section of both force_evals!")
          CALL pw_env_get(pw_env, auxbas_pw_pool=auxbas_pw_pool)
          bo=auxbas_pw_pool%pw_grid%bounds_local
          ! Only the rank 0 process collects info about pw_grid and becke
@@ -410,8 +410,8 @@ CONTAINS
             IF (dft_control%qs_control%becke_control%cutoff_type == becke_cutoff_element) THEN
                nkinds = SIZE(dft_control%qs_control%becke_control%cutoffs_tmp)
                IF (nkinds .GT. max_nkinds) &
-                  CPABORT("More than "//TRIM(max_nkinds)//" unique elements were defined in &BECKE_RESTRAINT&ELEMENT_CUTOFF. "&
-                          "Are you sure your input is correct? If yes, please increase max_nkinds and recompile.")
+                  CPABORT("More than "//TRIM(max_nkinds)//" unique elements were defined in BECKE_RESTRAINT\ELEMENT_CUTOFF. &
+                          &Are you sure your input is correct? If yes, please increase max_nkinds and recompile.")
                cutoffs(1:nkinds,iforce_eval)=dft_control%qs_control%becke_control%cutoffs_tmp(:)
                DEALLOCATE(dft_control%qs_control%becke_control%cutoffs_tmp) 
             END IF
@@ -1716,9 +1716,9 @@ CONTAINS
          CALL mp_bcast(file_name, force_env%para_env%source, force_env%para_env%group)
          IF (.NOT.exist) &
             CPABORT("User requested to restart the wavefunction from the file named: "&
-                    //TRIM(file_name)//". This file does not exist. Please check the existence of"&
-                    " the file or change properly the value of the keyword WFN_RESTART_FILE_NAME in "&
-                    " section FORCE_EVAL&MIXED&LINEAR.")
+                    //TRIM(file_name)//". This file does not exist. Please check the existence of&
+                    & the file or change properly the value of the keyword WFN_RESTART_FILE_NAME in&
+                    & section FORCE_EVAL\MIXED\LINEAR.")
          CALL read_mo_set(mo_array=mo_set,atomic_kind_set=atomic_kind_set,&
                           qs_kind_set=mixed_cdft%qs_kind_set,particle_set=particle_set,&
                           para_env=force_env%para_env,id_nr=0,multiplicity=mixed_cdft%multiplicity,&
@@ -2026,9 +2026,9 @@ CONTAINS
          CASE (becke_cutoff_global)
             mixed_cdft%becke_control%cutoffs(:)=mixed_cdft%becke_control%rglobal
          CASE (becke_cutoff_element)
-            IF (.NOT. SIZE(atomic_kind_set)==SIZE(mixed_cdft%becke_control%cutoffs_tmp))
-               CPABORT("Size &BECKE_RESTRAINT&ELEMENT_CUTOFFS does not match number of atomic kinds "&
-                       " in the input coordinate file.")
+            IF (.NOT. SIZE(atomic_kind_set)==SIZE(mixed_cdft%becke_control%cutoffs_tmp)) &
+               CPABORT("Size of keyword BECKE_RESTRAINT\ELEMENT_CUTOFFS does not match number of atomic kinds &
+                       &in the input coordinate file.")
             DO ikind=1,SIZE(atomic_kind_set)
                CALL get_atomic_kind(atomic_kind_set(ikind), natom=katom, atom_list=atom_list)
                DO iatom = 1, katom
@@ -2055,8 +2055,8 @@ CONTAINS
       END IF
       in_memory = calculate_forces .AND. mixed_cdft%becke_control%in_memory
       IF (in_memory /= calculate_forces)&
-         CPABORT("The flag &BECKE_RESTRAINT&IN_MEMORY must be activated for "&
-                 "the calculation of mixed CDFT forces")
+         CPABORT("The flag &BECKE_RESTRAINT&IN_MEMORY must be activated for &
+                 &the calculation of mixed CDFT forces")
       IF (in_memory) ALLOCATE (coefficients(natom))
       DO i=1,mixed_cdft%becke_control%natoms
          catom(i)=mixed_cdft%becke_control%atoms(i)
@@ -2708,8 +2708,8 @@ CONTAINS
             END IF          
          END DO
          IF (.NOT. consistent)&
-           CPABORT("Load balancing error: too much data to redistribute."&
-                   " Increase LOAD_SCALE or change the number of processors.")
+           CPABORT("Load balancing error: too much data to redistribute.&
+                   & Increase LOAD_SCALE or change the number of processors.")
       END IF
       ! Tell the target processors which grid points they should compute
       IF (my_pos .LE. no_underloaded) THEN
