@@ -895,7 +895,7 @@ CONTAINS
          END DO
          ! Mixed CDFT + QMMM: Need to translate now  
          IF ( force_env%mixed_env%do_mixed_qmmm_cdft ) &
-            CALL apply_qmmm_translate(force_env%sub_force_env(iforce_eval)%force_env)
+            CALL apply_qmmm_translate(force_env%sub_force_env(iforce_eval)%force_env%qmmm_env)
       END DO
 
       ! For mixed CDFT, build weight and gradient on all processors before splitting into groups and 
