@@ -151,13 +151,15 @@ CONTAINS
             END DO
          END IF
          ! With mixed CDFT, update value of constraint Lagrangian
-         IF (force_env%mixed_env%do_mixed_cdft) THEN
-            DO iforce_eval = 2, nforce_eval
-               dft_section => section_vals_get_subs_vals3(force_env_sections,"DFT",&
-                                                          i_rep_section=i_force_eval(iforce_eval))
-               CALL section_vals_val_set(dft_section,"QS%BECKE_RESTRAINT%STRENGTH",&
-                                         r_val=force_env%mixed_env%strength(iforce_eval-1))
-            END DO
+         IF (ASSOCIATED(force_env%mixed_env)) THEN
+            IF (force_env%mixed_env%do_mixed_cdft) THEN
+               DO iforce_eval = 2, nforce_eval
+                  dft_section => section_vals_get_subs_vals3(force_env_sections,"DFT",&
+                                                             i_rep_section=i_force_eval(iforce_eval))
+                  CALL section_vals_val_set(dft_section,"QS%BECKE_RESTRAINT%STRENGTH",&
+                                            r_val=force_env%mixed_env%strength(iforce_eval-1))
+               END DO
+            END IF
          END IF
       END IF
 
