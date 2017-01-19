@@ -17,7 +17,6 @@
         TARGET     0.2000
         ATOMS      1 2
         COEFF      1 -1
-        FUNCTIONAL_FORM CONSTRAINT
       &END
     &END QS
     &SCF

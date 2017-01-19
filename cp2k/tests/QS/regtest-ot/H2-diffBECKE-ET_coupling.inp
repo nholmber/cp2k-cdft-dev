@@ -8,14 +8,12 @@
         TARGET     0.2000
         ATOMS      1 2
         COEFF      1 -1
-        FUNCTIONAL_FORM CONSTRAINT
       &END
       &BECKE_RESTRAINT_B
         STRENGTH  -0.000000000000000000
         TARGET     -0.2000
         ATOMS      1 2
         COEFF      1 -1
-        FUNCTIONAL_FORM CONSTRAINT
       &END 
      &END
   &END
