@@ -1717,8 +1717,8 @@ CONTAINS
          CALL mp_bcast(exist, force_env%para_env%source, force_env%para_env%group)
          CALL mp_bcast(file_name, force_env%para_env%source, force_env%para_env%group)
          IF (.NOT.exist) &
-            CALL cp_abort(__LOCATION__, "User requested to restart the wavefunction from the file named: "&
-                          //TRIM(file_name)//". This file does not exist. Please check the existence of"//&
+            CALL cp_abort(__LOCATION__, "User requested to restart the wavefunction from the file named: "//&
+                          TRIM(file_name)//". This file does not exist. Please check the existence of"//&
                           " the file or change properly the value of the keyword WFN_RESTART_FILE_NAME in"//&
                           " section FORCE_EVAL\MIXED\LINEAR.")
          CALL read_mo_set(mo_array=mo_set,atomic_kind_set=atomic_kind_set,&
@@ -2056,7 +2056,7 @@ CONTAINS
          is_constraint=.FALSE.
       END IF
       in_memory = calculate_forces .AND. mixed_cdft%becke_control%in_memory
-      IF (in_memory /= calculate_forces)&
+      IF (in_memory .NEQV. calculate_forces)&
          CALL cp_abort(__LOCATION__, "The flag BECKE_RESTRAINT\IN_MEMORY must be activated "//&
                       "for the calculation of mixed CDFT forces")
       IF (in_memory) ALLOCATE (coefficients(natom))
@@ -2439,7 +2439,8 @@ CONTAINS
                                                   uninitialized = -7000 
       INTEGER, POINTER, DIMENSION(:)           :: expected_work, work_index, load_imbalance,&
                                                   work_size, cumulative_work, sendbuffer, buffsize,&
-                                                  req_recv, req_total, tmp, nrecv, nsend_proc
+                                                  req_recv, req_total, tmp, nrecv, nsend_proc, &
+                                                  should_warn
       INTEGER, POINTER, DIMENSION(:,:)         :: targets, tmp_bo
       LOGICAL                                  :: consistent
       LOGICAL, POINTER, DIMENSION(:)           :: touched, mask_recv, mask_send
@@ -2485,6 +2486,10 @@ CONTAINS
       ALLOCATE(mixed_cdft%dlb_control%expected_work(force_env%para_env%num_pe),&
                expected_work(force_env%para_env%num_pe),&
                work_size(force_env%para_env%num_pe))
+      IF (debug_this_module) THEN
+         ALLOCATE(should_warn(force_env%para_env%num_pe))
+         should_warn = 0
+      END IF
       expected_work = 0
       expected_work(force_env%para_env%mepos+1) = my_work
       work_size = 0
@@ -2607,9 +2612,7 @@ CONTAINS
             IF (nsend .GT. NINT(work_factor*nsend_limit-send_total)) THEN
                nsend = NINT(work_factor*nsend_limit-send_total) 
                IF (debug_this_module) &
-                  CPWARN("MIXED_CDFT DLB: Attempted to redistribute more array slices than "&
-                        "actually available. Leaving a fraction of the total slices on the "&
-                        "overloaded processor. Perhaps you have set LOAD_SCALE too high?")
+                  should_warn(force_env%para_env%mepos+1) = 1
             END IF
             mixed_cdft%dlb_control%target_list(1,i) = work_index(my_target)-1 ! This is the actual processor rank
             IF (mixed_cdft%is_special) THEN
@@ -2691,6 +2694,14 @@ CONTAINS
          my_pos = i
       END IF 
       CALL mp_sum(targets, force_env%para_env%group)
+      IF (debug_this_module) THEN
+         CALL mp_sum(should_warn, force_env%para_env%group)
+         IF (ANY(should_warn == 1)) &
+            CALL cp_warn(__LOCATION__, "MIXED_CDFT DLB: Attempted to redistribute more array"//&
+                         " slices than actually available. Leaving a fraction of the total "//&
+                         " slices on the overloaded processor. Perhaps you have set LOAD_SCALE too high?")
+         DEALLOCATE(should_warn)
+      END IF
       ! check that there is one-to-one mapping between over- and underloaded processors
       IF (force_env%para_env%mepos == force_env%para_env%source) THEN
          consistent = .TRUE.
