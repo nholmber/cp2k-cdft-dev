@@ -371,7 +371,7 @@ CONTAINS
             rs_dims(:,iforce_eval)=auxbas_pw_pool%pw_grid%para%rs_dims
             IF (auxbas_pw_pool%pw_grid%grid_span==HALFSPACE) odd(iforce_eval) = 1
             IF (dft_control%qs_control%becke_control%natoms.GT.SIZE(atoms,1)) &
-               CPABORT("More Becke constraint atoms than defined in mixed section. Use default values for MIXED&MAPPING.")
+               CPABORT("More Becke constraint atoms than defined in mixed section. Use default values for MIXED\MAPPING.")
             atoms(1:dft_control%qs_control%becke_control%natoms,iforce_eval) = dft_control%qs_control%becke_control%atoms
             coeffs(1:dft_control%qs_control%becke_control%natoms,iforce_eval) = dft_control%qs_control%becke_control%coeff
             ! Only GAPW needs to keep a copy of these arrays for constraint integration
@@ -410,8 +410,9 @@ CONTAINS
             IF (dft_control%qs_control%becke_control%cutoff_type == becke_cutoff_element) THEN
                nkinds = SIZE(dft_control%qs_control%becke_control%cutoffs_tmp)
                IF (nkinds .GT. max_nkinds) &
-                  CPABORT("More than "//TRIM(max_nkinds)//" unique elements were defined in BECKE_RESTRAINT\ELEMENT_CUTOFF. &
-                          &Are you sure your input is correct? If yes, please increase max_nkinds and recompile.")
+                  CALL cp_abort(__LOCATION__, "More than "//TRIM(cp_to_string(max_nkinds))//" unique elements"//&
+                                "were defined in BECKE_RESTRAINT\ELEMENT_CUTOFF. Are you sure"//&
+                                " your input is correct? If yes, please increase max_nkinds and recompile.")
                cutoffs(1:nkinds,iforce_eval)=dft_control%qs_control%becke_control%cutoffs_tmp(:)
                DEALLOCATE(dft_control%qs_control%becke_control%cutoffs_tmp) 
             END IF
@@ -563,8 +564,9 @@ CONTAINS
          IF (.NOT. pw_grid%para%rs_dims(2)==1) is_match = .FALSE.
       END IF
       IF (.NOT. is_match) &
-         CPABORT("Unable to create a suitable grid distribution for mixed CDFT calculations. "&
-                 "Try decreasing the total number of processors or disabling xc_smoothing.")
+         CALL cp_abort(__LOCATION__, "Unable to create a suitable grid distribution "//&
+                      "for mixed CDFT calculations. Try decreasing the total number "//&
+                      " of processors or disabling xc_smoothing.")
       ! Deallocate temporaries
       DEALLOCATE(mixed_rs_dims)
       DEALLOCATE(grid_span)
@@ -1715,10 +1717,10 @@ CONTAINS
          CALL mp_bcast(exist, force_env%para_env%source, force_env%para_env%group)
          CALL mp_bcast(file_name, force_env%para_env%source, force_env%para_env%group)
          IF (.NOT.exist) &
-            CPABORT("User requested to restart the wavefunction from the file named: "&
-                    //TRIM(file_name)//". This file does not exist. Please check the existence of&
-                    & the file or change properly the value of the keyword WFN_RESTART_FILE_NAME in&
-                    & section FORCE_EVAL\MIXED\LINEAR.")
+            CALL cp_abort(__LOCATION__, "User requested to restart the wavefunction from the file named: "&
+                          //TRIM(file_name)//". This file does not exist. Please check the existence of"//&
+                          " the file or change properly the value of the keyword WFN_RESTART_FILE_NAME in"//&
+                          " section FORCE_EVAL\MIXED\LINEAR.")
          CALL read_mo_set(mo_array=mo_set,atomic_kind_set=atomic_kind_set,&
                           qs_kind_set=mixed_cdft%qs_kind_set,particle_set=particle_set,&
                           para_env=force_env%para_env,id_nr=0,multiplicity=mixed_cdft%multiplicity,&
@@ -2027,8 +2029,8 @@ CONTAINS
             mixed_cdft%becke_control%cutoffs(:)=mixed_cdft%becke_control%rglobal
          CASE (becke_cutoff_element)
             IF (.NOT. SIZE(atomic_kind_set)==SIZE(mixed_cdft%becke_control%cutoffs_tmp)) &
-               CPABORT("Size of keyword BECKE_RESTRAINT\ELEMENT_CUTOFFS does not match number of atomic kinds &
-                       &in the input coordinate file.")
+               CALL cp_abort(__LOCATION__, "Size of keyword BECKE_RESTRAINT\ELEMENT_CUTOFFS does"//&
+                             "not match number of atomic kinds in the input coordinate file.")
             DO ikind=1,SIZE(atomic_kind_set)
                CALL get_atomic_kind(atomic_kind_set(ikind), natom=katom, atom_list=atom_list)
                DO iatom = 1, katom
@@ -2055,8 +2057,8 @@ CONTAINS
       END IF
       in_memory = calculate_forces .AND. mixed_cdft%becke_control%in_memory
       IF (in_memory /= calculate_forces)&
-         CPABORT("The flag &BECKE_RESTRAINT&IN_MEMORY must be activated for &
-                 &the calculation of mixed CDFT forces")
+         CALL cp_abort(__LOCATION__, "The flag BECKE_RESTRAINT\IN_MEMORY must be activated "//&
+                      "for the calculation of mixed CDFT forces")
       IF (in_memory) ALLOCATE (coefficients(natom))
       DO i=1,mixed_cdft%becke_control%natoms
          catom(i)=mixed_cdft%becke_control%atoms(i)
@@ -2708,8 +2710,8 @@ CONTAINS
             END IF          
          END DO
          IF (.NOT. consistent)&
-           CPABORT("Load balancing error: too much data to redistribute.&
-                   & Increase LOAD_SCALE or change the number of processors.")
+           CALL cp_abort(__LOCATION__, "Load balancing error: too much data to redistribute."//&
+                         " Increase LOAD_SCALE or change the number of processors.")
       END IF
       ! Tell the target processors which grid points they should compute
       IF (my_pos .LE. no_underloaded) THEN
