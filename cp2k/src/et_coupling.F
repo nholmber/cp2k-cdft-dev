@@ -78,7 +78,9 @@ MODULE et_coupling
    USE pw_pool_types,                   ONLY: pw_pool_create_pw,&
                                               pw_pool_give_back_pw,&
                                               pw_pool_type      
-   USE pw_types,                        ONLY: pw_p_type
+   USE pw_types,                        ONLY: pw_p_type,&
+                                              REALSPACE,&
+                                              REALDATA3D
    USE qs_collocate_density,            ONLY: collocate_pgf_product_rspace
    USE qs_energy_types,                 ONLY: qs_energy_type
    USE qs_environment_types,            ONLY: get_qs_env,&
@@ -418,8 +420,8 @@ CONTAINS
       TYPE(pw_pool_type), POINTER                        :: auxbas_pw_pool
       TYPE(qs_energy_type), POINTER                      :: energy
       TYPE(qs_kind_type), DIMENSION(:), &
-      TYPE(qs_rho_type), POINTER                         :: rho
          POINTER                                         :: qs_kind_set
+      TYPE(qs_rho_type), POINTER                         :: rho
       TYPE(qs_subsys_type), POINTER                      :: subsys
       TYPE(realspace_grid_type), POINTER                 :: rs_cavity
       TYPE(rho0_mpole_type), POINTER                     :: rho0_mpole
@@ -495,7 +497,7 @@ CONTAINS
                 dft_control%qs_control%becke_control%cutoffs(:)=dft_control%qs_control%becke_control%rglobal
              CASE (becke_cutoff_element)
                 IF (.NOT. SIZE(atomic_kind_set)==SIZE(dft_control%qs_control%becke_control%cutoffs_tmp))&
-                   CPABORT("Size &BECKE_RESTRAINT&ELEMENT_CUTOFFS does not match number of atomic kinds "//&
+                   CPABORT("Length of keyword &BECKE_RESTRAINT&ELEMENT_CUTOFFS does not match number of atomic kinds "&
                            " in the input coordinate file.")
                 DO ikind = 1, SIZE(atomic_kind_set)
                    CALL get_atomic_kind(atomic_kind_set(ikind), natom=katom, atom_list=atom_list)
@@ -1239,7 +1241,7 @@ CONTAINS
          IF(dft_control%qs_control%becke_control%fragment_density) THEN
             ! Fragment densities are meaningful only for some calculation types
             IF (.NOT. qs_env%single_point_run)&
-               CPABORT("Becke deformation density only compatible with single point calculations"//&
+               CPABORT("Becke deformation density only compatible with single point calculations"&
                        " (run_type ENERGY or ENERGY_FORCE).")
             IF (dft_control%qs_control%gapw)&
                CPABORT("Becke deformation density not compatible with GAPW.")
@@ -1278,7 +1280,7 @@ CONTAINS
                CALL qs_subsys_get(subsys,nelectron_total=nelectron_total)
                nelectron_frag = pw_integrate_function(rho_frag%pw)
                IF (NINT(nelectron_frag) /= nelectron_total)&
-                  CPABORT("The number of electrons in the reference and interacting configurations does not match. "//&
+                  CPABORT("The number of electrons in the reference and interacting configurations does not match. "&
                           "Check your fragment cube files.")
                ! Update constraint target value i.e. perform integration w*rho_frag*dr
                ! Note, we assume the weight w is defined only on one of the fragments
@@ -2063,9 +2065,9 @@ CONTAINS
       TYPE(realspace_grid_type), POINTER       :: rs_rho_all, rs_rho_constr
       TYPE(section_vals_type), POINTER         :: print_section
 
-      NULLIFY(atom_list, cores, stride, pba, atomic_kind, atomic_kind_set, cell, &
+      NULLIFY(atom_list, cores, stride, pab, atomic_kind, atomic_kind_set, cell, &
               logger, para_env, dft_control, hirshfeld_env, particles, particle_set,&
-              pw_env, fnorm, tmp, rho_r, auxbas_pw_pool, energy, rho, qs_kind_set,&
+              pw_env, fnorm, rho_r, auxbas_pw_pool, energy, rho, qs_kind_set,&
               subsys, auxbas_rs_desc, rs_rho_all, rs_rho_constr, print_section)
       CALL timeset(routineN,handle)
 
@@ -2186,7 +2188,7 @@ CONTAINS
                         (/0.0_dp,0.0_dp,0.0_dp/),0.0_dp,1.0_dp,pab,0,0,rs_rho_all,&
                         cell,cube_info,eps_rho_rspace,ga_gb_function=FUNC_AB,&
                         ithread=ithread,use_subpatch=.TRUE.,subpatch_pattern=subpatch_pattern)
-                     IF (debug_this_module and. is_constraint(atom_a))&
+                     IF (debug_this_module .AND. is_constraint(atom_a))&
                        print *, 'Integrating', iatom, atom_a, coefficients(atom_a)
                      IF(is_constraint(atom_a))&
                         CALL collocate_pgf_product_rspace(0,alpha,0,0,0.0_dp,0,ra,&

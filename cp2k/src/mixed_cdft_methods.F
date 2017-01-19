@@ -38,6 +38,8 @@ MODULE mixed_cdft_methods
                                               cp_fm_type,&
                                               cp_fm_set_all
    USE cp_gemm_interface,               ONLY: cp_gemm
+   USE cp_log_handling,                 ONLY: cp_get_default_logger,&
+                                              cp_logger_type
    USE cp_output_handling,              ONLY: cp_print_key_finished_output,&
                                               cp_print_key_unit_nr 
    USE cp_realspace_grid_cube,          ONLY: cp_pw_to_cube  
@@ -353,7 +355,7 @@ CONTAINS
          END IF
          CALL get_qs_env(qs_env, pw_env=pw_env, dft_control=dft_control, blacs_env=blacs_env)
          IF (.NOT. dft_control%qs_control%becke_restraint) &
-            CPABORT("Becke constraint must be active in &QS section of both force_evals!"
+            CPABORT("Becke constraint must be active in &QS section of both force_evals!")
          CALL pw_env_get(pw_env, auxbas_pw_pool=auxbas_pw_pool)
          bo=auxbas_pw_pool%pw_grid%bounds_local
          ! Only the rank 0 process collects info about pw_grid and becke
