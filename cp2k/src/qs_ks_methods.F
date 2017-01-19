@@ -466,7 +466,7 @@ CONTAINS
       CALL qs_ks_becke_restraint(qs_env, auxbas_pw_pool, calculate_forces, matrix_s, becke)
 
       ! Check if CDFT constraint is needed
-      CALL qs_ks_cdft_constraint(qs_env, auxbas_pw_pool, calculate_forces)
+      CALL qs_ks_cdft_constraint(qs_env, auxbas_pw_pool, calculate_forces, cdft_control)
 
       ! Adds the External Potential if requested
       IF (dft_control%apply_external_potential) THEN

@@ -205,7 +205,7 @@ CONTAINS
       LOGICAL                                  :: is_odd, is_spherical,&
                                                   is_match, is_qmmm
       INTEGER                                  :: iounit, imap, i, j, ncpu, req(3),&
-                                                  stat, iforce_eval, nforce_eval, nbecke,&
+                                                  iforce_eval, nforce_eval, nbecke,&
                                                   handle, n_force_eval,&
                                                   nkinds, ntargets, offset, max_nkinds
       INTEGER, ALLOCATABLE, DIMENSION(:, :)    :: bounds
@@ -820,7 +820,7 @@ CONTAINS
       TYPE(pw_pool_type), POINTER              :: auxbas_pw_pool, mixed_auxbas_pw_pool
       TYPE(qs_environment_type), POINTER       :: qs_env
       TYPE(dft_control_type), POINTER          :: dft_control
-      INTEGER                                  :: iounit, stat, handle, i, j,&
+      INTEGER                                  :: iounit, handle, i, j,&
                                                   iforce_eval, nforce_eval,&
                                                   handle2, natom, &
                                                   lb_min, ub_max, req(3),&
@@ -1305,15 +1305,15 @@ CONTAINS
       TYPE(qs_environment_type), POINTER       :: qs_env
       TYPE(dft_control_type), POINTER          :: dft_control
       LOGICAL                                  :: natom_mismatch, exist
-      INTEGER                                  :: iounit, j, k, stat, iforce_eval,&
+      INTEGER                                  :: iounit, j, k, iforce_eval,&
                                                   nforce_eval, handle, ispin, nspins,&
                                                   ncol_overlap, ncol_wmat,&
                                                   nrow_overlap, nrow_wmat,&
                                                   nrow_local, ncol_local, nmo, nao,&
-                                                  my_id, nrows, ncols
+                                                  my_id
       INTEGER, ALLOCATABLE, DIMENSION(:)       :: nrow_mo, ncol_mo
       REAL(KIND=dp)                            :: Sda, strength_a, strength_b, Waa, Wbb, Wda,&
-                                                  energy_a, energy_b, maxocc, norm1, norm2,&
+                                                  energy_a, energy_b, maxocc,&
                                                   coupling_wfn
       REAL(KIND=dp), ALLOCATABLE, DIMENSION(:) :: a, b, S_det, metric, evals
       REAL(KIND=dp), ALLOCATABLE,&
@@ -1959,7 +1959,7 @@ CONTAINS
       CHARACTER(len=*), PARAMETER :: routineN = 'mixed_becke_constraint_init', &
          routineP = moduleN//':'//routineN
 
-      INTEGER                                  :: handle, i, iatom, istat, &
+      INTEGER                                  :: handle, i, iatom, &
                                                   j, jatom, np(3), ikind, &
                                                   natom, dir, ub_index, lb_index,&
                                                   tmp_index(2), numexp, atom_a, iex,&
@@ -1969,7 +1969,7 @@ CONTAINS
                                                   iounit
       INTEGER, POINTER, DIMENSION(:)           :: cores, stride, atom_list
       INTEGER, DIMENSION(2, 3)                 :: bo, bo_conf
-      LOGICAL                                  :: build, match, translate
+      LOGICAL                                  :: build
       REAL(kind=dp)                            :: tmp_const, ircov, jrcov, chi, uij,&
                                                   lb, ub, dynamic_radius,&
                                                   alpha, coef, ra(3)                                       
@@ -3180,7 +3180,7 @@ CONTAINS
       CHARACTER(len=*), PARAMETER :: routineN = 'mixed_becke_constraint_low', &
          routineP = moduleN//':'//routineN
     
-      INTEGER                                  :: handle, i, iatom, ip, istat, &
+      INTEGER                                  :: handle, i, iatom, ip, &
                                                   j, jatom, k, np(3), nwork,&
                                                   natom, dir, ub_index, lb_index,&
                                                   ind(3), nskipped, my_work,&
