@@ -355,7 +355,7 @@ CONTAINS
          ELSE   
             CALL force_env_get(force_env_qs, qs_env=qs_env)
          END IF
-         CALL get_qs_env(qs_env, pw_env=pw_env, dft_control=dft_control, blacs_env=blacs_env)
+         CALL get_qs_env(qs_env, pw_env=pw_env, dft_control=dft_control)
          IF (.NOT. dft_control%qs_control%becke_restraint) &
             CPABORT("Becke constraint must be active in QS section of both force_evals!")
          CALL pw_env_get(pw_env, auxbas_pw_pool=auxbas_pw_pool)

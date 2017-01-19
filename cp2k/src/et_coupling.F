@@ -416,7 +416,7 @@ CONTAINS
       TYPE(particle_type), DIMENSION(:), &
          POINTER                                         :: particle_set
       TYPE(pw_env_type), POINTER                         :: pw_env
-      TYPE(pw_p_type)                                    :: rho_frag, rhotot
+      TYPE(pw_p_type)                                    :: rho_frag
       TYPE(pw_p_type), DIMENSION(:), POINTER             :: rho_r
       TYPE(pw_pool_type), POINTER                        :: auxbas_pw_pool
       TYPE(qs_energy_type), POINTER                      :: energy
@@ -1538,7 +1538,7 @@ CONTAINS
       LOGICAL, ALLOCATABLE, DIMENSION(:)       :: is_constraint, is_combined
       REAL(kind=dp)                            :: dist1, dist2, dpolyn, dvol, f_3,&
                                                   my1, polyn, sum_cell_f_constr,&
-                                                  sum_Pm, th, tmp_const, lb, ub,&
+                                                  sum_Pm, th, tmp_const,&
                                                   my1_homo, rcut, eps_cavity,&
                                                   sign, sum_cell_f_combined
       REAL(kind=dp), DIMENSION(3)              :: cell_v, dist_vec_i, dist_vec_j,&
@@ -2026,8 +2026,7 @@ CONTAINS
       CHARACTER(len=*), PARAMETER :: routineN = 'hirshfeld_constraint', &
          routineP = moduleN//':'//routineN
 
-      CHARACTER(len=2)                         :: element_symbol
-      INTEGER                                  :: atom_a, handle, iatom, ierr, &
+      INTEGER                                  :: atom_a, handle, iatom, &
                                                   iex, ikind, ithread, j, &
                                                   natom, npme, nthread, numexp,&
                                                   i, iw, iat, nkind, unit_nr
@@ -2035,7 +2034,7 @@ CONTAINS
       INTEGER, ALLOCATABLE, DIMENSION(:)       :: catom
       INTEGER, DIMENSION(:), POINTER           :: atom_list, cores, stride
       LOGICAL, ALLOCATABLE, DIMENSION(:)       :: is_constraint
-      REAL(kind=dp)                            :: dE, dvol, tc, zeff,&
+      REAL(kind=dp)                            :: dE, dvol, zeff,&
                                                   alpha, coef, eps_rho_rspace,&
                                                   ra(3), tnfun, tnfun2
       REAL(kind=dp), ALLOCATABLE, DIMENSION(:) :: coefficients
@@ -2289,11 +2288,10 @@ CONTAINS
       CHARACTER(len=*), PARAMETER :: routineN = 'hirshfeld_force', &
          routineP = moduleN//':'//routineN
 
-      CHARACTER(len=2)                         :: element_symbol
       INTEGER                                  :: atom_a, handle, iatom,&
                                                   iex, ikind, ithread, j, &
                                                   natom, npme, nthread, numexp,&
-                                                  i, nkind, katom, is
+                                                  i, katom, is
       INTEGER, ALLOCATABLE, DIMENSION(:)       :: catom, kind_of, atom_of_kind
       INTEGER, DIMENSION(:), POINTER           :: atom_list, cores
       LOGICAL                                  :: rho_r_valid
@@ -2586,7 +2584,7 @@ CONTAINS
 
       INTEGER                                  :: i1, i2, i3, n1, n2, n3,&
                                                   lb, ub, nzeroed
-      LOGICAL                                  :: failure, lb_final, ub_final
+      LOGICAL                                  :: lb_final, ub_final
 
       n1 = SIZE(fun,1)
       n2 = SIZE(fun,2)
