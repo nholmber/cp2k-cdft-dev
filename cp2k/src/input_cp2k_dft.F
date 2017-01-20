@@ -4251,7 +4251,7 @@ CONTAINS
       CALL keyword_create(keyword,name="ELEMENT_CUTOFF",&
                           description="Defines element specific cutoffs to elect which atoms contribute to the"//&
                           " weight function at each real space grid point. Give one value per element in the same order as they"//&
-                          " appear in the coordinates. Defaults to 6.0 a.u. for each element",&
+                          " appear in the coordinates.",&
                           usage="ELEMENT_CUTOFF {real} {real} {real}", repeats=.FALSE.,&
                           unit_str="angstrom",&
                           type_of_var=real_t, n_var=-1)
