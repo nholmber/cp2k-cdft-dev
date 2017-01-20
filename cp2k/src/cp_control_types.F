@@ -238,7 +238,8 @@ MODULE cp_control_types
                                                        external_control, first_iteration,&
                                                        fragment_density, fragments_integrated
       REAL(KIND=dp), POINTER, DIMENSION(:)          :: coeff, cutoffs, cutoffs_tmp,&
-                                                       charges_fragment
+                                                       charges_fragment, radii_tmp,&
+                                                       radii
       INTEGER                                       :: confine_dir, confine_bounds_int(2)
       REAL(KIND = dp)                               :: confine_bounds(2), dynamic_radius,&
                                                        rcavity, eps_cavity
@@ -814,6 +815,8 @@ CONTAINS
       NULLIFY(becke_control%cutoffs_tmp)
       NULLIFY(becke_control%charges_fragment)
       NULLIFY(becke_control%fragments)
+      NULLIFY(becke_control%radii)
+      NULLIFY(becke_control%radii_tmp)
    END SUBROUTINE becke_control_create
 
 ! **************************************************************************************************
@@ -838,6 +841,10 @@ CONTAINS
             DEALLOCATE(becke_control%cutoffs)  
          IF (ASSOCIATED(becke_control%cutoffs_tmp)) &
             DEALLOCATE(becke_control%cutoffs_tmp)      
+         IF (ASSOCIATED(becke_control%radii_tmp)) &
+            DEALLOCATE(becke_control%radii_tmp)  
+         IF (ASSOCIATED(becke_control%radii)) &
+            DEALLOCATE(becke_control%radii)                          
          IF (ASSOCIATED(becke_control%charges_fragment)) &
             DEALLOCATE(becke_control%charges_fragment) 
          IF (ASSOCIATED(becke_control%fragments)) &

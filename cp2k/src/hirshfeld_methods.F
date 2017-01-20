@@ -135,11 +135,13 @@ CONTAINS
 !> \param qs_kind_set ...
 !> \param atomic_kind_set ...
 ! **************************************************************************************************
-   SUBROUTINE create_shape_function(hirshfeld_env, qs_kind_set, atomic_kind_set, radius)
+   SUBROUTINE create_shape_function(hirshfeld_env, qs_kind_set, atomic_kind_set, radius, radii_list)
       TYPE(hirshfeld_type), POINTER                      :: hirshfeld_env
       TYPE(qs_kind_type), DIMENSION(:), POINTER          :: qs_kind_set
       TYPE(atomic_kind_type), DIMENSION(:), POINTER      :: atomic_kind_set
       REAL(KIND=dp), OPTIONAL                            :: radius
+      REAL(KIND=dp), DIMENSION(:), POINTER, OPTIONAL     :: radii_list
+
 
       CHARACTER(len=*), PARAMETER :: routineN = 'create_shape_function', &
          routineP = moduleN//':'//routineN
@@ -168,8 +170,10 @@ CONTAINS
             rco = 2.0_dp
             SELECT CASE (hirshfeld_env%radius_type)
             CASE (radius_user)
-               CALL get_ptable_info(symbol=esym,cdft_radius=rco,found=found)
-               IF(.NOT.found) rco = MAX(rco,1.0_dp)
+               CPASSERT(PRESENT(radii_list))
+               CPASSERT(SIZE(radii_list)==nkind)
+               ! Note we assume that radii_list is correctly ordered 
+               rco = radii_list(ikind)
             CASE (radius_vdw)
                CALL get_ptable_info(symbol=esym,vdw_radius=rco,found=found)
                IF(.NOT.found) rco = MAX(rco,1.0_dp)

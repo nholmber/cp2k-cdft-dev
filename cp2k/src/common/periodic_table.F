@@ -37,8 +37,6 @@ MODULE periodic_table
       ! element or the relative (possibly estimated)
       ! longest half-life period in formula units.
       REAL(KIND=dp)     :: covalent_radius ! in Angstroms
-      REAL(KIND=dp)     :: cdft_radius ! custom radius for constraints, in Angstroms
-                                       ! by default identical to covalent radius
       REAL(KIND=dp)     :: vdw_radius ! in Angstroms
       INTEGER           :: e_conv(0:3)
       REAL(KIND=dp)     :: heat_of_formation ! in kcal/mol
@@ -69,14 +67,13 @@ CONTAINS
 !> \author MI
 ! **************************************************************************************************
    SUBROUTINE get_ptable_info(symbol, number, amass, ielement, covalent_radius, &
-                              vdw_radius, cdft_radius, found)
+                              vdw_radius, found)
 
       CHARACTER(LEN=2), INTENT(IN)                       :: symbol
       INTEGER, INTENT(OUT), OPTIONAL                     :: number
       REAL(KIND=dp), INTENT(OUT), OPTIONAL               :: amass
       INTEGER, INTENT(OUT), OPTIONAL                     :: ielement
-      REAL(KIND=dp), INTENT(OUT), OPTIONAL               :: covalent_radius, vdw_radius,&
-                                                            cdft_radius
+      REAL(KIND=dp), INTENT(OUT), OPTIONAL               :: covalent_radius, vdw_radius
       LOGICAL, OPTIONAL                                  :: found
 
       CHARACTER(len=*), PARAMETER :: routineN = 'get_ptable_info', &
@@ -113,7 +110,6 @@ CONTAINS
          IF (PRESENT(amass)) amass = ptable(ielem_found)%amass
          IF (PRESENT(covalent_radius)) covalent_radius = ptable(ielem_found)%covalent_radius
          IF (PRESENT(vdw_radius)) vdw_radius = ptable(ielem_found)%vdw_radius
-         IF (PRESENT(cdft_radius)) cdft_radius = ptable(ielem_found)%cdft_radius
       END IF
 
    END SUBROUTINE get_ptable_info
@@ -132,7 +128,6 @@ CONTAINS
       ptable(0)%number = 0
       ptable(0)%amass = z
       ptable(0)%covalent_radius = z
-      ptable(0)%cdft_radius = z
       ptable(0)%vdw_radius = z
       ptable(0)%e_conv(0:3) = (/ 0, 0, 0, 0 /)
       ptable(0)%eht_param(0:3) = (/ z, z, z, z/)
@@ -143,7 +138,6 @@ CONTAINS
       ptable(1)%number = 1
       ptable(1)%amass = 1.00794_dp
       ptable(1)%covalent_radius = 0.32_dp
-      ptable(1)%cdft_radius = 0.32_dp
       ptable(1)%vdw_radius = 1.09_dp
       ptable(1)%e_conv(0:3) = (/ 1, 0, 0, 0 /)
       ptable(1)%eht_param(0:3) = (/ -13.60_dp, z, z, z/)
@@ -154,7 +148,6 @@ CONTAINS
       ptable(2)%number = 2
       ptable(2)%amass = 4.002602_dp
       ptable(2)%covalent_radius = 0.9300_dp
-      ptable(2)%cdft_radius = 0.9300_dp
       ptable(2)%vdw_radius = 1.40_dp
       ptable(2)%e_conv(0:3) = (/ 2, 0, 0, 0 /)
       ptable(2)%eht_param(0:3) = (/ -23.40_dp, z, z, z/)
@@ -165,7 +158,6 @@ CONTAINS
       ptable(3)%number = 3
       ptable(3)%amass = 6.941_dp
       ptable(3)%covalent_radius = 1.2300_dp
-      ptable(3)%cdft_radius = 1.2300_dp
       ptable(3)%vdw_radius = 1.82_dp
       ptable(3)%e_conv(0:3) = (/ 3, 0, 0, 0 /)
       ptable(3)%eht_param(0:3) = (/ -5.40_dp, -3.50_dp, z, z/)
@@ -176,7 +168,6 @@ CONTAINS
       ptable(4)%number = 4
       ptable(4)%amass = 9.012182_dp
       ptable(4)%covalent_radius = 0.9000_dp
-      ptable(4)%cdft_radius = 0.9000_dp
       ptable(4)%vdw_radius = 2.00_dp
       ptable(4)%e_conv(0:3) = (/ 4, 0, 0, 0 /)
       ptable(4)%eht_param(0:3) = (/ -10.00_dp, -6.00_dp, z, z/)
@@ -187,7 +178,6 @@ CONTAINS
       ptable(5)%number = 5
       ptable(5)%amass = 10.811_dp
       ptable(5)%covalent_radius = 0.8200_dp
-      ptable(5)%cdft_radius = 0.8200_dp
       ptable(5)%vdw_radius = 2.00_dp
       ptable(5)%e_conv(0:3) = (/ 4, 1, 0, 0 /)
       ptable(5)%eht_param(0:3) = (/ -15.20_dp, -8.50_dp, z, z/)
@@ -198,7 +188,6 @@ CONTAINS
       ptable(6)%number = 6
       ptable(6)%amass = 12.0107_dp
       ptable(6)%covalent_radius = 0.7700_dp
-      ptable(6)%cdft_radius = 0.6700_dp ! sp2 carbon
       ptable(6)%vdw_radius = 1.7_dp
       ptable(6)%e_conv(0:3) = (/ 4, 2, 0, 0 /)
       ptable(6)%eht_param(0:3) = (/ -21.40_dp, -11.40_dp, z, z/)
@@ -209,7 +198,6 @@ CONTAINS
       ptable(7)%number = 7
       ptable(7)%amass = 14.0067_dp
       ptable(7)%covalent_radius = 0.75_dp
-      ptable(7)%cdft_radius = 0.7100_dp !  Pyykkö covalent radius
       ptable(7)%vdw_radius = 1.55_dp
       ptable(7)%e_conv(0:3) = (/ 4, 3, 0, 0 /)
       ptable(7)%eht_param(0:3) = (/ -26.00_dp, -13.40_dp, z, z/)
@@ -220,7 +208,6 @@ CONTAINS
       ptable(8)%number = 8
       ptable(8)%amass = 15.9994_dp
       ptable(8)%covalent_radius = 0.73_dp 
-      ptable(8)%cdft_radius = 0.6300_dp ! Pyykkö covalent radius
       ptable(8)%vdw_radius = 1.52_dp
       ptable(8)%e_conv(0:3) = (/ 4, 4, 0, 0 /)
       ptable(8)%eht_param(0:3) = (/ -32.30_dp, -14.80_dp, z, z/)
@@ -231,7 +218,6 @@ CONTAINS
       ptable(9)%number = 9
       ptable(9)%amass = 18.9984032_dp
       ptable(9)%covalent_radius = 0.7200_dp
-      ptable(9)%cdft_radius = 0.7200_dp
       ptable(9)%vdw_radius = 1.47_dp
       ptable(9)%e_conv(0:3) = (/ 4, 5, 0, 0 /)
       ptable(9)%eht_param(0:3) = (/ -40.00_dp, -18.10_dp, z, z/)
@@ -242,7 +228,6 @@ CONTAINS
       ptable(10)%number = 10
       ptable(10)%amass = 20.1797_dp
       ptable(10)%covalent_radius = 0.7100_dp
-      ptable(10)%cdft_radius = 0.7100_dp
       ptable(10)%vdw_radius = 1.54_dp
       ptable(10)%e_conv(0:3) = (/ 4, 6, 0, 0 /)
       ptable(10)%eht_param(0:3) = (/ -43.20_dp, -20.00_dp, z, z/)
@@ -253,7 +238,6 @@ CONTAINS
       ptable(11)%number = 11
       ptable(11)%amass = 22.98976928_dp
       ptable(11)%covalent_radius = 1.5400_dp
-      ptable(11)%cdft_radius = 1.5400_dp
       ptable(11)%vdw_radius = 2.27_dp
       ptable(11)%e_conv(0:3) = (/ 5, 6, 0, 0 /)
       ptable(11)%eht_param(0:3) = (/ -5.10_dp, -3.00_dp, z, z/)
@@ -264,7 +248,6 @@ CONTAINS
       ptable(12)%number = 12
       ptable(12)%amass = 24.305_dp
       ptable(12)%covalent_radius = 1.3600_dp
-      ptable(12)%cdft_radius = 1.3600_dp
       ptable(12)%vdw_radius = 1.73_dp
       ptable(12)%e_conv(0:3) = (/ 6, 6, 0, 0 /)
       ptable(12)%eht_param(0:3) = (/ -9.00_dp, -4.50_dp, z, z/)
@@ -275,7 +258,6 @@ CONTAINS
       ptable(13)%number = 13
       ptable(13)%amass = 26.9815386_dp
       ptable(13)%covalent_radius = 1.1800_dp
-      ptable(13)%cdft_radius = 1.1800_dp
       ptable(13)%vdw_radius = 2.00_dp
       ptable(13)%e_conv(0:3) = (/ 6, 7, 0, 0 /)
       ptable(13)%eht_param(0:3) = (/ -12.30_dp, -6.50_dp, z, z/)
@@ -286,7 +268,6 @@ CONTAINS
       ptable(14)%number = 14
       ptable(14)%amass = 28.0855_dp
       ptable(14)%covalent_radius = 1.1100_dp
-      ptable(14)%cdft_radius = 1.1100_dp
       ptable(14)%vdw_radius = 2.10_dp
       ptable(14)%e_conv(0:3) = (/ 6, 8, 0, 0 /)
       ptable(14)%eht_param(0:3) = (/ -17.30_dp, -9.20_dp, z, z/)
@@ -297,7 +278,6 @@ CONTAINS
       ptable(15)%number = 15
       ptable(15)%amass = 30.973762_dp
       ptable(15)%covalent_radius = 1.0600_dp
-      ptable(15)%cdft_radius = 1.0600_dp
       ptable(15)%vdw_radius = 1.80_dp
       ptable(15)%e_conv(0:3) = (/ 6, 9, 0, 0 /)
       ptable(15)%eht_param(0:3) = (/ -18.60_dp, -14.00_dp, z, z/)
@@ -308,7 +288,6 @@ CONTAINS
       ptable(16)%number = 16
       ptable(16)%amass = 32.065_dp
       ptable(16)%covalent_radius = 1.0200_dp
-      ptable(16)%cdft_radius = 1.0200_dp
       ptable(16)%vdw_radius = 1.80_dp
       ptable(16)%e_conv(0:3) = (/ 6, 10, 0, 0 /)
       ptable(16)%eht_param(0:3) = (/ -20.00_dp, -11.00_dp, z, z/)
@@ -319,7 +298,6 @@ CONTAINS
       ptable(17)%number = 17
       ptable(17)%amass = 35.453_dp
       ptable(17)%covalent_radius = 0.99_dp 
-      ptable(17)%cdft_radius = 0.99_dp
       ptable(17)%vdw_radius = 1.75_dp
       ptable(17)%e_conv(0:3) = (/ 6, 11, 0, 0 /)
       ptable(17)%eht_param(0:3) = (/ -26.30_dp, -14.20_dp, z, z/)
@@ -330,7 +308,6 @@ CONTAINS
       ptable(18)%number = 18
       ptable(18)%amass = 39.948_dp
       ptable(18)%covalent_radius = 0.9800_dp
-      ptable(18)%cdft_radius = 0.9800_dp
       ptable(18)%vdw_radius = 1.88_dp
       ptable(18)%e_conv(0:3) = (/ 6, 12, 0, 0 /)
       ptable(18)%eht_param(0:3) = (/ z, z, z, z/)
@@ -341,7 +318,6 @@ CONTAINS
       ptable(19)%number = 19
       ptable(19)%amass = 39.0983_dp
       ptable(19)%covalent_radius = 2.0300_dp
-      ptable(19)%cdft_radius = 2.0300_dp
       ptable(19)%vdw_radius = 2.75_dp
       ptable(19)%e_conv(0:3) = (/ 7, 12, 0, 0 /)
       ptable(19)%eht_param(0:3) = (/ -4.34_dp, -2.73_dp, z, z/)
@@ -352,7 +328,6 @@ CONTAINS
       ptable(20)%number = 20
       ptable(20)%amass = 40.078_dp
       ptable(20)%covalent_radius = 1.7400_dp
-      ptable(20)%cdft_radius = 1.7400_dp
       ptable(20)%vdw_radius = 2.00_dp
       ptable(20)%e_conv(0:3) = (/ 8, 12, 0, 0 /)
       ptable(20)%eht_param(0:3) = (/ -7.00_dp, -4.00_dp, z, z/)
@@ -363,7 +338,6 @@ CONTAINS
       ptable(21)%number = 21
       ptable(21)%amass = 44.955912_dp
       ptable(21)%covalent_radius = 1.4400_dp
-      ptable(21)%cdft_radius = 1.4400_dp
       ptable(21)%vdw_radius = 2.00_dp
       ptable(21)%e_conv(0:3) = (/ 8, 12, 1, 0 /)
       ptable(21)%eht_param(0:3) = (/ -8.87_dp, -2.75_dp, -8.51_dp, z/)
@@ -374,7 +348,6 @@ CONTAINS
       ptable(22)%number = 22
       ptable(22)%amass = 47.867_dp
       ptable(22)%covalent_radius = 1.3200_dp
-      ptable(22)%cdft_radius = 1.3200_dp
       ptable(22)%vdw_radius = 2.00_dp
       ptable(22)%e_conv(0:3) = (/ 8, 12, 2, 0 /)
       ptable(22)%eht_param(0:3) = (/ -8.97_dp, -5.44_dp, -10.81_dp, z/)
@@ -385,7 +358,6 @@ CONTAINS
       ptable(23)%number = 23
       ptable(23)%amass = 50.9415_dp
       ptable(23)%covalent_radius = 1.2200_dp
-      ptable(23)%cdft_radius = 0.7150_dp ! average V2+/V3+ ionic radius
       ptable(23)%vdw_radius = 2.00_dp
       ptable(23)%e_conv(0:3) = (/ 8, 12, 3, 0 /)
       ptable(23)%eht_param(0:3) = (/ -8.81_dp, -5.52_dp, -11.00_dp, z/)
@@ -396,7 +368,6 @@ CONTAINS
       ptable(24)%number = 24
       ptable(24)%amass = 51.9961_dp
       ptable(24)%covalent_radius = 1.1800_dp
-      ptable(24)%cdft_radius = 1.1800_dp
       ptable(24)%vdw_radius = 2.00_dp
       ptable(24)%e_conv(0:3) = (/ 7, 12, 5, 0 /)
       ptable(24)%eht_param(0:3) = (/ -8.66_dp, -5.24_dp, -11.22_dp, z/)
@@ -407,7 +378,6 @@ CONTAINS
       ptable(25)%number = 25
       ptable(25)%amass = 54.938045_dp
       ptable(25)%covalent_radius = 1.1700_dp
-      ptable(25)%cdft_radius = 1.1700_dp
       ptable(25)%vdw_radius = 2.00_dp
       ptable(25)%e_conv(0:3) = (/ 8, 12, 5, 0 /)
       ptable(25)%eht_param(0:3) = (/ -9.75_dp, -5.89_dp, -11.67_dp, z/)
@@ -418,7 +388,6 @@ CONTAINS
       ptable(26)%number = 26
       ptable(26)%amass = 55.845_dp
       ptable(26)%covalent_radius = 1.1700_dp
-      ptable(26)%cdft_radius = 1.1700_dp
       ptable(26)%vdw_radius = 2.00_dp
       ptable(26)%e_conv(0:3) = (/ 8, 12, 6, 0 /)
       ptable(26)%eht_param(0:3) = (/ -9.10_dp, -5.32_dp, -12.60_dp, z/)
@@ -429,7 +398,6 @@ CONTAINS
       ptable(27)%number = 27
       ptable(27)%amass = 58.933195_dp
       ptable(27)%covalent_radius = 1.1600_dp
-      ptable(27)%cdft_radius = 1.1600_dp
       ptable(27)%vdw_radius = 2.00_dp
       ptable(27)%e_conv(0:3) = (/ 8, 12, 7, 0 /)
       ptable(27)%eht_param(0:3) = (/ -9.21_dp, -5.29_dp, -13.18_dp, z/)
@@ -440,7 +408,6 @@ CONTAINS
       ptable(28)%number = 28
       ptable(28)%amass = 58.6934_dp
       ptable(28)%covalent_radius = 1.1500_dp
-      ptable(28)%cdft_radius = 1.1500_dp
       ptable(28)%vdw_radius = 1.63_dp
       ptable(28)%e_conv(0:3) = (/ 8, 12, 8, 0 /)
       ptable(28)%eht_param(0:3) = (/ -9.17_dp, -5.15_dp, -13.49_dp, z/)
@@ -451,7 +418,6 @@ CONTAINS
       ptable(29)%number = 29
       ptable(29)%amass = 63.546_dp
       ptable(29)%covalent_radius = 1.1700_dp
-      ptable(29)%cdft_radius = 1.1700_dp
       ptable(29)%vdw_radius = 1.40_dp
       ptable(29)%e_conv(0:3) = (/ 7, 12, 10, 0 /)
       ptable(29)%eht_param(0:3) = (/ -11.40_dp, -6.06_dp, -14.00_dp, z/)
@@ -462,7 +428,6 @@ CONTAINS
       ptable(30)%number = 30
       ptable(30)%amass = 65.38_dp
       ptable(30)%covalent_radius = 1.2500_dp
-      ptable(30)%cdft_radius = 1.2500_dp
       ptable(30)%vdw_radius = 1.39_dp
       ptable(30)%e_conv(0:3) = (/ 8, 12, 10, 0 /)
       ptable(30)%eht_param(0:3) = (/ -12.41_dp, -6.53_dp, z, z/)
@@ -473,7 +438,6 @@ CONTAINS
       ptable(31)%number = 31
       ptable(31)%amass = 69.723_dp
       ptable(31)%covalent_radius = 1.2600_dp
-      ptable(31)%cdft_radius = 1.2600_dp
       ptable(31)%vdw_radius = 1.87_dp
       ptable(31)%e_conv(0:3) = (/ 8, 13, 10, 0 /)
       ptable(31)%eht_param(0:3) = (/ -14.58_dp, -6.75_dp, z, z/)
@@ -484,7 +448,6 @@ CONTAINS
       ptable(32)%number = 32
       ptable(32)%amass = 72.64_dp
       ptable(32)%covalent_radius = 1.2200_dp
-      ptable(32)%cdft_radius = 1.2200_dp
       ptable(32)%vdw_radius = 2.00_dp
       ptable(32)%e_conv(0:3) = (/ 8, 14, 10, 0 /)
       ptable(32)%eht_param(0:3) = (/ -16.00_dp, -9.00_dp, z, z/)
@@ -495,7 +458,6 @@ CONTAINS
       ptable(33)%number = 33
       ptable(33)%amass = 74.9216_dp
       ptable(33)%covalent_radius = 1.2000_dp
-      ptable(33)%cdft_radius = 1.2000_dp
       ptable(33)%vdw_radius = 1.85_dp
       ptable(33)%e_conv(0:3) = (/ 8, 15, 10, 0 /)
       ptable(33)%eht_param(0:3) = (/ -16.22_dp, -12.16_dp, z, z/)
@@ -506,7 +468,6 @@ CONTAINS
       ptable(34)%number = 34
       ptable(34)%amass = 78.96_dp
       ptable(34)%covalent_radius = 1.1600_dp
-      ptable(34)%cdft_radius = 1.1600_dp
       ptable(34)%vdw_radius = 1.90_dp
       ptable(34)%e_conv(0:3) = (/ 8, 16, 10, 0 /)
       ptable(34)%eht_param(0:3) = (/ -20.50_dp, -14.40_dp, z, z/)
@@ -517,7 +478,6 @@ CONTAINS
       ptable(35)%number = 35
       ptable(35)%amass = 79.904_dp
       ptable(35)%covalent_radius = 1.1400_dp
-      ptable(35)%cdft_radius = 1.1400_dp
       ptable(35)%vdw_radius = 1.85_dp
       ptable(35)%e_conv(0:3) = (/ 8, 17, 10, 0 /)
       ptable(35)%eht_param(0:3) = (/ -22.07_dp, -13.10_dp, z, z/)
@@ -528,7 +488,6 @@ CONTAINS
       ptable(36)%number = 36
       ptable(36)%amass = 83.798_dp
       ptable(36)%covalent_radius = 1.1200_dp
-      ptable(36)%cdft_radius = 1.1200_dp
       ptable(36)%vdw_radius = 2.02_dp
       ptable(36)%e_conv(0:3) = (/ 8, 18, 10, 0 /)
       ptable(36)%eht_param(0:3) = (/ z, z, z, z/)
@@ -539,7 +498,6 @@ CONTAINS
       ptable(37)%number = 37
       ptable(37)%amass = 85.4678_dp
       ptable(37)%covalent_radius = 2.1600_dp
-      ptable(37)%cdft_radius = 2.1600_dp
       ptable(37)%vdw_radius = 2.00_dp
       ptable(37)%e_conv(0:3) = (/ 9, 18, 10, 0 /)
       ptable(37)%eht_param(0:3) = (/ -4.18_dp, -2.60_dp, z, z/)
@@ -550,7 +508,6 @@ CONTAINS
       ptable(38)%number = 38
       ptable(38)%amass = 87.62_dp
       ptable(38)%covalent_radius = 1.9100_dp
-      ptable(38)%cdft_radius = 1.9100_dp
       ptable(38)%vdw_radius = 2.00_dp
       ptable(38)%e_conv(0:3) = (/ 10, 18, 10, 0 /)
       ptable(38)%eht_param(0:3) = (/ -6.62_dp, -3.92_dp, z, z/)
@@ -561,7 +518,6 @@ CONTAINS
       ptable(39)%number = 39
       ptable(39)%amass = 88.90585_dp
       ptable(39)%covalent_radius = 1.6200_dp
-      ptable(39)%cdft_radius = 1.6200_dp
       ptable(39)%vdw_radius = 2.00_dp
       ptable(39)%e_conv(0:3) = (/ 10, 18, 11, 0 /)
       ptable(39)%eht_param(0:3) = (/ z, z, z, z/)
@@ -572,7 +528,6 @@ CONTAINS
       ptable(40)%number = 40
       ptable(40)%amass = 91.224_dp
       ptable(40)%covalent_radius = 1.4500_dp
-      ptable(40)%cdft_radius = 1.4500_dp
       ptable(40)%vdw_radius = 2.00_dp
       ptable(40)%e_conv(0:3) = (/ 10, 18, 12, 0 /)
       ptable(40)%eht_param(0:3) = (/ -8.00_dp, -5.40_dp, -10.20_dp, z/)
@@ -583,7 +538,6 @@ CONTAINS
       ptable(41)%number = 41
       ptable(41)%amass = 92.90638_dp
       ptable(41)%covalent_radius = 1.3400_dp
-      ptable(41)%cdft_radius = 1.3400_dp
       ptable(41)%vdw_radius = 2.00_dp
       ptable(41)%e_conv(0:3) = (/ 9, 18, 14, 0 /)
       ptable(41)%eht_param(0:3) = (/ -10.10_dp, -6.86_dp, -12.10_dp, z/)
@@ -594,7 +548,6 @@ CONTAINS
       ptable(42)%number = 42
       ptable(42)%amass = 95.96_dp
       ptable(42)%covalent_radius = 1.3000_dp
-      ptable(42)%cdft_radius = 1.3000_dp
       ptable(42)%vdw_radius = 2.00_dp
       ptable(42)%e_conv(0:3) = (/ 9, 18, 15, 0 /)
       ptable(42)%eht_param(0:3) = (/ -8.34_dp, -5.25_dp, -10.50_dp, z/)
@@ -605,7 +558,6 @@ CONTAINS
       ptable(43)%number = 43
       ptable(43)%amass = 97.9072_dp ! (98)
       ptable(43)%covalent_radius = 1.2700_dp
-      ptable(43)%cdft_radius = 1.2700_dp
       ptable(43)%vdw_radius = 2.00_dp
       ptable(43)%e_conv(0:3) = (/10, 18, 15, 0 /)
       ptable(43)%eht_param(0:3) = (/ -10.07_dp, -5.40_dp, -12.82_dp, z/)
@@ -616,7 +568,6 @@ CONTAINS
       ptable(44)%number = 44
       ptable(44)%amass = 101.07_dp
       ptable(44)%covalent_radius = 1.25_dp
-      ptable(44)%cdft_radius =  0.68_dp ! Ru3+ Ionic Radius
       ptable(44)%vdw_radius = 2.00_dp
       ptable(44)%e_conv(0:3) = (/ 9, 18, 17, 0 /)
       ptable(44)%eht_param(0:3) = (/ -10.40_dp, -6.87_dp, -14.90_dp, z/)
@@ -627,7 +578,6 @@ CONTAINS
       ptable(45)%number = 45
       ptable(45)%amass = 102.9055_dp
       ptable(45)%covalent_radius = 1.2500_dp
-      ptable(45)%cdft_radius = 1.2500_dp
       ptable(45)%vdw_radius = 2.00_dp
       ptable(45)%e_conv(0:3) = (/ 9, 18, 18, 0 /)
       ptable(45)%eht_param(0:3) = (/ -8.09_dp, -4.57_dp, -12.50_dp, z/)
@@ -638,7 +588,6 @@ CONTAINS
       ptable(46)%number = 46
       ptable(46)%amass = 106.42_dp
       ptable(46)%covalent_radius = 1.2800_dp
-      ptable(46)%cdft_radius = 1.2800_dp
       ptable(46)%vdw_radius = 1.63_dp
       ptable(46)%e_conv(0:3) = (/ 8, 18, 20, 0 /)
       ptable(46)%eht_param(0:3) = (/ -7.32_dp, -3.75_dp, -12.02_dp, z/)
@@ -649,7 +598,6 @@ CONTAINS
       ptable(47)%number = 47
       ptable(47)%amass = 107.8682_dp
       ptable(47)%covalent_radius = 1.3400_dp
-      ptable(47)%cdft_radius = 1.3400_dp
       ptable(47)%vdw_radius = 1.72_dp
       ptable(47)%e_conv(0:3) = (/ 9, 18, 20, 0 /)
       ptable(47)%eht_param(0:3) = (/ z, z, z, z/)
@@ -660,7 +608,6 @@ CONTAINS
       ptable(48)%number = 48
       ptable(48)%amass = 112.411_dp
       ptable(48)%covalent_radius = 1.4800_dp
-      ptable(48)%cdft_radius = 1.4800_dp
       ptable(48)%vdw_radius = 1.58_dp
       ptable(48)%e_conv(0:3) = (/ 10, 18, 20, 0 /)
       ptable(48)%eht_param(0:3) = (/ z, z, z, z/)
@@ -671,7 +618,6 @@ CONTAINS
       ptable(49)%number = 49
       ptable(49)%amass = 114.818_dp
       ptable(49)%covalent_radius = 1.4400_dp
-      ptable(49)%cdft_radius = 1.4400_dp
       ptable(49)%vdw_radius = 1.93_dp
       ptable(49)%e_conv(0:3) = (/ 10, 19, 20, 0 /)
       ptable(49)%eht_param(0:3) = (/ -12.60_dp, -6.19_dp, z, z/)
@@ -682,7 +628,6 @@ CONTAINS
       ptable(50)%number = 50
       ptable(50)%amass = 118.71_dp
       ptable(50)%covalent_radius = 1.4100_dp
-      ptable(50)%cdft_radius = 1.4100_dp
       ptable(50)%vdw_radius = 2.17_dp
       ptable(50)%e_conv(0:3) = (/ 10, 20, 20, 0 /)
       ptable(50)%eht_param(0:3) = (/ -16.16_dp, -8.32_dp, z, z/)
@@ -693,7 +638,6 @@ CONTAINS
       ptable(51)%number = 51
       ptable(51)%amass = 121.76_dp
       ptable(51)%covalent_radius = 1.4000_dp
-      ptable(51)%cdft_radius = 1.4000_dp
       ptable(51)%vdw_radius = 2.00_dp
       ptable(51)%e_conv(0:3) = (/ 10, 21, 20, 0 /)
       ptable(51)%eht_param(0:3) = (/ -18.80_dp, -11.70_dp, z, z/)
@@ -704,7 +648,6 @@ CONTAINS
       ptable(52)%number = 52
       ptable(52)%amass = 127.6_dp
       ptable(52)%covalent_radius = 1.3600_dp
-      ptable(52)%cdft_radius = 1.3600_dp
       ptable(52)%vdw_radius = 2.06_dp
       ptable(52)%e_conv(0:3) = (/ 10, 22, 20, 0 /)
       ptable(52)%eht_param(0:3) = (/ -20.80_dp, -13.20_dp, z, z/)
@@ -715,7 +658,6 @@ CONTAINS
       ptable(53)%number = 53
       ptable(53)%amass = 126.90447_dp
       ptable(53)%covalent_radius = 1.3300_dp
-      ptable(53)%cdft_radius = 1.3300_dp
       ptable(53)%vdw_radius = 1.98_dp
       ptable(53)%e_conv(0:3) = (/ 10, 23, 20, 0 /)
       ptable(53)%eht_param(0:3) = (/ -18.00_dp, -12.70_dp, z, z/)
@@ -726,7 +668,6 @@ CONTAINS
       ptable(54)%number = 54
       ptable(54)%amass = 131.293_dp
       ptable(54)%covalent_radius = 1.3100_dp
-      ptable(54)%cdft_radius = 1.3100_dp
       ptable(54)%vdw_radius = 2.16_dp
       ptable(54)%e_conv(0:3) = (/ 10, 24, 20, 0 /)
       ptable(54)%eht_param(0:3) = (/ z, z, z, z/)
@@ -737,7 +678,6 @@ CONTAINS
       ptable(55)%number = 55
       ptable(55)%amass = 132.9054519_dp
       ptable(55)%covalent_radius = 2.3500_dp
-      ptable(55)%cdft_radius = 2.3500_dp
       ptable(55)%vdw_radius = 2.00_dp
       ptable(55)%e_conv(0:3) = (/ 11, 24, 20, 0 /)
       ptable(55)%eht_param(0:3) = (/ -3.88_dp, -2.49_dp, z, z/)
@@ -748,7 +688,6 @@ CONTAINS
       ptable(56)%number = 56
       ptable(56)%amass = 137.327_dp
       ptable(56)%covalent_radius = 1.9800_dp
-      ptable(56)%cdft_radius = 1.9800_dp
       ptable(56)%vdw_radius = 2.00_dp
       ptable(56)%e_conv(0:3) = (/ 12, 24, 20, 0 /)
       ptable(56)%eht_param(0:3) = (/ z, z, z, z/)
@@ -759,7 +698,6 @@ CONTAINS
       ptable(57)%number = 57
       ptable(57)%amass = 138.90547_dp
       ptable(57)%covalent_radius = 1.6900_dp
-      ptable(57)%cdft_radius = 1.6900_dp
       ptable(57)%vdw_radius = 2.00_dp
       ptable(57)%e_conv(0:3) = (/ 12, 24, 21, 0 /)
       ptable(57)%eht_param(0:3) = (/ -7.67_dp, -5.01_dp, -8.21_dp, z/)
@@ -770,7 +708,6 @@ CONTAINS
       ptable(58)%number = 58
       ptable(58)%amass = 140.116_dp
       ptable(58)%covalent_radius = 1.6500_dp
-      ptable(58)%cdft_radius = 1.6500_dp
       ptable(58)%vdw_radius = 2.00_dp
       ptable(58)%e_conv(0:3) = (/ 12, 24, 21, 1 /)
       ptable(58)%eht_param(0:3) = (/ z, z, z, z/)
@@ -781,7 +718,6 @@ CONTAINS
       ptable(59)%number = 59
       ptable(59)%amass = 140.90765_dp
       ptable(59)%covalent_radius = 1.6500_dp
-      ptable(59)%cdft_radius = 1.6500_dp
       ptable(59)%vdw_radius = 2.00_dp
       ptable(59)%e_conv(0:3) = (/ 12, 24, 20, 3 /)
       ptable(59)%eht_param(0:3) = (/ z, z, z, z/)
@@ -792,7 +728,6 @@ CONTAINS
       ptable(60)%number = 60
       ptable(60)%amass = 144.242_dp
       ptable(60)%covalent_radius = 1.6400_dp
-      ptable(60)%cdft_radius = 1.6400_dp
       ptable(60)%vdw_radius = 2.00_dp
       ptable(60)%e_conv(0:3) = (/ 12, 24, 20, 4 /)
       ptable(60)%eht_param(0:3) = (/ z, z, z, z/)
@@ -803,7 +738,6 @@ CONTAINS
       ptable(61)%number = 61
       ptable(61)%amass = 144.9127_dp ! (145)
       ptable(61)%covalent_radius = 1.6300_dp
-      ptable(61)%cdft_radius = 1.6300_dp
       ptable(61)%vdw_radius = 2.00_dp
       ptable(61)%e_conv(0:3) = (/ 12, 24, 20, 5 /)
       ptable(61)%eht_param(0:3) = (/ z, z, z, z/)
@@ -814,7 +748,6 @@ CONTAINS
       ptable(62)%number = 62
       ptable(62)%amass = 150.36_dp
       ptable(62)%covalent_radius = 1.6200_dp
-      ptable(62)%cdft_radius = 1.6200_dp
       ptable(62)%vdw_radius = 2.00_dp
       ptable(62)%e_conv(0:3) = (/ 12, 24, 20, 6 /)
       ptable(62)%eht_param(0:3) = (/ -4.86_dp, -4.86_dp, -6.06_dp, -11.28_dp/)
@@ -825,7 +758,6 @@ CONTAINS
       ptable(63)%number = 63
       ptable(63)%amass = 151.964_dp
       ptable(63)%covalent_radius = 1.8500_dp
-      ptable(63)%cdft_radius = 1.8500_dp
       ptable(63)%vdw_radius = 2.00_dp
       ptable(63)%e_conv(0:3) = (/ 12, 24, 20, 7 /)
       ptable(63)%eht_param(0:3) = (/ z, z, z, z/)
@@ -836,7 +768,6 @@ CONTAINS
       ptable(64)%number = 64
       ptable(64)%amass = 157.25_dp
       ptable(64)%covalent_radius = 1.6100_dp
-      ptable(64)%cdft_radius = 1.6100_dp
       ptable(64)%vdw_radius = 2.00_dp
       ptable(64)%e_conv(0:3) = (/ 12, 24, 21, 7 /)
       ptable(64)%eht_param(0:3) = (/ z, z, z, z/)
@@ -847,7 +778,6 @@ CONTAINS
       ptable(65)%number = 65
       ptable(65)%amass = 158.92535_dp
       ptable(65)%covalent_radius = 1.5900_dp
-      ptable(65)%cdft_radius = 1.5900_dp
       ptable(65)%vdw_radius = 2.00_dp
       ptable(65)%e_conv(0:3) = (/ 12, 24, 20, 9 /)
       ptable(65)%eht_param(0:3) = (/ z, z, z, z/)
@@ -858,7 +788,6 @@ CONTAINS
       ptable(66)%number = 66
       ptable(66)%amass = 162.5_dp
       ptable(66)%covalent_radius = 1.5900_dp
-      ptable(66)%cdft_radius = 1.5900_dp
       ptable(66)%vdw_radius = 2.00_dp
       ptable(66)%e_conv(0:3) = (/ 12, 24, 20, 10 /)
       ptable(66)%eht_param(0:3) = (/ z, z, z, z/)
@@ -869,7 +798,6 @@ CONTAINS
       ptable(67)%number = 67
       ptable(67)%amass = 164.93032_dp
       ptable(67)%covalent_radius = 1.5800_dp
-      ptable(67)%cdft_radius = 1.5800_dp
       ptable(67)%vdw_radius = 2.00_dp
       ptable(67)%e_conv(0:3) = (/ 12, 24, 20, 11 /)
       ptable(67)%eht_param(0:3) = (/ z, z, z, z/)
@@ -880,7 +808,6 @@ CONTAINS
       ptable(68)%number = 68
       ptable(68)%amass = 167.259_dp
       ptable(68)%covalent_radius = 1.5700_dp
-      ptable(68)%cdft_radius = 1.5700_dp
       ptable(68)%vdw_radius = 2.00_dp
       ptable(68)%e_conv(0:3) = (/ 12, 24, 20, 12 /)
       ptable(68)%eht_param(0:3) = (/ z, z, z, z/)
@@ -891,7 +818,6 @@ CONTAINS
       ptable(69)%number = 69
       ptable(69)%amass = 168.93421_dp
       ptable(69)%covalent_radius = 1.5600_dp
-      ptable(69)%cdft_radius = 1.5600_dp
       ptable(69)%vdw_radius = 2.00_dp
       ptable(69)%e_conv(0:3) = (/ 12, 24, 20, 13 /)
       ptable(69)%eht_param(0:3) = (/ z, z, z, z/)
@@ -902,7 +828,6 @@ CONTAINS
       ptable(70)%number = 70
       ptable(70)%amass = 173.054_dp
       ptable(70)%covalent_radius = 1.5600_dp
-      ptable(70)%cdft_radius = 1.5600_dp
       ptable(70)%vdw_radius = 2.00_dp
       ptable(70)%e_conv(0:3) = (/ 12, 24, 20, 14 /)
       ptable(70)%eht_param(0:3) = (/ -5.35_dp, -5.35_dp, -5.21_dp, &
@@ -914,7 +839,6 @@ CONTAINS
       ptable(71)%number = 71
       ptable(71)%amass = 174.9668_dp
       ptable(71)%covalent_radius = 1.5600_dp
-      ptable(71)%cdft_radius = 1.5600_dp
       ptable(71)%vdw_radius = 2.00_dp
       ptable(71)%e_conv(0:3) = (/ 12, 24, 21, 14 /)
       ptable(71)%eht_param(0:3) = (/ -6.05_dp, -6.05_dp, -5.12_dp, -22.40_dp/)
@@ -925,7 +849,6 @@ CONTAINS
       ptable(72)%number = 72
       ptable(72)%amass = 178.49_dp
       ptable(72)%covalent_radius = 1.4400_dp
-      ptable(72)%cdft_radius = 1.4400_dp
       ptable(72)%vdw_radius = 2.00_dp
       ptable(72)%e_conv(0:3) = (/ 12, 24, 22, 14 /)
       ptable(72)%eht_param(0:3) = (/ z, z, z, z/)
@@ -936,7 +859,6 @@ CONTAINS
       ptable(73)%number = 73
       ptable(73)%amass = 180.94788_dp
       ptable(73)%covalent_radius = 1.3400_dp
-      ptable(73)%cdft_radius = 1.3400_dp
       ptable(73)%vdw_radius = 2.00_dp
       ptable(73)%e_conv(0:3) = (/ 12, 24, 23, 14 /)
       ptable(73)%eht_param(0:3) = (/ -10.10_dp, -6.86_dp, -12.10_dp, z/)
@@ -947,7 +869,6 @@ CONTAINS
       ptable(74)%number = 74
       ptable(74)%amass = 183.84_dp
       ptable(74)%covalent_radius = 1.3000_dp
-      ptable(74)%cdft_radius = 1.3000_dp
       ptable(74)%vdw_radius = 2.00_dp
       ptable(74)%e_conv(0:3) = (/ 12, 24, 24, 14 /)
       ptable(74)%eht_param(0:3) = (/ -8.26_dp, -5.17_dp, -10.37_dp, z/)
@@ -958,7 +879,6 @@ CONTAINS
       ptable(75)%number = 75
       ptable(75)%amass = 186.207_dp
       ptable(75)%covalent_radius = 1.2800_dp
-      ptable(75)%cdft_radius = 1.2800_dp
       ptable(75)%vdw_radius = 2.00_dp
       ptable(75)%e_conv(0:3) = (/ 12, 24, 25, 14 /)
       ptable(75)%eht_param(0:3) = (/ -9.36_dp, -5.96_dp, -12.66_dp, z/)
@@ -969,7 +889,6 @@ CONTAINS
       ptable(76)%number = 76
       ptable(76)%amass = 190.23_dp
       ptable(76)%covalent_radius = 1.2600_dp
-      ptable(76)%cdft_radius = 1.2600_dp
       ptable(76)%vdw_radius = 2.00_dp
       ptable(76)%e_conv(0:3) = (/ 12, 24, 26, 14 /)
       ptable(76)%eht_param(0:3) = (/ -8.17_dp, -4.81_dp, -11.84_dp, z/)
@@ -980,7 +899,6 @@ CONTAINS
       ptable(77)%number = 77
       ptable(77)%amass = 192.217_dp
       ptable(77)%covalent_radius = 1.2700_dp
-      ptable(77)%cdft_radius = 0.5975 ! Ir(IV)/Ir(III) avg. ionic radius, Default :1.2700_dp
       ptable(77)%vdw_radius = 2.00_dp
       ptable(77)%e_conv(0:3) = (/ 12, 24, 27, 14 /)
       ptable(77)%eht_param(0:3) = (/ -11.36_dp, -4.50_dp, -12.17_dp, z/)
@@ -991,7 +909,6 @@ CONTAINS
       ptable(78)%number = 78
       ptable(78)%amass = 195.084_dp
       ptable(78)%covalent_radius = 1.3000_dp
-      ptable(78)%cdft_radius = 1.3000_dp
       ptable(78)%vdw_radius = 1.72_dp
       ptable(78)%e_conv(0:3) = (/ 11, 24, 29, 14 /)
       ptable(78)%eht_param(0:3) = (/ -9.077_dp, -5.475_dp, -12.59_dp, z/)
@@ -1002,7 +919,6 @@ CONTAINS
       ptable(79)%number = 79
       ptable(79)%amass = 196.966569_dp
       ptable(79)%covalent_radius = 1.3400_dp
-      ptable(79)%cdft_radius = 1.3400_dp
       ptable(79)%vdw_radius = 1.66_dp
       ptable(79)%e_conv(0:3) = (/ 11, 24, 30, 14 /)
       ptable(79)%eht_param(0:3) = (/ -10.92_dp, -5.55_dp, -15.076_dp, z/)
@@ -1013,7 +929,6 @@ CONTAINS
       ptable(80)%number = 80
       ptable(80)%amass = 200.59_dp
       ptable(80)%covalent_radius = 1.4900_dp
-      ptable(80)%cdft_radius = 1.4900_dp
       ptable(80)%vdw_radius = 1.55_dp
       ptable(80)%e_conv(0:3) = (/ 12, 24, 30, 14 /)
       ptable(80)%eht_param(0:3) = (/ -13.68_dp, -8.47_dp, -17.50_dp, z/)
@@ -1024,7 +939,6 @@ CONTAINS
       ptable(81)%number = 81
       ptable(81)%amass = 204.3833_dp
       ptable(81)%covalent_radius = 1.4800_dp
-      ptable(81)%cdft_radius = 1.4800_dp
       ptable(81)%vdw_radius = 1.96_dp
       ptable(81)%e_conv(0:3) = (/ 12, 25, 30, 14 /)
       ptable(81)%eht_param(0:3) = (/ -11.60_dp, -5.80_dp, z, z/)
@@ -1035,7 +949,6 @@ CONTAINS
       ptable(82)%number = 82
       ptable(82)%amass = 207.2_dp
       ptable(82)%covalent_radius = 1.4700_dp
-      ptable(82)%cdft_radius = 1.4700_dp
       ptable(82)%vdw_radius = 2.02_dp
       ptable(82)%e_conv(0:3) = (/ 12, 26, 30, 14 /)
       ptable(82)%eht_param(0:3) = (/ -15.70_dp, -8.00_dp, z, z/)
@@ -1046,7 +959,6 @@ CONTAINS
       ptable(83)%number = 83
       ptable(83)%amass = 208.9804_dp
       ptable(83)%covalent_radius = 1.4600_dp
-      ptable(83)%cdft_radius = 1.4600_dp
       ptable(83)%vdw_radius = 2.00_dp
       ptable(83)%e_conv(0:3) = (/ 12, 27, 30, 14 /)
       ptable(83)%eht_param(0:3) = (/ -15.19_dp, -7.79_dp, z, z/)
@@ -1057,7 +969,6 @@ CONTAINS
       ptable(84)%number = 84
       ptable(84)%amass = 208.9824_dp ! (209)
       ptable(84)%covalent_radius = 1.4600_dp
-      ptable(84)%cdft_radius = 1.4600_dp
       ptable(84)%vdw_radius = 2.00_dp
       ptable(84)%e_conv(0:3) = (/ 12, 28, 30, 14 /)
       ptable(84)%eht_param(0:3) = (/ z, z, z, z/)
@@ -1068,7 +979,6 @@ CONTAINS
       ptable(85)%number = 85
       ptable(85)%amass = 209.9871_dp ! (210)
       ptable(85)%covalent_radius = 1.4500_dp
-      ptable(85)%cdft_radius = 1.4500_dp
       ptable(85)%vdw_radius = 2.00_dp
       ptable(85)%e_conv(0:3) = (/ 12, 29, 30, 14 /)
       ptable(85)%eht_param(0:3) = (/ z, z, z, z/)
@@ -1079,7 +989,6 @@ CONTAINS
       ptable(86)%number = 86
       ptable(86)%amass = 222.0176_dp ! (222)
       ptable(86)%covalent_radius = 1.50_dp
-      ptable(86)%cdft_radius = 1.50_dp
       ptable(86)%vdw_radius = 2.00_dp
       ptable(86)%e_conv(0:3) = (/ 12, 30, 30, 14 /)
       ptable(86)%eht_param(0:3) = (/ z, z, z, z/)
@@ -1090,7 +999,6 @@ CONTAINS
       ptable(87)%number = 87
       ptable(87)%amass = 223.0197_dp ! (223)
       ptable(87)%covalent_radius = 1.50_dp
-      ptable(87)%cdft_radius = 1.50_dp
       ptable(87)%vdw_radius = 2.00_dp
       ptable(87)%e_conv(0:3) = (/ 13, 30, 30, 14 /)
       ptable(87)%eht_param(0:3) = (/ z, z, z, z/)
@@ -1101,7 +1009,6 @@ CONTAINS
       ptable(88)%number = 88
       ptable(88)%amass = 226.0254_dp ! (226)
       ptable(88)%covalent_radius = 1.90_dp
-      ptable(88)%cdft_radius = 1.90_dp
       ptable(88)%vdw_radius = 2.00_dp
       ptable(88)%e_conv(0:3) = (/ 14, 30, 30, 14 /)
       ptable(88)%eht_param(0:3) = (/ z, z, z, z/)
@@ -1112,7 +1019,6 @@ CONTAINS
       ptable(89)%number = 89
       ptable(89)%amass = 227.0278_dp ! (227)
       ptable(89)%covalent_radius = 1.88_dp
-      ptable(89)%cdft_radius = 1.88_dp
       ptable(89)%vdw_radius = 2.00_dp
       ptable(89)%e_conv(0:3) = (/ 14, 30, 31, 14 /)
       ptable(89)%eht_param(0:3) = (/ z, z, z, z/)
@@ -1123,7 +1029,6 @@ CONTAINS
       ptable(90)%number = 90
       ptable(90)%amass = 232.03806_dp
       ptable(90)%covalent_radius = 1.6500_dp
-      ptable(90)%cdft_radius = 1.6500_dp
       ptable(90)%vdw_radius = 2.00_dp
       ptable(90)%e_conv(0:3) = (/ 14, 30, 32, 14 /)
       ptable(90)%eht_param(0:3) = (/ -5.39_dp, -5.39_dp, -10.11_dp, -9.64_dp/)
@@ -1134,7 +1039,6 @@ CONTAINS
       ptable(91)%number = 91
       ptable(91)%amass = 231.03588_dp
       ptable(91)%covalent_radius = 1.61_dp
-      ptable(91)%cdft_radius = 1.61_dp
       ptable(91)%vdw_radius = 2.00_dp
       ptable(91)%e_conv(0:3) = (/ 14, 30, 31, 16 /)
       ptable(91)%eht_param(0:3) = (/ z, z, z, z/)
@@ -1145,7 +1049,6 @@ CONTAINS
       ptable(92)%number = 92
       ptable(92)%amass = 238.02891_dp
       ptable(92)%covalent_radius = 1.4200_dp
-      ptable(92)%cdft_radius = 1.4200_dp
       ptable(92)%vdw_radius = 1.86_dp
       ptable(92)%e_conv(0:3) = (/ 14, 30, 31, 17 /)
       ptable(92)%eht_param(0:3) = (/ -5.50_dp, -5.50_dp, -9.19_dp, -10.62_dp/)
@@ -1156,7 +1059,6 @@ CONTAINS
       ptable(93)%number = 93
       ptable(93)%amass = 237.0482_dp ! (237)
       ptable(93)%covalent_radius = 1.55_dp
-      ptable(93)%cdft_radius = 1.55_dp
       ptable(93)%vdw_radius = 2.00_dp
       ptable(93)%e_conv(0:3) = (/ 14, 30, 31, 18 /)
       ptable(93)%eht_param(0:3) = (/ z, z, z, z/)
@@ -1167,7 +1069,6 @@ CONTAINS
       ptable(94)%number = 94
       ptable(94)%amass = 244.0642_dp ! (244)
       ptable(94)%covalent_radius = 1.53_dp
-      ptable(94)%cdft_radius = 1.53_dp
       ptable(94)%vdw_radius = 2.00_dp
       ptable(94)%e_conv(0:3) = (/ 14, 30, 30, 20 /)
       ptable(94)%eht_param(0:3) = (/ z, z, z, z/)
@@ -1178,7 +1079,6 @@ CONTAINS
       ptable(95)%number = 95
       ptable(95)%amass = 243.0614_dp ! (243)
       ptable(95)%covalent_radius = 1.51_dp
-      ptable(95)%cdft_radius = 1.51_dp
       ptable(95)%vdw_radius = 2.00_dp
       ptable(95)%e_conv(0:3) = (/ 14, 30, 30, 21 /)
       ptable(95)%eht_param(0:3) = (/ z, z, z, z/)
@@ -1189,7 +1089,6 @@ CONTAINS
       ptable(96)%number = 96
       ptable(96)%amass = 247.0704_dp ! (247)
       ptable(96)%covalent_radius = 0.99_dp
-      ptable(96)%cdft_radius = 0.99_dp
       ptable(96)%vdw_radius = 2.00_dp
       ptable(96)%e_conv(0:3) = (/ 14, 30, 31, 21 /)
       ptable(96)%eht_param(0:3) = (/ z, z, z, z/)
@@ -1200,7 +1099,6 @@ CONTAINS
       ptable(97)%number = 97
       ptable(97)%amass = 247.0703_dp ! (247)
       ptable(97)%covalent_radius = 1.54_dp
-      ptable(97)%cdft_radius = 1.54_dp
       ptable(97)%vdw_radius = 2.00_dp
       ptable(97)%e_conv(0:3) = (/ 14, 30, 30, 23 /)
       ptable(97)%eht_param(0:3) = (/ z, z, z, z/)
@@ -1211,7 +1109,6 @@ CONTAINS
       ptable(98)%number = 98
       ptable(98)%amass = 251.0796_dp ! (251)
       ptable(98)%covalent_radius = 1.83_dp
-      ptable(98)%cdft_radius = 1.83_dp
       ptable(98)%vdw_radius = 2.00_dp
       ptable(98)%e_conv(0:3) = (/ 14, 30, 30, 24 /)
       ptable(98)%eht_param(0:3) = (/ z, z, z, z/)
@@ -1222,7 +1119,6 @@ CONTAINS
       ptable(99)%number = 99
       ptable(99)%amass = 252.083_dp ! (252)
       ptable(99)%covalent_radius = 1.50_dp
-      ptable(99)%cdft_radius = 1.50_dp
       ptable(99)%vdw_radius = 2.00_dp
       ptable(99)%e_conv(0:3) = (/ 14, 30, 30, 25 /)
       ptable(99)%eht_param(0:3) = (/ z, z, z, z/)
@@ -1233,7 +1129,6 @@ CONTAINS
       ptable(100)%number = 100
       ptable(100)%amass = 257.0951_dp ! (257)
       ptable(100)%covalent_radius = 1.50_dp
-      ptable(100)%cdft_radius = 1.50_dp
       ptable(100)%vdw_radius = 2.00_dp
       ptable(100)%e_conv(0:3) = (/ 14, 30, 30, 26 /)
       ptable(100)%eht_param(0:3) = (/ z, z, z, z/)
@@ -1244,7 +1139,6 @@ CONTAINS
       ptable(101)%number = 101
       ptable(101)%amass = 258.0984_dp ! (258)
       ptable(101)%covalent_radius = 1.50_dp
-      ptable(101)%cdft_radius = 1.50_dp
       ptable(101)%vdw_radius = 2.00_dp
       ptable(101)%e_conv(0:3) = (/ 14, 30, 30, 27 /)
       ptable(101)%eht_param(0:3) = (/ z, z, z, z/)
@@ -1255,7 +1149,6 @@ CONTAINS
       ptable(102)%number = 102
       ptable(102)%amass = 259.101_dp ! (259)
       ptable(102)%covalent_radius = 1.50_dp
-      ptable(102)%cdft_radius = 1.50_dp
       ptable(102)%vdw_radius = 2.00_dp
       ptable(102)%e_conv(0:3) = (/ 14, 30, 30, 28 /)
       ptable(102)%eht_param(0:3) = (/ z, z, z, z/)
@@ -1266,7 +1159,6 @@ CONTAINS
       ptable(103)%number = 103
       ptable(103)%amass = 262.1096_dp ! (262)
       ptable(103)%covalent_radius = 1.50_dp
-      ptable(103)%cdft_radius = 1.50_dp
       ptable(103)%vdw_radius = 2.00_dp
       ptable(103)%e_conv(0:3) = (/ 14, 31, 30, 28 /)
       ptable(103)%eht_param(0:3) = (/ z, z, z, z/)
@@ -1277,7 +1169,6 @@ CONTAINS
       ptable(104)%number = 104
       ptable(104)%amass = 267.122_dp ! (267)
       ptable(104)%covalent_radius = 1.50_dp
-      ptable(104)%cdft_radius = 1.50_dp
       ptable(104)%vdw_radius = 2.00_dp
       ptable(104)%e_conv(0:3) = (/ 14, 30, 32, 28 /)
       ptable(104)%eht_param(0:3) = (/ z, z, z, z/)
@@ -1288,7 +1179,6 @@ CONTAINS
       ptable(105)%number = 105
       ptable(105)%amass = 268.125_dp ! (268)
       ptable(105)%covalent_radius = 1.50_dp
-      ptable(105)%cdft_radius = 1.50_dp
       ptable(105)%vdw_radius = 2.00_dp
       ptable(105)%e_conv(0:3) = (/ 14, 30, 33, 28 /)
       ptable(105)%eht_param(0:3) = (/ z, z, z, z/)
@@ -1299,7 +1189,6 @@ CONTAINS
       ptable(106)%number = 106
       ptable(106)%amass = 271.133_dp ! (271)
       ptable(106)%covalent_radius = 1.50_dp
-      ptable(106)%cdft_radius = 1.50_dp
       ptable(106)%vdw_radius = 2.00_dp
       ptable(106)%e_conv(0:3) = (/ 14, 30, 34, 28 /)
       ptable(106)%eht_param(0:3) = (/ z, z, z, z/)
@@ -1310,7 +1199,6 @@ CONTAINS
       ptable(107)%number = 107
       ptable(107)%amass = 272.0_dp ! (272)
       ptable(107)%covalent_radius = 1.50_dp
-      ptable(107)%cdft_radius = 1.50_dp
       ptable(107)%vdw_radius = 2.00_dp
       ptable(107)%e_conv(0:3) = (/ 14, 30, 35, 28 /)
       ptable(107)%eht_param(0:3) = (/ z, z, z, z/)
@@ -1321,7 +1209,6 @@ CONTAINS
       ptable(108)%number = 108
       ptable(108)%amass = 277.15_dp ! (277)
       ptable(108)%covalent_radius = 1.50_dp
-      ptable(108)%cdft_radius = 1.50_dp
       ptable(108)%vdw_radius = 2.00_dp
       ptable(108)%e_conv(0:3) = (/ 14, 30, 36, 28 /)
       ptable(108)%eht_param(0:3) = (/ z, z, z, z/)
@@ -1332,7 +1219,6 @@ CONTAINS
       ptable(109)%number = 109
       ptable(109)%amass = 276.151_dp ! (276)
       ptable(109)%covalent_radius = 1.50_dp
-      ptable(109)%cdft_radius = 1.50_dp
       ptable(109)%vdw_radius = 2.00_dp
       ptable(109)%e_conv(0:3) = (/ 14, 30, 37, 28 /)
       ptable(109)%eht_param(0:3) = (/ z, z, z, z/)
@@ -1343,7 +1229,6 @@ CONTAINS
       ptable(110)%number = 110
       ptable(110)%amass = 281.162_dp ! (281)
       ptable(110)%covalent_radius = 1.50_dp
-      ptable(110)%cdft_radius = 1.50_dp
       ptable(110)%vdw_radius = 2.00_dp
       ptable(110)%e_conv(0:3) = (/ 13, 30, 39, 28 /)
       ptable(110)%eht_param(0:3) = (/ z, z, z, z/)
@@ -1354,7 +1239,6 @@ CONTAINS
       ptable(111)%number = 111
       ptable(111)%amass = 280.164_dp ! (280)
       ptable(111)%covalent_radius = 1.50_dp
-      ptable(111)%cdft_radius = 1.50_dp
       ptable(111)%vdw_radius = 2.00_dp
       ptable(111)%e_conv(0:3) = (/ 13, 30, 40, 28 /)
       ptable(111)%eht_param(0:3) = (/ z, z, z, z/)
@@ -1365,7 +1249,6 @@ CONTAINS
       ptable(112)%number = 112
       ptable(112)%amass = 285.174_dp ! (285)
       ptable(112)%covalent_radius = 1.50_dp
-      ptable(112)%cdft_radius = 1.50_dp
       ptable(112)%vdw_radius = 2.00_dp
       ptable(112)%e_conv(0:3) = (/ 14, 30, 40, 28 /)
       ptable(112)%eht_param(0:3) = (/ z, z, z, z/)
@@ -1376,7 +1259,6 @@ CONTAINS
       ptable(113)%number = 113
       ptable(113)%amass = 284.178_dp ! (284)
       ptable(113)%covalent_radius = 1.50_dp
-      ptable(113)%cdft_radius = 1.50_dp
       ptable(113)%vdw_radius = 2.00_dp
       ptable(113)%e_conv(0:3) = (/ 14, 31, 40, 28 /)
       ptable(113)%eht_param(0:3) = (/ z, z, z, z/)
@@ -1387,7 +1269,6 @@ CONTAINS
       ptable(114)%number = 114
       ptable(114)%amass = 289.189_dp ! (289)
       ptable(114)%covalent_radius = 1.50_dp
-      ptable(114)%cdft_radius = 1.50_dp
       ptable(114)%vdw_radius = 2.00_dp
       ptable(114)%e_conv(0:3) = (/ 14, 32, 40, 28 /)
       ptable(114)%eht_param(0:3) = (/ z, z, z, z/)
@@ -1398,7 +1279,6 @@ CONTAINS
       ptable(115)%number = 115
       ptable(115)%amass = 288.192_dp ! (288)
       ptable(115)%covalent_radius = 1.50_dp
-      ptable(115)%cdft_radius = 1.50_dp
       ptable(115)%vdw_radius = 2.00_dp
       ptable(115)%e_conv(0:3) = (/ 14, 33, 40, 28 /)
       ptable(115)%eht_param(0:3) = (/ z, z, z, z/)
@@ -1409,7 +1289,6 @@ CONTAINS
       ptable(116)%number = 116
       ptable(116)%amass = 293.0_dp ! (293)
       ptable(116)%covalent_radius = 1.50_dp
-      ptable(116)%cdft_radius = 1.50_dp
       ptable(116)%vdw_radius = 2.00_dp
       ptable(116)%e_conv(0:3) = (/ 14, 34, 40, 28 /)
       ptable(116)%eht_param(0:3) = (/ z, z, z, z/)
@@ -1420,7 +1299,6 @@ CONTAINS
       ptable(117)%number = 117
       ptable(117)%amass = 294.0_dp ! (294)
       ptable(117)%covalent_radius = 1.50_dp
-      ptable(117)%cdft_radius = 1.50_dp
       ptable(117)%vdw_radius = 2.00_dp
       ptable(117)%e_conv(0:3) = (/ 14, 35, 40, 28 /)
       ptable(117)%eht_param(0:3) = (/ z, z, z, z/)
@@ -1431,7 +1309,6 @@ CONTAINS
       ptable(118)%number = 118
       ptable(118)%amass = 294.0_dp ! (294)
       ptable(118)%covalent_radius = 1.50_dp
-      ptable(118)%cdft_radius = 1.50_dp
       ptable(118)%vdw_radius = 2.00_dp
       ptable(118)%e_conv(0:3) = (/ 14, 36, 40, 28 /)
       ptable(118)%eht_param(0:3) = (/ z, z, z, z/)

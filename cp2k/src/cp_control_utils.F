@@ -1757,6 +1757,16 @@ CONTAINS
 
       CALL section_vals_val_get(becke_section,"ADJUST_SIZE", &
                                 l_val=qs_control%becke_control%adjust)
+
+      IF (qs_control%becke_control%adjust) THEN
+         CALL section_vals_val_get(becke_section,"ATOMIC_RADII",r_vals=rtmplist)
+         CPASSERT(SIZE(rtmplist)>0)
+         ALLOCATE(qs_control%becke_control%radii_tmp(SIZE(rtmplist)))
+         DO  j = 1,SIZE(rtmplist)
+            qs_control%becke_control%cutoffs_tmp(j) = rtmplist(j)
+         END DO
+      END IF
+
       CALL section_vals_val_get(becke_section,"ATOMIC_CHARGES", &
                                 l_val=qs_control%becke_control%atomic_charges)
       CALL section_vals_val_get(becke_section,"SHOULD_SKIP", &

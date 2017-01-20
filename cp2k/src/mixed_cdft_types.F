@@ -73,7 +73,8 @@ MODULE mixed_cdft_types
 !> \brief Main mixed CDFT control type
 ! **************************************************************************************************     
    TYPE mixed_cdft_type
-      INTEGER                                          :: sim_step, multiplicity          
+      INTEGER                                          :: sim_step, multiplicity,&
+                                                          constraint_type, combined_type       
       INTEGER, POINTER, DIMENSION(:)                   :: source_list, dest_list,&
                                                           recv_bo, source_list_save,&
                                                           dest_list_save
