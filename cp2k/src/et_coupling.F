@@ -37,6 +37,7 @@ MODULE et_coupling
                                               cp_print_key_unit_nr
    USE cp_para_types,                   ONLY: cp_para_env_type
    USE cp_realspace_grid_cube,          ONLY: cp_pw_to_cube  
+   USE cp_units,                        ONLY: cp_unit_from_cp2k
    USE cube_utils,                      ONLY: cube_info_type 
    USE hirshfeld_types,                 ONLY: get_hirshfeld_info,&
                                               set_hirshfeld_info,&
