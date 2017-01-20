@@ -2092,7 +2092,7 @@ CONTAINS
       IF (in_memory .NEQV. calculate_forces)&
          CALL cp_abort(__LOCATION__, "The flag BECKE_RESTRAINT\IN_MEMORY must be activated "//&
                       "for the calculation of mixed CDFT forces")
-      IF (in_memory) ALLOCATE (coefficients(natom))
+      IF (in_memory .OR. mixed_cdft%first_iteration) ALLOCATE (coefficients(natom))
       DO i=1,mixed_cdft%becke_control%natoms
          catom(i)=mixed_cdft%becke_control%atoms(i)
          IF (mixed_cdft%becke_control%dynamic_confine .OR. &
@@ -2101,7 +2101,7 @@ CONTAINS
              mixed_cdft%becke_control%should_skip .OR. &
              mixed_cdft%first_iteration)&
            is_constraint(catom(i))=.TRUE.
-         IF (in_memory)&
+         IF (in_memory .OR. mixed_cdft%first_iteration)&
            coefficients(catom(i))=mixed_cdft%becke_control%coeff(i)
       ENDDO
       CALL pw_env_get(pw_env=mixed_cdft%pw_env,auxbas_pw_pool=auxbas_pw_pool)
@@ -3888,6 +3888,8 @@ CONTAINS
          DEALLOCATE(work,work_dlb,mixed_cdft%dlb_control%expected_work)
       END IF 
       NULLIFY(gradients,weight, cavity)
+      IF (ALLOCATED(coefficients)) &
+         DEALLOCATE (coefficients)
       IF (in_memory) THEN
          DEALLOCATE(ds_dR_j)
          DEALLOCATE(ds_dR_i)
@@ -3895,7 +3897,6 @@ CONTAINS
          DEALLOCATE(d_sum_const_dR) 
          DEALLOCATE(dP_i_dRj) 
          DEALLOCATE(dP_i_dRi)  
-         DEALLOCATE (coefficients)
          NULLIFY(gradients)
          IF (store_vectors) THEN
             DEALLOCATE(pair_dist_vecs)
