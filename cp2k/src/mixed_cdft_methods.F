@@ -2156,7 +2156,7 @@ CONTAINS
             IF (build) THEN
                CALL get_atomic_kind(atomic_kind=particle_set(iatom)%atomic_kind,&
                                     kind_number=ikind)
-               ircov = mixed_cdft%qs_control%becke_control%radii(ikind)
+               ircov = mixed_cdft%becke_control%radii(ikind)
                CALL get_atomic_kind(atomic_kind=particle_set(jatom)%atomic_kind,&
                                     kind_number=ikind)
                jrcov = mixed_cdft%becke_control%radii(ikind)
