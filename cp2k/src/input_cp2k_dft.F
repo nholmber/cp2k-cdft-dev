@@ -4241,8 +4241,8 @@ CONTAINS
                           description="Parameter used to select which atoms contribute to the"//&
                           " weight function at each real space grid point.",&
                           usage="GLOBAL_CUTOFF <REAL>",&
-                          unit_str="bohr",&
-                          default_r_val=cp_unit_to_cp2k(6.0_dp,"bohr"),&
+                          unit_str="angstrom",&
+                          default_r_val=cp_unit_from_cp2k(6.0_dp,"bohr"),&
                           type_of_var=real_t, n_var=1)
       CALL section_add_keyword(section, keyword)
       CALL keyword_release(keyword)
@@ -4252,7 +4252,7 @@ CONTAINS
                           " weight function at each real space grid point. Give one value per element in the same order as they"//&
                           " appear in the coordinates. Defaults to 6.0 a.u. for each element",&
                           usage="ELEMENT_CUTOFF {real} {real} {real}", repeats=.FALSE.,&
-                          unit_str="bohr",&
+                          unit_str="angstrom",&
                           type_of_var=real_t, n_var=-1)
       CALL section_add_keyword(section, keyword)
       CALL keyword_release(keyword)

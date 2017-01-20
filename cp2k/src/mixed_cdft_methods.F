@@ -2253,7 +2253,8 @@ CONTAINS
           nkind = SIZE(qs_kind_set)
           IF(.NOT.ASSOCIATED(cavity_env%kind_shape_fn))&
              CALL create_shape_function(cavity_env,qs_kind_set,atomic_kind_set,&
-                                        radius=mixed_cdft%becke_control%rcavity)
+                                        radius=mixed_cdft%becke_control%rcavity,&
+                                        radii_list=mixed_cdft%becke_control%radii)
           NULLIFY(rs_cavity)
           CALL pw_env_get(pw_env=mixed_cdft%pw_env,auxbas_rs_grid=rs_cavity,&
                           auxbas_pw_pool=auxbas_pw_pool)
@@ -2331,6 +2332,8 @@ CONTAINS
                                           middle_name="BECKE_CAVITY",&
                                           extension=".cube",file_position="REWIND",&
                                           log_filename=.FALSE.)
+             IF (force_env%para_env%mepos == force_env%para_env%source .AND. unit_nr .LT. 1) &
+                     CPABORT("Please turn on PROGRAM_RUN_INFO to print cavity")
              CALL cp_pw_to_cube(mixed_cdft%becke_control%cavity%pw,&
                                unit_nr,"CAVITY",particles=particles,&
                                stride=stride)
