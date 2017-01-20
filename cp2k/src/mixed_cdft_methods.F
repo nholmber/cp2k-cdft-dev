@@ -2156,10 +2156,10 @@ CONTAINS
             IF (build) THEN
                CALL get_atomic_kind(atomic_kind=particle_set(iatom)%atomic_kind,&
                                     kind_number=ikind)
-               ircov = dft_control%qs_control%becke_control%radii(ikind)
+               ircov = mixed_cdft%qs_control%becke_control%radii(ikind)
                CALL get_atomic_kind(atomic_kind=particle_set(jatom)%atomic_kind,&
                                     kind_number=ikind)
-               jrcov = dft_control%qs_control%becke_control%radii(ikind)
+               jrcov = mixed_cdft%becke_control%radii(ikind)
                IF (ircov .NE. jrcov) THEN
                   chi = ircov/jrcov
                   uij = (chi-1.0_dp)/(chi+1.0_dp)
@@ -2193,7 +2193,7 @@ CONTAINS
                   CALL get_atomic_kind(atomic_kind=particle_set(iatom)%atomic_kind,&
                                        element_symbol=element_symbol,&
                                        kind_number=ikind)
-                  ircov = dft_control%qs_control%becke_control%radii(ikind)
+                  ircov = mixed_cdft%becke_control%radii(ikind)
                   IF (is_constraint(iatom)) THEN
                      coef = coefficients(iatom)
                   ELSE
