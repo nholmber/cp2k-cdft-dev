@@ -2193,7 +2193,7 @@ CONTAINS
                   CALL get_atomic_kind(atomic_kind=particle_set(iatom)%atomic_kind,&
                                        element_symbol=element_symbol,&
                                        kind_number=ikind)
-                  ircov = mixed_cdft%becke_control%radii(ikind)
+                  ircov = cp_unit_from_cp2k(mixed_cdft%becke_control%radii(ikind), "angstrom")
                   IF (is_constraint(iatom)) THEN
                      coef = coefficients(iatom)
                   ELSE
