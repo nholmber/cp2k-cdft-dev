@@ -796,8 +796,9 @@ CONTAINS
             WRITE(output_unit,'(A)') "  "
             SELECT CASE (dft_control%qs_control%becke_control%cutoff_type)
             CASE (becke_cutoff_global)
-               WRITE(output_unit,'(A,F8.3)') &
-                  "  Cutoff for partitioning :", dft_control%qs_control%becke_control%rglobal
+               WRITE(output_unit,'(A,F8.3,A)') &
+                  "  Cutoff for partitioning :", cp_unit_from_cp2k(dft_control%qs_control%becke_control%rglobal,&
+                  "angstrom", " angstrom"
             CASE (becke_cutoff_element)
                WRITE(output_unit,'(A)') &
                   "  Using element specific cutoffs for partitioning"
@@ -846,8 +847,9 @@ CONTAINS
                WRITE(output_unit,'(A)') "  Confinement using a Gaussian shaped cavity is active"
                SELECT CASE(dft_control%qs_control%becke_control%cavity_shape)
                CASE (radius_single)
-                  WRITE(output_unit,'(A,F8.4)') &
-                     "  Type of Gaussian        : Fixed radius : ", dft_control%qs_control%becke_control%rcavity
+                  WRITE(output_unit,'(A,F8.4, A)') &
+                     "  Type of Gaussian        : Fixed radius: ", cp_unit_from_cp2k(dft_control%qs_control%,&
+                     becke_control%rcavity, "angstrom"), " angstrom"
                CASE (radius_covalent)
                   WRITE(output_unit,'(A)') &
                      "  Type of Gaussian        : Covalent radius "
@@ -869,8 +871,9 @@ CONTAINS
                WRITE(output_unit,'(A)') "  Confinement using a Gaussian shaped cavity is active"
                SELECT CASE(dft_control%qs_control%becke_control%cavity_shape)
                CASE (radius_single)
-                  WRITE(output_unit,'(A,F8.4)') &
-                     "  Type of Gaussian        : Fixed radius: ", dft_control%qs_control%becke_control%rcavity
+                  WRITE(output_unit,'(A,F8.4,A)') &
+                     "  Type of Gaussian        : Fixed radius: ", cp_unit_from_cp2k(dft_control%qs_control%,&
+                     becke_control%rcavity, "angstrom"), " angstrom"
                CASE (radius_covalent)
                   WRITE(output_unit,'(A)') &
                      "  Type of Gaussian        : Covalent radius "

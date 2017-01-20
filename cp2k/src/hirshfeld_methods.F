@@ -16,7 +16,8 @@ MODULE hirshfeld_methods
    USE cell_types,                      ONLY: cell_type,&
                                               pbc
    USE cp_control_types,                ONLY: dft_control_type
-   USE cp_para_types,                   ONLY: cp_para_env_type
+   USE cp_para_types,                   ONLY: cp_para_env_type,&
+   USE cp_units,                        ONLY: cp_unit_to_cp2k
    USE cube_utils,                      ONLY: cube_info_type
    USE hirshfeld_types,                 ONLY: get_hirshfeld_info,&
                                               hirshfeld_type,&
@@ -177,10 +178,16 @@ CONTAINS
                rco = radii_list(ikind)
             CASE (radius_vdw)
                CALL get_ptable_info(symbol=esym,vdw_radius=rco,found=found)
-               IF(.NOT.found) rco = MAX(rco,1.0_dp)
+               IF(.NOT.found) THEN
+                  rco = MAX(rco,1.0_dp)
+               ELSE
+                  rco = cp_unit_to_cp2k(rco, "angstrom")
             CASE (radius_covalent)
                CALL get_ptable_info(symbol=esym,covalent_radius=rco,found=found)
-               IF(.NOT.found) rco = MAX(rco,1.0_dp)
+               IF(.NOT.found) THEN
+                  rco = MAX(rco,1.0_dp)
+               ELSE
+                  rco = cp_unit_to_cp2k(rco, "angstrom")
             CASE (radius_single)
                CPASSERT(PRESENT(radius))
                rco=radius

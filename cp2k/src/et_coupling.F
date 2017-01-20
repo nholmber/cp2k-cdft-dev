@@ -812,6 +812,8 @@ CONTAINS
                                                middle_name="BECKE_CAVITY",&
                                                extension=".cube",file_position="REWIND",&
                                                log_filename=.FALSE.)
+                  IF (para_env%mepos == para_env%source .AND. unit_nr .LT. 1) &
+                     CPABORT("Please turn on PROGRAM_RUN_INFO to print cavity")
                   CALL get_qs_env(qs_env,subsys=subsys)
                   CALL qs_subsys_get(subsys,particles=particles)
                   CALL cp_pw_to_cube(dft_control%qs_control%becke_control%cavity%pw,&
