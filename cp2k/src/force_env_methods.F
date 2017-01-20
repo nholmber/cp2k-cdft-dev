@@ -884,6 +884,8 @@ CONTAINS
 
          ! Get Mapping index array
          natom = SIZE(particles(iforce_eval)%list%els)
+         ! map_index may already be allocated if force_env%mixed_env%ngroups==1
+         IF (ASSOCIATED(map_index)) DEALLOCATE(map_index)
          CALL get_subsys_map_index(mapping_section, natom, iforce_eval, nforce_eval, &
                                    map_index)
 
