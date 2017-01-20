@@ -489,6 +489,19 @@ CONTAINS
 
           becke_const%pw%cr3d=0.0_dp
 
+          ! Setup atomic radii for adjusting cell boundaries
+          IF (dft_control%qs_control%becke_control%cutoffs%adjust) THEN
+             IF(.NOT.ASSOCIATED(dft_control%qs_control%becke_control%radii)) THEN
+                CALL get_qs_env(qs_env, atomic_kind_set=atomic_kind_set)
+                IF (.NOT. SIZE(atomic_kind_set)==SIZE(dft_control%qs_control%becke_control%radii_tmp))&
+                   CALL cp_abort(__LOCATION__, "Length of keyword BECKE_RESTRAINT\ATOMIC_RADII does not "//&
+                                 "match number of atomic kinds in the input coordinate file.")
+                ALLOCATE(dft_control%qs_control%becke_control%radii(SIZE(atomic_kind_set)))
+                dft_control%qs_control%becke_control%radii(:) = dft_control%qs_control%becke_control%radii_tmp(:)
+                DEALLOCATE(dft_control%qs_control%becke_control%radii_tmp)
+             END IF
+          END IF
+
           ! Setup cutoff scheme
           IF(.NOT.ASSOCIATED(dft_control%qs_control%becke_control%cutoffs)) THEN
              CALL get_qs_env(qs_env, atomic_kind_set=atomic_kind_set)
@@ -626,11 +639,11 @@ CONTAINS
                 ! Set up heteronuclear cell partitioning using user defined radii
                 IF (build) THEN
                    CALL get_atomic_kind(atomic_kind=particle_set(iatom)%atomic_kind,&
-                                        element_symbol=element_symbol)
-                   CALL get_ptable_info(symbol=element_symbol,cdft_radius=ircov)
+                                        kind_number=ikind)
+                   ircov = dft_control%qs_control%becke_control%radii(ikind)
                    CALL get_atomic_kind(atomic_kind=particle_set(jatom)%atomic_kind,&
-                                        element_symbol=element_symbol)
-                   CALL get_ptable_info(symbol=element_symbol,cdft_radius=jrcov)
+                                        kind_number=ikind)
+                   jrcov = dft_control%qs_control%becke_control%radii(ikind)
                    IF (ircov .NE. jrcov) THEN
                       chi = ircov/jrcov
                       uij = (chi-1.0_dp)/(chi+1.0_dp)
@@ -658,8 +671,9 @@ CONTAINS
                       'Atom  Element   Coefficient','     Cutoff (a.u.)    CDFT Radius (angstrom)'
                    DO iatom = 1, natom
                       CALL get_atomic_kind(atomic_kind=particle_set(iatom)%atomic_kind,&
-                                           element_symbol=element_symbol)
-                      CALL get_ptable_info(symbol=element_symbol,cdft_radius=ircov)
+                                           element_symbol=element_symbol,&
+                                           kind_number=ikind)
+                      ircov = dft_control%qs_control%becke_control%radii(ikind)
                       IF (is_constraint(iatom)) THEN
                          coef = coefficients(iatom)
                       ELSE
@@ -718,7 +732,8 @@ CONTAINS
              ! Setup Gaussian shape function
              IF(.NOT.ASSOCIATED(cavity_env%kind_shape_fn))&
                 CALL create_shape_function(cavity_env,qs_kind_set,atomic_kind_set,&
-                                           radius=dft_control%qs_control%becke_control%rcavity)
+                                           radius=dft_control%qs_control%becke_control%rcavity,&
+                                           radii_list=dft_control%qs_control%becke_control%radii)
              ! Form cavity by summing isolated Gaussian densities over constraint atoms  
              NULLIFY(rs_cavity)
              CALL pw_env_get(pw_env,auxbas_rs_grid=rs_cavity,&

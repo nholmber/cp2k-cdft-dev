@@ -78,7 +78,9 @@ MODULE mixed_cdft_methods
    USE input_constants,                 ONLY: do_spin_density,&
                                               becke_cutoff_global,&
                                               becke_cutoff_element,&
-                                              shape_function_gaussian
+                                              shape_function_gaussian,&
+                                              cdft_density_constraint,&
+                                              cdft_combined_all
    USE input_section_types,             ONLY: section_vals_get,&
                                               section_vals_get_subs_vals,&
                                               section_vals_type,&
@@ -336,7 +338,7 @@ CONTAINS
       atoms = 0
       ALLOCATE(coeffs(SIZE(particles_mix%els),nforce_eval))
       coeffs = 0.0_dp
-      ALLOCATE(settings_int(14,nforce_eval))
+      ALLOCATE(settings_int(16,nforce_eval))
       settings_int = 0
       ALLOCATE(settings_real(6,nforce_eval))
       settings_real = 0.0_dp
@@ -344,6 +346,8 @@ CONTAINS
       confine_bounds = 0.0_dp
       max_nkinds = 30
       ALLOCATE(cutoffs(max_nkinds,nforce_eval))
+      cutoffs = 0.0_dp
+      ALLOCATE(radii(max_nkinds,nforce_eval))
       cutoffs = 0.0_dp
       ! Get information from the sub_force_envs
       ! TODO: transfer logicals as logicals instead of ints
@@ -356,7 +360,8 @@ CONTAINS
          END IF
          CALL get_qs_env(qs_env, pw_env=pw_env, dft_control=dft_control)
          IF (.NOT. dft_control%qs_control%becke_restraint) &
-            CPABORT("Becke constraint must be active in QS section of both force_evals!")
+            CALL cp_abort(__LOCATION__, "Mixed CDFT currently only supports the Becke constraint."//&
+                         "Becke constraint must be active in QS section of both force_evals!")
          CALL pw_env_get(pw_env, auxbas_pw_pool=auxbas_pw_pool)
          bo=auxbas_pw_pool%pw_grid%bounds_local
          ! Only the rank 0 process collects info about pw_grid and becke
@@ -399,6 +404,8 @@ CONTAINS
             ELSE
               settings_int(14,iforce_eval) = 0
             END IF
+            settings_int(15,iforce_eval) = dft_control%qs_control%becke_control%constraint_type
+            settings_int(16,iforce_eval) = dft_control%qs_control%becke_control%combined_type
             settings_real(1,iforce_eval) = dft_control%qs_control%becke_control%dynamic_radius
             settings_real(2,iforce_eval) = dft_control%qs_control%becke_control%rcavity
             settings_real(3,iforce_eval) = dft_control%qs_control%becke_control%rglobal
@@ -414,6 +421,19 @@ CONTAINS
                                 " your input is correct? If yes, please increase max_nkinds and recompile.")
                cutoffs(1:nkinds,iforce_eval)=dft_control%qs_control%becke_control%cutoffs_tmp(:)
                DEALLOCATE(dft_control%qs_control%becke_control%cutoffs_tmp) 
+            END IF
+            IF (dft_control%qs_control%becke_control%adjust) THEN
+               CALL get_qs_env(qs_env, atomic_kind_set=atomic_kind_set)
+               IF (.NOT. SIZE(atomic_kind_set)==SIZE(dft_control%qs_control%becke_control%radii_tmp))&
+                  CALL cp_abort(__LOCATION__, "Length of keyword BECKE_RESTRAINT\ATOMIC_RADII does not "//&
+                                "match number of atomic kinds in the input coordinate file.")
+               nkinds = SIZE(dft_control%qs_control%becke_control%radii_tmp)
+               IF (nkinds .GT. max_nkinds) &
+                  CALL cp_abort(__LOCATION__, "More than "//TRIM(cp_to_string(max_nkinds))//" unique elements"//&
+                                "were defined in BECKE_RESTRAINT\ATOMIC_RADII. Are you sure"//&
+                                " your input is correct? If yes, please increase max_nkinds and recompile.")   
+               radii(1:nkinds,iforce_eval) = dft_control%qs_control%becke_control%radii_tmp(:)
+               DEALLOCATE(dft_control%qs_control%becke_control%radii_tmp)
             END IF
          END IF
       END DO
@@ -469,16 +489,17 @@ CONTAINS
       IF (.NOT. is_match) CPABORT("Mismatch detected in the &BECKE_RESTRAINT&CONFINE_BOUNDS of the two force_evals.")
       mixed_cdft%becke_control%confine_method = settings_int(1,1) 
       mixed_cdft%becke_control%cutoff_type = settings_int(2,1)
+      nkinds = 0
       IF (mixed_cdft%becke_control%cutoff_type == becke_cutoff_element) THEN
          CALL mp_sum(cutoffs,force_env%para_env%group)
          DO i=1,SIZE(cutoffs,1)
             IF (cutoffs(i,1) /= cutoffs(i,2)) is_match = .FALSE.
             IF (cutoffs(i,1) /= 0.0_dp) nkinds = nkinds + 1
          END DO
-         IF (.NOT. is_match) CPABORT("Mismatch detected in the &BECKE_RESTRAINT&ELEMENT_CUTOFF of the two force_evals.")
+         IF (.NOT. is_match) CPABORT("Mismatch detected in the &BECKE_RESTRAINT&ATOMIC_RADII of the two force_evals.")
          ALLOCATE(mixed_cdft%becke_control%cutoffs_tmp(nkinds))
          mixed_cdft%becke_control%cutoffs_tmp = cutoffs(1:nkinds,1)
-      END IF
+      END IF   
       IF (settings_int(3,1) == 1) mixed_cdft%becke_control%confine = .TRUE.
       IF (settings_int(4,1) == 1) mixed_cdft%becke_control%dynamic_confine = .TRUE.
       IF (settings_int(5,1) == 1) mixed_cdft%becke_control%cavity_confine = .TRUE.
@@ -487,11 +508,26 @@ CONTAINS
       IF (settings_int(8,1) == 1) mixed_cdft%becke_control%in_memory = .TRUE.
       mixed_cdft%becke_control%confine_dir = settings_int(9,1)
       IF (settings_int(10,1) == 1) mixed_cdft%becke_control%adjust = .TRUE.
+      IF (mixed_cdft%becke_control%adjust) THEN
+         CALL mp_sum(radii, force_env%para_env%group)
+         DO i=1,SIZE(radii,1)
+            IF (radii(i,1) /= radii(i,2)) is_match = .FALSE.
+            IF (radii(i,1) /= 0.0_dp) nkinds = nkinds + 1
+         END DO
+         IF (.NOT. is_match) CPABORT("Mismatch detected in the &BECKE_RESTRAINT&ELEMENT_CUTOFF of the two force_evals.")
+         ALLOCATE(mixed_cdft%becke_control%radii(nkinds))
+         mixed_cdft%becke_control%radii = radii(1:nkinds,1)
+      END IF   
       IF (settings_int(11,1) == 1) mixed_cdft%becke_control%atomic_charges = .TRUE.
       mixed_cdft%becke_control%cavity_shape = settings_int(12,1)
       mixed_cdft%multiplicity = settings_int(13,1)
       mixed_cdft%has_unit_metric = .FALSE. 
-      IF (settings_int(14,1) == 1) mixed_cdft%has_unit_metric = .FALSE. 
+      IF (settings_int(14,1) == 1) mixed_cdft%has_unit_metric = .FALSE.
+      mixed_cdft%constraint_type = settings_int(15,1)
+      IF (mixed_cdft%constraint_type /= cdft_density_constraint) &
+         CALL cp_abort(__LOCATION__, "Unsupported constraint type. Mixed CDFT only accepts total density "//&
+                      " density constraints at this moment.")
+      mixed_cdft%combined_type = settings_int(16,1) 
       mixed_cdft%becke_control%dynamic_radius = settings_real(1,1)
       mixed_cdft%becke_control%rcavity =  settings_real(2,1)
       mixed_cdft%becke_control%rglobal = settings_real(3,1)
@@ -576,6 +612,7 @@ CONTAINS
       DEALLOCATE(atoms)
       DEALLOCATE(coeffs)
       DEALLOCATE(cutoffs)
+      DEALLOCATE(radii)
       DEALLOCATE(settings_int)
       DEALLOCATE(settings_real)
       DEALLOCATE(confine_bounds)
@@ -2119,11 +2156,11 @@ CONTAINS
             END IF
             IF (build) THEN
                CALL get_atomic_kind(atomic_kind=particle_set(iatom)%atomic_kind,&
-                                    element_symbol=element_symbol)
-               CALL get_ptable_info(symbol=element_symbol,cdft_radius=ircov)
+                                    kind_number=ikind)
+               ircov = dft_control%qs_control%becke_control%radii(ikind)
                CALL get_atomic_kind(atomic_kind=particle_set(jatom)%atomic_kind,&
-                                    element_symbol=element_symbol)
-               CALL get_ptable_info(symbol=element_symbol,cdft_radius=jrcov)
+                                    kind_number=ikind)
+               jrcov = dft_control%qs_control%becke_control%radii(ikind)
                IF (ircov .NE. jrcov) THEN
                   chi = ircov/jrcov
                   uij = (chi-1.0_dp)/(chi+1.0_dp)
@@ -2155,8 +2192,9 @@ CONTAINS
                   'Atom  Element   Coefficient','     Cutoff (a.u.)    CDFT Radius (angstrom)'
                DO iatom = 1, natom
                   CALL get_atomic_kind(atomic_kind=particle_set(iatom)%atomic_kind,&
-                                       element_symbol=element_symbol)
-                  CALL get_ptable_info(symbol=element_symbol,cdft_radius=ircov)
+                                       element_symbol=element_symbol,&
+                                       kind_number=ikind)
+                  ircov = dft_control%qs_control%becke_control%radii(ikind)
                   IF (is_constraint(iatom)) THEN
                      coef = coefficients(iatom)
                   ELSE

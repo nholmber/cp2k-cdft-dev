@@ -2839,6 +2839,7 @@ CONTAINS
       INTEGER, DIMENSION(:), POINTER                     :: atom_list
       LOGICAL                                            :: do_sc, paw_atom, do_radius
       REAL(KIND=dp)                                      :: zeff
+      INTEGER, DIMENSION(:), POINTER                     :: radii
       REAL(KIND=dp), DIMENSION(:, :), POINTER            :: charges
       TYPE(atomic_kind_type), DIMENSION(:), POINTER      :: atomic_kind_set
       TYPE(atomic_kind_type), POINTER                    :: atomic_kind
@@ -2853,6 +2854,7 @@ CONTAINS
       TYPE(rho0_mpole_type), POINTER                     :: rho0_mpole
 
       NULLIFY (hirshfeld_env)
+      NULLIFY (radii)
       CALL create_hirshfeld_type(hirshfeld_env)
       !
       CALL get_qs_env(qs_env, nkind=nkind, natom=natom)
@@ -2864,6 +2866,11 @@ CONTAINS
       CALL section_vals_val_get(input_section, "REFERENCE_CHARGE", i_val=refc)
       IF (do_radius) THEN
          radius_type = radius_user
+         CALL section_vals_val_get(input_section,"ATOMIC_RADII",r_vals=radii)
+         IF (.NOT. SIZE(radii)==nkind) &
+            CALL cp_abort(__LOCATION__, "Length of keyword HIRSHFELD\ATOMIC_RADII does not "//&
+                         "match number of atomic kinds in the input coordinate file."))
+      END IF
       ELSE 
          radius_type = radius_covalent
       END IF
@@ -2872,7 +2879,8 @@ CONTAINS
                               radius_type=radius_type)
       ! shape function
       CALL get_qs_env(qs_env, qs_kind_set=qs_kind_set, atomic_kind_set=atomic_kind_set)
-      CALL create_shape_function(hirshfeld_env, qs_kind_set, atomic_kind_set)
+      CALL create_shape_function(hirshfeld_env, qs_kind_set, atomic_kind_set,&
+                                 radii_list = radii)
       ! reference charges
       CALL get_qs_env(qs_env, rho=rho)
       CALL qs_rho_get(rho, rho_ao_kp=matrix_p)

@@ -1625,11 +1625,17 @@ CONTAINS
       CALL section_add_keyword(print_key, keyword)
       CALL keyword_release(keyword)
       CALL keyword_create(keyword,name="USER_RADIUS",&
-                          description="Use user defined covalent radii for single Gaussian Hirshfeld partitioning."//&
-                          " Currently, these radii can only be modified by changing cdft_radius in periodic_table.F"//&
-                          " and recompiling. By default, the radii are identical to standard covalent radii.",&
+                          description="Use user defined radii to generate Gaussians."//&
+                          " These radii are defined by the keyword ATOMIC_RADII",&
                           usage="USER_RADIUS yes",repeats=.FALSE.,n_var=1,&
                           default_l_val=.FALSE.,lone_keyword_l_val=.TRUE.)
+      CALL section_add_keyword(print_key, keyword)
+      CALL keyword_release(keyword)
+      CALL keyword_create(keyword,name="ATOMIC_RADII",&
+                          description="Defines custom radii to setup the spherical Gaussians.",
+                          usage="ATOMIC_RADII {real} {real} {real}", repeats=.FALSE.,&
+                          unit_str="angstrom",&
+                          type_of_var=real_t, n_var=-1)
       CALL section_add_keyword(print_key, keyword)
       CALL keyword_release(keyword)
       CALL section_add_subsection(section, print_key)
@@ -4037,7 +4043,7 @@ CONTAINS
       CPASSERT(.NOT. ASSOCIATED(section))
       CALL section_create(section, TRIM(ADJUSTL(section_name)), &
                           description="Use Becke weight population in a constraint ", &
-                          n_keywords=24, n_subsections=0, repeats=.FALSE., &
+                          n_keywords=25, n_subsections=0, repeats=.FALSE., &
                           citations=(/Becke1988b/))
 
       CALL keyword_create(keyword, name="STRENGTH",&
@@ -4097,11 +4103,20 @@ CONTAINS
 
       CALL keyword_create(keyword, name="ADJUST_SIZE",&
                           description="Adjust cell boundaries with covalent atomic"//&
-                          " radii for a heteronuclear cutoff profile. Currently, these"//&
-                          " radii can only be modified by changing cdft_radius in periodic_table.F"//&
-                          " and recompiling. ",&
+                          " radii to generate a heteronuclear cutoff profile. These"//&
+                          " radii are defined in the keyword ATOMIC_RADII.",&
                           usage="ADJUST_SIZE",&
                           default_l_val=.FALSE.,lone_keyword_l_val=.TRUE.)
+      CALL section_add_keyword(section, keyword)
+      CALL keyword_release(keyword)
+
+      CALL keyword_create(keyword,name="ATOMIC_RADII",&
+                          description="Defines atomic radii to generate a heteronuclear cutoff profile."//&
+                          " Give one value per element in the same order as they"//&
+                          " appear in the input coordinates.",&
+                          usage="ATOMIC_RADII {real} {real} {real}", repeats=.FALSE.,&
+                          unit_str="angstrom",&
+                          type_of_var=real_t, n_var=-1)
       CALL section_add_keyword(section, keyword)
       CALL keyword_release(keyword)
 
@@ -4152,7 +4167,7 @@ CONTAINS
                           enum_desc=s2a("Single Gaussian for all atom types with radius given by CAVITY_RADIUS",&
                           "Use van der Waals radii to construct Gaussians",&
                           "Use covalent radii to construct Gaussians",&
-                          "Use user defined radii (in periodic_table.F) to construct Gaussians"),&
+                          "Use user defined radii (keyword ATOMIC_RADII) to construct Gaussians"),&
                           default_i_val=radius_single)
       CALL section_add_keyword(section, keyword)
       CALL keyword_release(keyword)
@@ -4396,8 +4411,8 @@ CONTAINS
 
       CPASSERT(.NOT.ASSOCIATED(section))
       CALL section_create(section,"HIRSHFELD_CONSTRAINT",&
-                        description="Parameters for CDFT with Hirshfeld constraint",&
-                        n_keywords=10, n_subsections=0, repeats=.FALSE.)
+                          description="Parameters for CDFT with Hirshfeld constraint",&
+                          n_keywords=11, n_subsections=0, repeats=.FALSE.)
 
       CALL keyword_create(keyword, name="STRENGTH",&
                           description="Force constants of the constraints. Second value is for combined constraint and is optional.",&
@@ -4486,10 +4501,17 @@ CONTAINS
 
       CALL keyword_create(keyword,name="USER_RADIUS",&
                           description="Use user defined covalent radii for single Gaussian Hirshfeld partitioning."//&
-                          " Currently, these radii can only be modified by changing cdft_radius in periodic_table.F"//&
-                          " and recompiling. By default, the radii are identical to standard covalent radii.",&
+                          " These radii are defined by the keyword ATOMIC_RADII",&
                           usage="USER_RADIUS yes",repeats=.FALSE.,n_var=1,&
                           default_l_val=.FALSE.,lone_keyword_l_val=.TRUE.)
+      CALL section_add_keyword(section, keyword)
+      CALL keyword_release(keyword)
+
+      CALL keyword_create(keyword,name="ATOMIC_RADII",&
+                          description="Defines custom radii to setup the spherical Gaussians.",
+                          usage="ATOMIC_RADII {real} {real} {real}", repeats=.FALSE.,&
+                          unit_str="angstrom",&
+                          type_of_var=real_t, n_var=-1)
       CALL section_add_keyword(section, keyword)
       CALL keyword_release(keyword)
 
