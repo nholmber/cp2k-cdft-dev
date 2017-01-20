@@ -171,6 +171,7 @@ CONTAINS
             SELECT CASE (hirshfeld_env%radius_type)
             CASE (radius_user)
                CPASSERT(PRESENT(radii_list))
+               CPASSERT(ASSOCIATED(radii_list))
                CPASSERT(SIZE(radii_list)==nkind)
                ! Note we assume that radii_list is correctly ordered 
                rco = radii_list(ikind)

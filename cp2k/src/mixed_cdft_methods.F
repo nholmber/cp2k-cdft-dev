@@ -219,7 +219,7 @@ CONTAINS
       REAL(KIND=dp)                            :: radius
       REAL(KIND=dp), DIMENSION(:), POINTER     :: cutoff, rel_cutoff
       REAL(KIND=dp), DIMENSION(:, :), POINTER  :: coeffs, settings_real, confine_bounds,&
-                                                  cutoffs
+                                                  cutoffs, radii
       TYPE(cp_blacs_env_type), POINTER         :: blacs_env
       TYPE(global_environment_type), POINTER   :: globenv
       TYPE(atomic_kind_type), DIMENSION(:), &
