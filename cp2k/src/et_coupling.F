@@ -554,10 +554,10 @@ CONTAINS
           in_memory = .FALSE.
           IF (dft_control%qs_control%becke_control%save_pot) THEN
              in_memory = dft_control%qs_control%becke_control%in_memory
-             IF (in_memory .OR. &
-                 dft_control%qs_control%becke_control%first_iteration) &
-               ALLOCATE (coefficients(natom))
           END IF
+          IF (in_memory .OR. & dft_control%qs_control%becke_control%first_iteration) &
+            ALLOCATE (coefficients(natom))
+
           DO i=1,dft_control%qs_control%becke_control%natoms
              catom(i)=dft_control%qs_control%becke_control%atoms(i)
              IF (dft_control%qs_control%becke_control%dynamic_confine .OR. &
