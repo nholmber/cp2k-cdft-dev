@@ -347,7 +347,7 @@ CONTAINS
       ALLOCATE(cutoffs(max_nkinds,nforce_eval))
       cutoffs = 0.0_dp
       ALLOCATE(radii(max_nkinds,nforce_eval))
-      cutoffs = 0.0_dp
+      radii = 0.0_dp
       ! Get information from the sub_force_envs
       ! TODO: transfer logicals as logicals instead of ints
       DO iforce_eval = 1, nforce_eval
@@ -485,7 +485,7 @@ CONTAINS
       IF (.NOT. is_match) CPABORT("Mismatch detected in the &BECKE_RESTRAINT settings of the two force_evals.")
       is_match = is_match .AND. (confine_bounds(1,1)==confine_bounds(1,2))
       is_match = is_match .AND. (confine_bounds(2,1)==confine_bounds(2,2))
-      IF (.NOT. is_match) CPABORT("Mismatch detected in the &BECKE_RESTRAINT&CONFINE_BOUNDS of the two force_evals.")
+      IF (.NOT. is_match) CPABORT("Mismatch detected in the &BECKE_RESTRAINT&CONFINE_BOUNDS settings of the two force_evals.")
       mixed_cdft%becke_control%confine_method = settings_int(1,1) 
       mixed_cdft%becke_control%cutoff_type = settings_int(2,1)
       nkinds = 0
@@ -495,7 +495,7 @@ CONTAINS
             IF (cutoffs(i,1) /= cutoffs(i,2)) is_match = .FALSE.
             IF (cutoffs(i,1) /= 0.0_dp) nkinds = nkinds + 1
          END DO
-         IF (.NOT. is_match) CPABORT("Mismatch detected in the &BECKE_RESTRAINT&ELEMENT_CUTOFF of the two force_evals.")
+         IF (.NOT. is_match) CPABORT("Mismatch detected in the &BECKE_RESTRAINT&ELEMENT_CUTOFF settings of the two force_evals.")
          ALLOCATE(mixed_cdft%becke_control%cutoffs_tmp(nkinds))
          mixed_cdft%becke_control%cutoffs_tmp = cutoffs(1:nkinds,1)
       END IF   
@@ -513,7 +513,7 @@ CONTAINS
             IF (radii(i,1) /= radii(i,2)) is_match = .FALSE.
             IF (radii(i,1) /= 0.0_dp) nkinds = nkinds + 1
          END DO
-         IF (.NOT. is_match) CPABORT("Mismatch detected in the &BECKE_RESTRAINT&ATOMIC_RADII of the two force_evals.")
+         IF (.NOT. is_match) CPABORT("Mismatch detected in the &BECKE_RESTRAINT&ATOMIC_RADII settings of the two force_evals.")
          ALLOCATE(mixed_cdft%becke_control%radii(nkinds))
          mixed_cdft%becke_control%radii = radii(1:nkinds,1)
       END IF   
