@@ -555,7 +555,7 @@ CONTAINS
           IF (dft_control%qs_control%becke_control%save_pot) THEN
              in_memory = dft_control%qs_control%becke_control%in_memory
           END IF
-          IF (in_memory .OR. & dft_control%qs_control%becke_control%first_iteration) &
+          IF (in_memory .OR. dft_control%qs_control%becke_control%first_iteration) &
             ALLOCATE (coefficients(natom))
 
           DO i=1,dft_control%qs_control%becke_control%natoms
