@@ -182,12 +182,14 @@ CONTAINS
                   rco = MAX(rco,1.0_dp)
                ELSE
                   rco = cp_unit_to_cp2k(rco, "angstrom")
+               END IF
             CASE (radius_covalent)
                CALL get_ptable_info(symbol=esym,covalent_radius=rco,found=found)
                IF(.NOT.found) THEN
                   rco = MAX(rco,1.0_dp)
                ELSE
                   rco = cp_unit_to_cp2k(rco, "angstrom")
+               END IF
             CASE (radius_single)
                CPASSERT(PRESENT(radius))
                rco=radius
