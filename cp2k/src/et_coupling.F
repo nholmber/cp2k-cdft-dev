@@ -1172,7 +1172,7 @@ CONTAINS
                END IF
             END IF
             NULLIFY(cutoffs)
-            IF (ASSOCIATED(is_constraint)) &
+            IF (ALLOCATED(is_constraint)) &
                DEALLOCATE (is_constraint)  
             DEALLOCATE(catom)          
             DEALLOCATE(R12)
