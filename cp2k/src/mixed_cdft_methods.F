@@ -2083,7 +2083,8 @@ CONTAINS
       IF (mixed_cdft%becke_control%dynamic_confine .OR.&
           mixed_cdft%becke_control%save_pot .OR.&
           mixed_cdft%becke_control%cavity_confine .OR.&
-          mixed_cdft%becke_control%should_skip) THEN
+          mixed_cdft%becke_control%should_skip .OR.&
+          mixed_cdft%first_iteration) THEN
          ALLOCATE (is_constraint(natom))
          is_constraint=.FALSE.
       END IF
@@ -2097,7 +2098,8 @@ CONTAINS
          IF (mixed_cdft%becke_control%dynamic_confine .OR. &
              mixed_cdft%becke_control%save_pot .OR.&
              mixed_cdft%becke_control%cavity_confine.OR.&
-             mixed_cdft%becke_control%should_skip)&
+             mixed_cdft%becke_control%should_skip .OR. &
+             mixed_cdft%first_iteration)&
            is_constraint(catom(i))=.TRUE.
          IF (in_memory)&
            coefficients(catom(i))=mixed_cdft%becke_control%coeff(i)
@@ -2180,7 +2182,7 @@ CONTAINS
          END DO
       END DO
       ! Dump some additional information about the calculation
-      IF (mixed_cdft%first_iteration .AND. in_memory) THEN
+      IF (mixed_cdft%first_iteration) THEN
          print_section=>section_vals_get_subs_vals(force_env_section,"MIXED%PRINT%PROGRAM_RUN_INFO")
          iounit = cp_print_key_unit_nr(logger,print_section,'', extension='.mixedLog')
          IF (iounit>0) THEN
@@ -3900,10 +3902,7 @@ CONTAINS
          END IF
       END IF
       NULLIFY(cutoffs)
-      IF (mixed_cdft%becke_control%save_pot .OR.&
-          mixed_cdft%becke_control%dynamic_confine.OR.&
-          mixed_cdft%becke_control%cavity_confine.OR.&
-          mixed_cdft%becke_control%should_skip) &
+      IF (ASSOCIATED(is_contraint)) &
          DEALLOCATE (is_constraint)
       DEALLOCATE(catom)
       DEALLOCATE(R12)
