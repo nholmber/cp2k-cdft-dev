@@ -554,7 +554,9 @@ CONTAINS
           in_memory = .FALSE.
           IF (dft_control%qs_control%becke_control%save_pot) THEN
              in_memory = dft_control%qs_control%becke_control%in_memory
-             IF (in_memory) ALLOCATE (coefficients(natom))
+             IF (in_memory .OR. &
+                 dft_control%qs_control%becke_control%first_iteration) &
+               ALLOCATE (coefficients(natom))
           END IF
           DO i=1,dft_control%qs_control%becke_control%natoms
              catom(i)=dft_control%qs_control%becke_control%atoms(i)
@@ -564,7 +566,7 @@ CONTAINS
                  dft_control%qs_control%becke_control%should_skip .OR.&
                  dft_control%qs_control%becke_control%first_iteration)&
                 is_constraint(catom(i))=.TRUE.
-             IF (in_memory)&
+             IF (in_memory .OR.& dft_control%qs_control%becke_control%first_iteration)&
                 coefficients(catom(i))=dft_control%qs_control%becke_control%coeff(i)
           ENDDO
 
@@ -1158,6 +1160,8 @@ CONTAINS
                END DO
             END DO
             ! Release storage
+            IF (ALLOCATED(coefficients)) &
+               DEALLOCATE(coefficients)
             IF (in_memory) THEN
                DEALLOCATE(ds_dR_j)
                DEALLOCATE(ds_dR_i)
@@ -1165,7 +1169,6 @@ CONTAINS
                DEALLOCATE(d_sum_const_dR) 
                DEALLOCATE(dP_i_dRj) 
                DEALLOCATE(dP_i_dRi)  
-               DEALLOCATE(coefficients)
                NULLIFY(gradients)
                IF (store_vectors) THEN
                   DEALLOCATE(pair_dist_vecs)
