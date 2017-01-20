@@ -542,7 +542,8 @@ CONTAINS
           IF (dft_control%qs_control%becke_control%dynamic_confine .OR.&
               dft_control%qs_control%becke_control%save_pot .OR.&
               dft_control%qs_control%becke_control%cavity_confine .OR.&
-              dft_control%qs_control%becke_control%should_skip) THEN
+              dft_control%qs_control%becke_control%should_skip .OR.&
+              dft_control%qs_control%becke_control%first_iteration) THEN
              ALLOCATE (is_constraint(natom))
              is_constraint=.FALSE.
           END IF
@@ -560,7 +561,8 @@ CONTAINS
              IF (dft_control%qs_control%becke_control%dynamic_confine .OR. &
                  dft_control%qs_control%becke_control%save_pot .OR.&
                  dft_control%qs_control%becke_control%cavity_confine.OR.&
-                 dft_control%qs_control%becke_control%should_skip)&
+                 dft_control%qs_control%becke_control%should_skip .OR.&
+                 dft_control%qs_control%becke_control%first_iteration)&
                 is_constraint(catom(i))=.TRUE.
              IF (in_memory)&
                 coefficients(catom(i))=dft_control%qs_control%becke_control%coeff(i)
@@ -662,7 +664,7 @@ CONTAINS
              END DO
           END DO
           ! Dump some additional information about the calculation
-          IF (dft_control%qs_control%becke_control%first_iteration .AND. in_memory) THEN
+          IF (dft_control%qs_control%becke_control%first_iteration) THEN
              IF (iw>0) THEN
                 WRITE(iw,'(/,T3,A,T60)')&
                     '----------------------------- Becke atomic parameters -----------------------------'
@@ -958,6 +960,9 @@ CONTAINS
                               IF(jatom.NE.iatom) THEN
                                  ! Using pairwise symmetry, execute block only for such j<i 
                                  ! that have previously not been looped over
+                                 ! Note that if skip_me(jatom) = .TRUE., this means that the outer
+                                 ! loop over iatom skipped this index when iatom=jatom, but we still 
+                                 ! need to compute the pair for iatom>jatom
                                  IF (jatom<iatom) THEN
                                     IF(.NOT.skip_me(jatom)) CYCLE
                                  END IF
@@ -1167,10 +1172,7 @@ CONTAINS
                END IF
             END IF
             NULLIFY(cutoffs)
-            IF (dft_control%qs_control%becke_control%save_pot .OR.&
-                dft_control%qs_control%becke_control%dynamic_confine.OR.&
-                dft_control%qs_control%becke_control%cavity_confine.OR.&
-                dft_control%qs_control%becke_control%should_skip) &
+            IF (ASSOCIATED(is_constraint)) &
                DEALLOCATE (is_constraint)  
             DEALLOCATE(catom)          
             DEALLOCATE(R12)
@@ -1557,7 +1559,7 @@ CONTAINS
       REAL(kind=dp)                            :: dist1, dist2, dpolyn, dvol, f_3,&
                                                   my1, polyn, sum_cell_f_constr,&
                                                   sum_Pm, th, tmp_const,&
-                                                  my1_homo, rcut, eps_cavity,&
+                                                  my1_homo, eps_cavity,&
                                                   sign, sum_cell_f_combined
       REAL(kind=dp), DIMENSION(3)              :: cell_v, dist_vec_i, dist_vec_j,&
                                                   dmy_dR_i, dmy_dR_j, dr, dr1_r2,&
@@ -1570,6 +1572,7 @@ CONTAINS
                                                   R12, s_my_ij
       REAL(kind=dp), ALLOCATABLE, &
          DIMENSION(:, :, :)                    :: dP_i_dRj, ds_dR
+      REAL(KIND=dp), POINTER, DIMENSION(:)     :: cutoffs         
       REAL(KIND=dp), POINTER,&
          DIMENSION(:,:,:,:)                    :: gradients  
       TYPE(atomic_kind_type), DIMENSION(:), &
@@ -1586,7 +1589,7 @@ CONTAINS
 
       CALL timeset(routineN,handle)
       NULLIFY(atomic_kind_set, cell, para_env, dft_control, particle_set, &
-              rho, rho_r, force)
+              rho, rho_r, force, cutoffs)
 
       CALL get_qs_env(qs_env,&
                       atomic_kind_set=atomic_kind_set,&
@@ -1616,7 +1619,7 @@ CONTAINS
          END SELECT
          ALLOCATE(strength(nvar))
          strength=dft_control%qs_control%becke_control%strength
-         rcut = dft_control%qs_control%becke_control%rglobal
+         cutoffs => dft_control%qs_control%becke_control%cutoffs
          eps_cavity = dft_control%qs_control%becke_control%eps_cavity
          ALLOCATE (atom_of_kind(natom))
          ALLOCATE (kind_of(natom))
@@ -1833,7 +1836,7 @@ CONTAINS
                         END DO
                         dist_vec_i=(r-grid_p)-ANINT((r-grid_p)/cell_v)*cell_v
                         dist1=SQRT(DOT_PRODUCT(dist_vec_i,dist_vec_i))
-                        IF (dist1.LE.rcut) THEN 
+                        IF (dist1.LE.cutoffs(iatom)) THEN 
                         IF(dist1.le.th)dist1=th
                         dr_i_dR(:)= dist_vec_i(:) / dist1
                         DO jatom=1,natom
