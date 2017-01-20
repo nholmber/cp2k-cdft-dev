@@ -1763,7 +1763,7 @@ CONTAINS
          CPASSERT(SIZE(rtmplist)>0)
          ALLOCATE(qs_control%becke_control%radii_tmp(SIZE(rtmplist)))
          DO  j = 1,SIZE(rtmplist)
-            qs_control%becke_control%cutoffs_tmp(j) = rtmplist(j)
+            qs_control%becke_control%radii_tmp(j) = rtmplist(j)
          END DO
       END IF
 

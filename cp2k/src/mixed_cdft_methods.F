@@ -495,7 +495,7 @@ CONTAINS
             IF (cutoffs(i,1) /= cutoffs(i,2)) is_match = .FALSE.
             IF (cutoffs(i,1) /= 0.0_dp) nkinds = nkinds + 1
          END DO
-         IF (.NOT. is_match) CPABORT("Mismatch detected in the &BECKE_RESTRAINT&ATOMIC_RADII of the two force_evals.")
+         IF (.NOT. is_match) CPABORT("Mismatch detected in the &BECKE_RESTRAINT&ELEMENT_CUTOFF of the two force_evals.")
          ALLOCATE(mixed_cdft%becke_control%cutoffs_tmp(nkinds))
          mixed_cdft%becke_control%cutoffs_tmp = cutoffs(1:nkinds,1)
       END IF   
@@ -513,7 +513,7 @@ CONTAINS
             IF (radii(i,1) /= radii(i,2)) is_match = .FALSE.
             IF (radii(i,1) /= 0.0_dp) nkinds = nkinds + 1
          END DO
-         IF (.NOT. is_match) CPABORT("Mismatch detected in the &BECKE_RESTRAINT&ELEMENT_CUTOFF of the two force_evals.")
+         IF (.NOT. is_match) CPABORT("Mismatch detected in the &BECKE_RESTRAINT&ATOMIC_RADII of the two force_evals.")
          ALLOCATE(mixed_cdft%becke_control%radii(nkinds))
          mixed_cdft%becke_control%radii = radii(1:nkinds,1)
       END IF   
