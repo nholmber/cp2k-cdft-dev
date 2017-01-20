@@ -566,7 +566,7 @@ CONTAINS
                  dft_control%qs_control%becke_control%should_skip .OR.&
                  dft_control%qs_control%becke_control%first_iteration)&
                 is_constraint(catom(i))=.TRUE.
-             IF (in_memory .OR.& dft_control%qs_control%becke_control%first_iteration)&
+             IF (in_memory .OR. dft_control%qs_control%becke_control%first_iteration)&
                 coefficients(catom(i))=dft_control%qs_control%becke_control%coeff(i)
           ENDDO
 
