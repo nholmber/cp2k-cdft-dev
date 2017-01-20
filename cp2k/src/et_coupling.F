@@ -489,7 +489,7 @@ CONTAINS
           becke_const%pw%cr3d=0.0_dp
 
           ! Setup atomic radii for adjusting cell boundaries
-          IF (dft_control%qs_control%becke_control%cutoffs%adjust) THEN
+          IF (dft_control%qs_control%becke_control%adjust) THEN
              IF(.NOT.ASSOCIATED(dft_control%qs_control%becke_control%radii)) THEN
                 CALL get_qs_env(qs_env, atomic_kind_set=atomic_kind_set)
                 IF (.NOT. SIZE(atomic_kind_set)==SIZE(dft_control%qs_control%becke_control%radii_tmp))&
