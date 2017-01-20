@@ -2839,7 +2839,7 @@ CONTAINS
       INTEGER, DIMENSION(:), POINTER                     :: atom_list
       LOGICAL                                            :: do_sc, paw_atom, do_radius
       REAL(KIND=dp)                                      :: zeff
-      INTEGER, DIMENSION(:), POINTER                     :: radii
+      REAL(KIND=dp), DIMENSION(:), POINTER                     :: radii
       REAL(KIND=dp), DIMENSION(:, :), POINTER            :: charges
       TYPE(atomic_kind_type), DIMENSION(:), POINTER      :: atomic_kind_set
       TYPE(atomic_kind_type), POINTER                    :: atomic_kind
@@ -2869,8 +2869,7 @@ CONTAINS
          CALL section_vals_val_get(input_section,"ATOMIC_RADII",r_vals=radii)
          IF (.NOT. SIZE(radii)==nkind) &
             CALL cp_abort(__LOCATION__, "Length of keyword HIRSHFELD\ATOMIC_RADII does not "//&
-                         "match number of atomic kinds in the input coordinate file."))
-      END IF
+                         "match number of atomic kinds in the input coordinate file.")
       ELSE 
          radius_type = radius_covalent
       END IF
