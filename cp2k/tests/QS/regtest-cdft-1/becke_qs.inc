@@ -29,9 +29,10 @@
     STRENGTH        ${BECKE_STR}
     TARGET          ${BECKE_TARGET}
     @IF ( ${BECKE_CUTOFF_ELEMENT} == TRUE )
+      CUTOFF_TYPE     ELEMENT
       ELEMENT_CUTOFF  3.0 3.0
     @ENDIF
-    @IF ( ${BECKE_GLOBAL_CUTOFF} == FALSE )
+    @IF ( ${BECKE_GLOBAL_CUTOFF} == TRUE )
       CUTOFF_TYPE     GLOBAL
       GLOBAL_CUTOFF   3.0
     @ENDIF
@@ -45,7 +46,7 @@
       EPS_CAVITY      1.0E-6
       CAVITY_SHAPE    ${BECKE_CAVITY_SHAPE}
       ! For shape single
-      CAVITY_RADIUS   0.8
+      CAVITY_RADIUS   1.3
     @ENDIF
     @IF ( ${BECKE_SHOULD_SKIP} == TRUE )
       ! Defaults to false
