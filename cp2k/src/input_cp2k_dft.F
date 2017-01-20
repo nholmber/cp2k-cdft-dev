@@ -26,7 +26,8 @@ MODULE input_cp2k_dft
                                               low_print_level,&
                                               medium_print_level,&
                                               silent_print_level
-   USE cp_units,                        ONLY: cp_unit_to_cp2k
+   USE cp_units,                        ONLY: cp_unit_to_cp2k,&
+                                              cp_unit_from_cp2k
    USE input_constants,                 ONLY: &
         atomic_guess, casci_canonical, cholesky_dbcsr, cholesky_inverse, cholesky_off, &
         cholesky_reduce, cholesky_restore, constant_env, core_guess, custom_env, &
@@ -4242,7 +4243,7 @@ CONTAINS
                           " weight function at each real space grid point.",&
                           usage="GLOBAL_CUTOFF <REAL>",&
                           unit_str="angstrom",&
-                          default_r_val=cp_unit_from_cp2k(6.0_dp,"bohr"),&
+                          default_r_val=cp_unit_from_cp2k(6.0_dp,"angstrom"),&
                           type_of_var=real_t, n_var=1)
       CALL section_add_keyword(section, keyword)
       CALL keyword_release(keyword)
