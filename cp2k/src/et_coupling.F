@@ -67,7 +67,6 @@ MODULE et_coupling
    USE message_passing,                 ONLY: mp_sum
    USE particle_list_types,             ONLY: particle_list_type
    USE particle_types,                  ONLY: particle_type
-   USE periodic_table,                  ONLY: get_ptable_info
    USE pw_env_types,                    ONLY: pw_env_get,&
                                               pw_env_type
    USE pw_methods,                      ONLY: pw_integrate_function,&

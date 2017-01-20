@@ -108,7 +108,6 @@ MODULE mixed_cdft_methods
                                               set_mixed_env
    USE particle_list_types,             ONLY: particle_list_type
    USE particle_types,                  ONLY: particle_type
-   USE periodic_table,                  ONLY: get_ptable_info  
    USE pw_env_types,                    ONLY: pw_env_get,&
                                               pw_env_type
    USE pw_env_methods,                  ONLY: pw_env_create
