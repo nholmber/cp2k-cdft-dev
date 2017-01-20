@@ -1632,7 +1632,7 @@ CONTAINS
       CALL section_add_keyword(print_key, keyword)
       CALL keyword_release(keyword)
       CALL keyword_create(keyword,name="ATOMIC_RADII",&
-                          description="Defines custom radii to setup the spherical Gaussians.",
+                          description="Defines custom radii to setup the spherical Gaussians.",&
                           usage="ATOMIC_RADII {real} {real} {real}", repeats=.FALSE.,&
                           unit_str="angstrom",&
                           type_of_var=real_t, n_var=-1)
