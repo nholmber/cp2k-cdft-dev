@@ -798,7 +798,7 @@ CONTAINS
             CASE (becke_cutoff_global)
                WRITE(output_unit,'(A,F8.3,A)') &
                   "  Cutoff for partitioning :", cp_unit_from_cp2k(dft_control%qs_control%becke_control%rglobal,&
-                  "angstrom", " angstrom"
+                  "angstrom"), " angstrom"
             CASE (becke_cutoff_element)
                WRITE(output_unit,'(A)') &
                   "  Using element specific cutoffs for partitioning"
@@ -848,7 +848,7 @@ CONTAINS
                SELECT CASE(dft_control%qs_control%becke_control%cavity_shape)
                CASE (radius_single)
                   WRITE(output_unit,'(A,F8.4, A)') &
-                     "  Type of Gaussian        : Fixed radius: ", cp_unit_from_cp2k(dft_control%qs_control%,&
+                     "  Type of Gaussian        : Fixed radius: ", cp_unit_from_cp2k(dft_control%qs_control%&
                      becke_control%rcavity, "angstrom"), " angstrom"
                CASE (radius_covalent)
                   WRITE(output_unit,'(A)') &
@@ -872,7 +872,7 @@ CONTAINS
                SELECT CASE(dft_control%qs_control%becke_control%cavity_shape)
                CASE (radius_single)
                   WRITE(output_unit,'(A,F8.4,A)') &
-                     "  Type of Gaussian        : Fixed radius: ", cp_unit_from_cp2k(dft_control%qs_control%,&
+                     "  Type of Gaussian        : Fixed radius: ", cp_unit_from_cp2k(dft_control%qs_control%&
                      becke_control%rcavity, "angstrom"), " angstrom"
                CASE (radius_covalent)
                   WRITE(output_unit,'(A)') &
