@@ -1864,7 +1864,7 @@ CONTAINS
          WRITE(iounit,'(T3,A,T66,(3X,F12.2))')  'Information at step (fs)          :',mixed_cdft%sim_step*mixed_cdft%sim_dt 
          WRITE(iounit,'(T3,A,T60,(3X,F18.12))') 'Strength of constraint A          :',strength_a
          WRITE(iounit,'(T3,A,T60,(3X,F18.12))') 'Strength of constraint B          :',strength_b
-         WRITE(iounit,'(T3,A,T60,(3X,F18.12))') 'Final value of constraint A:      :',Waa
+         WRITE(iounit,'(T3,A,T60,(3X,F18.12))') 'Final value of constraint A       :',Waa
          WRITE(iounit,'(T3,A,T60,(3X,F18.12))') 'Final value of constraint B       :',Wbb
          WRITE(iounit,'(T3,A,T60,(3X,F18.12))') 'Overlap between states A and B    :',Sda
          WRITE(iounit,'(T3,A,T60,(3X,F18.12))') 'Charge transfer energy (B-A) (Ha) :',(energy_b-energy_a)
@@ -2466,7 +2466,7 @@ CONTAINS
       CHARACTER(len=*), PARAMETER :: routineN = 'mixed_becke_constraint_dlb', &
          routineP = moduleN//':'//routineN
 
-      INTEGER                                  :: i, j, my_pos, my_target,&
+      INTEGER                                  :: handle, i, j, my_pos, my_target,&
                                                   nsend, nsend_max, no_underloaded,&
                                                   no_overloaded, offset, exhausted_work,&
                                                   req(4), max_targets, send_total,&
@@ -2495,6 +2495,7 @@ CONTAINS
       CHARACTER(len=2)                         :: dummy
 
       logger => cp_get_default_logger()
+      CALL timeset(routineN,handle)
       mixed_cdft%dlb_control%recv_work=.FALSE.
       mixed_cdft%dlb_control%send_work=.FALSE.
       NULLIFY(expected_work, work_index, load_imbalance, work_size, &
@@ -3180,6 +3181,7 @@ CONTAINS
          END IF
     END IF 
     DEALLOCATE(sbuff)
+    CALL timestop(handle)
 
   END SUBROUTINE mixed_becke_constraint_dlb
 
