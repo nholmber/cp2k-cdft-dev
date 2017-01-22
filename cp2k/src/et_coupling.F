@@ -672,7 +672,7 @@ CONTAINS
                     '----------------------------- Becke atomic parameters -----------------------------'
                 IF (dft_control%qs_control%becke_control%adjust) THEN
                    WRITE(iw,'(/,T3,A,A)')&
-                      'Atom  Element   Coefficient','     Cutoff (a.u.)    CDFT Radius (angstrom)'
+                      'Atom  Element   Coefficient','     Cutoff (angstrom)    CDFT Radius (angstrom)'
                    DO iatom = 1, natom
                       CALL get_atomic_kind(atomic_kind=particle_set(iatom)%atomic_kind,&
                                            element_symbol=element_symbol,&
@@ -686,12 +686,12 @@ CONTAINS
                       END IF
                       WRITE(iw,"(i7,T15,A2,T23,F8.3,T39,F8.3,T61,F8.3,T75,F8.3)")&
                          iatom,element_symbol,coef,&
-                         dft_control%qs_control%becke_control%cutoffs(iatom),&
+                         cp_unit_from_cp2k(dft_control%qs_control%becke_control%cutoffs(iatom),"angstrom"),&
                          ircov
                    END DO
                 ELSE 
                    WRITE(iw,'(/,T3,A,A)')&
-                      'Atom  Element   Coefficient','     Cutoff (a.u.)'
+                      'Atom  Element   Coefficient','     Cutoff (angstrom)'
                    DO iatom = 1, natom
                       CALL get_atomic_kind(atomic_kind=particle_set(iatom)%atomic_kind,&
                                            element_symbol=element_symbol)
@@ -702,7 +702,7 @@ CONTAINS
                       END IF
                       WRITE(iw,"(i7,T15,A2,T23,F8.3,T39,F8.3,T61,F8.3,T75)")&
                          iatom,element_symbol,coef,&
-                         dft_control%qs_control%becke_control%cutoffs(iatom)
+                         cp_unit_from_cp2k(dft_control%qs_control%becke_control%cutoffs(iatom),"angstrom")
                    END DO
                 END IF
                 WRITE(iw,'(/,T3,A)')&
@@ -1482,7 +1482,7 @@ CONTAINS
                            dft_control%qs_control%becke_control%coeff(iatom),&
                            zeff,electronic_charge(iatom,1),electronic_charge(iatom,2),&
                            (zeff-electronic_charge(iatom,1)-electronic_charge(iatom,2))
-                        tc = tc + (electronic_charge(iatom,1)-electronic_charge(iatom,2))
+                        tc = tc + (zeff-electronic_charge(iatom,1)-electronic_charge(iatom,2))
                      END DO
                      WRITE (iw,'(/,T3,A,T81,F8.3,/)') "Total Charge: ",tc
                   END IF
