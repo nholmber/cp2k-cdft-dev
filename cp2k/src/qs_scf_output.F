@@ -829,8 +829,8 @@ CONTAINS
                SELECT CASE (dft_control%qs_control%becke_control%cavity_shape)
                CASE (radius_single)
                   WRITE (output_unit, '(A,F8.4, A)') &
-                     "  Type of Gaussian        : Fixed radius: ", cp_unit_from_cp2k(dft_control%qs_control% &
-                                                                                     becke_control%rcavity, "angstrom"), " angstrom"
+                     "  Type of Gaussian        : Fixed radius: ", &
+                     cp_unit_from_cp2k(dft_control%qs_control%becke_control%rcavity, "angstrom"), " angstrom"
                CASE (radius_covalent)
                   WRITE (output_unit, '(A)') &
                      "  Type of Gaussian        : Covalent radius "
@@ -853,8 +853,8 @@ CONTAINS
                SELECT CASE (dft_control%qs_control%becke_control%cavity_shape)
                CASE (radius_single)
                   WRITE (output_unit, '(A,F8.4,A)') &
-                     "  Type of Gaussian        : Fixed radius: ", cp_unit_from_cp2k(dft_control%qs_control% &
-                                                                                     becke_control%rcavity, "angstrom"), " angstrom"
+                     "  Type of Gaussian        : Fixed radius: ", &
+                     cp_unit_from_cp2k(dft_control%qs_control%becke_control%rcavity, "angstrom"), " angstrom"
                CASE (radius_covalent)
                   WRITE (output_unit, '(A)') &
                      "  Type of Gaussian        : Covalent radius "
