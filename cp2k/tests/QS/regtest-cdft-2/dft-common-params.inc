@@ -77,5 +77,6 @@
 &END DFT 
 &PRINT
   &FORCES ON
+    NDIGITS 13
   &END
 &END
