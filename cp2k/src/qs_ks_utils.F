@@ -232,7 +232,6 @@ CONTAINS
       CALL dbcsr_allocate_matrix_set(matrix_p, Nspin)
       DO ispin = 1, Nspin
          ALLOCATE (matrix_p(ispin)%matrix)
-         CALL dbcsr_init(matrix_p(ispin)%matrix)
          CALL dbcsr_copy(matrix_p(ispin)%matrix, rho_ao(1)%matrix, &
                          name="density matrix low spin roks")
          CALL dbcsr_set(matrix_p(ispin)%matrix, 0.0_dp)
@@ -242,7 +241,6 @@ CONTAINS
       CALL dbcsr_allocate_matrix_set(matrix_h, Nspin)
       DO ispin = 1, Nspin
          ALLOCATE (matrix_h(ispin)%matrix)
-         CALL dbcsr_init(matrix_h(ispin)%matrix)
          CALL dbcsr_copy(matrix_h(ispin)%matrix, rho_ao(1)%matrix, &
                          name="KS matrix low spin roks")
          CALL dbcsr_set(matrix_h(ispin)%matrix, 0.0_dp)
@@ -540,14 +538,12 @@ CONTAINS
                              in_space=REALSPACE)
 
       ALLOCATE (orb_density_matrix)
-      CALL dbcsr_init(orb_density_matrix)
       CALL dbcsr_copy(orb_density_matrix, rho_ao(1)%matrix, &
                       name="orb_density_matrix")
       CALL dbcsr_set(orb_density_matrix, 0.0_dp)
       orb_density_matrix_p%matrix => orb_density_matrix
 
       ALLOCATE (orb_h)
-      CALL dbcsr_init(orb_h)
       CALL dbcsr_copy(orb_h, rho_ao(1)%matrix, &
                       name="orb_density_matrix")
       CALL dbcsr_set(orb_h, 0.0_dp)
