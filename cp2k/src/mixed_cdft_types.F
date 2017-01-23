@@ -172,6 +172,7 @@ CONTAINS
          DO i = 1, SIZE(cdft_control%sendbuff)
             CALL mixed_cdft_buffers_release(cdft_control%sendbuff(i))
          END DO
+         DEALLOCATE(cdft_control%sendbuff)
       END IF
       CALL becke_control_release(cdft_control%becke_control)
       IF (ASSOCIATED(cdft_control%blacs_env)) &
@@ -201,11 +202,13 @@ CONTAINS
          DO i = 1, SIZE(dlb_control%sendbuff)
             CALL mixed_cdft_buffers_release(dlb_control%sendbuff(i))
          END DO
+         DEALLOCATE(dlb_control%sendbuff)
       END IF
       IF (ASSOCIATED(dlb_control%recvbuff)) THEN
          DO i = 1, SIZE(dlb_control%recvbuff)
             CALL mixed_cdft_p_buffers_release(dlb_control%recvbuff(i))
          END DO
+         DEALLOCATE(dlb_control%recvbuff)
       END IF
       IF (ASSOCIATED(dlb_control%recv_info)) THEN
          DO i = 1, SIZE(dlb_control%recv_info)
@@ -230,6 +233,7 @@ CONTAINS
          DEALLOCATE (dlb_control%weight)
       IF (ASSOCIATED(dlb_control%gradients)) &
          DEALLOCATE (dlb_control%gradients)
+      DEALLOCATE(dlb_control)
 
    END SUBROUTINE mixed_cdft_dlb_release
 

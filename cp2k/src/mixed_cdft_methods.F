@@ -3867,6 +3867,10 @@ CONTAINS
       DEALLOCATE (R12)
       DEALLOCATE (cell_functions)
       DEALLOCATE (skip_me)
+      IF (ASSOCIATED(completed)) &
+         DEALLOCATE (completed)
+      IF (ASSOCIATED(nsent)) &
+         DEALLOCATE (nsent)
       IF (store_vectors) THEN
          DEALLOCATE (distances)
          DEALLOCATE (distance_vecs)
