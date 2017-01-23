@@ -26,17 +26,16 @@ MODULE input_cp2k_properties_dft
    USE input_constants,                 ONLY: &
         current_gauge_atom, current_gauge_r, current_gauge_r_and_step_func, &
         current_orb_center_atom, current_orb_center_box, current_orb_center_common, &
-        current_orb_center_wannier, do_ddapc_constraint, do_ddapc_restraint, do_et_becke, &
-        do_et_ddapc, do_full_density, do_no_et, do_spin_density, ot_precond_full_all, &
-        ot_precond_full_kinetic, ot_precond_full_single, ot_precond_full_single_inverse, &
-        ot_precond_none, ot_precond_s_inverse, use_mom_ref_coac, use_mom_ref_com, &
-        use_mom_ref_user, use_mom_ref_zero, xas_dip_len, xas_dip_vel
+        current_orb_center_wannier, do_et_becke, do_et_ddapc, do_full_density, do_no_et, &
+        do_spin_density, ot_precond_full_all, ot_precond_full_kinetic, ot_precond_full_single, &
+        ot_precond_full_single_inverse, ot_precond_none, ot_precond_s_inverse, use_mom_ref_coac, &
+        use_mom_ref_com, use_mom_ref_user, use_mom_ref_zero, xas_dip_len, xas_dip_vel
    USE input_cp2k_atprop,               ONLY: create_atprop_section
-   USE input_cp2k_dft,                  ONLY: create_interp_section,&
-                                              create_localize_section,&
-                                              create_mgrid_section,&
+   USE input_cp2k_dft,                  ONLY: create_becke_restraint_section,&
                                               create_ddapc_restraint_section,&
-                                              create_becke_restraint_section
+                                              create_interp_section,&
+                                              create_localize_section,&
+                                              create_mgrid_section
    USE input_cp2k_resp,                 ONLY: create_resp_section
    USE input_cp2k_xc,                   ONLY: create_xc_section
    USE input_keyword_types,             ONLY: keyword_create,&

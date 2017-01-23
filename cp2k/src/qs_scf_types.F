@@ -333,7 +333,7 @@ CONTAINS
             END IF
             IF (ASSOCIATED(scf_env%outer_scf%inv_jacobian)) THEN
                DEALLOCATE (scf_env%outer_scf%inv_jacobian)
-            END IF            
+            END IF
             IF (ASSOCIATED(scf_env%outer_scf%energy)) THEN
                DEALLOCATE (scf_env%outer_scf%energy)
             END IF

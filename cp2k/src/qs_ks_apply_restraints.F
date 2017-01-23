@@ -8,8 +8,8 @@
 ! **************************************************************************************************
 MODULE qs_ks_apply_restraints
    USE cp_control_types,                ONLY: becke_restraint_type,&
-                                              dft_control_type,&
-                                              cdft_control_type
+                                              cdft_control_type,&
+                                              dft_control_type
    USE cp_dbcsr_operations,             ONLY: copy_dbcsr_to_fm,&
                                               copy_fm_to_dbcsr
    USE cp_fm_types,                     ONLY: cp_fm_create,&
@@ -22,12 +22,12 @@ MODULE qs_ks_apply_restraints
                                               dbcsr_set
    USE et_coupling,                     ONLY: becke_restraint,&
                                               hirshfeld_constraint
-   USE input_constants,                 ONLY: outer_scf_becke_constraint,&
-                                              outer_scf_hirshfeld_constraint,&
-                                              cdft_combined_constraint,&
+   USE input_constants,                 ONLY: cdft_combined_acceptor,&
                                               cdft_combined_all,&
-                                              cdft_combined_acceptor,&
-                                              cdft_combined_donor
+                                              cdft_combined_constraint,&
+                                              cdft_combined_donor,&
+                                              outer_scf_becke_constraint,&
+                                              outer_scf_hirshfeld_constraint
    USE kinds,                           ONLY: dp
    USE mulliken,                        ONLY: mulliken_restraint
    USE pw_methods,                      ONLY: pw_scale
@@ -76,9 +76,9 @@ CONTAINS
       CHARACTER(LEN=*), PARAMETER :: routineN = 'qs_ks_becke_restraint', &
          routineP = moduleN//':'//routineN
 
+      INTEGER                                            :: iatom
       REAL(KIND=dp)                                      :: inv_vol
       TYPE(dft_control_type), POINTER                    :: dft_control
-      INTEGER                                            :: iatom
 
       NULLIFY (dft_control)
       CALL get_qs_env(qs_env, dft_control=dft_control)
@@ -88,13 +88,13 @@ CONTAINS
          CPASSERT(SIZE(matrix_s, 2) == 1)
          !***** Check if becke potential is needed to constrain charges *****
          becke => dft_control%qs_control%becke_control
-         IF(becke%need_pot)THEN
+         IF (becke%need_pot) THEN
             CALL pw_pool_create_pw(auxbas_pw_pool, becke%becke_pot%pw, &
                                    use_data=REALDATA3D, in_space=REALSPACE)
             IF (becke%atomic_charges) THEN
                DO iatom = 1, becke%natoms
-                 CALL pw_pool_create_pw(auxbas_pw_pool,becke%charge(iatom)%pw, &
-                                        use_data=REALDATA3D, in_space=REALSPACE)
+                  CALL pw_pool_create_pw(auxbas_pw_pool, becke%charge(iatom)%pw, &
+                                         use_data=REALDATA3D, in_space=REALSPACE)
                END DO
             END IF
             CALL becke_restraint(qs_env, becke_const=becke%becke_pot, charge=becke%charge, &
@@ -108,20 +108,20 @@ CONTAINS
                   CALL pw_scale(becke%combined_weight%pw, becke%becke_pot%pw%pw_grid%dvol)
                END SELECT
             END IF
-            becke%need_pot=.FALSE.
+            becke%need_pot = .FALSE.
          ELSE
-            inv_vol=1.0_dp/becke%becke_pot%pw%pw_grid%dvol
+            inv_vol = 1.0_dp/becke%becke_pot%pw%pw_grid%dvol
             CALL pw_scale(becke%becke_pot%pw, inv_vol)
             IF (dft_control%qs_control%becke_control%constraint_type == cdft_combined_constraint) THEN
                SELECT CASE (dft_control%qs_control%becke_control%combined_type)
                CASE (cdft_combined_all)
                   ! Do nothing
                CASE (cdft_combined_acceptor, cdft_combined_donor)
-                  IF (.NOT. ASSOCIATED(becke%combined_mat))&
+                  IF (.NOT. ASSOCIATED(becke%combined_mat)) &
                      CALL pw_scale(becke%combined_weight%pw, inv_vol)
                END SELECT
             END IF
-            CALL becke_restraint(qs_env, becke%becke_pot, charge=becke%charge, calc_pot=.FALSE.,&
+            CALL becke_restraint(qs_env, becke%becke_pot, charge=becke%charge, calc_pot=.FALSE., &
                                  calculate_forces=calculate_forces)
             CALL pw_scale(becke%becke_pot%pw, becke%becke_pot%pw%pw_grid%dvol)
             IF (dft_control%qs_control%becke_control%constraint_type == cdft_combined_constraint) THEN
@@ -136,7 +136,7 @@ CONTAINS
 
          IF (dft_control%qs_control%et_coupling_calc) THEN
             ! Combined constraint not allowed
-            IF (becke%constraint_type == cdft_combined_constraint)&
+            IF (becke%constraint_type == cdft_combined_constraint) &
                CPABORT("Use MIXED_CDFT for ET coupling calculation with combined constraint.")
             IF (qs_env%et_coupling%keep_matrix) THEN
                IF (qs_env%et_coupling%first_run) THEN
@@ -175,43 +175,41 @@ CONTAINS
 !> \param auxbas_pw_pool ...
 !> \param calculate_forces ...
 !> \param cdft_control ...
-!> \param error ...
-! *****************************************************************************
+! **************************************************************************************************
    SUBROUTINE qs_ks_cdft_constraint(qs_env, auxbas_pw_pool, calculate_forces, cdft_control)
-      TYPE(qs_environment_type), POINTER       :: qs_env
-      TYPE(pw_pool_type), POINTER              :: auxbas_pw_pool
-      LOGICAL, INTENT(in)                      :: calculate_forces
-      TYPE(cdft_control_type), POINTER         :: cdft_control
-
+      TYPE(qs_environment_type), POINTER                 :: qs_env
+      TYPE(pw_pool_type), POINTER                        :: auxbas_pw_pool
+      LOGICAL, INTENT(in)                                :: calculate_forces
+      TYPE(cdft_control_type), POINTER                   :: cdft_control
 
       CHARACTER(LEN=*), PARAMETER :: routineN = 'qs_ks_cdft_constraint', &
          routineP = moduleN//':'//routineN
 
-      REAL(KIND=dp)                            :: inv_vol
-      TYPE(dft_control_type), POINTER          :: dft_control
+      REAL(KIND=dp)                                      :: inv_vol
+      TYPE(dft_control_type), POINTER                    :: dft_control
 
-      NULLIFY(dft_control)
+      NULLIFY (dft_control)
       CALL get_qs_env(qs_env, dft_control=dft_control)
-      IF(dft_control%qs_control%cdft)THEN
+      IF (dft_control%qs_control%cdft) THEN
          cdft_control => dft_control%qs_control%cdft_control
          SELECT CASE (cdft_control%type)
          CASE (outer_scf_hirshfeld_constraint)
             IF (cdft_control%need_pot) THEN
-               CALL pw_pool_create_pw(auxbas_pw_pool, cdft_control%weight%pw, use_data=REALDATA3D,&
+               CALL pw_pool_create_pw(auxbas_pw_pool, cdft_control%weight%pw, use_data=REALDATA3D, &
                                       in_space=REALSPACE)
-               CALL hirshfeld_constraint(qs_env, cdft_control, calc_pot=.TRUE.,&
+               CALL hirshfeld_constraint(qs_env, cdft_control, calc_pot=.TRUE., &
                                          calculate_forces=calculate_forces)
                CALL pw_scale(cdft_control%weight%pw, cdft_control%weight%pw%pw_grid%dvol)
-               cdft_control%need_pot=.FALSE.
+               cdft_control%need_pot = .FALSE.
             ELSE
-               inv_vol=1.0_dp/cdft_control%weight%pw%pw_grid%dvol
+               inv_vol = 1.0_dp/cdft_control%weight%pw%pw_grid%dvol
                CALL pw_scale(cdft_control%weight%pw, inv_vol)
-               CALL hirshfeld_constraint(qs_env, cdft_control, calc_pot=.FALSE.,&
+               CALL hirshfeld_constraint(qs_env, cdft_control, calc_pot=.FALSE., &
                                          calculate_forces=calculate_forces)
                CALL pw_scale(cdft_control%weight%pw, cdft_control%weight%pw%pw_grid%dvol)
             END IF
          CASE (outer_scf_becke_constraint)
-           ! Do nothing, yet. Case handled by separate call to qs_ks_becke_restraint
+            ! Do nothing, yet. Case handled by separate call to qs_ks_becke_restraint
          END SELECT
       END IF
 

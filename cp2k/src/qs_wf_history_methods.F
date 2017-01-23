@@ -1089,51 +1089,51 @@ CONTAINS
 !> \par History
 !>      05.2016 created [Nico Holmberg]
 !> \author Nico Holmberg
-! *****************************************************************************
+! **************************************************************************************************
    SUBROUTINE wfi_purge_history(qs_env)
-      TYPE(qs_environment_type), POINTER       :: qs_env
+      TYPE(qs_environment_type), POINTER                 :: qs_env
 
       CHARACTER(len=*), PARAMETER :: routineN = 'wfi_purge_history', &
          routineP = moduleN//':'//routineN
 
-      TYPE(dft_control_type), POINTER          :: dft_control
-      TYPE(qs_wf_history_type), POINTER        :: wf_history
-      INTEGER                                  :: handle, output_unit, print_level
-      TYPE(cp_logger_type), POINTER            :: logger
+      INTEGER                                            :: handle, output_unit, print_level
+      TYPE(cp_logger_type), POINTER                      :: logger
+      TYPE(dft_control_type), POINTER                    :: dft_control
+      TYPE(qs_wf_history_type), POINTER                  :: wf_history
 
-      NULLIFY(dft_control, wf_history)
+      NULLIFY (dft_control, wf_history)
 
-      CALL timeset(routineN,handle)
+      CALL timeset(routineN, handle)
       logger => cp_get_default_logger()
       print_level = logger%iter_info%print_level
-      output_unit = cp_print_key_unit_nr(logger, qs_env%input, "DFT%SCF%PRINT%PROGRAM_RUN_INFO",&
+      output_unit = cp_print_key_unit_nr(logger, qs_env%input, "DFT%SCF%PRINT%PROGRAM_RUN_INFO", &
                                          extension=".scfLog")
 
       CPASSERT(ASSOCIATED(qs_env))
-      CPASSERT(qs_env%ref_count>0)
+      CPASSERT(qs_env%ref_count > 0)
       CPASSERT(ASSOCIATED(qs_env%wf_history))
-      CPASSERT(qs_env%wf_history%ref_count>0)
+      CPASSERT(qs_env%wf_history%ref_count > 0)
       CALL get_qs_env(qs_env, dft_control=dft_control)
 
-      SELECT CASE(qs_env%wf_history%interpolation_method_nr)
-      CASE(wfi_use_guess_method_nr, wfi_use_prev_wf_method_nr,&
-           wfi_use_prev_p_method_nr, wfi_use_prev_rho_r_method_nr,&
-           wfi_frozen_method_nr)
+      SELECT CASE (qs_env%wf_history%interpolation_method_nr)
+      CASE (wfi_use_guess_method_nr, wfi_use_prev_wf_method_nr, &
+            wfi_use_prev_p_method_nr, wfi_use_prev_rho_r_method_nr, &
+            wfi_frozen_method_nr)
          ! do nothing
-      CASE(wfi_linear_wf_method_nr, wfi_linear_p_method_nr,&
-           wfi_linear_ps_method_nr, wfi_ps_method_nr,&
-           wfi_aspc_nr)
+      CASE (wfi_linear_wf_method_nr, wfi_linear_p_method_nr, &
+            wfi_linear_ps_method_nr, wfi_ps_method_nr, &
+            wfi_aspc_nr)
          IF (qs_env%wf_history%snapshot_count .GE. 2) THEN
-            IF (debug_this_module .AND. output_unit > 0)&
+            IF (debug_this_module .AND. output_unit > 0) &
                WRITE (output_unit, FMT="(T2,A)") "QS| Purging WFN history"
-            CALL wfi_create(wf_history, interpolation_method_nr=&
-                            dft_control%qs_control%wf_interpolation_method_nr,&
-                            extrapolation_order=dft_control%qs_control%wf_extrapolation_order,&
+            CALL wfi_create(wf_history, interpolation_method_nr= &
+                            dft_control%qs_control%wf_interpolation_method_nr, &
+                            extrapolation_order=dft_control%qs_control%wf_extrapolation_order, &
                             has_unit_metric=qs_env%has_unit_metric)
-            CALL set_qs_env(qs_env=qs_env,&
+            CALL set_qs_env(qs_env=qs_env, &
                             wf_history=wf_history)
             CALL wfi_release(wf_history)
-            CALL wfi_update(qs_env%wf_history, qs_env=qs_env,dt=1.0_dp)
+            CALL wfi_update(qs_env%wf_history, qs_env=qs_env, dt=1.0_dp)
          END IF
       CASE DEFAULT
          CPABORT("Unknown extrapolation method.")

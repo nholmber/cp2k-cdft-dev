@@ -46,10 +46,9 @@ MODULE qs_scf_initialization
    USE input_constants,                 ONLY: &
         broy_mix, broy_mix_new, cholesky_dbcsr, cholesky_inverse, cholesky_off, &
         diag_block_davidson, diag_block_krylov, diag_filter_matrix, diag_ot, diag_standard, &
-        direct_p_mix, kerker_mix, multisec_mix, no_mix, plus_u_lowdin, pulay_mix, &
-        wfi_frozen_method_nr, wfi_use_guess_method_nr,&
-        outer_scf_none, outer_scf_hirshfeld_constraint, ot2cdft,&
-        outer_scf_becke_constraint
+        direct_p_mix, kerker_mix, multisec_mix, no_mix, ot2cdft, outer_scf_becke_constraint, &
+        outer_scf_hirshfeld_constraint, outer_scf_none, plus_u_lowdin, pulay_mix, &
+        wfi_frozen_method_nr, wfi_use_guess_method_nr
    USE input_section_types,             ONLY: section_vals_get_subs_vals,&
                                               section_vals_type,&
                                               section_vals_val_get
@@ -86,8 +85,8 @@ MODULE qs_scf_initialization
                                               init_mo_set,&
                                               mo_set_p_type
    USE qs_outer_scf,                    ONLY: outer_loop_extrapolate,&
-                                              outer_loop_variables_count,&
-                                              outer_loop_switch
+                                              outer_loop_switch,&
+                                              outer_loop_variables_count
    USE qs_rho_atom_types,               ONLY: rho_atom_type
    USE qs_rho_methods,                  ONLY: duplicate_rho_type,&
                                               qs_rho_update_rho
@@ -172,12 +171,12 @@ CONTAINS
 
       CALL qs_scf_ensure_mixing_store(qs_env, scf_env)
 
-      ! Initialize outer loop variables: handle CDFT and regular outer loop separately 
-      dft_control%qs_control%cdft = (dft_control%qs_control%cdft .AND. my_scf_control%use_ot) 
+      ! Initialize outer loop variables: handle CDFT and regular outer loop separately
+      dft_control%qs_control%cdft = (dft_control%qs_control%cdft .AND. my_scf_control%use_ot)
       IF (dft_control%qs_control%cdft) THEN
-         CALL qs_scf_ensure_cdft_loop_vars(qs_env, scf_env, dft_control,&
+         CALL qs_scf_ensure_cdft_loop_vars(qs_env, scf_env, dft_control, &
                                            scf_control=my_scf_control)
-      ELSE 
+      ELSE
          CALL qs_scf_ensure_outer_loop_vars(scf_env, my_scf_control)
       END IF
 
@@ -293,39 +292,39 @@ CONTAINS
 
 ! *****************************************************************************
 !> \brief performs allocation of CDFT SCF variables
+!> \param qs_env ...
 !> \param scf_env ...
+!> \param dft_control ...
 !> \param scf_control ...
-!> \param error ...
-! *****************************************************************************
+! **************************************************************************************************
    SUBROUTINE qs_scf_ensure_cdft_loop_vars(qs_env, scf_env, dft_control, scf_control)
-      TYPE(qs_environment_type), POINTER       :: qs_env
-      TYPE(qs_scf_env_type), POINTER           :: scf_env
-      TYPE(dft_control_type), POINTER          :: dft_control
-      TYPE(scf_control_type), POINTER          :: scf_control
-      REAL(KIND=dp), DIMENSION(:, :), POINTER  :: outer_scf_history
+      TYPE(qs_environment_type), POINTER                 :: qs_env
+      TYPE(qs_scf_env_type), POINTER                     :: scf_env
+      TYPE(dft_control_type), POINTER                    :: dft_control
+      TYPE(scf_control_type), POINTER                    :: scf_control
 
-      CHARACTER(len=*), PARAMETER :: &
-         routineN = 'qs_scf_ensure_cdft_loop_vars', &
+      CHARACTER(len=*), PARAMETER :: routineN = 'qs_scf_ensure_cdft_loop_vars', &
          routineP = moduleN//':'//routineN
 
-      INTEGER                                  :: nhistory, nvariables, natom
-      LOGICAL                                  :: do_kpoints
+      INTEGER                                            :: nhistory, nvariables
+      LOGICAL                                            :: do_kpoints
+      REAL(KIND=dp), DIMENSION(:, :), POINTER            :: outer_scf_history
 
       CALL get_qs_env(qs_env=qs_env, do_kpoints=do_kpoints)
       ! Check only one constraint section is active
-      IF (dft_control%qs_control%becke_restraint .AND.&
-          dft_control%qs_control%cdft_control%type == outer_scf_hirshfeld_constraint)&
+      IF (dft_control%qs_control%becke_restraint .AND. &
+          dft_control%qs_control%cdft_control%type == outer_scf_hirshfeld_constraint) &
          CPABORT("Only one constraint can be active simultaneously")
       ! Test kpoints
       IF (do_kpoints) &
          CPABORT("CDFT calculation not possible with kpoints")
       ! Initialize CDFT and outer_loop variables (constraint settings active in scf_control)
       IF (dft_control%qs_control%cdft_control%constraint_control%have_scf) THEN
-         nhistory = dft_control%qs_control%cdft_control%constraint_control%max_scf + 1
+         nhistory = dft_control%qs_control%cdft_control%constraint_control%max_scf+1
          IF (scf_control%outer_scf%type /= outer_scf_none) THEN
             nvariables = outer_loop_variables_count(scf_control, &
                                                     dft_control%qs_control%cdft_control)
-         ELSE 
+         ELSE
             ! First iteration: scf_control has not yet been updated
             SELECT CASE (dft_control%qs_control%cdft_control%type)
             CASE (outer_scf_becke_constraint)
@@ -334,17 +333,17 @@ CONTAINS
                nvariables = SIZE(dft_control%qs_control%cdft_control%target)
             END SELECT
          END IF
-         ALLOCATE(dft_control%qs_control%cdft_control%constraint%variables(nvariables, nhistory))
-         ALLOCATE(dft_control%qs_control%cdft_control%constraint%count(nhistory))
+         ALLOCATE (dft_control%qs_control%cdft_control%constraint%variables(nvariables, nhistory))
+         ALLOCATE (dft_control%qs_control%cdft_control%constraint%count(nhistory))
          dft_control%qs_control%cdft_control%constraint%count = 0
-         ALLOCATE(dft_control%qs_control%cdft_control%constraint%gradient(nvariables, nhistory))
-         ALLOCATE(dft_control%qs_control%cdft_control%constraint%energy(nhistory))
+         ALLOCATE (dft_control%qs_control%cdft_control%constraint%gradient(nvariables, nhistory))
+         ALLOCATE (dft_control%qs_control%cdft_control%constraint%energy(nhistory))
          CALL qs_scf_ensure_outer_loop_vars(scf_env, scf_control)
       ENDIF
       ! Executed only on first call (OT settings active in scf_control)
       ! Save OT settings and constraint initial values in CDFT control
       ! Then switch to constraint outer_scf settings for proper initialization of history
-      NULLIFY(outer_scf_history)
+      NULLIFY (outer_scf_history)
       IF (scf_control%outer_scf%have_scf) THEN
          IF (scf_control%outer_scf%type == outer_scf_none) THEN
             dft_control%qs_control%cdft_control%ot_control%have_scf = .TRUE.
@@ -356,16 +355,16 @@ CONTAINS
             dft_control%qs_control%cdft_control%ot_control%diis_buffer_length = scf_control%outer_scf%diis_buffer_length
             dft_control%qs_control%cdft_control%ot_control%jacobian_type = scf_control%outer_scf%jacobian_type
             dft_control%qs_control%cdft_control%ot_control%bisect_trust_count = scf_control%outer_scf%bisect_trust_count
-            nvariables = 1 
+            nvariables = 1
             ! Constraint specific initializations
-            IF(dft_control%qs_control%becke_restraint) THEN
+            IF (dft_control%qs_control%becke_restraint) THEN
                nvariables = SIZE(dft_control%qs_control%becke_control%target)
-               IF (.NOT. ASSOCIATED(dft_control%qs_control%cdft_control%target))&
-                  ALLOCATE(dft_control%qs_control%cdft_control%target(nvariables))          
-               IF (.NOT. ASSOCIATED(dft_control%qs_control%cdft_control%value))&
-                  ALLOCATE(dft_control%qs_control%cdft_control%value(nvariables))
-               IF (.NOT. ASSOCIATED(dft_control%qs_control%cdft_control%strength))&
-                  ALLOCATE(dft_control%qs_control%cdft_control%strength(nvariables))        
+               IF (.NOT. ASSOCIATED(dft_control%qs_control%cdft_control%target)) &
+                  ALLOCATE (dft_control%qs_control%cdft_control%target(nvariables))
+               IF (.NOT. ASSOCIATED(dft_control%qs_control%cdft_control%value)) &
+                  ALLOCATE (dft_control%qs_control%cdft_control%value(nvariables))
+               IF (.NOT. ASSOCIATED(dft_control%qs_control%cdft_control%strength)) &
+                  ALLOCATE (dft_control%qs_control%cdft_control%strength(nvariables))
                dft_control%qs_control%cdft_control%target = dft_control%qs_control%becke_control%target
                dft_control%qs_control%cdft_control%constraint_type = dft_control%qs_control%becke_control%constraint_type
                dft_control%qs_control%cdft_control%combined_type = dft_control%qs_control%becke_control%combined_type
@@ -374,10 +373,10 @@ CONTAINS
             IF (scf_control%outer_scf%extrapolation_order /= &
                 dft_control%qs_control%cdft_control%constraint_control%extrapolation_order &
                 .OR. nvariables == 2) THEN
-                DEALLOCATE(qs_env%outer_scf_history)
-                nhistory = dft_control%qs_control%cdft_control%constraint_control%extrapolation_order
-                ALLOCATE(outer_scf_history(nvariables, nhistory))
-                CALL set_qs_env(qs_env, outer_scf_history=outer_scf_history)
+               DEALLOCATE (qs_env%outer_scf_history)
+               nhistory = dft_control%qs_control%cdft_control%constraint_control%extrapolation_order
+               ALLOCATE (outer_scf_history(nvariables, nhistory))
+               CALL set_qs_env(qs_env, outer_scf_history=outer_scf_history)
             END IF
             CALL outer_loop_switch(scf_env, scf_control, dft_control%qs_control%cdft_control, ot2cdft)
          END IF

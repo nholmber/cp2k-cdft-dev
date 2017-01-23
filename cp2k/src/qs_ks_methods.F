@@ -28,8 +28,8 @@ MODULE qs_ks_methods
    USE cell_types,                      ONLY: cell_type
    USE cp_blacs_env,                    ONLY: cp_blacs_env_type
    USE cp_control_types,                ONLY: becke_restraint_type,&
-                                              dft_control_type,&
-                                              cdft_control_type
+                                              cdft_control_type,&
+                                              dft_control_type
    USE cp_dbcsr_cp2k_link,              ONLY: cp_dbcsr_alloc_block_from_nbl
    USE cp_dbcsr_operations,             ONLY: copy_dbcsr_to_fm,&
                                               copy_fm_to_dbcsr,&
@@ -65,12 +65,12 @@ MODULE qs_ks_methods
    USE hartree_local_methods,           ONLY: Vh_1c_gg_integrals
    USE hfx_admm_utils,                  ONLY: hfx_admm_init,&
                                               hfx_ks_matrix
-   USE input_constants,                 ONLY: do_ppl_grid,&
-                                              outer_scf_hirshfeld_constraint,&
-                                              cdft_combined_constraint,&
+   USE input_constants,                 ONLY: cdft_combined_acceptor,&
                                               cdft_combined_all,&
-                                              cdft_combined_acceptor,&
-                                              cdft_combined_donor
+                                              cdft_combined_constraint,&
+                                              cdft_combined_donor,&
+                                              do_ppl_grid,&
+                                              outer_scf_hirshfeld_constraint
    USE input_section_types,             ONLY: section_vals_get,&
                                               section_vals_get_subs_vals,&
                                               section_vals_type,&
@@ -124,9 +124,9 @@ MODULE qs_ks_methods
                                               integrate_v_core_rspace,&
                                               integrate_v_rspace_one_center
    USE qs_ks_apply_restraints,          ONLY: qs_ks_becke_restraint,&
+                                              qs_ks_cdft_constraint,&
                                               qs_ks_mulliken_restraint,&
-                                              qs_ks_s2_restraint,&
-                                              qs_ks_cdft_constraint
+                                              qs_ks_s2_restraint
    USE qs_ks_atom,                      ONLY: update_ks_atom
    USE qs_ks_qmmm_methods,              ONLY: qmmm_calculate_energy,&
                                               qmmm_modify_hartree_pot
@@ -221,8 +221,8 @@ CONTAINS
          routineP = moduleN//':'//routineN
 
       CHARACTER(len=default_string_length)               :: name
-      INTEGER                                            :: handle, img, ispin, nimages, ns, nspins,&
-                                                            iatom
+      INTEGER                                            :: handle, iatom, img, ispin, nimages, ns, &
+                                                            nspins
       LOGICAL :: do_adiabatic_rescaling, do_ddapc, do_hfx, do_ppl, gapw, gapw_xc, &
          hfx_treat_lsd_in_core, just_energy_xc, my_print, use_virial
       REAL(KIND=dp)                                      :: ecore_ppl, edisp, ee_ener, ekin_mol, &
@@ -684,42 +684,42 @@ CONTAINS
          CALL pw_pool_give_back_pw(auxbas_pw_pool, v_efield_rspace%pw)
       END IF
 
-      IF (calculate_forces.AND.dft_control%qs_control%becke_restraint) THEN
+      IF (calculate_forces .AND. dft_control%qs_control%becke_restraint) THEN
          CALL pw_pool_give_back_pw(auxbas_pw_pool, becke%becke_pot%pw)
          IF (dft_control%qs_control%becke_control%atomic_charges) THEN
             DO iatom = 1, dft_control%qs_control%becke_control%natoms
-               CALL pw_pool_give_back_pw(auxbas_pw_pool,&
+               CALL pw_pool_give_back_pw(auxbas_pw_pool, &
                                          dft_control%qs_control%becke_control%charge(iatom)%pw)
             END DO
          END IF
          IF (dft_control%qs_control%becke_control%cavity_confine) THEN
             IF (.NOT. ASSOCIATED(becke%cavity_mat)) THEN
-               CALL pw_pool_give_back_pw(auxbas_pw_pool,becke%cavity%pw)
+               CALL pw_pool_give_back_pw(auxbas_pw_pool, becke%cavity%pw)
             ELSE
-               DEALLOCATE(becke%cavity_mat)
+               DEALLOCATE (becke%cavity_mat)
             END IF
          END IF
          IF (ASSOCIATED(dft_control%qs_control%becke_control%charges_fragment)) &
-            DEALLOCATE(dft_control%qs_control%becke_control%charges_fragment) 
+            DEALLOCATE (dft_control%qs_control%becke_control%charges_fragment)
          IF (dft_control%qs_control%becke_control%constraint_type == cdft_combined_constraint) THEN
             SELECT CASE (dft_control%qs_control%becke_control%combined_type)
             CASE (cdft_combined_all)
                ! Do nothing
             CASE (cdft_combined_acceptor, cdft_combined_donor)
-               CALL pw_pool_give_back_pw(auxbas_pw_pool,&
+               CALL pw_pool_give_back_pw(auxbas_pw_pool, &
                                          dft_control%qs_control%becke_control%combined_weight%pw)
             END SELECT
-         END IF  
-         dft_control%qs_control%becke_control%save_pot=.FALSE.
-         dft_control%qs_control%becke_control%need_pot=.TRUE.
-         dft_control%qs_control%becke_control%external_control=.FALSE.
+         END IF
+         dft_control%qs_control%becke_control%save_pot = .FALSE.
+         dft_control%qs_control%becke_control%need_pot = .TRUE.
+         dft_control%qs_control%becke_control%external_control = .FALSE.
       END IF
 
-      IF (calculate_forces.AND.dft_control%qs_control%cdft) THEN
-         IF(cdft_control%type == outer_scf_hirshfeld_constraint) THEN
+      IF (calculate_forces .AND. dft_control%qs_control%cdft) THEN
+         IF (cdft_control%type == outer_scf_hirshfeld_constraint) THEN
             CALL pw_pool_give_back_pw(auxbas_pw_pool, cdft_control%weight%pw)
-            cdft_control%save_pot=.FALSE.
-            cdft_control%need_pot=.TRUE.
+            cdft_control%save_pot = .FALSE.
+            cdft_control%need_pot = .TRUE.
          END IF
       END IF
 

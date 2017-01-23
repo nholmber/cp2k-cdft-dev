@@ -23,9 +23,9 @@ MODULE scf_control_types
         atomic_guess, core_guess, diag_ot, direct_p_mix, general_roks, high_spin_roks, &
         ot_algo_taylor_or_diag, outer_scf_basis_center_opt, outer_scf_becke_constraint, &
         outer_scf_ddapc_constraint, outer_scf_none, outer_scf_optimizer_bisect, &
-        outer_scf_optimizer_diis, outer_scf_optimizer_none, outer_scf_optimizer_sd, &
-        outer_scf_s2_constraint, smear_energy_window, smear_fermi_dirac, smear_list,&
-        outer_scf_optimizer_broyden, outer_scf_optimizer_newton
+        outer_scf_optimizer_broyden, outer_scf_optimizer_diis, outer_scf_optimizer_newton, &
+        outer_scf_optimizer_none, outer_scf_optimizer_sd, outer_scf_s2_constraint, &
+        smear_energy_window, smear_fermi_dirac, smear_list
    USE input_cp2k_dft,                  ONLY: create_scf_section
    USE input_enumeration_types,         ONLY: enum_i2c,&
                                               enumeration_type
@@ -90,7 +90,7 @@ MODULE scf_control_types
       LOGICAL       :: have_scf
       LOGICAL       :: build_jacobian
       INTEGER       :: max_scf
-      REAL(KIND=dp) :: eps_scf, step_size,&
+      REAL(KIND=dp) :: eps_scf, step_size, &
                        jacobian_step
       INTEGER       :: TYPE
       INTEGER       :: optimizer
@@ -501,10 +501,10 @@ CONTAINS
                                    i_val=scf_control%outer_scf%max_scf)
          CALL section_vals_val_get(outer_scf_section, "EXTRAPOLATION_ORDER", &
                                    i_val=scf_control%outer_scf%extrapolation_order)
-         CALL section_vals_val_get(outer_scf_section,"JACOBIAN_TYPE", &
+         CALL section_vals_val_get(outer_scf_section, "JACOBIAN_TYPE", &
                                    i_val=scf_control%outer_scf%jacobian_type)
-         CALL section_vals_val_get(outer_scf_section,"JACOBIAN_STEP", &
-                                   r_val=scf_control%outer_scf%jacobian_step)         
+         CALL section_vals_val_get(outer_scf_section, "JACOBIAN_STEP", &
+                                   r_val=scf_control%outer_scf%jacobian_step)
       END IF
 
       smear_section => section_vals_get_subs_vals(scf_section, "SMEAR")
@@ -749,10 +749,10 @@ CONTAINS
                   WRITE (output_unit, '(T25,A)') "DIIS optimization"
                   WRITE (output_unit, '(T25,A,T72,I9)') "DIIS buffer length", &
                      scf_control%outer_scf%diis_buffer_length
-               CASE(outer_scf_optimizer_broyden)
-                  WRITE(output_unit,'(T25,A)') "Optimization with Broyden's method" 
-               CASE(outer_scf_optimizer_newton)
-                  WRITE(output_unit,'(T25,A)') "Optimization with Newton's method"
+               CASE (outer_scf_optimizer_broyden)
+                  WRITE (output_unit, '(T25,A)') "Optimization with Broyden's method"
+               CASE (outer_scf_optimizer_newton)
+                  WRITE (output_unit, '(T25,A)') "Optimization with Newton's method"
                CASE DEFAULT
                   CPABORT("")
                END SELECT

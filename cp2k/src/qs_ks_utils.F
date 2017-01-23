@@ -20,8 +20,8 @@
 MODULE qs_ks_utils
    USE cell_types,                      ONLY: cell_type
    USE cp_control_types,                ONLY: becke_restraint_type,&
-                                              dft_control_type,&
-                                              cdft_control_type
+                                              cdft_control_type,&
+                                              dft_control_type
    USE cp_dbcsr_operations,             ONLY: copy_dbcsr_to_fm,&
                                               copy_fm_to_dbcsr,&
                                               cp_dbcsr_plus_fm_fm_t,&
@@ -49,19 +49,10 @@ MODULE qs_ks_utils
         dbcsr_deallocate_matrix_set, dbcsr_get_info, dbcsr_init, dbcsr_init_p, dbcsr_multiply, &
         dbcsr_p_type, dbcsr_release_p, dbcsr_scale, dbcsr_scale_by_vector, dbcsr_set, dbcsr_trace, &
         dbcsr_type
-   USE input_constants,                 ONLY: do_ppl_grid,&
-                                              sic_ad,&
-                                              sic_eo,&
-                                              sic_list_all,&
-                                              sic_list_unpaired,&
-                                              sic_mauri_spz,&
-                                              sic_mauri_us,&
-                                              sic_none,&
-                                              outer_scf_hirshfeld_constraint,&
-                                              cdft_magnetization_constraint,&
-                                              cdft_combined_all,&
-                                              cdft_combined_acceptor,&
-                                              cdft_combined_donor
+   USE input_constants,                 ONLY: &
+        cdft_combined_acceptor, cdft_combined_all, cdft_combined_donor, &
+        cdft_magnetization_constraint, do_ppl_grid, outer_scf_hirshfeld_constraint, sic_ad, &
+        sic_eo, sic_list_all, sic_list_unpaired, sic_mauri_spz, sic_mauri_us, sic_none
    USE input_section_types,             ONLY: section_vals_get_subs_vals,&
                                               section_vals_type,&
                                               section_vals_val_get
@@ -1188,7 +1179,7 @@ CONTAINS
                                    v_rspace_new_aux_fit, v_tau_rspace, &
                                    v_tau_rspace_aux_fit, v_efield_rspace, &
                                    v_sic_rspace, v_spin_ddapc_rest_r, &
-                                   v_sccs_rspace, becke, cdft_control,&
+                                   v_sccs_rspace, becke, cdft_control, &
                                    calculate_forces)
 
       TYPE(qs_environment_type), POINTER                 :: qs_env
@@ -1201,14 +1192,13 @@ CONTAINS
       TYPE(pw_p_type)                                    :: v_efield_rspace, v_sic_rspace, &
                                                             v_spin_ddapc_rest_r, v_sccs_rspace
       TYPE(becke_restraint_type), POINTER                :: becke
-      TYPE(cdft_control_type), POINTER                   :: cdft_control      
+      TYPE(cdft_control_type), POINTER                   :: cdft_control
       LOGICAL, INTENT(in)                                :: calculate_forces
 
       CHARACTER(LEN=*), PARAMETER :: routineN = 'sum_up_and_integrate', &
          routineP = moduleN//':'//routineN
 
-      INTEGER                                            :: handle, ispin, nspins, &
-                                                            ivar, nvar
+      INTEGER                                            :: handle, ispin, ivar, nspins, nvar
       LOGICAL                                            :: do_ppl, gapw, gapw_xc
       REAL(dp)                                           :: dvol, sign
       TYPE(dbcsr_p_type), DIMENSION(:), POINTER          :: ksmat, matrix_ks_aux_fit, &
@@ -1289,7 +1279,7 @@ CONTAINS
                                                 +v_spin_ddapc_rest_r%pw%cr3d
                END IF
             END IF
-            IF(dft_control%qs_control%becke_restraint)THEN
+            IF (dft_control%qs_control%becke_restraint) THEN
                nvar = SIZE(becke%strength)
                DO ivar = 1, nvar
                   IF (ivar == 2) THEN
@@ -1298,24 +1288,24 @@ CONTAINS
                      SELECT CASE (becke%combined_type)
                      CASE (cdft_combined_all)
                         v_rspace_new(ispin)%pw%cr3d = v_rspace_new(ispin)%pw%cr3d &
-                                                     + sign * becke%becke_pot%pw%cr3d * becke%strength(ivar)
+                                                      +sign*becke%becke_pot%pw%cr3d*becke%strength(ivar)
                      CASE (cdft_combined_acceptor, cdft_combined_donor)
                         v_rspace_new(ispin)%pw%cr3d = v_rspace_new(ispin)%pw%cr3d &
-                                                     + sign * becke%combined_weight%pw%cr3d * becke%strength(ivar)
+                                                      +sign*becke%combined_weight%pw%cr3d*becke%strength(ivar)
                      END SELECT
                   ELSE
                      sign = 1.0_dp
-                     IF (ispin == 2 .AND. becke%constraint_type == cdft_magnetization_constraint)&
+                     IF (ispin == 2 .AND. becke%constraint_type == cdft_magnetization_constraint) &
                         sign = -1.0_dp
                      v_rspace_new(ispin)%pw%cr3d = v_rspace_new(ispin)%pw%cr3d &
-                                                   + sign * becke%becke_pot%pw%cr3d * becke%strength(ivar) 
+                                                   +sign*becke%becke_pot%pw%cr3d*becke%strength(ivar)
                   END IF
                END DO
             END IF
-            IF (dft_control%qs_control%cdft)THEN
-               IF (cdft_control%type == outer_scf_hirshfeld_constraint)&
+            IF (dft_control%qs_control%cdft) THEN
+               IF (cdft_control%type == outer_scf_hirshfeld_constraint) &
                   v_rspace_new(ispin)%pw%cr3d = v_rspace_new(ispin)%pw%cr3d &
-                                              + cdft_control%weight%pw%cr3d * cdft_control%strength(1)
+                                                +cdft_control%weight%pw%cr3d*cdft_control%strength(1)
             END IF
             ! The efield contribution
             IF (dft_control%apply_efield_field) THEN

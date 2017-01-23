@@ -58,8 +58,8 @@ MODULE qs_environment_types
                                               set_hartree_local
    USE hfx_types,                       ONLY: hfx_release,&
                                               hfx_type
-   USE input_constants,                 ONLY: energy_run,&
-                                              energy_force_run                  
+   USE input_constants,                 ONLY: energy_force_run,&
+                                              energy_run
    USE input_section_types,             ONLY: section_vals_release,&
                                               section_vals_retain,&
                                               section_vals_type
