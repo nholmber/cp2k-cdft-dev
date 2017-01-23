@@ -4047,7 +4047,8 @@ CONTAINS
                           citations=(/Becke1988b/))
 
       CALL keyword_create(keyword, name="STRENGTH", &
-                       description="Force constants of the constraints. Second value is for combined constraint and is optional.", &
+                          description="Force constants of the constraints. "// &
+                          "Second value is for combined constraint and is optional.", &
                           usage="STRENGTH {real} {real}", repeats=.FALSE., &
                           type_of_var=real_t, n_var=-1, &
                           default_r_val=0.0_dp)
@@ -4055,7 +4056,8 @@ CONTAINS
       CALL keyword_release(keyword)
 
       CALL keyword_create(keyword, name="TARGET", &
-                         description="Target values of the constraints. Second value is for combined constraint and is optional.", &
+                          description="Target values of the constraints. "// &
+                          "Second value is for combined constraint and is optional.", &
                           usage="TARGET {real}", repeats=.FALSE., &
                           type_of_var=real_t, n_var=-1, &
                           default_r_val=0.0_dp)
@@ -4084,13 +4086,15 @@ CONTAINS
                                         cdft_combined_constraint/), &
                           enum_desc=s2a("Constrain the total density (rho_alpha + rho_beta).", &
                                         "Constrain the magnetization density (rho_alpha - rho_beta).", &
-                  "Constrain both densities. The magnetization density constraint is applied to atoms defined in COMBINED_TYPE."), &
+                                        "Constrain both densities. The magnetization density constraint "// &
+                                        " is applied to atoms defined in COMBINED_TYPE."), &
                           default_i_val=cdft_density_constraint)
       CALL section_add_keyword(section, keyword)
       CALL keyword_release(keyword)
 
       CALL keyword_create(keyword, name="COMBINED_TYPE", &
-           description="Specifies which atoms to apply the magnetization density constraint when using CONSTRAINT_TYPE COMBINED.", &
+                          description="Specifies which atoms to apply the magnetization density constraint"// &
+                          "when using CONSTRAINT_TYPE COMBINED.", &
                           usage="COMBINED_TYPE (ALL|ACCEPTOR|DONOR)", &
                           enum_c_vals=s2a("TOTAL", "ACCEPTOR", "DONOR"), &
                           enum_i_vals=(/cdft_combined_all, cdft_combined_acceptor, cdft_combined_donor/), &
@@ -4249,8 +4253,8 @@ CONTAINS
 
       CALL keyword_create(keyword, name="ELEMENT_CUTOFF", &
                           description="Defines element specific cutoffs to elect which atoms contribute to the"// &
-                          " weight function at each real space grid point. Give one value per element in the same order as they"// &
-                          " appear in the coordinates.", &
+                          " weight function at each real space grid point. Give one value per element in the same "// &
+                          " order as they appear in the coordinates.", &
                           usage="ELEMENT_CUTOFF {real} {real} {real}", repeats=.FALSE., &
                           unit_str="angstrom", &
                           type_of_var=real_t, n_var=-1)
@@ -4269,7 +4273,8 @@ CONTAINS
 
       CALL keyword_create(keyword, name="FRAGMENT_DENSITIES", &
                           description="Use fragment densities as the target value of the constraint."// &
-      " Takes as input the electron densities of two isolated fragments in the same geometry that they have in the full system."// &
+                          " Takes as input the electron densities of two isolated fragments in the "// &
+                          " same geometry that they have in the full system."// &
                           " The isolated fragment densities are read from cube files defined in FRAGMENT_{A,B}_FILE."// &
                           " With this keyword active, the constraint enforces that the number of electrons for both"// &
                           " fragments is the same as they would have in the superposition of the isolated fragments."// &
@@ -4280,17 +4285,18 @@ CONTAINS
       CALL keyword_release(keyword)
 
       CALL keyword_create(keyword, name="FRAGMENT_A_FILE_NAME", &
-                          description="Name of the reference electron density cube file for fragment A. May include a path."// &
-                          " The reference electron density needs to be outputted on the same grid as the full system (same cutoff and cell, output stride 1).",&
+                          description="Name of the reference electron density cube file for fragment A."// &
+                          " May include a path. The reference electron density needs to be outputted"// &
+                          " on the same grid as the full system (same cutoff and cell, output stride 1).", &
                           usage="FRAGMENT_A_FILE_NAME <FILENAME>", &
                           default_lc_val="fragment_a.cube")
       CALL section_add_keyword(section, keyword)
       CALL keyword_release(keyword)
 
       CALL keyword_create(keyword, name="FRAGMENT_B_FILE_NAME", &
-                          description="Name of the reference electron density cube file for fragment B. May include a path"// &
-                          " The reference electron density needs to be outputted on the same grid as the full system (same cutoff and cell, output stride 1).",&
-                          usage="FRAGMENT_B_FILE_NAME <FILENAME>", &
+                          description="Name of the reference electron density cube file for fragment A."// &
+                          " May include a path. The reference electron density needs to be outputted"// &
+                          " on the same grid as the full system (same cutoff and cell, output stride 1).", &
                           default_lc_val="fragment_b.cube")
       CALL section_add_keyword(section, keyword)
       CALL keyword_release(keyword)
@@ -4369,9 +4375,10 @@ CONTAINS
       CALL keyword_release(keyword)
 
       CALL keyword_create(keyword, name="PURGE_HISTORY", &
-              description="Purge wavefunction and constraint history to improve SCF convergence during MD. Counts how often the"// &
-                      " convergence of the first CDFT SCF iteration takes 2 or more outer SCF iterations and purges the history"// &
-                          " if the counter exceeds PURGE_FREQ and PURGE_OFFSET MD steps have passed since the last purge."// &
+                          description="Purge wavefunction and constraint history to improve SCF convergence during MD."// &
+                          "Counts how often the convergence of the first CDFT SCF iteration takes 2 or more outer SCF"// &
+                          " iterations and purges the history if the counter exceeds PURGE_FREQ and PURGE_OFFSET "// &
+                          " MD steps have passed since the last purge."// &
                           " The counter is zeroed after each purge.", &
                           usage="PURGE_HISTORY yes", repeats=.FALSE., n_var=1, &
                           default_l_val=.FALSE., lone_keyword_l_val=.TRUE.)
@@ -4413,7 +4420,8 @@ CONTAINS
                           n_keywords=11, n_subsections=0, repeats=.FALSE.)
 
       CALL keyword_create(keyword, name="STRENGTH", &
-                       description="Force constants of the constraints. Second value is for combined constraint and is optional.", &
+                          description="Force constants of the constraints. "// &
+                          "Second value is for combined constraint and is optional.", &
                           usage="STRENGTH {real} {real}", repeats=.FALSE., &
                           type_of_var=real_t, n_var=-1, &
                           default_r_val=0.0_dp)
@@ -4421,7 +4429,8 @@ CONTAINS
       CALL keyword_release(keyword)
 
       CALL keyword_create(keyword, name="TARGET", &
-                         description="Target values of the constraints. Second value is for combined constraint and is optional.", &
+                          description="Target values of the constraints.  "// &
+                          "Second value is for combined constraint and is optional.", &
                           usage="TARGET {real}", repeats=.FALSE., &
                           type_of_var=real_t, n_var=-1, &
                           default_r_val=0.0_dp)
@@ -4451,13 +4460,15 @@ CONTAINS
                                         cdft_combined_constraint/), &
                           enum_desc=s2a("Constrain the total density (rho_alpha + rho_beta).", &
                                         "Constrain the magnetization density (rho_alpha - rho_beta). NYI", &
-              "Constrain both densities. The magnetization density constraint is applied to atoms defined in COMBINED_TYPE. NYI"), &
+                                        "Constrain both densities. The magnetization density constraint is applied "// &
+                                        " to atoms defined in COMBINED_TYPE. NYI"), &
                           default_i_val=cdft_density_constraint)
       CALL section_add_keyword(section, keyword)
       CALL keyword_release(keyword)
 
       CALL keyword_create(keyword, name="COMBINED_TYPE", &
-           description="Specifies which atoms to apply the magnetization density constraint when using CONSTRAINT_TYPE COMBINED.", &
+                          description="Specifies which atoms to apply the magnetization density constraint "// &
+                          "when using CONSTRAINT_TYPE COMBINED.", &
                           usage="COMBINED_TYPE (ALL|ACCEPTOR|DONOR)", &
                           enum_c_vals=s2a("TOTAL", "ACCEPTOR", "DONOR"), &
                           enum_i_vals=(/cdft_combined_all, cdft_combined_acceptor, cdft_combined_donor/), &
@@ -5335,10 +5346,14 @@ CONTAINS
                                           "BASIS_CENTER_OPT", "CDFT_CONSTRAINT", "NONE"), &
                           enum_desc=s2a("Enforce a constraint on the DDAPC, requires the corresponding section", &
                                         "Enforce a constraint on the S2, requires the corresponding section", &
-                                        "Enforce a constraint on the Becke weight population,requires the corresponding section", &
-                                  "Enforce a constraint on a generic CDFT weight population, requires the corresponding section"// &
-                                        " which determines the type of weight used (currently only Gaussian Hirshfeld supported)", &
-                                        "Optimize positions of basis functions, if atom types FLOATING_BASIS_CENTER are defined", &
+                                        "Enforce a constraint on the Becke weight population, "// &
+                                        "requires the corresponding section", &
+                                        "Enforce a constraint on a generic CDFT weight population, "// &
+                                        "requires the corresponding section"// &
+                                        " which determines the type of weight used "// &
+                                        "(currently only Gaussian Hirshfeld supported)", &
+                                        "Optimize positions of basis functions, if atom types FLOATING_BASIS_CENTER "// &
+                                        " are defined", &
                                         "Do nothing in the outer loop, useful for resetting the inner loop,"), &
                           enum_i_vals=(/outer_scf_ddapc_constraint, outer_scf_s2_constraint, &
                                         outer_scf_becke_constraint, outer_scf_basis_center_opt, &
@@ -5358,12 +5373,14 @@ CONTAINS
                                         "Broyden's method. Variant defined in BROYDEN_TYPE.", &
                                         "Newton's method."), &
                           enum_i_vals=(/outer_scf_optimizer_sd, outer_scf_optimizer_diis, outer_scf_optimizer_none, &
-                                        outer_scf_optimizer_bisect, outer_scf_optimizer_broyden, outer_scf_optimizer_newton/))
+                                        outer_scf_optimizer_bisect, outer_scf_optimizer_broyden, &
+                                        outer_scf_optimizer_newton/))
       CALL section_add_keyword(section, keyword)
       CALL keyword_release(keyword)
 
       CALL keyword_create(keyword, name="JACOBIAN_TYPE", &
-                         description="Finite difference method used to calculate the inverse Jacobian needed by some optimizers.", &
+                          description="Finite difference method used to calculate the inverse Jacobian "// &
+                          "needed by some optimizers.", &
                           usage="JACOBIAN_TYPE FD1", &
                           default_i_val=jacobian_fd1, &
                           enum_c_vals=s2a("FD1", "FD1_BACKWARD", "FD2", "FD2_BACKWARD", "FD1_CENTRAL"), &

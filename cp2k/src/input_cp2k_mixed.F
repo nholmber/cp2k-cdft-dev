@@ -119,7 +119,8 @@ CONTAINS
       CALL keyword_release(keyword)
 
       CALL keyword_create(keyword, name="MIXED_CDFT", &
-                          description="Controls the activation of a mixed CDFT calculation. The two force_evals determine"// &
+                          description="Controls the activation of a mixed CDFT calculation. "// &
+                          "The two force_evals determine"// &
                           " the involved CDFT states (requires the corresponding sections).", &
                           usage="MIXED_CDFT", type_of_var=logical_t, &
                           default_l_val=.FALSE., lone_keyword_l_val=.TRUE., citations=(/Holmberg2017/))
@@ -127,8 +128,8 @@ CONTAINS
       CALL keyword_release(keyword)
 
       CALL keyword_create(keyword, name="MIXED_CDFT_COUPLING", &
-                          description="Parameter determining how often the CDFT electronic coupling element is calculated."// &
-                          " Use a negative number to disable and 0 means every step.", &
+                          description="Parameter determining how often the CDFT electronic coupling element "// &
+                          " is calculated. Use a negative number to disable and 0 means every step.", &
                           usage="MIXED_CDFT_COUPLING <INT>", &
                           default_i_val=-1, &
                           type_of_var=integer_t, n_var=1)
@@ -153,9 +154,11 @@ CONTAINS
       CALL keyword_release(keyword)
 
       CALL keyword_create(keyword, name="MIXED_CDFT_WFN_OVERLAP", &
-                 description="Compute CDFT electronic coupling element using the wavefunction overlap method in addition to the"// &
-                " standard orthogonalization procedure (MIXED_CDFT_COUPLING). In this method, the unconstrained KS ground state"// &
-                          " wavefunction (WFN_RESTART_FILE_NAME) is represented as a linear combination of the two CDFT states.", &
+                          description="Compute CDFT electronic coupling element using the wavefunction overlap "// &
+                          " method in addition to the standard orthogonalization procedure "// &
+                          " (MIXED_CDFT_COUPLING). In this method, the unconstrained KS ground state"// &
+                          " wavefunction (WFN_RESTART_FILE_NAME) is represented as a linear combination"// &
+                          " of the two CDFT states.", &
                           usage="MIXED_CDFT_WFN_OVERLAP", type_of_var=logical_t, &
                           default_l_val=.FALSE., lone_keyword_l_val=.TRUE., &
                           citations=(/Migliore2009/))
@@ -163,17 +166,20 @@ CONTAINS
       CALL keyword_release(keyword)
 
       CALL keyword_create(keyword, name="WFN_RESTART_FILE_NAME", &
-                          description="Name of the wavefunction restart file that defines the unconstrained KS ground state,"// &
-                    " which is used to compute the electronic coupling with the wavefunction overlap method. May include a path.", &
+                          description="Name of the wavefunction restart file that defines the unconstrained "// &
+                          " KS ground state, which is used to compute the electronic coupling with"// &
+                          " the wavefunction overlap method. May include a path.", &
                           usage="WFN_RESTART_FILE_NAME <FILENAME>", &
                           type_of_var=lchar_t)
       CALL section_add_keyword(subsection, keyword)
       CALL keyword_release(keyword)
 
       CALL keyword_create(keyword, name="EPS_SVD", &
-           description="Determines the matrix inversion solver needed by the orthogonalization procedure. Default value implies"// &
-           " LU decomposition, while values between 0.0 and 1.0 imply SVD decomposition. For SVD, the value acts as a threshold"// &
-                          " for screening singular values so that only values above it are included in the matrix pseudoinverse.", &
+                          description="Determines the matrix inversion solver needed by the orthogonalization procedure. "// &
+                          " Default value implies LU decomposition, while values between 0.0 and 1.0 "// &
+                          "imply SVD decomposition. For SVD, the value acts as a threshold"// &
+                          " for screening singular values so that only values above it are included"// &
+                          " in the matrix pseudoinverse.", &
                           usage="EPS_SVD <REAL>", type_of_var=real_t, &
                           default_r_val=0.0_dp, repeats=.FALSE.)
       CALL section_add_keyword(subsection, keyword)

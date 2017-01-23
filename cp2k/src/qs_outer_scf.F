@@ -311,8 +311,10 @@ CONTAINS
                IF (nvar == 1) THEN
                   ! 1D case secant method
                   scf_env%outer_scf%variables(1, ihistory+1) = scf_env%outer_scf%variables(1, ihistory)- &
-                                            (scf_env%outer_scf%variables(1, ihistory)-scf_env%outer_scf%variables(1, ihistory-1))/ &
-                                              (scf_env%outer_scf%gradient(1, ihistory)-scf_env%outer_scf%gradient(1, ihistory-1))* &
+                                                               (scf_env%outer_scf%variables(1, ihistory)- &
+                                                                scf_env%outer_scf%variables(1, ihistory-1))/ &
+                                                               (scf_env%outer_scf%gradient(1, ihistory)- &
+                                                                scf_env%outer_scf%gradient(1, ihistory-1))* &
                                                                scf_env%outer_scf%gradient(1, ihistory)
                ELSE
                   ALLOCATE (f(nvar, 1), x(nvar, 1))
