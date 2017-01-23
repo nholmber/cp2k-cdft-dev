@@ -269,7 +269,8 @@ CONTAINS
                   mixed_cdft%dlb_control%recvbuff, mixed_cdft%dlb_control%recv_work_repl, &
                   mixed_cdft%dlb_control%recv_info)
          CALL section_vals_val_get(mixed_section, "LINEAR%LOAD_SCALE", r_val=mixed_cdft%dlb_control%load_scale)
-         CALL section_vals_val_get(mixed_section, "LINEAR%VERY_OVERLOADED", r_val=mixed_cdft%dlb_control%very_overloaded)
+         CALL section_vals_val_get(mixed_section, "LINEAR%VERY_OVERLOADED", &
+                                   r_val=mixed_cdft%dlb_control%very_overloaded)
          CALL section_vals_val_get(mixed_section, "LINEAR%MORE_WORK", i_val=mixed_cdft%dlb_control%more_work)
       END IF
       ! Metric/Wavefunction overlap method
@@ -455,7 +456,8 @@ CONTAINS
       IF (.NOT. is_match) CPABORT("Mismatch detected in the &BECKE_RESTRAINT settings of the two force_evals.")
       is_match = is_match .AND. (confine_bounds(1, 1) == confine_bounds(1, 2))
       is_match = is_match .AND. (confine_bounds(2, 1) == confine_bounds(2, 2))
-      IF (.NOT. is_match) CPABORT("Mismatch detected in the &BECKE_RESTRAINT&CONFINE_BOUNDS settings of the two force_evals.")
+      IF (.NOT. is_match) &
+         CPABORT("Mismatch detected in the &BECKE_RESTRAINT&CONFINE_BOUNDS settings of the two force_evals.")
       mixed_cdft%becke_control%confine_method = settings_int(1, 1)
       mixed_cdft%becke_control%cutoff_type = settings_int(2, 1)
       nkinds = 0
@@ -465,7 +467,8 @@ CONTAINS
             IF (cutoffs(i, 1) /= cutoffs(i, 2)) is_match = .FALSE.
             IF (cutoffs(i, 1) /= 0.0_dp) nkinds = nkinds+1
          END DO
-         IF (.NOT. is_match) CPABORT("Mismatch detected in the &BECKE_RESTRAINT&ELEMENT_CUTOFF settings of the two force_evals.")
+         IF (.NOT. is_match) &
+            CPABORT("Mismatch detected in the &BECKE_RESTRAINT&ELEMENT_CUTOFF settings of the two force_evals.")
          ALLOCATE (mixed_cdft%becke_control%cutoffs_tmp(nkinds))
          mixed_cdft%becke_control%cutoffs_tmp = cutoffs(1:nkinds, 1)
       END IF
@@ -483,7 +486,8 @@ CONTAINS
             IF (radii(i, 1) /= radii(i, 2)) is_match = .FALSE.
             IF (radii(i, 1) /= 0.0_dp) nkinds = nkinds+1
          END DO
-         IF (.NOT. is_match) CPABORT("Mismatch detected in the &BECKE_RESTRAINT&ATOMIC_RADII settings of the two force_evals.")
+         IF (.NOT. is_match) &
+            CPABORT("Mismatch detected in the &BECKE_RESTRAINT&ATOMIC_RADII settings of the two force_evals.")
          ALLOCATE (mixed_cdft%becke_control%radii(nkinds))
          mixed_cdft%becke_control%radii = radii(1:nkinds, 1)
       END IF
@@ -527,9 +531,11 @@ CONTAINS
       IF (mixed_cdft%dlb .AND. .NOT. mixed_cdft%becke_control%cavity_confine) &
          CPABORT("Mixed CDFT load balancing requires Gaussian cavity confinement.")
       ! Decide what kind of layout to use and setup the grid
-      ! Processor mappings currently supported:  (2np,1)  --> (np,1)
-      !                                          (nx,2ny) --> (nx,ny)
-      !                                          (nx,ny)  --> (nx*ny/2,1) (required when xc_smooth is in use and with intermediate proc counts)
+      ! Processor mappings currently supported:  
+      !  (2np,1)  --> (np,1)
+      !  (nx,2ny) --> (nx,ny)
+      !  (nx,ny)  --> (nx*ny/2,1) (required when xc_smooth is in use and with intermediate proc counts)
+      !
       ! For cases 2 and 3, dlb redistributes YZ slices from overloaded processors to underloaded processors
       ! For case 1, XZ slices are redistributed
       ! TODO: Unify mappings. Now we essentially have separate code for cases 1-2 and 3.
@@ -617,7 +623,8 @@ CONTAINS
          CALL section_vals_duplicate(force_env_sections, force_env_section, &
                                      i_force_eval(2), i_force_eval(2))
          rs_grid_section => section_vals_get_subs_vals(force_env_section, "DFT%MGRID%RS_GRID")
-         CALL init_input_type(input_settings, nsmax=2*MAX(1, return_cube_max_iradius(mixed_cdft%pw_env%cube_info(1)))+1, &
+         CALL init_input_type(input_settings, &
+                              nsmax=2*MAX(1, return_cube_max_iradius(mixed_cdft%pw_env%cube_info(1)))+1, &
                               rs_grid_section=rs_grid_section, ilevel=1, &
                               higher_grid_layout=higher_grid_layout)
          NULLIFY (rs_descs(1)%rs_desc)
@@ -777,13 +784,18 @@ CONTAINS
          WRITE (iounit, FMT="(T2,A,T71)") "MIXED_CDFT| Activating mixed CDFT calculation"
          WRITE (iounit, FMT="(T2,A,T71)") "MIXED_CDFT| Becke constraint is first built using all available processors"
          WRITE (iounit, FMT="(T2,A,T71)") "MIXED_CDFT| and then copied to both states with their own processor groups"
-  WRITE (iounit, FMT="(T2,A,T71,L10)") "MIXED_CDFT| Calculating electronic coupling between states:         ", mixed_env%do_mixed_et
-         WRITE (iounit, FMT="(T2,A,T71,L10)") "MIXED_CDFT| Dynamic load balancing enabled:                         ", mixed_cdft%dlb
+         WRITE (iounit, FMT="(T2,A,T71,L10)") &
+            "MIXED_CDFT| Calculating electronic coupling between states:         ", mixed_env%do_mixed_et
+         WRITE (iounit, FMT="(T2,A,T71,L10)") &
+            "MIXED_CDFT| Dynamic load balancing enabled:                         ", mixed_cdft%dlb
          IF (mixed_cdft%dlb) THEN
             WRITE (iounit, FMT="(T2,A,T71)") "MIXED_CDFT| Dynamic load balancing parameters:                         "
-            WRITE (iounit, FMT="(T2,A,T71,F10.2)") "MIXED_CDFT| load_scale:", mixed_cdft%dlb_control%load_scale
-            WRITE (iounit, FMT="(T2,A,T71,F10.2)") "MIXED_CDFT| very_overloaded:", mixed_cdft%dlb_control%very_overloaded
-            WRITE (iounit, FMT="(T2,A,T71,I10)") "MIXED_CDFT| more_work:", mixed_cdft%dlb_control%more_work
+            WRITE (iounit, FMT="(T2,A,T71,F10.2)") &
+               "MIXED_CDFT| load_scale:", mixed_cdft%dlb_control%load_scale
+            WRITE (iounit, FMT="(T2,A,T71,F10.2)") &
+               "MIXED_CDFT| very_overloaded:", mixed_cdft%dlb_control%very_overloaded
+            WRITE (iounit, FMT="(T2,A,T71,I10)") &
+               "MIXED_CDFT| more_work:", mixed_cdft%dlb_control%more_work
          END IF
          IF (mixed_env%do_mixed_et) THEN
             IF (mixed_cdft%eps_svd == 0.0_dp) THEN
@@ -1498,7 +1510,8 @@ CONTAINS
                                        mixed_matrix_p_tmp(iforce_eval, ispin)%matrix, &
                                        global_context=mixed_cdft%blacs_env%group)
                CALL cp_fm_release(matrix_p_tmp(iforce_eval, ispin)%matrix)
-               CALL copy_fm_to_dbcsr_bc(mixed_matrix_p_tmp(iforce_eval, ispin)%matrix, density_matrix(iforce_eval, ispin)%matrix)
+               CALL copy_fm_to_dbcsr_bc(mixed_matrix_p_tmp(iforce_eval, ispin)%matrix, &
+                                        density_matrix(iforce_eval, ispin)%matrix)
                CALL cp_fm_release(mixed_matrix_p_tmp(iforce_eval, ispin)%matrix)
             END DO
          END IF
@@ -1765,7 +1778,8 @@ CONTAINS
             overlaps(2, 1) = overlaps(2, 1)**2
          END IF
          ! Calculate coupling using eq. 12c
-     coupling_wfn = ABS((overlaps(1, 1)*overlaps(2, 1)/(overlaps(1, 1)**2-overlaps(2, 1)**2))*(energy_b-energy_a)/(1.0_dp-Sda**2)* &
+         coupling_wfn = ABS((overlaps(1, 1)*overlaps(2, 1)/(overlaps(1, 1)**2-overlaps(2, 1)**2))*&
+                            (energy_b-energy_a)/(1.0_dp-Sda**2)* &
                             (1.0_dp-(overlaps(1, 1)**2+overlaps(2, 1)**2)/(2.0_dp*overlaps(1, 1)*overlaps(2, 1))*Sda))
          DEALLOCATE (overlaps)
       END IF
@@ -1816,7 +1830,8 @@ CONTAINS
       IF (iounit > 0) THEN
          WRITE (iounit, '(/,T3,A,T66)') &
             '------------------------- CDFT coupling information -------------------------'
-         WRITE (iounit, '(T3,A,T66,(3X,F12.2))') 'Information at step (fs)          :', mixed_cdft%sim_step*mixed_cdft%sim_dt
+         WRITE (iounit, '(T3,A,T66,(3X,F12.2))') &
+            'Information at step (fs)          :', mixed_cdft%sim_step*mixed_cdft%sim_dt
          WRITE (iounit, '(T3,A,T60,(3X,F18.12))') 'Strength of constraint A          :', strength_a
          WRITE (iounit, '(T3,A,T60,(3X,F18.12))') 'Strength of constraint B          :', strength_b
          WRITE (iounit, '(T3,A,T60,(3X,F18.12))') 'Final value of constraint A       :', Waa
@@ -1836,7 +1851,8 @@ CONTAINS
             IF (nspins == 1) THEN
                WRITE (iounit, '(T3,A,T66,(3X,F12.6))') 'Coupling reliability metric (0 is ideal):', metric
             ELSE
-               WRITE (iounit, '(T3,A,T54,(3X,2F12.6))') 'Coupling reliability metric (0 is ideal):', metric(1), metric(2)
+               WRITE (iounit, '(T3,A,T54,(3X,2F12.6))') &
+                  'Coupling reliability metric (0 is ideal):', metric(1), metric(2)
             END IF
          END IF
          IF (mixed_cdft%wfn_overlap_method) THEN
@@ -2242,9 +2258,10 @@ CONTAINS
                   END IF
                   IF (is_constraint(atom_a)) &
                      CALL collocate_pgf_product_rspace(0, alpha, 0, 0, 0.0_dp, 0, ra, &
-                                                       (/0.0_dp, 0.0_dp, 0.0_dp/), 0.0_dp, 1.0_dp, pab, 0, 0, rs_cavity, &
-                                                       cell, mixed_cdft%pw_env%cube_info(1), mixed_cdft%eps_rho_rspace, &
-                                                       ga_gb_function=FUNC_AB, ithread=ithread, use_subpatch=.TRUE., &
+                                                       (/0.0_dp, 0.0_dp, 0.0_dp/), 0.0_dp, 1.0_dp, pab, 0, 0, &
+                                                       rs_cavity, cell, mixed_cdft%pw_env%cube_info(1), &
+                                                       mixed_cdft%eps_rho_rspace, ga_gb_function=FUNC_AB, &
+                                                       ithread=ithread, use_subpatch=.TRUE., &
                                                        subpatch_pattern=0_int_8, lmax_global=0)
                END DO
             END DO
@@ -2475,10 +2492,12 @@ CONTAINS
       IF (ASSOCIATED(mixed_cdft%dlb_control%prediction_error)) THEN
          IF (mixed_cdft%is_pencil .OR. mixed_cdft%is_special) THEN
             work_size(force_env%para_env%mepos+1) = work_size(force_env%para_env%mepos+1)- &
-                   NINT(REAL(mixed_cdft%dlb_control%prediction_error(force_env%para_env%mepos+1), dp)/REAL(bo(2, 1)-bo(1, 1)+1, dp))
+                   NINT(REAL(mixed_cdft%dlb_control%prediction_error(force_env%para_env%mepos+1), dp)/&
+                        REAL(bo(2, 1)-bo(1, 1)+1, dp))
          ELSE
             work_size(force_env%para_env%mepos+1) = work_size(force_env%para_env%mepos+1)- &
-                   NINT(REAL(mixed_cdft%dlb_control%prediction_error(force_env%para_env%mepos+1), dp)/REAL(bo(2, 2)-bo(1, 2)+1, dp))
+                   NINT(REAL(mixed_cdft%dlb_control%prediction_error(force_env%para_env%mepos+1), dp)/&
+                        REAL(bo(2, 2)-bo(1, 2)+1, dp))
          END IF
       END IF
       CALL mp_sum(expected_work, force_env%para_env%group)
@@ -2646,24 +2665,6 @@ CONTAINS
             IF (send_total .GT. NINT(work_factor*nsend_limit)) send_total = NINT(work_factor*nsend_limit)-1
             nsend = NINT(REAL(send_total, dp)/REAL(SIZE(mixed_cdft%dlb_control%target_list, 2), dp))
             mixed_cdft%dlb_control%target_list(2, :) = nsend
-            !ELSE
-            !   DO j = 1, SIZE(mixed_cdft%dest_list)
-            !      IF (touched(j)) THEN
-            !         i = 0
-            !         send_total = 0
-            !         DO ispecial = 1, SIZE(mixed_cdft%dlb_control%target_list,2)
-            !            IF (mixed_cdft%dlb_control%target_list(3+2*j-1,ispecial) .EQ. uninitialized) CYCLE
-            !            send_total = mixed_cdft%dlb_control%target_list(3+2*j1,i)-mixed_cdft%dlb_control%target_list(3+2*j-1,i)+1
-            !            i = i + 1
-            !         END DO
-            !         nsend = NINT(REAL(send_total,dp)/REAL(i,dp))
-            !         print *, 'Target list after realloc', force_env%para_env%mepos, mixed_cdft%dlb_control%target_list(:,1)
-            !         DO ispecial = 1, SIZE(mixed_cdft%dlb_control%target_list,2)
-            !            IF (mixed_cdft%dlb_control%target_list(3+2*j-1,ispecial) .EQ. uninitialized) CYCLE
-            !            send_total = mixed_cdft%dlb_control%target_list(3+2*j1,i)-mixed_cdft%dlb_control%target_list(3+2*j-1,i)+1
-            !            i = i + 1
-            !         END DO
-            !      END IF
          END IF
       ELSE
          DO i = 1, no_underloaded
@@ -2725,7 +2726,8 @@ CONTAINS
                ALLOCATE (mixed_cdft%dlb_control%weight(mixed_cdft%dlb_control%bo(1):mixed_cdft%dlb_control%bo(2), &
                                                        mixed_cdft%dlb_control%bo(3):mixed_cdft%dlb_control%bo(4), &
                                                        mixed_cdft%dlb_control%bo(7):mixed_cdft%dlb_control%bo(8)))
-               ALLOCATE (mixed_cdft%dlb_control%gradients(3*natom, mixed_cdft%dlb_control%bo(1):mixed_cdft%dlb_control%bo(2), &
+               ALLOCATE (mixed_cdft%dlb_control%gradients(3*natom, &
+                                                          mixed_cdft%dlb_control%bo(1):mixed_cdft%dlb_control%bo(2), &
                                                           mixed_cdft%dlb_control%bo(3):mixed_cdft%dlb_control%bo(4), &
                                                           mixed_cdft%dlb_control%bo(7):mixed_cdft%dlb_control%bo(8)))
                mixed_cdft%dlb_control%gradients = 0.0_dp
@@ -2762,7 +2764,8 @@ CONTAINS
                                                                       mixed_cdft%dlb_control%bo(12*(j-1)+4), &
                                                                       mixed_cdft%dlb_control%bo(12*(j-1)+7): &
                                                                       mixed_cdft%dlb_control%bo(12*(j-1)+8)))
-                  ALLOCATE (mixed_cdft%dlb_control%sendbuff(j)%gradients(3*natom, mixed_cdft%dlb_control%bo(12*(j-1)+1): &
+                  ALLOCATE (mixed_cdft%dlb_control%sendbuff(j)%gradients(3*natom, &
+                                                                         mixed_cdft%dlb_control%bo(12*(j-1)+1): &
                                                                          mixed_cdft%dlb_control%bo(12*(j-1)+2), &
                                                                          mixed_cdft%dlb_control%bo(12*(j-1)+3): &
                                                                          mixed_cdft%dlb_control%bo(12*(j-1)+4), &
@@ -2789,12 +2792,14 @@ CONTAINS
                         (i-1)*3+1+3*max_targets+force_env%para_env%mepos*6*max_targets/) ! Unique communicator tags
                mixed_cdft%dlb_control%target_list(3, i) = tags(1)
                IF (mixed_cdft%is_pencil) THEN
-                  sendbuffer = (/bo_conf(1, 1)+offset, bo_conf(1, 1)+offset+(mixed_cdft%dlb_control%target_list(2, i)-1), &
-                                 bo_conf(1, 2), bo_conf(2, 2), bo(1, 3), bo(2, 3), bo_conf(1, 3), bo_conf(2, 3), tags(1), tags(2), &
-                                 mixed_cdft%dest_list(1), mixed_cdft%dest_list(2)/)
+                  sendbuffer = (/bo_conf(1, 1)+offset, &
+                                 bo_conf(1, 1)+offset+(mixed_cdft%dlb_control%target_list(2, i)-1), &
+                                 bo_conf(1, 2), bo_conf(2, 2), bo(1, 3), bo(2, 3), bo_conf(1, 3), bo_conf(2, 3),&
+                                 tags(1), tags(2), mixed_cdft%dest_list(1), mixed_cdft%dest_list(2)/)
                ELSE
                   sendbuffer = (/bo_conf(1, 1), bo_conf(2, 1), &
-                                 bo_conf(1, 2)+offset, bo_conf(1, 2)+offset+(mixed_cdft%dlb_control%target_list(2, i)-1), &
+                                 bo_conf(1, 2)+offset, &
+                                 bo_conf(1, 2)+offset+(mixed_cdft%dlb_control%target_list(2, i)-1), &
                                  bo(1, 3), bo(2, 3), bo_conf(1, 3), bo_conf(2, 3), tags(1), tags(2), &
                                  mixed_cdft%dest_list(1), mixed_cdft%dest_list(2)/)
                END IF
@@ -2803,16 +2808,23 @@ CONTAINS
                              request=req(1), comm=force_env%para_env%group)
                CALL mp_wait(req(1))
                IF (mixed_cdft%is_pencil) THEN
-                  ALLOCATE (cavity(bo_conf(1, 1)+offset:bo_conf(1, 1)+offset+(mixed_cdft%dlb_control%target_list(2, i)-1), &
+                  ALLOCATE (cavity(bo_conf(1, 1)+offset: &
+                                   bo_conf(1, 1)+offset+(mixed_cdft%dlb_control%target_list(2, i)-1), &
                                    bo_conf(1, 2):bo_conf(2, 2), bo_conf(1, 3):bo_conf(2, 3)))
-                  cavity = mixed_cdft%becke_control%cavity%pw%cr3d(bo_conf(1,1)+offset:bo_conf(1,1)+offset+(mixed_cdft%dlb_control%target_list(2,i)-1),&
-                                                                   bo_conf(1, 2):bo_conf(2, 2), bo_conf(1, 3):bo_conf(2, 3))
+                  cavity = mixed_cdft%becke_control%cavity%pw%cr3d(bo_conf(1,1)+offset:&
+                                                                   bo_conf(1,1)+offset+&
+                                                                   (mixed_cdft%dlb_control%target_list(2,i)-1),&
+                                                                   bo_conf(1, 2):bo_conf(2, 2), &
+                                                                   bo_conf(1, 3):bo_conf(2, 3))
                ELSE
                   ALLOCATE (cavity(bo_conf(1, 1):bo_conf(2, 1), &
-                                   bo_conf(1, 2)+offset:bo_conf(1, 2)+offset+(mixed_cdft%dlb_control%target_list(2, i)-1), &
+                                   bo_conf(1, 2)+offset:&
+                                   bo_conf(1, 2)+offset+(mixed_cdft%dlb_control%target_list(2, i)-1), &
                                    bo_conf(1, 3):bo_conf(2, 3)))
                   cavity = mixed_cdft%becke_control%cavity%pw%cr3d(bo_conf(1, 1):bo_conf(2, 1), &
-                                           bo_conf(1, 2)+offset:bo_conf(1, 2)+offset+(mixed_cdft%dlb_control%target_list(2, i)-1), &
+                                                                   bo_conf(1, 2)+offset:&
+                                                                   bo_conf(1, 2)+offset+&
+                                                                   (mixed_cdft%dlb_control%target_list(2, i)-1), &
                                                                    bo_conf(1, 3):bo_conf(2, 3))
                END IF
                CALL mp_isend(msgin=cavity, &
@@ -2834,8 +2846,9 @@ CONTAINS
             ALLOCATE (buffsize(1))
             DO i = 1, SIZE(mixed_cdft%dlb_control%target_list, 2)
                buffsize = mixed_cdft%dlb_control%target_list(2, i)
+               ! Unique communicator tags (dont actually need these, should be removed)
                tags = (/(i-1)*3+1+force_env%para_env%mepos*6*max_targets, &
-                        (i-1)*3+1+3*max_targets+force_env%para_env%mepos*6*max_targets/) ! Unique communicator tags (dont actually need these)
+                        (i-1)*3+1+3*max_targets+force_env%para_env%mepos*6*max_targets/) 
                DO j = 4, SIZE(mixed_cdft%dlb_control%target_list, 1)
                   IF (mixed_cdft%dlb_control%target_list(j, i) .GT. uninitialized) EXIT
                END DO
@@ -2849,8 +2862,9 @@ CONTAINS
                DO j = 1, buffsize(1)
                   sendbuffer(12*(j-1)+1:12*(j-1)+12) = (/mixed_cdft%dlb_control%target_list(offset_special+2*(j-1), i), &
                                                          mixed_cdft%dlb_control%target_list(offset_special+2*j-1, i), &
-                                                         bo_conf(1, 2), bo_conf(2, 2), bo(1, 3), bo(2, 3), bo_conf(1, 3), &
-                                                         bo_conf(2, 3), tags(1), tags(2), mixed_cdft%dest_list(j+offset_proc), &
+                                                         bo_conf(1, 2), bo_conf(2, 2), bo(1, 3), bo(2, 3), &
+                                                         bo_conf(1, 3), bo_conf(2, 3), tags(1), tags(2), &
+                                                         mixed_cdft%dest_list(j+offset_proc), &
                                                          mixed_cdft%dest_list(j+offset_proc)+force_env%para_env%num_pe/2/)
                END DO
                CALL mp_isend(msgin=sendbuffer, &
@@ -2863,7 +2877,8 @@ CONTAINS
                                    mixed_cdft%dlb_control%target_list(offset_special+2*j-1, i), &
                                    bo_conf(1, 2):bo_conf(2, 2), bo_conf(1, 3):bo_conf(2, 3)))
                   cavity = mixed_cdft%becke_control%cavity%pw%cr3d(LBOUND(cavity, 1):UBOUND(cavity, 1), &
-                                                                   bo_conf(1, 2):bo_conf(2, 2), bo_conf(1, 3):bo_conf(2, 3))
+                                                                   bo_conf(1, 2):bo_conf(2, 2), &
+                                                                   bo_conf(1, 3):bo_conf(2, 3))
                   CALL mp_isend(msgin=cavity, &
                                 dest=mixed_cdft%dlb_control%target_list(1, i), &
                                 request=req(1), comm=force_env%para_env%group)
@@ -2875,8 +2890,9 @@ CONTAINS
          END IF
       END IF
       DEALLOCATE (expected_work, work_size, load_imbalance, work_index, targets)
-      ! Once calculated, data defined on the distributed grid points is sent directly to the processors that own the grid points
-      ! after the constraint is copied onto the two processor groups, instead of sending the data back to original owner
+      ! Once calculated, data defined on the distributed grid points is sent directly to the processors that own the
+      ! grid points after the constraint is copied onto the two processor groups, instead of sending the data back to
+      ! the original owner
       IF (mixed_cdft%is_special) THEN
          my_special_work = 2
          ALLOCATE (mask_send(SIZE(mixed_cdft%dest_list)), mask_recv(SIZE(mixed_cdft%source_list)))
@@ -2984,7 +3000,8 @@ CONTAINS
             IF (mixed_cdft%dlb_control%recv_work_repl(i) .AND. &
                 mixed_cdft%dlb_control%send_work) THEN
                ALLOCATE (mixed_cdft%dlb_control%recv_info(i)%matrix_info(6))
-               IF (i == 2) mixed_cdft%dlb_control%target_list(3, :) = mixed_cdft%dlb_control%target_list(3, :)+3*max_targets
+               IF (i == 2) mixed_cdft%dlb_control%target_list(3, :) = mixed_cdft%dlb_control%target_list(3, :)+&
+                                                                      3*max_targets
                CALL mp_irecv(msgout=mixed_cdft%dlb_control%recv_info(i)%matrix_info, &
                              source=mixed_cdft%source_list(i), &
                              request=my_req(1), comm=force_env%para_env%group)
@@ -2992,7 +3009,8 @@ CONTAINS
                              dest=mixed_cdft%dest_list(i), &
                              request=my_req(2), comm=force_env%para_env%group)
                CALL mp_waitall(my_req)
-               ALLOCATE (mixed_cdft%dlb_control%recv_info(i)%target_list(3, mixed_cdft%dlb_control%recv_info(i)%matrix_info(1)))
+               ALLOCATE (mixed_cdft%dlb_control%recv_info(i)%&
+                         target_list(3, mixed_cdft%dlb_control%recv_info(i)%matrix_info(1)))
                CALL mp_irecv(mixed_cdft%dlb_control%recv_info(i)%target_list, &
                              source=mixed_cdft%source_list(i), &
                              request=my_req(1), comm=force_env%para_env%group)
@@ -3007,14 +3025,16 @@ CONTAINS
                              source=mixed_cdft%source_list(i), &
                              request=req(1), comm=force_env%para_env%group)
                CALL mp_wait(req(1))
-               ALLOCATE (mixed_cdft%dlb_control%recv_info(i)%target_list(3, mixed_cdft%dlb_control%recv_info(i)%matrix_info(1)))
+               ALLOCATE (mixed_cdft%dlb_control%recv_info(i)%&
+                         target_list(3, mixed_cdft%dlb_control%recv_info(i)%matrix_info(1)))
                CALL mp_irecv(mixed_cdft%dlb_control%recv_info(i)%target_list, &
                              source=mixed_cdft%source_list(i), &
                              request=req(1), comm=force_env%para_env%group)
                CALL mp_wait(req(1))
             ELSE IF (mixed_cdft%dlb_control%send_work) THEN
                ! Tell my destination processors which processors will send them data
-               IF (i == 2) mixed_cdft%dlb_control%target_list(3, :) = mixed_cdft%dlb_control%target_list(3, :)+3*max_targets
+               IF (i == 2) &
+                  mixed_cdft%dlb_control%target_list(3, :) = mixed_cdft%dlb_control%target_list(3, :)+3*max_targets
                CALL mp_isend(msgin=sendbuffer, &
                              dest=mixed_cdft%dest_list(i), &
                              request=req(1), comm=force_env%para_env%group)
@@ -3282,51 +3302,57 @@ CONTAINS
                      ALLOCATE (mixed_cdft%dlb_control%recvbuff(j)%buffs(SIZE(mixed_cdft%dlb_control%recv_info(j)%target_list, 2)))
                      DO i = 1, SIZE(mixed_cdft%dlb_control%recv_info(j)%target_list, 2)
                         IF (mixed_cdft%is_pencil) THEN
-           ALLOCATE (mixed_cdft%dlb_control%recvbuff(j)%buffs(i)%weight(mixed_cdft%dlb_control%recv_info(j)%matrix_info(4)+offset: &
-                                                                        mixed_cdft%dlb_control%recv_info(j)%matrix_info(4)+offset+ &
-                                                                        (mixed_cdft%dlb_control%recv_info(j)%target_list(2, i)-1), &
-                                                                               mixed_cdft%dlb_control%recv_info(j)%matrix_info(5): &
-                                                                               mixed_cdft%dlb_control%recv_info(j)%matrix_info(6), &
-                                                                               mixed_cdft%dlb_control%recv_info(j)%matrix_info(2): &
-                                                                                mixed_cdft%dlb_control%recv_info(j)%matrix_info(3)))
-           ALLOCATE (mixed_cdft%dlb_control%recvbuff(j)%buffs(i)%cavity(mixed_cdft%dlb_control%recv_info(j)%matrix_info(4)+offset: &
-                                                                        mixed_cdft%dlb_control%recv_info(j)%matrix_info(4)+offset+ &
-                                                                        (mixed_cdft%dlb_control%recv_info(j)%target_list(2, i)-1), &
-                                                                               mixed_cdft%dlb_control%recv_info(j)%matrix_info(5): &
-                                                                               mixed_cdft%dlb_control%recv_info(j)%matrix_info(6), &
-                                                                               mixed_cdft%dlb_control%recv_info(j)%matrix_info(2): &
-                                                                                mixed_cdft%dlb_control%recv_info(j)%matrix_info(3)))
-                           ALLOCATE (mixed_cdft%dlb_control%recvbuff(j)%buffs(i)%gradients(3*natom, &
-                                                                        mixed_cdft%dlb_control%recv_info(j)%matrix_info(4)+offset: &
-                                                                        mixed_cdft%dlb_control%recv_info(j)%matrix_info(4)+offset+ &
-                                                                        (mixed_cdft%dlb_control%recv_info(j)%target_list(2, i)-1), &
-                                                                               mixed_cdft%dlb_control%recv_info(j)%matrix_info(5): &
-                                                                               mixed_cdft%dlb_control%recv_info(j)%matrix_info(6), &
-                                                                               mixed_cdft%dlb_control%recv_info(j)%matrix_info(2): &
-                                                                                mixed_cdft%dlb_control%recv_info(j)%matrix_info(3)))
+                           ALLOCATE (mixed_cdft%dlb_control%recvbuff(j)%buffs(i)%&
+                                     weight(mixed_cdft%dlb_control%recv_info(j)%matrix_info(4)+offset: &
+                                            mixed_cdft%dlb_control%recv_info(j)%matrix_info(4)+offset+ &
+                                            (mixed_cdft%dlb_control%recv_info(j)%target_list(2, i)-1), &
+                                            mixed_cdft%dlb_control%recv_info(j)%matrix_info(5): &
+                                            mixed_cdft%dlb_control%recv_info(j)%matrix_info(6), &
+                                            mixed_cdft%dlb_control%recv_info(j)%matrix_info(2): &
+                                            mixed_cdft%dlb_control%recv_info(j)%matrix_info(3)))
+                           ALLOCATE (mixed_cdft%dlb_control%recvbuff(j)%buffs(i)%&
+                                     cavity(mixed_cdft%dlb_control%recv_info(j)%matrix_info(4)+offset: &
+                                            mixed_cdft%dlb_control%recv_info(j)%matrix_info(4)+offset+ &
+                                            (mixed_cdft%dlb_control%recv_info(j)%target_list(2, i)-1), &
+                                            mixed_cdft%dlb_control%recv_info(j)%matrix_info(5): &
+                                            mixed_cdft%dlb_control%recv_info(j)%matrix_info(6), &
+                                            mixed_cdft%dlb_control%recv_info(j)%matrix_info(2): &
+                                           mixed_cdft%dlb_control%recv_info(j)%matrix_info(3)))
+                           ALLOCATE (mixed_cdft%dlb_control%recvbuff(j)%buffs(i)%&
+                                     gradients(3*natom, &
+                                               mixed_cdft%dlb_control%recv_info(j)%matrix_info(4)+offset: &
+                                               mixed_cdft%dlb_control%recv_info(j)%matrix_info(4)+offset+ &
+                                               (mixed_cdft%dlb_control%recv_info(j)%target_list(2, i)-1), &
+                                               mixed_cdft%dlb_control%recv_info(j)%matrix_info(5): &
+                                               mixed_cdft%dlb_control%recv_info(j)%matrix_info(6), &
+                                               mixed_cdft%dlb_control%recv_info(j)%matrix_info(2): &
+                                               mixed_cdft%dlb_control%recv_info(j)%matrix_info(3)))
                         ELSE
-                  ALLOCATE (mixed_cdft%dlb_control%recvbuff(j)%buffs(i)%weight(mixed_cdft%dlb_control%recv_info(j)%matrix_info(5): &
-                                                                               mixed_cdft%dlb_control%recv_info(j)%matrix_info(6), &
-                                                                        mixed_cdft%dlb_control%recv_info(j)%matrix_info(4)+offset: &
-                                                                        mixed_cdft%dlb_control%recv_info(j)%matrix_info(4)+offset+ &
-                                                                        (mixed_cdft%dlb_control%recv_info(j)%target_list(2, i)-1), &
-                                                                               mixed_cdft%dlb_control%recv_info(j)%matrix_info(2): &
-                                                                                mixed_cdft%dlb_control%recv_info(j)%matrix_info(3)))
-                  ALLOCATE (mixed_cdft%dlb_control%recvbuff(j)%buffs(i)%cavity(mixed_cdft%dlb_control%recv_info(j)%matrix_info(5): &
-                                                                               mixed_cdft%dlb_control%recv_info(j)%matrix_info(6), &
-                                                                        mixed_cdft%dlb_control%recv_info(j)%matrix_info(4)+offset: &
-                                                                        mixed_cdft%dlb_control%recv_info(j)%matrix_info(4)+offset+ &
-                                                                        (mixed_cdft%dlb_control%recv_info(j)%target_list(2, i)-1), &
-                                                                               mixed_cdft%dlb_control%recv_info(j)%matrix_info(2): &
-                                                                                mixed_cdft%dlb_control%recv_info(j)%matrix_info(3)))
-                           ALLOCATE (mixed_cdft%dlb_control%recvbuff(j)%buffs(i)%gradients(3*natom, &
-                                                                               mixed_cdft%dlb_control%recv_info(j)%matrix_info(5): &
-                                                                               mixed_cdft%dlb_control%recv_info(j)%matrix_info(6), &
-                                                                        mixed_cdft%dlb_control%recv_info(j)%matrix_info(4)+offset: &
-                                                                        mixed_cdft%dlb_control%recv_info(j)%matrix_info(4)+offset+ &
-                                                                        (mixed_cdft%dlb_control%recv_info(j)%target_list(2, i)-1), &
-                                                                               mixed_cdft%dlb_control%recv_info(j)%matrix_info(2): &
-                                                                                mixed_cdft%dlb_control%recv_info(j)%matrix_info(3)))
+                           ALLOCATE (mixed_cdft%dlb_control%recvbuff(j)%buffs(i)%&
+                                     weight(mixed_cdft%dlb_control%recv_info(j)%matrix_info(5): &
+                                            mixed_cdft%dlb_control%recv_info(j)%matrix_info(6), &
+                                            mixed_cdft%dlb_control%recv_info(j)%matrix_info(4)+offset: &
+                                            mixed_cdft%dlb_control%recv_info(j)%matrix_info(4)+offset+ &
+                                            (mixed_cdft%dlb_control%recv_info(j)%target_list(2, i)-1), &
+                                            mixed_cdft%dlb_control%recv_info(j)%matrix_info(2): &
+                                            mixed_cdft%dlb_control%recv_info(j)%matrix_info(3)))
+                           ALLOCATE (mixed_cdft%dlb_control%recvbuff(j)%buffs(i)%&
+                                     cavity(mixed_cdft%dlb_control%recv_info(j)%matrix_info(5): &
+                                            mixed_cdft%dlb_control%recv_info(j)%matrix_info(6), &
+                                            mixed_cdft%dlb_control%recv_info(j)%matrix_info(4)+offset: &
+                                            mixed_cdft%dlb_control%recv_info(j)%matrix_info(4)+offset+ &
+                                            (mixed_cdft%dlb_control%recv_info(j)%target_list(2, i)-1), &
+                                            mixed_cdft%dlb_control%recv_info(j)%matrix_info(2): &
+                                            mixed_cdft%dlb_control%recv_info(j)%matrix_info(3)))
+                           ALLOCATE (mixed_cdft%dlb_control%recvbuff(j)%buffs(i)%&
+                                     gradients(3*natom, &
+                                               mixed_cdft%dlb_control%recv_info(j)%matrix_info(5): &
+                                               mixed_cdft%dlb_control%recv_info(j)%matrix_info(6), &
+                                               mixed_cdft%dlb_control%recv_info(j)%matrix_info(4)+offset: &
+                                               mixed_cdft%dlb_control%recv_info(j)%matrix_info(4)+offset+ &
+                                               (mixed_cdft%dlb_control%recv_info(j)%target_list(2, i)-1), &
+                                               mixed_cdft%dlb_control%recv_info(j)%matrix_info(2): &
+                                               mixed_cdft%dlb_control%recv_info(j)%matrix_info(3)))
                         END IF
                         CALL mp_irecv(msgout=mixed_cdft%dlb_control%recvbuff(j)%buffs(i)%cavity, &
                                       source=mixed_cdft%dlb_control%recv_info(j)%target_list(1, i), &
@@ -3350,24 +3376,27 @@ CONTAINS
                     ALLOCATE (mixed_cdft%dlb_control%recvbuff(j)%buffs((SIZE(mixed_cdft%dlb_control%recv_info(j)%matrix_info)-4)/3))
                      index = 6
                      DO i = 1, SIZE(mixed_cdft%dlb_control%recvbuff(j)%buffs)
-              ALLOCATE (mixed_cdft%dlb_control%recvbuff(j)%buffs(i)%weight(mixed_cdft%dlb_control%recv_info(j)%matrix_info(index): &
-                                                                         mixed_cdft%dlb_control%recv_info(j)%matrix_info(index+1), &
-                                                                               mixed_cdft%dlb_control%recv_info(j)%matrix_info(1): &
-                                                                               mixed_cdft%dlb_control%recv_info(j)%matrix_info(2), &
-                                                                               mixed_cdft%dlb_control%recv_info(j)%matrix_info(3): &
-                                                                                mixed_cdft%dlb_control%recv_info(j)%matrix_info(4)))
-              ALLOCATE (mixed_cdft%dlb_control%recvbuff(j)%buffs(i)%cavity(mixed_cdft%dlb_control%recv_info(j)%matrix_info(index): &
-                                                                         mixed_cdft%dlb_control%recv_info(j)%matrix_info(index+1), &
-                                                                               mixed_cdft%dlb_control%recv_info(j)%matrix_info(1): &
-                                                                               mixed_cdft%dlb_control%recv_info(j)%matrix_info(2), &
-                                                                               mixed_cdft%dlb_control%recv_info(j)%matrix_info(3): &
-                                                                                mixed_cdft%dlb_control%recv_info(j)%matrix_info(4)))
-  ALLOCATE (mixed_cdft%dlb_control%recvbuff(j)%buffs(i)%gradients(3*natom, mixed_cdft%dlb_control%recv_info(j)%matrix_info(index): &
-                                                                         mixed_cdft%dlb_control%recv_info(j)%matrix_info(index+1), &
-                                                                               mixed_cdft%dlb_control%recv_info(j)%matrix_info(1): &
-                                                                               mixed_cdft%dlb_control%recv_info(j)%matrix_info(2), &
-                                                                               mixed_cdft%dlb_control%recv_info(j)%matrix_info(3): &
-                                                                                mixed_cdft%dlb_control%recv_info(j)%matrix_info(4)))
+                        ALLOCATE (mixed_cdft%dlb_control%recvbuff(j)%buffs(i)%&
+                                  weight(mixed_cdft%dlb_control%recv_info(j)%matrix_info(index): &
+                                         mixed_cdft%dlb_control%recv_info(j)%matrix_info(index+1), &
+                                         mixed_cdft%dlb_control%recv_info(j)%matrix_info(1): &
+                                         mixed_cdft%dlb_control%recv_info(j)%matrix_info(2), &
+                                         mixed_cdft%dlb_control%recv_info(j)%matrix_info(3): &
+                                         mixed_cdft%dlb_control%recv_info(j)%matrix_info(4)))
+                        ALLOCATE (mixed_cdft%dlb_control%recvbuff(j)%buffs(i)%&
+                                 cavity(mixed_cdft%dlb_control%recv_info(j)%matrix_info(index): &
+                                        mixed_cdft%dlb_control%recv_info(j)%matrix_info(index+1), &
+                                        mixed_cdft%dlb_control%recv_info(j)%matrix_info(1): &
+                                        mixed_cdft%dlb_control%recv_info(j)%matrix_info(2), &
+                                        mixed_cdft%dlb_control%recv_info(j)%matrix_info(3): &
+                                        mixed_cdft%dlb_control%recv_info(j)%matrix_info(4)))
+                        ALLOCATE (mixed_cdft%dlb_control%recvbuff(j)%buffs(i)%&
+                                  gradients(3*natom, mixed_cdft%dlb_control%recv_info(j)%matrix_info(index): &
+                                            mixed_cdft%dlb_control%recv_info(j)%matrix_info(index+1), &
+                                            mixed_cdft%dlb_control%recv_info(j)%matrix_info(1): &
+                                            mixed_cdft%dlb_control%recv_info(j)%matrix_info(2), &
+                                            mixed_cdft%dlb_control%recv_info(j)%matrix_info(3): &
+                                            mixed_cdft%dlb_control%recv_info(j)%matrix_info(4)))
                         CALL mp_irecv(msgout=mixed_cdft%dlb_control%recvbuff(j)%buffs(i)%cavity, &
                                       source=mixed_cdft%dlb_control%recv_info(j)%matrix_info(index-1), &
                                       request=req_recv(offset_repl), &
@@ -3644,7 +3673,8 @@ CONTAINS
                                           dP_i_dRj(:, iatom, jatom) = cell_functions(iatom)*dP_i_dRj(:, iatom, jatom)
                                           d_sum_Pm_dR(:, jatom) = d_sum_Pm_dR(:, jatom)+dP_i_dRj(:, iatom, jatom)
                                           IF (is_constraint(iatom)) &
-                                             d_sum_const_dR(:, jatom) = d_sum_const_dR(:, jatom)+dP_i_dRj(:, iatom, jatom)* &
+                                             d_sum_const_dR(:, jatom) = d_sum_const_dR(:, jatom)+ &
+                                                                        dP_i_dRj(:, iatom, jatom)* &
                                                                         coefficients(iatom)
                                           CYCLE
                                        END IF
@@ -3678,7 +3708,8 @@ CONTAINS
                      IF (nskipped == mixed_cdft%becke_control%natoms) CYCLE
                      sum_cell_f_constr = 0.0_dp
                      DO ip = 1, mixed_cdft%becke_control%natoms
-                        sum_cell_f_constr = sum_cell_f_constr+cell_functions(catom(ip))*mixed_cdft%becke_control%coeff(ip)
+                        sum_cell_f_constr = sum_cell_f_constr+cell_functions(catom(ip))*&
+                                            mixed_cdft%becke_control%coeff(ip)
                      END DO
                      sum_cell_f_all = 0.0_dp
                      nwork = nwork+1
