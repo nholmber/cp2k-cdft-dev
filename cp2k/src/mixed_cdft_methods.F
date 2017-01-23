@@ -52,7 +52,7 @@ MODULE mixed_cdft_methods
                                               return_cube_max_iradius
    USE d3_poly,                         ONLY: init_d3_poly_module
    USE dbcsr_api,                       ONLY: &
-        dbcsr_add, dbcsr_create, dbcsr_desymmetrize, dbcsr_get_info, dbcsr_init, dbcsr_init_p, &
+        dbcsr_add, dbcsr_create, dbcsr_desymmetrize, dbcsr_get_info, dbcsr_init_p, &
         dbcsr_p_type, dbcsr_release, dbcsr_release_p, dbcsr_scale, dbcsr_type
    USE force_env_types,                 ONLY: force_env_get,&
                                               force_env_type,&
@@ -1416,7 +1416,6 @@ CONTAINS
                                   square_blocks=.TRUE.)
          CALL cp_fm_create(wmat_tmp(iforce_eval)%matrix, fm_struct_tmp, name="fm_matrix")
          CALL cp_fm_struct_release(fm_struct_tmp)
-         CALL dbcsr_init(desymm_tmp)
          CALL dbcsr_desymmetrize(dft_control%qs_control%cdft_control%wmat%matrix, desymm_tmp)
          CALL copy_dbcsr_to_fm(desymm_tmp, wmat_tmp(iforce_eval)%matrix)
          CALL dbcsr_release(desymm_tmp)
@@ -1428,7 +1427,6 @@ CONTAINS
                                      para_env=force_env%sub_force_env(iforce_eval)%force_env%para_env)
             CALL cp_fm_create(matrix_s_tmp%matrix, fm_struct_tmp, name="s_matrix")
             CALL cp_fm_struct_release(fm_struct_tmp)
-            CALL dbcsr_init(desymm_tmp)
             CALL dbcsr_desymmetrize(dft_control%qs_control%cdft_control%matrix_s%matrix, desymm_tmp)
             CALL copy_dbcsr_to_fm(desymm_tmp, matrix_s_tmp%matrix)
             CALL dbcsr_release(desymm_tmp)
@@ -1443,7 +1441,6 @@ CONTAINS
                                         para_env=force_env%sub_force_env(iforce_eval)%force_env%para_env)
                CALL cp_fm_create(matrix_p_tmp(iforce_eval, ispin)%matrix, fm_struct_tmp, name="dm_matrix")
                CALL cp_fm_struct_release(fm_struct_tmp)
-               CALL dbcsr_init(desymm_tmp)
                CALL dbcsr_desymmetrize(dft_control%qs_control%cdft_control%matrix_p(ispin)%matrix, desymm_tmp)
                CALL copy_dbcsr_to_fm(desymm_tmp, matrix_p_tmp(iforce_eval, ispin)%matrix)
                CALL dbcsr_release(desymm_tmp)
@@ -1662,7 +1659,6 @@ CONTAINS
       IF (mixed_cdft%calculate_metric) THEN
          ALLOCATE (metric(nspins))
          metric = 0.0_dp
-         CALL dbcsr_init(e_vectors)
          CALL dbcsr_create(e_vectors, template=density_matrix(1, 1)%matrix)
          ! Take into account doubly occupied orbitals without LSD
          IF (nspins == 1) CALL dbcsr_scale(density_matrix(1, 1)%matrix, alpha_scalar=0.5_dp)
