@@ -52,8 +52,8 @@ MODULE mixed_cdft_methods
                                               return_cube_max_iradius
    USE d3_poly,                         ONLY: init_d3_poly_module
    USE dbcsr_api,                       ONLY: &
-        dbcsr_add, dbcsr_create, dbcsr_desymmetrize, dbcsr_get_info, dbcsr_init_p, &
-        dbcsr_p_type, dbcsr_release, dbcsr_release_p, dbcsr_scale, dbcsr_type
+        dbcsr_add, dbcsr_create, dbcsr_desymmetrize, dbcsr_get_info, dbcsr_init_p, dbcsr_p_type, &
+        dbcsr_release, dbcsr_release_p, dbcsr_scale, dbcsr_type
    USE force_env_types,                 ONLY: force_env_get,&
                                               force_env_type,&
                                               multiple_fe_list,&

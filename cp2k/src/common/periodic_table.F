@@ -197,7 +197,7 @@ CONTAINS
       ptable(7)%name = 'Nitrogen'
       ptable(7)%number = 7
       ptable(7)%amass = 14.0067_dp
-      ptable(7)%covalent_radius = 0.75_dp
+      ptable(7)%covalent_radius = 0.7500_dp
       ptable(7)%vdw_radius = 1.55_dp
       ptable(7)%e_conv(0:3) = (/4, 3, 0, 0/)
       ptable(7)%eht_param(0:3) = (/-26.00_dp, -13.40_dp, z, z/)
@@ -207,7 +207,7 @@ CONTAINS
       ptable(8)%name = 'Oxygen'
       ptable(8)%number = 8
       ptable(8)%amass = 15.9994_dp
-      ptable(8)%covalent_radius = 0.73_dp
+      ptable(8)%covalent_radius = 0.7300_dp
       ptable(8)%vdw_radius = 1.52_dp
       ptable(8)%e_conv(0:3) = (/4, 4, 0, 0/)
       ptable(8)%eht_param(0:3) = (/-32.30_dp, -14.80_dp, z, z/)
@@ -297,7 +297,7 @@ CONTAINS
       ptable(17)%name = 'Chlorine'
       ptable(17)%number = 17
       ptable(17)%amass = 35.453_dp
-      ptable(17)%covalent_radius = 0.99_dp
+      ptable(17)%covalent_radius = 0.9900_dp
       ptable(17)%vdw_radius = 1.75_dp
       ptable(17)%e_conv(0:3) = (/6, 11, 0, 0/)
       ptable(17)%eht_param(0:3) = (/-26.30_dp, -14.20_dp, z, z/)
@@ -567,7 +567,7 @@ CONTAINS
       ptable(44)%name = 'Ruthenium'
       ptable(44)%number = 44
       ptable(44)%amass = 101.07_dp
-      ptable(44)%covalent_radius = 1.25_dp
+      ptable(44)%covalent_radius = 1.2500_dp
       ptable(44)%vdw_radius = 2.00_dp
       ptable(44)%e_conv(0:3) = (/9, 18, 17, 0/)
       ptable(44)%eht_param(0:3) = (/-10.40_dp, -6.87_dp, -14.90_dp, z/)
@@ -1264,8 +1264,8 @@ CONTAINS
       ptable(113)%eht_param(0:3) = (/z, z, z, z/)
 
       ! Ununquadium
-      ptable(114)%symbol = 'Uuq'
-      ptable(114)%name = 'Ununquadium'
+      ptable(114)%symbol = 'Fl'
+      ptable(114)%name = 'Flerovium'
       ptable(114)%number = 114
       ptable(114)%amass = 289.189_dp ! (289)
       ptable(114)%covalent_radius = 1.50_dp
@@ -1284,8 +1284,8 @@ CONTAINS
       ptable(115)%eht_param(0:3) = (/z, z, z, z/)
 
       ! Ununhexium
-      ptable(116)%symbol = 'Uuh'
-      ptable(116)%name = 'Ununhexium'
+      ptable(116)%symbol = 'Lv'
+      ptable(116)%name = 'Livermorium'
       ptable(116)%number = 116
       ptable(116)%amass = 293.0_dp ! (293)
       ptable(116)%covalent_radius = 1.50_dp
