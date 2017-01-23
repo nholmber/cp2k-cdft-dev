@@ -22,12 +22,12 @@ MODULE hirshfeld_methods
    USE hirshfeld_types,                 ONLY: get_hirshfeld_info,&
                                               hirshfeld_type,&
                                               set_hirshfeld_info
-   USE input_constants,                 ONLY: shape_function_density,&
-                                              shape_function_gaussian,&
-                                              radius_covalent,&
-                                              radius_user,&
+   USE input_constants,                 ONLY: radius_covalent,&
                                               radius_single,&
-                                              radius_vdw
+                                              radius_user,&
+                                              radius_vdw,&
+                                              shape_function_density,&
+                                              shape_function_gaussian
    USE kinds,                           ONLY: dp,&
                                               int_8
    USE mathconstants,                   ONLY: pi
@@ -135,14 +135,15 @@ CONTAINS
 !> \param hirshfeld_env ...
 !> \param qs_kind_set ...
 !> \param atomic_kind_set ...
+!> \param radius ...
+!> \param radii_list ...
 ! **************************************************************************************************
    SUBROUTINE create_shape_function(hirshfeld_env, qs_kind_set, atomic_kind_set, radius, radii_list)
       TYPE(hirshfeld_type), POINTER                      :: hirshfeld_env
       TYPE(qs_kind_type), DIMENSION(:), POINTER          :: qs_kind_set
       TYPE(atomic_kind_type), DIMENSION(:), POINTER      :: atomic_kind_set
       REAL(KIND=dp), OPTIONAL                            :: radius
-      REAL(KIND=dp), DIMENSION(:), POINTER, OPTIONAL     :: radii_list
-
+      REAL(KIND=dp), DIMENSION(:), OPTIONAL, POINTER     :: radii_list
 
       CHARACTER(len=*), PARAMETER :: routineN = 'create_shape_function', &
          routineP = moduleN//':'//routineN
@@ -173,26 +174,26 @@ CONTAINS
             CASE (radius_user)
                CPASSERT(PRESENT(radii_list))
                CPASSERT(ASSOCIATED(radii_list))
-               CPASSERT(SIZE(radii_list)==nkind)
-               ! Note we assume that radii_list is correctly ordered 
+               CPASSERT(SIZE(radii_list) == nkind)
+               ! Note we assume that radii_list is correctly ordered
                rco = radii_list(ikind)
             CASE (radius_vdw)
-               CALL get_ptable_info(symbol=esym,vdw_radius=rco,found=found)
-               IF(.NOT.found) THEN
-                  rco = MAX(rco,1.0_dp)
+               CALL get_ptable_info(symbol=esym, vdw_radius=rco, found=found)
+               IF (.NOT. found) THEN
+                  rco = MAX(rco, 1.0_dp)
                ELSE
                   rco = cp_unit_to_cp2k(rco, "angstrom")
                END IF
             CASE (radius_covalent)
-               CALL get_ptable_info(symbol=esym,covalent_radius=rco,found=found)
-               IF(.NOT.found) THEN
-                  rco = MAX(rco,1.0_dp)
+               CALL get_ptable_info(symbol=esym, covalent_radius=rco, found=found)
+               IF (.NOT. found) THEN
+                  rco = MAX(rco, 1.0_dp)
                ELSE
                   rco = cp_unit_to_cp2k(rco, "angstrom")
                END IF
             CASE (radius_single)
                CPASSERT(PRESENT(radius))
-               rco=radius
+               rco = radius
             END SELECT
             al = 0.5_dp/rco**2
             hirshfeld_env%kind_shape_fn(ikind)%zet(1) = al

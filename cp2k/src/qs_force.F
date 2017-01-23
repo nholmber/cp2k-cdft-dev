@@ -183,7 +183,7 @@ CONTAINS
       NULLIFY (force, subsys, dft_control)
       CALL get_qs_env(qs_env, &
                       force=force, &
-                      subsys=subsys,&
+                      subsys=subsys, &
                       dft_control=dft_control)
       IF (.NOT. ASSOCIATED(force)) THEN
          !   *** Allocate the force data structure ***
@@ -198,13 +198,13 @@ CONTAINS
       CALL zero_qs_force(force)
 
       ! Check if Becke potential is needed and save it until forces have been calculated
-      IF (dft_control%qs_control%becke_restraint)&
-         dft_control%qs_control%becke_control%save_pot=.TRUE.
+      IF (dft_control%qs_control%becke_restraint) &
+         dft_control%qs_control%becke_control%save_pot = .TRUE.
 
       IF (dft_control%qs_control%cdft) THEN
-         IF (dft_control%qs_control%cdft_control%type == outer_scf_hirshfeld_constraint)&
-            dft_control%qs_control%cdft_control%save_pot=.TRUE.
-      END IF  
+         IF (dft_control%qs_control%cdft_control%type == outer_scf_hirshfeld_constraint) &
+            dft_control%qs_control%cdft_control%save_pot = .TRUE.
+      END IF
 
       ! Set parameter for P screening with MP2
       IF (ASSOCIATED(qs_env%mp2_env)) qs_env%mp2_env%not_last_hfx = .TRUE.

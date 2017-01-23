@@ -33,7 +33,8 @@
     CHOLESKY INVERSE_DBCSR
     MAX_SCF 20
     &OT ON
-      MINIMIZER DIIS
+      ! DIIS convergence might not be constant with different mpiranks => use CG
+      MINIMIZER CG
       PRECONDITIONER FULL_ALL
       ALGORITHM IRAC
     &END OT    

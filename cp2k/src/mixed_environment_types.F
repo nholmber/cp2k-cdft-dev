@@ -13,7 +13,7 @@ MODULE mixed_environment_types
    USE atomic_kind_types,               ONLY: atomic_kind_type
    USE cell_types,                      ONLY: cell_release,&
                                               cell_retain,&
-                                              cell_type                                                                           
+                                              cell_type
    USE cp_log_handling,                 ONLY: cp_logger_p_type,&
                                               cp_logger_release
    USE cp_para_env,                     ONLY: cp_para_env_release,&
@@ -48,7 +48,7 @@ MODULE mixed_environment_types
    USE particle_list_types,             ONLY: particle_list_create,&
                                               particle_list_release,&
                                               particle_list_type
-   USE particle_types,                  ONLY: particle_type  
+   USE particle_types,                  ONLY: particle_type
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE
@@ -57,8 +57,8 @@ MODULE mixed_environment_types
 ! **************************************************************************************************
 !> \param mixed_env the pointer to the mixed_env
 !> \par History
-!>      11/06 Created [fschiff] 
-!>      12/15-12/16 Mixed CDFT [Nico Holmberg] 
+!>      11/06 Created [fschiff]
+!>      12/15-12/16 Mixed CDFT [Nico Holmberg]
 ! **************************************************************************************************
    TYPE mixed_environment_type
       INTEGER                                          :: id_nr, ref_count
@@ -79,11 +79,11 @@ MODULE mixed_environment_types
       REAL(KIND=dp)                                    :: dx, lerr
       CHARACTER(default_path_length)                   :: coupling_function
       ! Mixed CDFT control parameters
-      LOGICAL                                          :: do_mixed_cdft, do_mixed_et,&
+      LOGICAL                                          :: do_mixed_cdft, do_mixed_et, &
                                                           do_mixed_qmmm_cdft
       INTEGER                                          :: et_freq
       REAL(KIND=dp), DIMENSION(:), POINTER             :: strength
-      TYPE ( mixed_cdft_type ), POINTER                :: cdft_control
+      TYPE(mixed_cdft_type), POINTER                :: cdft_control
    END TYPE mixed_environment_type
 
 ! **************************************************************************************************
@@ -131,6 +131,7 @@ CONTAINS
 !> \param subsys ...
 !> \param input ...
 !> \param results ...
+!> \param cdft_control ...
 ! **************************************************************************************************
    SUBROUTINE get_mixed_env(mixed_env, atomic_kind_set, particle_set, &
                             local_particles, local_molecules, molecule_kind_set, &
@@ -152,6 +153,7 @@ CONTAINS
       TYPE(cp_subsys_type), OPTIONAL, POINTER            :: subsys
       TYPE(section_vals_type), OPTIONAL, POINTER         :: input
       TYPE(cp_result_type), OPTIONAL, POINTER            :: results
+      TYPE(mixed_cdft_type), OPTIONAL, POINTER           :: cdft_control
 
       CHARACTER(len=*), PARAMETER :: routineN = 'get_mixed_env', routineP = moduleN//':'//routineN
 
@@ -159,7 +161,6 @@ CONTAINS
       TYPE(molecule_kind_list_type), POINTER             :: molecule_kinds
       TYPE(molecule_list_type), POINTER                  :: molecules
       TYPE(particle_list_type), POINTER                  :: particles
-      TYPE(mixed_cdft_type), POINTER, OPTIONAL           :: cdft_control
 
       NULLIFY (atomic_kinds, particles, molecules, molecule_kinds)
       CPASSERT(ASSOCIATED(mixed_env%subsys))
@@ -235,6 +236,7 @@ CONTAINS
 !> \param subsys ...
 !> \param input ...
 !> \param sub_para_env ...
+!> \param cdft_control ...
 ! **************************************************************************************************
    SUBROUTINE set_mixed_env(mixed_env, atomic_kind_set, particle_set, &
                             local_particles, local_molecules, molecule_kind_set, &
@@ -253,6 +255,7 @@ CONTAINS
       TYPE(section_vals_type), OPTIONAL, POINTER         :: input
       TYPE(cp_para_env_p_type), DIMENSION(:), OPTIONAL, &
          POINTER                                         :: sub_para_env
+      TYPE(mixed_cdft_type), OPTIONAL, POINTER           :: cdft_control
 
       CHARACTER(len=*), PARAMETER :: routineN = 'set_mixed_env', routineP = moduleN//':'//routineN
 
@@ -260,7 +263,6 @@ CONTAINS
       TYPE(molecule_kind_list_type), POINTER             :: molecule_kinds
       TYPE(molecule_list_type), POINTER                  :: molecules
       TYPE(particle_list_type), POINTER                  :: particles
-      TYPE(mixed_cdft_type), POINTER, OPTIONAL           :: cdft_control
 
       CPASSERT(mixed_env%ref_count > 0)
 
@@ -395,8 +397,8 @@ CONTAINS
             END IF
             IF (ASSOCIATED(mixed_env%cdft_control)) &
                CALL mixed_cdft_type_release(mixed_env%cdft_control)
-            IF (ASSOCIATED(mixed_env%strength))&
-               DEALLOCATE(mixed_env%strength) 
+            IF (ASSOCIATED(mixed_env%strength)) &
+               DEALLOCATE (mixed_env%strength)
             DEALLOCATE (mixed_env)
          END IF
       END IF

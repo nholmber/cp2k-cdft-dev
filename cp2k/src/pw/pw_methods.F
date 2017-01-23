@@ -74,9 +74,9 @@ MODULE pw_methods
       MODULE PROCEDURE pw_scatter_s, pw_scatter_p
    END INTERFACE
 
-  INTERFACE pw_set_masked
-     MODULE PROCEDURE pw_set_masked_d3
-  END INTERFACE
+   INTERFACE pw_set_masked
+      MODULE PROCEDURE pw_set_masked_d3
+   END INTERFACE
 
 CONTAINS
 
@@ -1965,35 +1965,34 @@ CONTAINS
 !> \par History
 !>      Created 12.2016
 !> \author Nico Holmberg
-! *****************************************************************************
-   SUBROUTINE pw_set_masked_d3 (pw, mask)
+! **************************************************************************************************
+   SUBROUTINE pw_set_masked_d3(pw, mask)
 
-      TYPE(pw_type), INTENT(INOUT)             :: pw
-      REAL(KIND=dp), DIMENSION(:,:,:),&
-         POINTER, INTENT(IN)                   :: mask
+      TYPE(pw_type), INTENT(INOUT)                       :: pw
+      REAL(KIND=dp), DIMENSION(:, :, :), INTENT(IN), &
+         POINTER                                         :: mask
 
       CHARACTER(len=*), PARAMETER :: routineN = 'pw_set_masked_d3', &
          routineP = moduleN//':'//routineN
 
-      INTEGER                                  :: i, j, k, handle
+      INTEGER                                            :: handle, i, j, k
 
-    CALL timeset(routineN,handle)
-    CPASSERT(pw%ref_count>0)
-    IF ( pw%in_use == REALDATA3D ) THEN
-       DO i = LBOUND(mask, 3), UBOUND(mask, 3)
-          DO j = LBOUND(mask, 2), UBOUND(mask, 2)
-             DO k = LBOUND(mask, 1), UBOUND(mask, 1)
-                pw%cr3d(k,j,i) = mask(k,j,i)
-             END DO
-          END DO
-       END DO
-    ELSE
-       CPABORT("Illegal pw type, should be REALDATA3D.")
-    END IF
-    CALL timestop(handle)
+      CALL timeset(routineN, handle)
+      CPASSERT(pw%ref_count > 0)
+      IF (pw%in_use == REALDATA3D) THEN
+         DO i = LBOUND(mask, 3), UBOUND(mask, 3)
+            DO j = LBOUND(mask, 2), UBOUND(mask, 2)
+               DO k = LBOUND(mask, 1), UBOUND(mask, 1)
+                  pw%cr3d(k, j, i) = mask(k, j, i)
+               END DO
+            END DO
+         END DO
+      ELSE
+         CPABORT("Illegal pw type, should be REALDATA3D.")
+      END IF
+      CALL timestop(handle)
 
-  END SUBROUTINE pw_set_masked_d3
-
+   END SUBROUTINE pw_set_masked_d3
 
 END MODULE pw_methods
 

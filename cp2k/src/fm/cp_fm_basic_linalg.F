@@ -12,17 +12,10 @@
 MODULE cp_fm_basic_linalg
    USE cp_blacs_env,                    ONLY: cp_blacs_env_type
    USE cp_fm_struct,                    ONLY: cp_fm_struct_equivalent
-   USE cp_fm_types,                     ONLY: cp_fm_create,&
-                                              cp_fm_get_element,&
-                                              cp_fm_get_info,&
-                                              cp_fm_get_submatrix,&
-                                              cp_fm_p_type, &
-                                              cp_fm_release,&
-                                              cp_fm_set_all,&
-                                              cp_fm_set_submatrix,&
-                                              cp_fm_to_fm,&
-                                              cp_fm_type, &
-                                              cp_fm_set_element
+   USE cp_fm_types,                     ONLY: &
+        cp_fm_create, cp_fm_get_element, cp_fm_get_info, cp_fm_get_submatrix, cp_fm_p_type, &
+        cp_fm_release, cp_fm_set_all, cp_fm_set_element, cp_fm_set_submatrix, cp_fm_to_fm, &
+        cp_fm_type
    USE cp_log_handling,                 ONLY: cp_to_string
    USE kahan_sum,                       ONLY: accurate_sum
    USE kinds,                           ONLY: dp,&
@@ -1212,12 +1205,13 @@ CONTAINS
 !> \param matrix_a ...
 !> \param matrix_inverse ...
 !> \param det_a ...
-!> \author Florian Schiffmann(02.2007)
+!> \param eps_svd ...
 !> \par History
 !>      note of Jan Wilhelm (12.2015)
 !>      - computation of determinant corrected
 !>      - determinant only computed if det_a is present
 !>      12.2016 added option to use SVD instead of LU [Nico Holmberg]
+!> \author Florian Schiffmann(02.2007)
 ! **************************************************************************************************
    SUBROUTINE cp_fm_invert(matrix_a, matrix_inverse, det_a, eps_svd)
 
@@ -1232,7 +1226,7 @@ CONTAINS
       INTEGER, ALLOCATABLE, DIMENSION(:)       :: ipivot
       REAL(KIND=dp)                            :: determinant
       REAL(KIND=dp), DIMENSION(:, :), POINTER  :: a
-      TYPE(cp_fm_type), POINTER                :: matrix_B, matrix_lu,&
+      TYPE(cp_fm_type), POINTER                :: matrix_B, matrix_lu, &
                                                   u, vt, sigma, inv_sigma_ut
 #if defined(__SCALAPACK)
       INTEGER                                  :: i, info, liwork, lwork, group, exponent_of_minus_one
@@ -1318,78 +1312,78 @@ CONTAINS
 !      DEALLOCATE (berr)
 !      DEALLOCATE (work)
 !      DEALLOCATE (iwork)
-   ELSE
-      ! Use singular value decomposition
-      CALL cp_fm_create(matrix=u,&
-                        matrix_struct=matrix_a%matrix_struct,&
-                        name="LEFT_SINGULAR_MATRIX")
-      CALL cp_fm_set_all(u,alpha=0.0_dp) 
-      CALL cp_fm_create(matrix=vt,&
-                        matrix_struct=matrix_a%matrix_struct,&
-                        name="RIGHT_SINGULAR_MATRIX")
-      CALL cp_fm_set_all(vt,alpha=0.0_dp)
-      ALLOCATE(diag(n))
-      diag(:)=0.0_dp
-      desca(:) = matrix_lu%matrix_struct%descriptor(:)
-      ALLOCATE(work(1))
-      ! Workspace query
-      lwork=-1
-      CALL pdgesvd('V','V',n,n,matrix_lu%local_data,1,1,desca,diag,u%local_data,&
-                   1,1,desca,vt%local_data,1,1,desca,work,lwork,info)
-      lwork = INT(work(1))
-      DEALLOCATE(work)
-      ALLOCATE(work(lwork))
-      ! SVD
-      CALL pdgesvd('V','V',n,n,matrix_lu%local_data,1,1,desca,diag,u%local_data,&
-                   1,1,desca,vt%local_data,1,1,desca,work,lwork,info)
-      ! info == n+1 implies homogeneity error when the number of procs is large
-      ! this likely isnt a problem, but maybe we should handle it separately  
-      IF (info /= 0 .AND. info /= n+1) &
-         CPABORT("Singular value decomposition of matrix failed.")
-      ! (Pseudo)inverse and (pseudo)determinant
-      CALL cp_fm_create(matrix=sigma,&
-                        matrix_struct=matrix_a%matrix_struct,&
-                        name="SINGULAR_VALUE_MATRIX")
-      CALL cp_fm_set_all(sigma,alpha=0.0_dp)
-      determinant=1.0_dp
-      ! TODO: Notify if some singular values fall below my_eps_svd
-      DO i = 1, n
-         IF (diag(i) < my_eps_svd) THEN
-            diag(i) = 0.0_dp
-         ELSE
-            determinant = determinant*diag(i)
-            diag(i) = 1.0_dp/diag(i)
-         ENDIF
-         CALL cp_fm_set_element(sigma,i,i,diag(i))
-      END DO
-      DEALLOCATE(diag)
-      ! Sigma^-1 * U^T
-      CALL cp_fm_create(matrix=inv_sigma_ut,&
-                        matrix_struct=matrix_a%matrix_struct,&
-                        name="SINGULAR_VALUE_MATRIX")
-      CALL cp_fm_set_all(inv_sigma_ut,alpha=0.0_dp)
-      CALL pdgemm('N','T',n,n,n,1.0_dp,sigma%local_data,1,1,desca,&
-                  u%local_data,1,1,desca,0.0_dp,inv_sigma_ut%local_data,1,1,desca)
-      ! A^-1 = V * (Sigma^-1 * U^T)
-      CALL cp_fm_set_all(matrix_inverse,alpha=0.0_dp)
-      CALL pdgemm('T','N',n,n,n,1.0_dp,vt%local_data,1,1,desca,&
-                  inv_sigma_ut%local_data,1,1,desca,0.0_dp,matrix_inverse%local_data,1,1,desca)
-      ! Clean up
-      DEALLOCATE(work)
-      CALL cp_fm_release(u)
-      CALL cp_fm_release(vt)
-      CALL cp_fm_release(sigma)
-      CALL cp_fm_release(inv_sigma_ut)       
-   END IF
+      ELSE
+         ! Use singular value decomposition
+         CALL cp_fm_create(matrix=u, &
+                           matrix_struct=matrix_a%matrix_struct, &
+                           name="LEFT_SINGULAR_MATRIX")
+         CALL cp_fm_set_all(u, alpha=0.0_dp)
+         CALL cp_fm_create(matrix=vt, &
+                           matrix_struct=matrix_a%matrix_struct, &
+                           name="RIGHT_SINGULAR_MATRIX")
+         CALL cp_fm_set_all(vt, alpha=0.0_dp)
+         ALLOCATE (diag(n))
+         diag(:) = 0.0_dp
+         desca(:) = matrix_lu%matrix_struct%descriptor(:)
+         ALLOCATE (work(1))
+         ! Workspace query
+         lwork = -1
+         CALL pdgesvd('V', 'V', n, n, matrix_lu%local_data, 1, 1, desca, diag, u%local_data, &
+                      1, 1, desca, vt%local_data, 1, 1, desca, work, lwork, info)
+         lwork = INT(work(1))
+         DEALLOCATE (work)
+         ALLOCATE (work(lwork))
+         ! SVD
+         CALL pdgesvd('V', 'V', n, n, matrix_lu%local_data, 1, 1, desca, diag, u%local_data, &
+                      1, 1, desca, vt%local_data, 1, 1, desca, work, lwork, info)
+         ! info == n+1 implies homogeneity error when the number of procs is large
+         ! this likely isnt a problem, but maybe we should handle it separately
+         IF (info /= 0 .AND. info /= n+1) &
+            CPABORT("Singular value decomposition of matrix failed.")
+         ! (Pseudo)inverse and (pseudo)determinant
+         CALL cp_fm_create(matrix=sigma, &
+                           matrix_struct=matrix_a%matrix_struct, &
+                           name="SINGULAR_VALUE_MATRIX")
+         CALL cp_fm_set_all(sigma, alpha=0.0_dp)
+         determinant = 1.0_dp
+         ! TODO: Notify if some singular values fall below my_eps_svd
+         DO i = 1, n
+            IF (diag(i) < my_eps_svd) THEN
+               diag(i) = 0.0_dp
+            ELSE
+               determinant = determinant*diag(i)
+               diag(i) = 1.0_dp/diag(i)
+            ENDIF
+            CALL cp_fm_set_element(sigma, i, i, diag(i))
+         END DO
+         DEALLOCATE (diag)
+         ! Sigma^-1 * U^T
+         CALL cp_fm_create(matrix=inv_sigma_ut, &
+                           matrix_struct=matrix_a%matrix_struct, &
+                           name="SINGULAR_VALUE_MATRIX")
+         CALL cp_fm_set_all(inv_sigma_ut, alpha=0.0_dp)
+         CALL pdgemm('N', 'T', n, n, n, 1.0_dp, sigma%local_data, 1, 1, desca, &
+                     u%local_data, 1, 1, desca, 0.0_dp, inv_sigma_ut%local_data, 1, 1, desca)
+         ! A^-1 = V * (Sigma^-1 * U^T)
+         CALL cp_fm_set_all(matrix_inverse, alpha=0.0_dp)
+         CALL pdgemm('T', 'N', n, n, n, 1.0_dp, vt%local_data, 1, 1, desca, &
+                     inv_sigma_ut%local_data, 1, 1, desca, 0.0_dp, matrix_inverse%local_data, 1, 1, desca)
+         ! Clean up
+         DEALLOCATE (work)
+         CALL cp_fm_release(u)
+         CALL cp_fm_release(vt)
+         CALL cp_fm_release(sigma)
+         CALL cp_fm_release(inv_sigma_ut)
+      END IF
 #else
-   IF (my_eps_svd .EQ. 0.0_dp) THEN
-      sign = .TRUE.
-      CALL invert_matrix(matrix_a%local_data, matrix_inverse%local_data, &
-                         eval_error=eps1)
-      CALL cp_fm_lu_decompose(matrix_lu, determinant, correct_sign=sign)
-   ELSE
-      CPABORT("Matrix inversion using SVD NYI without SCALAPACK.") 
-   END IF
+      IF (my_eps_svd .EQ. 0.0_dp) THEN
+         sign = .TRUE.
+         CALL invert_matrix(matrix_a%local_data, matrix_inverse%local_data, &
+                            eval_error=eps1)
+         CALL cp_fm_lu_decompose(matrix_lu, determinant, correct_sign=sign)
+      ELSE
+         CPABORT("Matrix inversion using SVD NYI without SCALAPACK.")
+      END IF
 #endif
       CALL cp_fm_release(matrix_lu)
 !      CALL cp_fm_release(matrix_B)

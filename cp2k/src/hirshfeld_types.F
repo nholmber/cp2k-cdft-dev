@@ -12,8 +12,8 @@
 ! **************************************************************************************************
 MODULE hirshfeld_types
 
-   USE input_constants,                 ONLY: shape_function_gaussian,&
-                                              radius_covalent
+   USE input_constants,                 ONLY: radius_covalent,&
+                                              shape_function_gaussian
    USE kinds,                           ONLY: dp
    USE pw_types,                        ONLY: pw_p_type,&
                                               pw_release
@@ -35,7 +35,7 @@ MODULE hirshfeld_types
    TYPE hirshfeld_type
       LOGICAL                       :: iterative
       INTEGER                       :: shape_function_type
-      INTEGER                       :: ref_charge,&
+      INTEGER                       :: ref_charge, &
                                        radius_type
       TYPE(shape_fn), DIMENSION(:), &
          POINTER                    :: kind_shape_fn
@@ -131,15 +131,16 @@ CONTAINS
 !> \param iterative ...
 !> \param ref_charge ...
 !> \param fnorm ...
+!> \param radius_type ...
 ! **************************************************************************************************
    SUBROUTINE get_hirshfeld_info(hirshfeld_env, shape_function_type, iterative, &
                                  ref_charge, fnorm, radius_type)
       TYPE(hirshfeld_type), POINTER                      :: hirshfeld_env
       INTEGER, INTENT(OUT), OPTIONAL                     :: shape_function_type
       LOGICAL, INTENT(OUT), OPTIONAL                     :: iterative
-      INTEGER, INTENT(OUT), OPTIONAL                     :: ref_charge,&
-                                                            radius_type
+      INTEGER, INTENT(OUT), OPTIONAL                     :: ref_charge
       TYPE(pw_p_type), OPTIONAL, POINTER                 :: fnorm
+      INTEGER, INTENT(OUT), OPTIONAL                     :: radius_type
 
       CHARACTER(len=*), PARAMETER :: routineN = 'get_hirshfeld_info', &
          routineP = moduleN//':'//routineN
@@ -152,7 +153,7 @@ CONTAINS
       IF (PRESENT(iterative)) THEN
          iterative = hirshfeld_env%iterative
       END IF
-      IF(PRESENT(radius_type)) THEN
+      IF (PRESENT(radius_type)) THEN
          radius_type = hirshfeld_env%radius_type
       END IF
       IF (PRESENT(ref_charge)) THEN
@@ -171,15 +172,16 @@ CONTAINS
 !> \param iterative ...
 !> \param ref_charge ...
 !> \param fnorm ...
+!> \param radius_type ...
 ! **************************************************************************************************
    SUBROUTINE set_hirshfeld_info(hirshfeld_env, shape_function_type, iterative, &
                                  ref_charge, fnorm, radius_type)
       TYPE(hirshfeld_type), POINTER                      :: hirshfeld_env
       INTEGER, INTENT(IN), OPTIONAL                      :: shape_function_type
       LOGICAL, INTENT(IN), OPTIONAL                      :: iterative
-      INTEGER, INTENT(IN), OPTIONAL                      :: ref_charge,&
-                                                            radius_type
+      INTEGER, INTENT(IN), OPTIONAL                      :: ref_charge
       TYPE(pw_p_type), OPTIONAL, POINTER                 :: fnorm
+      INTEGER, INTENT(IN), OPTIONAL                      :: radius_type
 
       CHARACTER(len=*), PARAMETER :: routineN = 'set_hirshfeld_info', &
          routineP = moduleN//':'//routineN
@@ -192,7 +194,7 @@ CONTAINS
       IF (PRESENT(iterative)) THEN
          hirshfeld_env%iterative = iterative
       END IF
-      IF(PRESENT(radius_type)) THEN
+      IF (PRESENT(radius_type)) THEN
          hirshfeld_env%radius_type = radius_type
       END IF
       IF (PRESENT(ref_charge)) THEN
