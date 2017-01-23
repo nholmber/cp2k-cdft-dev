@@ -3867,7 +3867,7 @@ CONTAINS
       DEALLOCATE (R12)
       DEALLOCATE (cell_functions)
       DEALLOCATE (skip_me)
-      IF (ASSOCIATED(completed)) &
+      IF (ALLOCATED(completed)) &
          DEALLOCATE (completed)
       IF (ASSOCIATED(nsent)) &
          DEALLOCATE (nsent)
