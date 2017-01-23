@@ -873,6 +873,7 @@ CONTAINS
             CALL release_hirshfeld_type(becke_control%cavity_env)
          becke_control%ref_count = 0
          becke_control%natoms = 0
+         DEALLOCATE (becke_control)
       ENDIF
    END SUBROUTINE becke_control_release
 
