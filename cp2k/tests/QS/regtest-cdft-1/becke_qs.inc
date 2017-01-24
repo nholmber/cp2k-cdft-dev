@@ -48,6 +48,7 @@
       CAVITY_SHAPE    ${BECKE_CAVITY_SHAPE}
       ! For shape single
       CAVITY_RADIUS   1.3
+      CAVITY_USE_BOHR FALSE    
     @ENDIF
     @IF ( ${BECKE_SHOULD_SKIP} == TRUE )
       ! Defaults to false
@@ -60,7 +61,6 @@
     ATOMS           1..3
     COEFF           1 1 1
     CONSTRAINT_TYPE TOTAL
-    USE_BOHR FALSE    
     &PROGRAM_RUN_INFO ON
       &EACH
         QS_SCF 1
