@@ -3877,9 +3877,9 @@ CONTAINS
          DEALLOCATE (position_vecs)
       END IF
       IF (ASSOCIATED(req_send)) &
-         DEALLOCATE(req_send)
+         DEALLOCATE (req_send)
       IF (ASSOCIATED(req_recv)) &
-         DEALLOCATE(req_recv)
+         DEALLOCATE (req_recv)
       CALL timestop(handle)
 
    END SUBROUTINE mixed_becke_constraint_low
