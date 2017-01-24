@@ -72,8 +72,8 @@ MODULE input_cp2k_dft
         outer_scf_none, outer_scf_optimizer_bisect, outer_scf_optimizer_broyden, &
         outer_scf_optimizer_diis, outer_scf_optimizer_newton, outer_scf_optimizer_none, &
         outer_scf_optimizer_sd, outer_scf_s2_constraint, plus_u_lowdin, plus_u_mulliken, &
-        plus_u_mulliken_charges, pw_interp, radius_covalent, radius_single, radius_user, &
-        radius_vdw, ramp_env, random_guess, real_time_propagation, ref_charge_atomic, &
+        plus_u_mulliken_charges, pw_interp, radius_covalent, radius_default, radius_single, &
+        radius_user, radius_vdw, ramp_env, random_guess, real_time_propagation, ref_charge_atomic, &
         ref_charge_mulliken, rel_dkh, rel_none, rel_pot_erfc, rel_pot_full, rel_sczora_mp, &
         rel_trans_atom, rel_trans_full, rel_trans_molecule, rel_zora, rel_zora_full, rel_zora_mp, &
         restart_guess, rsdft_model, sccs_andreussi, sccs_derivative_cd3, sccs_derivative_cd5, &
@@ -4043,7 +4043,7 @@ CONTAINS
       CPASSERT(.NOT. ASSOCIATED(section))
       CALL section_create(section, TRIM(ADJUSTL(section_name)), &
                           description="Use Becke weight population in a constraint ", &
-                          n_keywords=25, n_subsections=0, repeats=.FALSE., &
+                          n_keywords=26, n_subsections=0, repeats=.FALSE., &
                           citations=(/Becke1988b/))
 
       CALL keyword_create(keyword, name="STRENGTH", &
@@ -4166,13 +4166,23 @@ CONTAINS
       CALL keyword_create(keyword, name="CAVITY_SHAPE", &
                           description="Specifies the type of Gaussian cavity used", &
                           usage="CAVITY_SHAPE (SINGLE|VDW|COVALENT|USER)", &
-                          enum_c_vals=s2a("SINGLE", "VDW", "COVALENT", "USER"), &
-                          enum_i_vals=(/radius_single, radius_vdw, radius_covalent, radius_user/), &
-                          enum_desc=s2a("Single Gaussian for all atom types with radius given by CAVITY_RADIUS", &
+                          enum_c_vals=s2a("DEFAULT", "SINGLE", "VDW", "COVALENT", "USER"), &
+                          enum_i_vals=(/radius_default, radius_single, radius_vdw, radius_covalent, radius_user/), &
+                          enum_desc=s2a("Use covalent radii (in angstrom) to construct Gaussians, but fixed"// &
+                                        " 1.0_dp radius for elements with a radius smaller than this value.", &
+                                        "Single Gaussian for all atom types with radius given by CAVITY_RADIUS", &
                                         "Use van der Waals radii to construct Gaussians", &
                                         "Use covalent radii to construct Gaussians", &
                                         "Use user defined radii (keyword ATOMIC_RADII) to construct Gaussians"), &
-                          default_i_val=radius_single)
+                          default_i_val=radius_default)
+      CALL section_add_keyword(section, keyword)
+      CALL keyword_release(keyword)
+
+      CALL keyword_create(keyword, name="CAVITY_USE_BOHR", &
+                          description="Convert the cavity radius from angstrom to bohr. This results in a larger"// &
+                          "confinement cavity than without unit conversion.", &
+                          usage="CAVITY_USE_BOHR (SINGLE|VDW|COVALENT|USER)", &
+                          default_l_val=.FALSE., lone_keyword_l_val=.TRUE.)
       CALL section_add_keyword(section, keyword)
       CALL keyword_release(keyword)
 

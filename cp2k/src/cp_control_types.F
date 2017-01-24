@@ -236,7 +236,8 @@ MODULE cp_control_types
                                                        dynamic_confine, cavity_confine, &
                                                        should_skip, print_cavity, &
                                                        external_control, first_iteration, &
-                                                       fragment_density, fragments_integrated
+                                                       fragment_density, fragments_integrated, &
+                                                       use_bohr
       REAL(KIND=dp), POINTER, DIMENSION(:)          :: coeff, cutoffs, cutoffs_tmp, &
                                                        charges_fragment, radii_tmp, &
                                                        radii
@@ -788,6 +789,7 @@ CONTAINS
       becke_control%first_iteration = .TRUE.
       becke_control%fragment_density = .FALSE.
       becke_control%fragments_integrated = .FALSE.
+      becke_control%use_bohr = .FALSE.
       becke_control%confine_dir = 3
       becke_control%confine_bounds = 0.0_dp
       becke_control%confine_bounds_int = 0

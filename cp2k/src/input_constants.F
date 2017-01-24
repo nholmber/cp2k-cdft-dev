@@ -586,7 +586,8 @@ MODULE input_constants
    INTEGER, PARAMETER, PUBLIC               :: radius_covalent = 10, &
                                                radius_user = 11, &
                                                radius_single = 12, &
-                                               radius_vdw = 13
+                                               radius_vdw = 13, &
+                                               radius_default = 14
 
    ! MAO
    INTEGER, PARAMETER, PUBLIC               :: mao_basis_orb = 2000, &

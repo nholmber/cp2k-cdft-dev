@@ -762,7 +762,7 @@ CONTAINS
 !>       04.07  further generalization to force_eval with different geometrical
 !>              structures [tlaino]
 !>       04.08  reorganizing the genmix structure (collecting common code)
-!>       01.16  added CDFT
+!>       01.16  added CDFT [Nico Holmberg]
 !> \author Florian Schiffmann
 ! **************************************************************************************************
    SUBROUTINE mixed_energy_forces(force_env, calculate_forces)
@@ -859,77 +859,136 @@ CONTAINS
             CALL mixed_cdft_init(force_env, calculate_forces)
          END IF
       END IF
-      DO iforce_eval = 1, nforce_eval
-         NULLIFY (subsystems(iforce_eval)%subsys, particles(iforce_eval)%list)
-         NULLIFY (results(iforce_eval)%results, virials(iforce_eval)%virial)
-         CALL virial_create(virials(iforce_eval)%virial)
-         CALL cp_result_create(results(iforce_eval)%results)
-         IF (.NOT. ASSOCIATED(force_env%sub_force_env(iforce_eval)%force_env)) CYCLE
-         ! From this point on the error is the sub_error
-         my_group = force_env%mixed_env%group_distribution(force_env%para_env%mepos)
-         my_logger => force_env%mixed_env%sub_logger(my_group+1)%p
-         ! Copy iterations info (they are updated only in the main mixed_env)
-         CALL cp_iteration_info_copy_iter(logger%iter_info, my_logger%iter_info)
+      IF (.NOT. force_env%mixed_env%do_mixed_cdft) THEN
+         DO iforce_eval = 1, nforce_eval
+            NULLIFY (subsystems(iforce_eval)%subsys, particles(iforce_eval)%list)
+            NULLIFY (results(iforce_eval)%results, virials(iforce_eval)%virial)
+            CALL virial_create(virials(iforce_eval)%virial)
+            CALL cp_result_create(results(iforce_eval)%results)
+            IF (.NOT. ASSOCIATED(force_env%sub_force_env(iforce_eval)%force_env)) CYCLE
+            ! From this point on the error is the sub_error
+            my_group = force_env%mixed_env%group_distribution(force_env%para_env%mepos)
+            my_logger => force_env%mixed_env%sub_logger(my_group+1)%p
+            ! Copy iterations info (they are updated only in the main mixed_env)
+            CALL cp_iteration_info_copy_iter(logger%iter_info, my_logger%iter_info)
+            CALL cp_add_default_logger(my_logger)
 
-         ! Get all available subsys
-         CALL force_env_get(force_env=force_env%sub_force_env(iforce_eval)%force_env, &
-                            subsys=subsystems(iforce_eval)%subsys)
+            ! Get all available subsys
+            CALL force_env_get(force_env=force_env%sub_force_env(iforce_eval)%force_env, &
+                               subsys=subsystems(iforce_eval)%subsys)
 
-         ! all force_env share the same cell
-         CALL cp_subsys_set(subsystems(iforce_eval)%subsys, cell=cell_mix)
+            ! all force_env share the same cell
+            CALL cp_subsys_set(subsystems(iforce_eval)%subsys, cell=cell_mix)
 
-         ! Get available particles
-         CALL cp_subsys_get(subsys=subsystems(iforce_eval)%subsys, &
-                            particles=particles(iforce_eval)%list)
+            ! Get available particles
+            CALL cp_subsys_get(subsys=subsystems(iforce_eval)%subsys, &
+                               particles=particles(iforce_eval)%list)
 
-         ! Get Mapping index array
-         natom = SIZE(particles(iforce_eval)%list%els)
-         ! map_index may already be allocated if force_env%mixed_env%ngroups==1
-         IF (ASSOCIATED(map_index)) DEALLOCATE (map_index)
-         CALL get_subsys_map_index(mapping_section, natom, iforce_eval, nforce_eval, &
-                                   map_index)
+            ! Get Mapping index array
+            natom = SIZE(particles(iforce_eval)%list%els)
 
-         ! Mapping particles from iforce_eval environment to the mixed env
-         DO iparticle = 1, natom
-            jparticle = map_index(iparticle)
-            particles(iforce_eval)%list%els(iparticle)%r = particles_mix%els(jparticle)%r
+            CALL get_subsys_map_index(mapping_section, natom, iforce_eval, nforce_eval, &
+                                      map_index)
+
+            ! Mapping particles from iforce_eval environment to the mixed env
+            DO iparticle = 1, natom
+               jparticle = map_index(iparticle)
+               particles(iforce_eval)%list%els(iparticle)%r = particles_mix%els(jparticle)%r
+            END DO
+
+            ! Calculate energy and forces for each sub_force_env
+            CALL force_env_calc_energy_force(force_env%sub_force_env(iforce_eval)%force_env, &
+                                             calc_force=calculate_forces, &
+                                             skip_external_control=.TRUE.)
+            ! Only the rank 0 process collect info for each computation
+            IF (force_env%sub_force_env(iforce_eval)%force_env%para_env%mepos == &
+                force_env%sub_force_env(iforce_eval)%force_env%para_env%source) THEN
+               CALL force_env_get(force_env%sub_force_env(iforce_eval)%force_env, &
+                                  potential_energy=energy)
+               CALL cp_subsys_get(subsystems(iforce_eval)%subsys, &
+                                  virial=loc_virial, results=loc_results)
+               energies(iforce_eval) = energy
+               glob_natoms(iforce_eval) = natom
+               CALL cp_virial(loc_virial, virials(iforce_eval)%virial)
+               CALL cp_result_copy(loc_results, results(iforce_eval)%results)
+            END IF
+            ! Deallocate map_index array
+            IF (ASSOCIATED(map_index)) THEN
+               DEALLOCATE (map_index)
+            END IF
+            CALL cp_rm_default_logger()
          END DO
-         ! Mixed CDFT + QMMM: Need to translate now
-         IF (force_env%mixed_env%do_mixed_qmmm_cdft) &
-            CALL apply_qmmm_translate(force_env%sub_force_env(iforce_eval)%force_env%qmmm_env)
-      END DO
+      ELSE
+         DO iforce_eval = 1, nforce_eval
+            NULLIFY (subsystems(iforce_eval)%subsys, particles(iforce_eval)%list)
+            NULLIFY (results(iforce_eval)%results, virials(iforce_eval)%virial)
+            CALL virial_create(virials(iforce_eval)%virial)
+            CALL cp_result_create(results(iforce_eval)%results)
+            IF (.NOT. ASSOCIATED(force_env%sub_force_env(iforce_eval)%force_env)) CYCLE
+            ! From this point on the error is the sub_error
+            my_group = force_env%mixed_env%group_distribution(force_env%para_env%mepos)
+            my_logger => force_env%mixed_env%sub_logger(my_group+1)%p
+            ! Copy iterations info (they are updated only in the main mixed_env)
+            CALL cp_iteration_info_copy_iter(logger%iter_info, my_logger%iter_info)
 
-      ! For mixed CDFT, build weight and gradient on all processors before splitting into groups and
-      ! starting energy calculation
-      IF (force_env%mixed_env%do_mixed_cdft) THEN
-         CALL mixed_cdft_build_weight(force_env, calculate_forces)
+            ! Get all available subsys
+            CALL force_env_get(force_env=force_env%sub_force_env(iforce_eval)%force_env, &
+                               subsys=subsystems(iforce_eval)%subsys)
+
+            ! all force_env share the same cell
+            CALL cp_subsys_set(subsystems(iforce_eval)%subsys, cell=cell_mix)
+
+            ! Get available particles
+            CALL cp_subsys_get(subsys=subsystems(iforce_eval)%subsys, &
+                               particles=particles(iforce_eval)%list)
+
+            ! Get Mapping index array
+            natom = SIZE(particles(iforce_eval)%list%els)
+
+            CALL get_subsys_map_index(mapping_section, natom, iforce_eval, nforce_eval, &
+                                      map_index)
+
+            ! Mapping particles from iforce_eval environment to the mixed env
+            DO iparticle = 1, natom
+               jparticle = map_index(iparticle)
+               particles(iforce_eval)%list%els(iparticle)%r = particles_mix%els(jparticle)%r
+            END DO
+            ! Mixed CDFT + QMMM: Need to translate now
+            IF (force_env%mixed_env%do_mixed_qmmm_cdft) &
+               CALL apply_qmmm_translate(force_env%sub_force_env(iforce_eval)%force_env%qmmm_env)
+         END DO
+
+         ! For mixed CDFT, build weight and gradient on all processors before splitting into groups and
+         ! starting energy calculation
+         IF (force_env%mixed_env%do_mixed_cdft) THEN
+            CALL mixed_cdft_build_weight(force_env, calculate_forces)
+         END IF
+         DO iforce_eval = 1, nforce_eval
+            IF (.NOT. ASSOCIATED(force_env%sub_force_env(iforce_eval)%force_env)) CYCLE
+            CALL cp_add_default_logger(my_logger)
+            ! Calculate energy and forces for each sub_force_env
+            CALL force_env_calc_energy_force(force_env%sub_force_env(iforce_eval)%force_env, &
+                                             calc_force=calculate_forces, &
+                                             skip_external_control=.TRUE.)
+            ! Only the rank 0 process collect info for each computation
+            IF (force_env%sub_force_env(iforce_eval)%force_env%para_env%mepos == &
+                force_env%sub_force_env(iforce_eval)%force_env%para_env%source) THEN
+               CALL force_env_get(force_env%sub_force_env(iforce_eval)%force_env, &
+                                  potential_energy=energy)
+               CALL cp_subsys_get(subsystems(iforce_eval)%subsys, &
+                                  virial=loc_virial, results=loc_results)
+               energies(iforce_eval) = energy
+               glob_natoms(iforce_eval) = natom
+               CALL cp_virial(loc_virial, virials(iforce_eval)%virial)
+               CALL cp_result_copy(loc_results, results(iforce_eval)%results)
+            END IF
+            ! Deallocate map_index array
+            IF (ASSOCIATED(map_index)) THEN
+               DEALLOCATE (map_index)
+            END IF
+            CALL cp_rm_default_logger()
+         END DO
       END IF
-      DO iforce_eval = 1, nforce_eval
-         IF (.NOT. ASSOCIATED(force_env%sub_force_env(iforce_eval)%force_env)) CYCLE
-         CALL cp_add_default_logger(my_logger)
-         ! Calculate energy and forces for each sub_force_env
-         CALL force_env_calc_energy_force(force_env%sub_force_env(iforce_eval)%force_env, &
-                                          calc_force=calculate_forces, &
-                                          skip_external_control=.TRUE.)
-         ! Only the rank 0 process collect info for each computation
-         IF (force_env%sub_force_env(iforce_eval)%force_env%para_env%mepos == &
-             force_env%sub_force_env(iforce_eval)%force_env%para_env%source) THEN
-            CALL force_env_get(force_env%sub_force_env(iforce_eval)%force_env, &
-                               potential_energy=energy)
-            CALL cp_subsys_get(subsystems(iforce_eval)%subsys, &
-                               virial=loc_virial, results=loc_results)
-            energies(iforce_eval) = energy
-            glob_natoms(iforce_eval) = natom
-            CALL cp_virial(loc_virial, virials(iforce_eval)%virial)
-            CALL cp_result_copy(loc_results, results(iforce_eval)%results)
-         END IF
-         ! Deallocate map_index array
-         IF (ASSOCIATED(map_index)) THEN
-            DEALLOCATE (map_index)
-         END IF
-         CALL cp_rm_default_logger()
-      END DO
-
       ! Handling Parallel execution
       CALL mp_sync(force_env%para_env%group)
       ! Transfer cdft strengths for writing restart

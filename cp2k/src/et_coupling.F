@@ -595,13 +595,14 @@ CONTAINS
                   END IF
                   R12(iatom, jatom) = SQRT(DOT_PRODUCT(dist_vec, dist_vec))
                   R12(jatom, iatom) = R12(iatom, jatom)
-                  IF (dft_control%qs_control%becke_control%dynamic_confine .AND. &
-                      is_constraint(iatom) .AND. is_constraint(jatom)) THEN
-                     ! ub = max(r(dir)+dynamic_radius), lb = min(r(dir)-dynamic_radius)
-                     IF ((r(dir)+dynamic_radius) .GT. ub) ub = r(dir)+dynamic_radius
-                     IF ((r1(dir)+dynamic_radius) .GT. ub) ub = r1(dir)+dynamic_radius
-                     IF ((r(dir)-dynamic_radius) .LT. lb) lb = r(dir)-dynamic_radius
-                     IF ((r1(dir)-dynamic_radius) .LT. lb) lb = r1(dir)-dynamic_radius
+                  IF (dft_control%qs_control%becke_control%dynamic_confine) THEN
+                     IF (is_constraint(iatom) .AND. is_constraint(jatom)) THEN
+                        ! ub = max(r(dir)+dynamic_radius), lb = min(r(dir)-dynamic_radius)
+                        IF ((r(dir)+dynamic_radius) .GT. ub) ub = r(dir)+dynamic_radius
+                        IF ((r1(dir)+dynamic_radius) .GT. ub) ub = r1(dir)+dynamic_radius
+                        IF ((r(dir)-dynamic_radius) .LT. lb) lb = r(dir)-dynamic_radius
+                        IF ((r1(dir)-dynamic_radius) .LT. lb) lb = r1(dir)-dynamic_radius
+                     END IF
                   END IF
                   ! Set up heteronuclear cell partitioning using user defined radii
                   IF (build) THEN

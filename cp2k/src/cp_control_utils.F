@@ -1879,10 +1879,13 @@ CONTAINS
                                    r_val=qs_control%becke_control%eps_cavity)
          CALL section_vals_val_get(becke_section, "CAVITY_PRINT", &
                                    l_val=qs_control%becke_control%print_cavity)
+         CALL section_vals_val_get(becke_section, "CAVITY_USE_BOHR", &
+                                   l_val=qs_control%becke_control%use_bohr)
          CALL create_hirshfeld_type(qs_control%becke_control%cavity_env)
          CALL set_hirshfeld_info(qs_control%becke_control%cavity_env, &
                                  shape_function_type=shape_function_gaussian, iterative=.FALSE., &
-                                 radius_type=qs_control%becke_control%cavity_shape)
+                                 radius_type=qs_control%becke_control%cavity_shape, &
+                                 use_bohr=qs_control%becke_control%use_bohr)
       END IF
 
       CALL section_vals_val_get(becke_section, "COEFF", n_rep_val=n_rep)

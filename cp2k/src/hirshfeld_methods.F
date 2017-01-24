@@ -23,6 +23,7 @@ MODULE hirshfeld_methods
                                               hirshfeld_type,&
                                               set_hirshfeld_info
    USE input_constants,                 ONLY: radius_covalent,&
+                                              radius_default,&
                                               radius_single,&
                                               radius_user,&
                                               radius_vdw,&
@@ -171,6 +172,9 @@ CONTAINS
             CALL get_qs_kind(qs_kind_set(ikind), element_symbol=esym)
             rco = 2.0_dp
             SELECT CASE (hirshfeld_env%radius_type)
+            CASE (radius_default)
+               CALL get_ptable_info(symbol=esym, covalent_radius=rco, found=found)
+               rco = MAX(rco, 1.0_dp)
             CASE (radius_user)
                CPASSERT(PRESENT(radii_list))
                CPASSERT(ASSOCIATED(radii_list))
@@ -182,14 +186,16 @@ CONTAINS
                IF (.NOT. found) THEN
                   rco = MAX(rco, 1.0_dp)
                ELSE
-                  rco = cp_unit_to_cp2k(rco, "angstrom")
+                  IF (hirshfeld_env%use_bohr) &
+                     rco = cp_unit_to_cp2k(rco, "angstrom")
                END IF
             CASE (radius_covalent)
                CALL get_ptable_info(symbol=esym, covalent_radius=rco, found=found)
                IF (.NOT. found) THEN
                   rco = MAX(rco, 1.0_dp)
                ELSE
-                  rco = cp_unit_to_cp2k(rco, "angstrom")
+                  IF (hirshfeld_env%use_bohr) &
+                     rco = cp_unit_to_cp2k(rco, "angstrom")
                END IF
             CASE (radius_single)
                CPASSERT(PRESENT(radius))

@@ -308,7 +308,7 @@ CONTAINS
       atoms = 0
       ALLOCATE (coeffs(SIZE(particles_mix%els), nforce_eval))
       coeffs = 0.0_dp
-      ALLOCATE (settings_int(16, nforce_eval))
+      ALLOCATE (settings_int(17, nforce_eval))
       settings_int = 0
       ALLOCATE (settings_real(6, nforce_eval))
       settings_real = 0.0_dp
@@ -376,6 +376,11 @@ CONTAINS
             END IF
             settings_int(15, iforce_eval) = dft_control%qs_control%becke_control%constraint_type
             settings_int(16, iforce_eval) = dft_control%qs_control%becke_control%combined_type
+            IF (dft_control%qs_control%becke_control%use_bohr) THEN
+               settings_int(17, iforce_eval) = 1
+            ELSE
+               settings_int(17, iforce_eval) = 0
+            END IF
             settings_real(1, iforce_eval) = dft_control%qs_control%becke_control%dynamic_radius
             settings_real(2, iforce_eval) = dft_control%qs_control%becke_control%rcavity
             settings_real(3, iforce_eval) = dft_control%qs_control%becke_control%rglobal
@@ -501,6 +506,7 @@ CONTAINS
          CALL cp_abort(__LOCATION__, "Unsupported constraint type. Mixed CDFT only accepts total density "// &
                        " density constraints at this moment.")
       mixed_cdft%combined_type = settings_int(16, 1)
+      IF (settings_int(17, 1) == 1) mixed_cdft%becke_control%use_bohr = .TRUE.
       mixed_cdft%becke_control%dynamic_radius = settings_real(1, 1)
       mixed_cdft%becke_control%rcavity = settings_real(2, 1)
       mixed_cdft%becke_control%rglobal = settings_real(3, 1)
@@ -513,7 +519,8 @@ CONTAINS
          CALL create_hirshfeld_type(mixed_cdft%becke_control%cavity_env)
          CALL set_hirshfeld_info(mixed_cdft%becke_control%cavity_env, &
                                  shape_function_type=shape_function_gaussian, iterative=.FALSE., &
-                                 radius_type=mixed_cdft%becke_control%cavity_shape)
+                                 radius_type=mixed_cdft%becke_control%cavity_shape, &
+                                 use_bohr=mixed_cdft%becke_control%use_bohr)
       END IF
       mixed_cdft%first_iteration = .TRUE.
       ! MD related settings
