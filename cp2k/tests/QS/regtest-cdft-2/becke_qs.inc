@@ -32,11 +32,11 @@
     TARGET          ${BECKE_TARGET}
     @IF ( ${BECKE_CUTOFF_ELEMENT} == TRUE )
       CUTOFF_TYPE     ELEMENT
-      ELEMENT_CUTOFF  3.0 3.0
+      ELEMENT_CUTOFF  2.0 2.0
     @ENDIF
     @IF ( ${BECKE_GLOBAL_CUTOFF} == TRUE )
       CUTOFF_TYPE     GLOBAL
-      GLOBAL_CUTOFF   3.0
+      GLOBAL_CUTOFF   2.0
     @ENDIF
     @IF ( ${BECKE_IN_MEMORY} == TRUE )
       ! Defaults to false
@@ -71,6 +71,7 @@
       COEFF           1 -1
     @ENDIF
     CONSTRAINT_TYPE TOTAL    
+    USE_BOHR        FALSE
     &PROGRAM_RUN_INFO ON
       &EACH
         QS_SCF 1
