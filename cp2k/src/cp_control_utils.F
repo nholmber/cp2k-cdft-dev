@@ -1758,9 +1758,9 @@ CONTAINS
                                 l_val=qs_control%becke_control%adjust)
 
       IF (qs_control%becke_control%adjust) THEN
-         CALL section_vals_val_get(becke_section, "ATOMIC_RADII", r_vals=rtmplist, &
-                                   explicit=exists)
+         CALL section_vals_val_get(becke_section, "ATOMIC_RADII", explicit=exists)
          IF (.NOT. exists) CPABORT("Keyword ATOMIC_RADII is missing.")
+         CALL section_vals_val_get(becke_section, "ATOMIC_RADII", r_vals=rtmplist)
          CPASSERT(SIZE(rtmplist) > 0)
          ALLOCATE (qs_control%becke_control%radii_tmp(SIZE(rtmplist)))
          DO j = 1, SIZE(rtmplist)
