@@ -4,13 +4,13 @@
 # 
 water-noconstraint.inp                                 1      1e-13             -17.09794893929815
 # These tests give identical value of constraint
-water-cdft-1.inp                                      71      1e-12               7.999100816558
-water-cdft-2.inp                                      71      1e-12               7.999100816558
-water-cdft-3.inp                                      71      1e-12               7.999100816558
+water-cdft-1.inp                                      71      1e-12               7.979480462990
+water-cdft-2.inp                                      71      1e-12               7.979480462990
+water-cdft-3.inp                                      71      1e-12               7.979480462990
 water-cdft-4.inp                                      71      1e-12               7.999100816558
 water-cdft-5.inp                                      71      1e-12               7.999100816558
 water-cdft-6.inp                                      71      1e-12               7.999100816558
 # The constraint value differs because the confinement is too tight 
-water-cdft-7.inp                                      71      1e-12               7.998787211166
-water-cdft-8.inp                                      71      1e-12               7.997178466671 
+water-cdft-7.inp                                      71      1e-12               7.894206878787
+water-cdft-8.inp                                      71      1e-12               7.979416440315 
 #EOF
