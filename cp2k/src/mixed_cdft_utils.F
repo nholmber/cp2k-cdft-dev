@@ -112,7 +112,7 @@ CONTAINS
       CHARACTER(len=*), PARAMETER :: routineN = 'mixed_cdft_parse_settings', &
          routineP = moduleN//':'//routineN
 
-      INTEGER                                            :: iforce_eval, nkinds
+      INTEGER                                            :: i, iforce_eval, nkinds
       LOGICAL                                            :: is_match
       TYPE(atomic_kind_type), DIMENSION(:), POINTER      :: atomic_kind_set
       TYPE(dft_control_type), POINTER                    :: dft_control
@@ -122,6 +122,7 @@ CONTAINS
 
       NULLIFY (dft_control, qs_env, pw_env, auxbas_pw_pool)
       ! Allocate storage for temporaries used for checking settings consistency
+      settings%max_nkinds = 30
       ALLOCATE (settings%grid_span(nforce_eval))
       ALLOCATE (settings%npts(3, nforce_eval))
       ALLOCATE (settings%cutoff(nforce_eval))
@@ -134,8 +135,8 @@ CONTAINS
       ALLOCATE (settings%si(17, nforce_eval))
       ALLOCATE (settings%sr(6, nforce_eval))
       ALLOCATE (settings%confine_bounds(2, nforce_eval))
-      ALLOCATE (settings%cutoffs(max_nkinds, nforce_eval))
-      ALLOCATE (settings%radii(max_nkinds, nforce_eval))
+      ALLOCATE (settings%cutoffs(settings%max_nkinds, nforce_eval))
+      ALLOCATE (settings%radii(settings%max_nkinds, nforce_eval))
       settings%grid_span = 0
       settings%npts = 0
       settings%cutoff = 0.0_dp
@@ -152,7 +153,6 @@ CONTAINS
       settings%confine_bounds = 0.0_dp
       settings%cutoffs = 0.0_dp
       settings%radii = 0.0_dp
-      settings%max_nkinds = 30
       ! Get information from the sub_force_envs
       ! TODO: transfer logicals as logicals instead of ints
       DO iforce_eval = 1, nforce_eval
@@ -178,7 +178,7 @@ CONTAINS
             IF (auxbas_pw_pool%pw_grid%spherical) settings%spherical(iforce_eval) = 1
             settings%rs_dims(:, iforce_eval) = auxbas_pw_pool%pw_grid%para%rs_dims
             IF (auxbas_pw_pool%pw_grid%grid_span == HALFSPACE) settings%odd(iforce_eval) = 1
-            IF (dft_control%qs_control%becke_control%natoms .GT. SIZE(atoms, 1)) &
+            IF (dft_control%qs_control%becke_control%natoms .GT. SIZE(settings%atoms, 1)) &
                CPABORT("More Becke constraint atoms than defined in mixed section. Use default values for MIXED\MAPPING.")
             settings%atoms(1:dft_control%qs_control%becke_control%natoms, iforce_eval) = &
                dft_control%qs_control%becke_control%atoms
@@ -229,8 +229,8 @@ CONTAINS
             IF (dft_control%qs_control%becke_control%cutoff_type == becke_cutoff_element) THEN
                nkinds = SIZE(dft_control%qs_control%becke_control%cutoffs_tmp)
                IF (nkinds .GT. settings%max_nkinds) &
-                  CALL cp_abort(__LOCATION__, "More than "//TRIM(cp_to_string(max_nkinds))//" unique elements"// &
-                                "were defined in BECKE_RESTRAINT\ELEMENT_CUTOFF. Are you sure"// &
+                  CALL cp_abort(__LOCATION__, "More than "//TRIM(cp_to_string(settings%max_nkinds))// &
+                                " unique elements were defined in BECKE_RESTRAINT\ELEMENT_CUTOFF. Are you sure"// &
                                 " your input is correct? If yes, please increase max_nkinds and recompile.")
                settings%cutoffs(1:nkinds, iforce_eval) = dft_control%qs_control%becke_control%cutoffs_tmp(:)
                IF (.NOT. mixed_cdft%is_parallel .AND. iforce_eval /= 1) &
@@ -245,8 +245,8 @@ CONTAINS
                                 "match number of atomic kinds in the input coordinate file.")
                nkinds = SIZE(dft_control%qs_control%becke_control%radii_tmp)
                IF (nkinds .GT. settings%max_nkinds) &
-                  CALL cp_abort(__LOCATION__, "More than "//TRIM(cp_to_string(max_nkinds))//" unique elements"// &
-                                "were defined in BECKE_RESTRAINT\ATOMIC_RADII. Are you sure"// &
+                  CALL cp_abort(__LOCATION__, "More than "//TRIM(cp_to_string(settings%max_nkinds))// &
+                                " unique elements were defined in BECKE_RESTRAINT\ATOMIC_RADII. Are you sure"// &
                                 " your input is correct? If yes, please increase max_nkinds and recompile.")
                settings%radii(1:nkinds, iforce_eval) = dft_control%qs_control%becke_control%radii_tmp(:)
                IF (.NOT. mixed_cdft%is_parallel .AND. iforce_eval /= 1) &
@@ -278,7 +278,7 @@ CONTAINS
       CALL mp_sum(settings%atoms, force_env%para_env%group)
       CALL mp_sum(settings%coeffs, force_env%para_env%group)
       settings%nbecke = 0
-      DO i = 1, SIZE(atoms, 1)
+      DO i = 1, SIZE(settings%atoms, 1)
          IF (settings%atoms(i, 1) /= settings%atoms(i, 2)) is_match = .FALSE.
          IF (settings%coeffs(i, 1) /= settings%coeffs(i, 2)) is_match = .FALSE.
          IF (settings%atoms(i, 1) /= 0) settings%nbecke = settings%nbecke+1
@@ -317,7 +317,7 @@ CONTAINS
       CHARACTER(len=*), PARAMETER :: routineN = 'mixed_cdft_transfer_settings', &
          routineP = moduleN//':'//routineN
 
-      INTEGER                                            :: nkinds
+      INTEGER                                            :: i, nkinds
       LOGICAL                                            :: is_match
 
       is_match = .TRUE.
@@ -336,9 +336,9 @@ CONTAINS
       IF (mixed_cdft%is_parallel) THEN
          CALL becke_control_create(mixed_cdft%becke_control)
          ALLOCATE (mixed_cdft%becke_control%atoms(settings%nbecke))
-         mixed_cdft%becke_control%atoms = atoms(1:settings%nbecke, 1)
+         mixed_cdft%becke_control%atoms = settings%atoms(1:settings%nbecke, 1)
          ALLOCATE (mixed_cdft%becke_control%coeff(settings%nbecke))
-         mixed_cdft%becke_control%coeff = coeffs(1:settings%nbecke, 1)
+         mixed_cdft%becke_control%coeff = settings%coeffs(1:settings%nbecke, 1)
          mixed_cdft%becke_control%natoms = settings%nbecke
          mixed_cdft%becke_control%confine_method = settings%si(1, 1)
          mixed_cdft%becke_control%cutoff_type = settings%si(2, 1)
@@ -483,9 +483,9 @@ CONTAINS
          IF (mixed_cdft%is_special) THEN
             mixed_rs_dims = (/-1, -1/)
          ELSE IF (mixed_cdft%is_pencil) THEN
-            mixed_rs_dims = (/setting%rs_dims(1, 1), 2*setting%srs_dims(2, 1)/)
+            mixed_rs_dims = (/settings%rs_dims(1, 1), 2*settings%srs_dims(2, 1)/)
          ELSE
-            mixed_rs_dims = (/2*setting%rs_dims(1, 1), 1/)
+            mixed_rs_dims = (/2*settings%rs_dims(1, 1), 1/)
          END IF
          IF (.NOT. mixed_env%do_mixed_qmmm_cdft) THEN
             CALL force_env_get(force_env=force_env, &
@@ -545,7 +545,7 @@ CONTAINS
             CALL init_cube_info(mixed_cdft%pw_env%cube_info(1), &
                                 pw_grid%dr(:), pw_grid%dh(:, :), &
                                 pw_grid%dh_inv(:, :), &
-                                pw_grid%orthorhombic, setting%radius)
+                                pw_grid%orthorhombic, settings%radius)
             NULLIFY (root_section, force_env_section, force_env_sections, rs_grid_section)
             CALL force_env_get(force_env, root_section=root_section)
             force_env_sections => section_vals_get_subs_vals(root_section, "FORCE_EVAL")

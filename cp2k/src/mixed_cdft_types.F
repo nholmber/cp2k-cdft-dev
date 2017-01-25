@@ -107,13 +107,13 @@ MODULE mixed_cdft_types
       INTEGER                                            :: nbecke, &
                                                             max_nkinds
       INTEGER, DIMENSION(2, 3)                           :: bo
-      INTEGER, DIMENSION(:), POINTER                     :: npts, &
-                                                            grid_span, &
+      INTEGER, DIMENSION(:), POINTER                     :: grid_span, &
                                                             spherical, &
                                                             odd
       INTEGER, DIMENSION(:, :), POINTER                  :: si, &
                                                             rs_dims, &
-                                                            atoms
+                                                            atoms, &
+                                                            npts
       REAL(KIND=dp)                                      :: radius
       REAL(KIND=dp), DIMENSION(:), POINTER               :: cutoff, &
                                                             rel_cutoff
