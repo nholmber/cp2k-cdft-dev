@@ -55,7 +55,8 @@ MODULE mixed_cdft_methods
    USE hirshfeld_types,                 ONLY: hirshfeld_type
    USE input_constants,                 ONLY: becke_cutoff_element,&
                                               becke_cutoff_global,&
-                                              do_spin_density
+                                              do_spin_density,&
+                                              mix_linear_combination
    USE input_section_types,             ONLY: section_vals_get_subs_vals,&
                                               section_vals_type,&
                                               section_vals_val_get
@@ -76,10 +77,10 @@ MODULE mixed_cdft_methods
    USE mixed_cdft_types,                ONLY: mixed_cdft_settings_type,&
                                               mixed_cdft_type,&
                                               mixed_cdft_type_create
-   USE mixed_cdft_utils,                ONLY: mixed_cdft_init_structures,&
+   USE mixed_cdft_utils,                ONLY: hfun_zero,&
+                                              mixed_cdft_init_structures,&
                                               mixed_cdft_parse_settings,&
-                                              mixed_cdft_transfer_settings,&
-                                              hfun_zero
+                                              mixed_cdft_transfer_settings
    USE mixed_environment_types,         ONLY: get_mixed_env,&
                                               mixed_environment_type,&
                                               set_mixed_env
@@ -143,8 +144,9 @@ CONTAINS
       CHARACTER(len=*), PARAMETER :: routineN = 'mixed_cdft_init', &
          routineP = moduleN//':'//routineN
 
-      INTEGER                                            :: handle, iforce_eval, iounit, nforce_eval
-      LOGICAL                                            :: is_qmmm
+      INTEGER                                            :: et_freq, handle, iforce_eval, iounit, &
+                                                            mixing_type, nforce_eval
+      LOGICAL                                            :: is_parallel, is_qmmm
       TYPE(cp_logger_type), POINTER                      :: logger
       TYPE(cp_subsys_type), POINTER                      :: subsys_mix
       TYPE(force_env_type), POINTER                      :: force_env_qs
@@ -152,12 +154,13 @@ CONTAINS
       TYPE(mixed_cdft_type), POINTER                     :: mixed_cdft
       TYPE(mixed_environment_type), POINTER              :: mixed_env
       TYPE(particle_list_type), POINTER                  :: particles_mix
-      TYPE(section_vals_type), POINTER                   :: force_env_section, md_section, &
-                                                            mixed_section, print_section, &
-                                                            root_section
+      TYPE(section_vals_type), POINTER                   :: force_env_section, mapping_section, &
+                                                            md_section, mixed_section, &
+                                                            print_section, root_section
 
       NULLIFY (subsys_mix, force_env_qs, force_env_section, print_section, &
-               root_section, mixed_section, md_section, mixed_env, mixed_cdft)
+               root_section, mixed_section, md_section, mixed_env, mixed_cdft, &
+               mapping_section)
 
       NULLIFY (settings%grid_span, settings%npts, settings%cutoff, settings%rel_cutoff, &
                settings%spherical, settings%rs_dims, settings%odd, settings%atoms, &
@@ -167,127 +170,170 @@ CONTAINS
       is_qmmm = .FALSE.
       logger => cp_get_default_logger()
       CPASSERT(ASSOCIATED(force_env))
-      CALL timeset(routineN, handle)
-      ! First determine if the calculation is pure DFT or QMMM and find the qs force_env
       nforce_eval = SIZE(force_env%sub_force_env)
-      DO iforce_eval = 1, nforce_eval
-         IF (.NOT. ASSOCIATED(force_env%sub_force_env(iforce_eval)%force_env)) CYCLE
-         SELECT CASE (force_env%sub_force_env (iforce_eval)%force_env%in_use)
-         CASE (use_qs_force)
-            force_env_qs => force_env%sub_force_env(iforce_eval)%force_env
-         CASE (use_qmmm)
-            is_qmmm = .TRUE.
-            ! This is really the container for QMMM
-            force_env_qs => force_env%sub_force_env(iforce_eval)%force_env
-         CASE (use_qmmmx)
-            CPABORT("No force mixing allowed for mixed CDFT QM/MM")
-         CASE DEFAULT
-            CPASSERT(.FALSE.)
-         END SELECT
-      END DO
-      CPASSERT(ASSOCIATED(force_env_qs))
+      CALL timeset(routineN, handle)
       CALL force_env_get(force_env=force_env, force_env_section=force_env_section)
-      ! Get infos about the mixed subsys
-      IF (.NOT. is_qmmm) THEN
-         CALL force_env_get(force_env=force_env, &
-                            subsys=subsys_mix)
-         CALL cp_subsys_get(subsys=subsys_mix, &
-                            particles=particles_mix)
-      ELSE
-         CALL get_qs_env(force_env_qs%qmmm_env%qs_env, &
-                         cp_subsys=subsys_mix)
-         CALL cp_subsys_get(subsys=subsys_mix, &
-                            particles=particles_mix)
-      END IF
       mixed_env => force_env%mixed_env
       mixed_section => section_vals_get_subs_vals(force_env_section, "MIXED")
       print_section => section_vals_get_subs_vals(force_env_section, "MIXED%PRINT%PROGRAM_RUN_INFO")
       iounit = cp_print_key_unit_nr(logger, print_section, '', extension='.mixedLog')
-      ! Init mixed_cdft_type
-      ALLOCATE (mixed_cdft)
-      CALL mixed_cdft_type_create(mixed_cdft)
-      mixed_cdft%first_iteration = .TRUE.
-      mixed_cdft%is_parallel = .TRUE.
-      ! Store QMMM flag
-      mixed_env%do_mixed_qmmm_cdft = is_qmmm
-      ! Setup dynamic load balancing
-      CALL section_vals_val_get(mixed_section, "LINEAR%MIXED_CDFT_DLB", l_val=mixed_cdft%dlb)
-      mixed_cdft%dlb = mixed_cdft%dlb .AND. calculate_forces ! disable if forces are not needed
-      mixed_cdft%dlb = mixed_cdft%dlb .AND. mixed_cdft%is_parallel ! disable if not parallel
-      IF (mixed_cdft%dlb) THEN
-         ALLOCATE (mixed_cdft%dlb_control)
-         NULLIFY (mixed_cdft%dlb_control%weight, mixed_cdft%dlb_control%gradients, &
-                  mixed_cdft%dlb_control%cavity, mixed_cdft%dlb_control%target_list, &
-                  mixed_cdft%dlb_control%bo, mixed_cdft%dlb_control%expected_work, &
-                  mixed_cdft%dlb_control%prediction_error, mixed_cdft%dlb_control%sendbuff, &
-                  mixed_cdft%dlb_control%recvbuff, mixed_cdft%dlb_control%recv_work_repl, &
-                  mixed_cdft%dlb_control%recv_info)
-         CALL section_vals_val_get(mixed_section, "LINEAR%LOAD_SCALE", r_val=mixed_cdft%dlb_control%load_scale)
-         CALL section_vals_val_get(mixed_section, "LINEAR%VERY_OVERLOADED", &
-                                   r_val=mixed_cdft%dlb_control%very_overloaded)
-         CALL section_vals_val_get(mixed_section, "LINEAR%MORE_WORK", i_val=mixed_cdft%dlb_control%more_work)
-      END IF
-      ! Metric/Wavefunction overlap method
-      mixed_cdft%calculate_metric = .FALSE.
-      mixed_cdft%wfn_overlap_method = .FALSE.
-      IF (mixed_env%do_mixed_et) THEN
-         CALL section_vals_val_get(mixed_section, "LINEAR%MIXED_CDFT_METRIC", l_val=mixed_cdft%calculate_metric)
-         CALL section_vals_val_get(mixed_section, "LINEAR%MIXED_CDFT_WFN_OVERLAP", l_val=mixed_cdft%wfn_overlap_method)
-      END IF
-      ! Inversion method
-      CALL section_vals_val_get(mixed_section, "LINEAR%EPS_SVD", r_val=mixed_cdft%eps_svd)
-      IF (mixed_cdft%eps_svd .LT. 0.0_dp .OR. mixed_cdft%eps_svd .GT. 1.0_dp) &
-         CPABORT("Illegal value for EPS_SVD. Value must be between 0.0 and 1.0.")
-      ! MD related settings
-      CALL force_env_get(force_env, root_section=root_section)
-      md_section => section_vals_get_subs_vals(root_section, "MOTION%MD")
-      CALL section_vals_val_get(md_section, "TIMESTEP", r_val=mixed_cdft%sim_dt)
-      CALL section_vals_val_get(md_section, "STEP_START_VAL", i_val=mixed_cdft%sim_step)
-      mixed_cdft%sim_step = mixed_cdft%sim_step-1 ! to get the first step correct
-      mixed_cdft%sim_dt = cp_unit_from_cp2k(mixed_cdft%sim_dt, "fs")
-      ! Parse constraint settings from individual force_eval and check consistency
-      CALL mixed_cdft_parse_settings(force_env, force_env_qs, mixed_env, mixed_cdft, &
-                                     settings, nforce_eval, natom=SIZE(particles_mix%els))
-      ! Transfer settings to mixed_cdft
-      CALL mixed_cdft_transfer_settings(force_env, mixed_cdft, settings)
-      ! Some CDFT features are currently disabled for mixed calculations: check that these features were not requested
-      IF (.NOT. mixed_cdft%becke_control%confine_dir == 3) &
-         CPABORT("Only z-direction allowed for static/dynamic confinement with mixed CDFT")
-      IF (mixed_cdft%becke_control%atomic_charges) &
-         CPABORT("Calculation of atomic Becke charges not supported with mixed CDFT")
-      IF (mixed_cdft%dlb .AND. .NOT. mixed_cdft%becke_control%cavity_confine) &
-         CPABORT("Mixed CDFT load balancing requires Gaussian cavity confinement.")
-      ! Initilize necessary structures
-      CALL mixed_cdft_init_structures(force_env, force_env_qs, mixed_env, mixed_cdft, settings)
-      ! Write information about the mixed CDFT calculation
-      IF (iounit > 0) THEN
-         WRITE (iounit, *) ""
-         WRITE (iounit, FMT="(T2,A,T71)") "MIXED_CDFT| Activating mixed CDFT calculation"
-         WRITE (iounit, FMT="(T2,A,T71)") "MIXED_CDFT| Becke constraint is first built using all available processors"
-         WRITE (iounit, FMT="(T2,A,T71)") "MIXED_CDFT| and then copied to both states with their own processor groups"
-         WRITE (iounit, FMT="(T2,A,T71,L10)") &
-            "MIXED_CDFT| Calculating electronic coupling between states:         ", mixed_env%do_mixed_et
-         WRITE (iounit, FMT="(T2,A,T71,L10)") &
-            "MIXED_CDFT| Dynamic load balancing enabled:                         ", mixed_cdft%dlb
-         IF (mixed_cdft%dlb) THEN
-            WRITE (iounit, FMT="(T2,A,T71)") "MIXED_CDFT| Dynamic load balancing parameters:                         "
-            WRITE (iounit, FMT="(T2,A,T71,F10.2)") &
-               "MIXED_CDFT| load_scale:", mixed_cdft%dlb_control%load_scale
-            WRITE (iounit, FMT="(T2,A,T71,F10.2)") &
-               "MIXED_CDFT| very_overloaded:", mixed_cdft%dlb_control%very_overloaded
-            WRITE (iounit, FMT="(T2,A,T71,I10)") &
-               "MIXED_CDFT| more_work:", mixed_cdft%dlb_control%more_work
-         END IF
-         IF (mixed_env%do_mixed_et) THEN
-            IF (mixed_cdft%eps_svd == 0.0_dp) THEN
-               WRITE (iounit, FMT="(T2,A,T71)") "MIXED_CDFT| Matrix inversions calculated with LU decomposition."
+      ! Check if a mixed CDFT calculation is requested
+      CALL section_vals_val_get(mixed_section, "MIXING_TYPE", i_val=mixing_type)
+      IF (mixing_type == mix_linear_combination .AND. &
+          .NOT. ASSOCIATED(mixed_env%cdft_control)) THEN
+         CALL section_vals_val_get(mixed_section, "LINEAR%MIXED_CDFT", &
+                                   l_val=mixed_env%do_mixed_cdft)
+         IF (mixed_env%do_mixed_cdft) THEN
+            ! Enforce some limitations
+            IF (.NOT. nforce_eval == 2) &
+               CALL CPABORT("Mixed CDFT calculation requires exactly 2 force_evals")
+            IF (mixed_env%ngroups == 2) THEN
+               is_parallel = .TRUE.
+            ELSE IF (mixed_env%ngroups == 1) THEN
+               is_parallel = .FALSE.
             ELSE
-               WRITE (iounit, FMT="(T2,A,T71)") "MIXED_CDFT| Matrix inversions calculated with SVD decomposition."
-               WRITE (iounit, FMT="(T2,A,T71,ES10.2)") "MIXED_CDFT| EPS_SVD:", mixed_cdft%eps_svd
+               CALL CPABORT("The number of processor groups (&NGROUPS) must be 1 or 2 for a mixed CDFT calculation.")
             END IF
+            mapping_section => section_vals_get_subs_vals(mixed_section, "MAPPING")
+            CALL section_vals_get(mapping_section, explicit=explicit)
+            ! The sub_force_envs must share the same geometrical structure
+            IF (explicit) &
+               CALL CPABORT("Please disable section &MAPPING for mixed CDFT calculations")
+            CALL section_vals_val_get(mixed_section, "LINEAR%MIXED_CDFT_COUPLING", i_val=et_freq)
+            IF (et_freq .LT. 0) THEN
+               mixed_env%do_mixed_et = .FALSE.
+            ELSE
+               mixed_env%do_mixed_et = .TRUE.
+               IF (et_freq == 0) THEN
+                  mixed_env%et_freq = 1
+               ELSE
+                  mixed_env%et_freq = et_freq
+               END IF
+            END IF
+            ! Start initializing the mixed_cdft type
+            ! First determine if the calculation is pure DFT or QMMM and find the qs force_env
+            DO iforce_eval = 1, nforce_eval
+               IF (.NOT. ASSOCIATED(force_env%sub_force_env(iforce_eval)%force_env)) CYCLE
+               SELECT CASE (force_env%sub_force_env (iforce_eval)%force_env%in_use)
+               CASE (use_qs_force)
+                  force_env_qs => force_env%sub_force_env(iforce_eval)%force_env
+               CASE (use_qmmm)
+                  is_qmmm = .TRUE.
+                  ! This is really the container for QMMM
+                  force_env_qs => force_env%sub_force_env(iforce_eval)%force_env
+               CASE (use_qmmmx)
+                  CPABORT("No force mixing allowed for mixed CDFT QM/MM")
+               CASE DEFAULT
+                  CPASSERT(.FALSE.)
+               END SELECT
+            END DO
+            CPASSERT(ASSOCIATED(force_env_qs))
+            ! Get infos about the mixed subsys
+            IF (.NOT. is_qmmm) THEN
+               CALL force_env_get(force_env=force_env, &
+                                  subsys=subsys_mix)
+               CALL cp_subsys_get(subsys=subsys_mix, &
+                                  particles=particles_mix)
+            ELSE
+               CALL get_qs_env(force_env_qs%qmmm_env%qs_env, &
+                               cp_subsys=subsys_mix)
+               CALL cp_subsys_get(subsys=subsys_mix, &
+                                  particles=particles_mix)
+            END IF
+            ! Init mixed_cdft_type
+            ALLOCATE (mixed_cdft)
+            CALL mixed_cdft_type_create(mixed_cdft)
+            mixed_cdft%first_iteration = .TRUE.
+            mixed_cdft%is_parallel = is_parallel
+            ! Store QMMM flag
+            mixed_env%do_mixed_qmmm_cdft = is_qmmm
+            ! Setup dynamic load balancing
+            CALL section_vals_val_get(mixed_section, "LINEAR%MIXED_CDFT_DLB", l_val=mixed_cdft%dlb)
+            mixed_cdft%dlb = mixed_cdft%dlb .AND. calculate_forces ! disable if forces are not needed
+            mixed_cdft%dlb = mixed_cdft%dlb .AND. mixed_cdft%is_parallel ! disable if not parallel
+            IF (mixed_cdft%dlb) THEN
+               ALLOCATE (mixed_cdft%dlb_control)
+               NULLIFY (mixed_cdft%dlb_control%weight, mixed_cdft%dlb_control%gradients, &
+                        mixed_cdft%dlb_control%cavity, mixed_cdft%dlb_control%target_list, &
+                        mixed_cdft%dlb_control%bo, mixed_cdft%dlb_control%expected_work, &
+                        mixed_cdft%dlb_control%prediction_error, mixed_cdft%dlb_control%sendbuff, &
+                        mixed_cdft%dlb_control%recvbuff, mixed_cdft%dlb_control%recv_work_repl, &
+                        mixed_cdft%dlb_control%recv_info)
+               CALL section_vals_val_get(mixed_section, "LINEAR%LOAD_SCALE", &
+                                         r_val=mixed_cdft%dlb_control%load_scale)
+               CALL section_vals_val_get(mixed_section, "LINEAR%VERY_OVERLOADED", &
+                                         r_val=mixed_cdft%dlb_control%very_overloaded)
+               CALL section_vals_val_get(mixed_section, "LINEAR%MORE_WORK", &
+                                         i_val=mixed_cdft%dlb_control%more_work)
+            END IF
+            ! Metric/Wavefunction overlap method
+            mixed_cdft%calculate_metric = .FALSE.
+            mixed_cdft%wfn_overlap_method = .FALSE.
+            IF (mixed_env%do_mixed_et) THEN
+               CALL section_vals_val_get(mixed_section, "LINEAR%MIXED_CDFT_METRIC", &
+                                         l_val=mixed_cdft%calculate_metric)
+               CALL section_vals_val_get(mixed_section, "LINEAR%MIXED_CDFT_WFN_OVERLAP", &
+                                         l_val=mixed_cdft%wfn_overlap_method)
+            END IF
+            ! Inversion method
+            CALL section_vals_val_get(mixed_section, "LINEAR%EPS_SVD", r_val=mixed_cdft%eps_svd)
+            IF (mixed_cdft%eps_svd .LT. 0.0_dp .OR. mixed_cdft%eps_svd .GT. 1.0_dp) &
+               CPABORT("Illegal value for EPS_SVD. Value must be between 0.0 and 1.0.")
+            ! MD related settings
+            CALL force_env_get(force_env, root_section=root_section)
+            md_section => section_vals_get_subs_vals(root_section, "MOTION%MD")
+            CALL section_vals_val_get(md_section, "TIMESTEP", r_val=mixed_cdft%sim_dt)
+            CALL section_vals_val_get(md_section, "STEP_START_VAL", i_val=mixed_cdft%sim_step)
+            mixed_cdft%sim_step = mixed_cdft%sim_step-1 ! to get the first step correct
+            mixed_cdft%sim_dt = cp_unit_from_cp2k(mixed_cdft%sim_dt, "fs")
+            ! Parse constraint settings from individual force_eval and check consistency
+            CALL mixed_cdft_parse_settings(force_env, force_env_qs, mixed_env, mixed_cdft, &
+                                           settings, nforce_eval, natom=SIZE(particles_mix%els))
+            ! Transfer settings to mixed_cdft
+            CALL mixed_cdft_transfer_settings(force_env, mixed_cdft, settings)
+            ! Some CDFT features are currently disabled for mixed calculations: check that these features were not requested
+            IF (.NOT. mixed_cdft%becke_control%confine_dir == 3) &
+               CPABORT("Only z-direction allowed for static/dynamic confinement with mixed CDFT")
+            IF (mixed_cdft%becke_control%atomic_charges) &
+               CPABORT("Calculation of atomic Becke charges not supported with mixed CDFT")
+            IF (mixed_cdft%dlb .AND. .NOT. mixed_cdft%becke_control%cavity_confine) &
+               CPABORT("Mixed CDFT load balancing requires Gaussian cavity confinement.")
+            ! Initilize necessary structures
+            CALL mixed_cdft_init_structures(force_env, force_env_qs, mixed_env, mixed_cdft, settings)
+            ! Write information about the mixed CDFT calculation
+            IF (iounit > 0) THEN
+               WRITE (iounit, *) ""
+               WRITE (iounit, FMT="(T2,A,T71)") &
+                  "MIXED_CDFT| Activating mixed CDFT calculation"
+               WRITE (iounit, FMT="(T2,A,T71)") &
+                  "MIXED_CDFT| Becke constraint is first built using all available processors"
+               WRITE (iounit, FMT="(T2,A,T71)") &
+                  "MIXED_CDFT| and then copied to both states with their own processor groups"
+               WRITE (iounit, FMT="(T2,A,T71,L10)") &
+                  "MIXED_CDFT| Calculating electronic coupling between states:         ", mixed_env%do_mixed_et
+               WRITE (iounit, FMT="(T2,A,T71,L10)") &
+                  "MIXED_CDFT| Dynamic load balancing enabled:                         ", mixed_cdft%dlb
+               IF (mixed_cdft%dlb) THEN
+                  WRITE (iounit, FMT="(T2,A,T71)") "MIXED_CDFT| Dynamic load balancing parameters:                         "
+                  WRITE (iounit, FMT="(T2,A,T71,F10.2)") &
+                     "MIXED_CDFT| load_scale:", mixed_cdft%dlb_control%load_scale
+                  WRITE (iounit, FMT="(T2,A,T71,F10.2)") &
+                     "MIXED_CDFT| very_overloaded:", mixed_cdft%dlb_control%very_overloaded
+                  WRITE (iounit, FMT="(T2,A,T71,I10)") &
+                     "MIXED_CDFT| more_work:", mixed_cdft%dlb_control%more_work
+               END IF
+               IF (mixed_env%do_mixed_et) THEN
+                  IF (mixed_cdft%eps_svd == 0.0_dp) THEN
+                     WRITE (iounit, FMT="(T2,A,T71)") "MIXED_CDFT| Matrix inversions calculated with LU decomposition."
+                  ELSE
+                     WRITE (iounit, FMT="(T2,A,T71)") "MIXED_CDFT| Matrix inversions calculated with SVD decomposition."
+                     WRITE (iounit, FMT="(T2,A,T71,ES10.2)") "MIXED_CDFT| EPS_SVD:", mixed_cdft%eps_svd
+                  END IF
+               END IF
+            END IF
+            CALL set_mixed_env(mixed_env, cdft_control=mixed_cdft)
          END IF
       END IF
-      CALL set_mixed_env(mixed_env, cdft_control=mixed_cdft)
       CALL cp_print_key_finished_output(iounit, logger, force_env_section, &
                                         "MIXED%PRINT%PROGRAM_RUN_INFO")
       CALL timestop(handle)
