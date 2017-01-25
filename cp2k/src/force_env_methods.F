@@ -1150,7 +1150,7 @@ CONTAINS
       mixed_section => section_vals_get_subs_vals(force_env_section, "MIXED")
       mapping_section => section_vals_get_subs_vals(mixed_section, "MAPPING")
       ALLOCATE (subsystems(nforce_eval))
-      is_parallel = mixed_env%cdft_control%is_parallel
+      is_parallel = force_env%mixed_env%cdft_control%is_parallel
       DO iforce_eval = 1, nforce_eval
          NULLIFY (subsystems(iforce_eval)%subsys, particles(iforce_eval)%list)
          NULLIFY (results(iforce_eval)%results, virials(iforce_eval)%virial)
