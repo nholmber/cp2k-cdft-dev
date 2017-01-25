@@ -895,7 +895,7 @@ CONTAINS
          END DO
       ELSE
          CALL mixed_cdft_energy_forces(force_env, calculate_forces, particles, energies, &
-                                       global_natoms, virials, results)
+                                       glob_natoms, virials, results)
       END IF
       ! Handling Parallel execution
       CALL mp_sync(force_env%para_env%group)
@@ -1106,11 +1106,12 @@ CONTAINS
 !> \author Nico Holmberg
 ! **************************************************************************************************
    SUBROUTINE mixed_cdft_energy_forces(force_env, calculate_forces, particles, energies, &
-                                       global_natoms, virials, results)
+                                       glob_natoms, virials, results)
       TYPE(force_env_type), POINTER                      :: force_env
       LOGICAL, INTENT(IN)                                :: calculate_forces
       TYPE(particle_list_p_type), DIMENSION(:), POINTER  :: particles
       REAL(KIND=dp), DIMENSION(:), POINTER               :: energies
+      INTEGER, DIMENSION(:), POINTER                     :: glob_natoms
       TYPE(virial_p_type), DIMENSION(:), POINTER         :: virials
       TYPE(cp_result_p_type), DIMENSION(:), POINTER      :: results
 
@@ -1119,7 +1120,7 @@ CONTAINS
 
       INTEGER                                            :: iforce_eval, iparticle, jparticle, &
                                                             my_group, natom, nforce_eval
-      INTEGER, DIMENSION(:), POINTER                     :: glob_natoms, map_index
+      INTEGER, DIMENSION(:), POINTER                     :: map_index
       LOGICAL                                            :: is_parallel
       REAL(KIND=dp)                                      :: energy
       TYPE(cell_type), POINTER                           :: cell_mix
