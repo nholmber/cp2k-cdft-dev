@@ -146,7 +146,7 @@ CONTAINS
 
       INTEGER                                            :: et_freq, handle, iforce_eval, iounit, &
                                                             mixing_type, nforce_eval
-      LOGICAL                                            :: is_parallel, is_qmmm
+      LOGICAL                                            :: is_parallel, is_qmmm, explicit
       TYPE(cp_logger_type), POINTER                      :: logger
       TYPE(cp_subsys_type), POINTER                      :: subsys_mix
       TYPE(force_env_type), POINTER                      :: force_env_qs
@@ -186,19 +186,19 @@ CONTAINS
          IF (mixed_env%do_mixed_cdft) THEN
             ! Enforce some limitations
             IF (.NOT. nforce_eval == 2) &
-               CALL CPABORT("Mixed CDFT calculation requires exactly 2 force_evals")
+               CPABORT("Mixed CDFT calculation requires exactly 2 force_evals")
             IF (mixed_env%ngroups == 2) THEN
                is_parallel = .TRUE.
             ELSE IF (mixed_env%ngroups == 1) THEN
                is_parallel = .FALSE.
             ELSE
-               CALL CPABORT("The number of processor groups (&NGROUPS) must be 1 or 2 for a mixed CDFT calculation.")
+               CPABORT("The number of processor groups (&NGROUPS) must be 1 or 2 for a mixed CDFT calculation.")
             END IF
             mapping_section => section_vals_get_subs_vals(mixed_section, "MAPPING")
             CALL section_vals_get(mapping_section, explicit=explicit)
             ! The sub_force_envs must share the same geometrical structure
             IF (explicit) &
-               CALL CPABORT("Please disable section &MAPPING for mixed CDFT calculations")
+               CPABORT("Please disable section &MAPPING for mixed CDFT calculations")
             CALL section_vals_val_get(mixed_section, "LINEAR%MIXED_CDFT_COUPLING", i_val=et_freq)
             IF (et_freq .LT. 0) THEN
                mixed_env%do_mixed_et = .FALSE.
