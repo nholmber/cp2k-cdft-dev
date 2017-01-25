@@ -483,7 +483,7 @@ CONTAINS
          IF (mixed_cdft%is_special) THEN
             mixed_rs_dims = (/-1, -1/)
          ELSE IF (mixed_cdft%is_pencil) THEN
-            mixed_rs_dims = (/settings%rs_dims(1, 1), 2*settings%srs_dims(2, 1)/)
+            mixed_rs_dims = (/settings%rs_dims(1, 1), 2*settings%rs_dims(2, 1)/)
          ELSE
             mixed_rs_dims = (/2*settings%rs_dims(1, 1), 1/)
          END IF
