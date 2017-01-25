@@ -34,7 +34,7 @@ Holmberg, Nico; Laasonen, Kari, *Efficient Constrained Density Functional Theory
 	* Follow the installation instructions in the file [`INSTALL`](cp2k/INSTALL), also available at the official [CP2K project page](https://www.cp2k.org/howto:compile) 
 
 2. Other versions
-	* Clone the latest stable build in a directory of your choice 
+	* Clone the latest stable build in a directory of your choice  
 	  `git clone -b branch_name --single-branch https://github.com/nholmber/cp2k-cdft-dev branch_name`
 	* Continue as above
 
