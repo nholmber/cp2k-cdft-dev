@@ -14,12 +14,8 @@ MODULE mixed_cdft_methods
                                               get_atomic_kind
    USE cell_types,                      ONLY: cell_type,&
                                               pbc
-   USE cp_blacs_env,                    ONLY: cp_blacs_env_create,&
-                                              cp_blacs_env_release,&
-                                              cp_blacs_env_retain,&
-                                              cp_blacs_env_type
-   USE cp_control_types,                ONLY: becke_control_create,&
-                                              dft_control_type
+   USE cp_blacs_env,                    ONLY: cp_blacs_env_type
+   USE cp_control_types,                ONLY: dft_control_type
    USE cp_dbcsr_diag,                   ONLY: cp_dbcsr_syevd
    USE cp_dbcsr_operations,             ONLY: copy_dbcsr_to_fm,&
                                               copy_fm_to_dbcsr_bc,&
@@ -44,37 +40,23 @@ MODULE mixed_cdft_methods
    USE cp_output_handling,              ONLY: cp_print_key_finished_output,&
                                               cp_print_key_unit_nr
    USE cp_realspace_grid_cube,          ONLY: cp_pw_to_cube
-   USE cp_realspace_grid_init,          ONLY: init_input_type
    USE cp_subsys_types,                 ONLY: cp_subsys_get,&
                                               cp_subsys_type
    USE cp_units,                        ONLY: cp_unit_from_cp2k
-   USE cube_utils,                      ONLY: init_cube_info,&
-                                              return_cube_max_iradius
-   USE d3_poly,                         ONLY: init_d3_poly_module
    USE dbcsr_api,                       ONLY: &
         dbcsr_add, dbcsr_create, dbcsr_desymmetrize, dbcsr_get_info, dbcsr_init_p, dbcsr_p_type, &
         dbcsr_release, dbcsr_release_p, dbcsr_scale, dbcsr_type
    USE force_env_types,                 ONLY: force_env_get,&
                                               force_env_type,&
-                                              multiple_fe_list,&
                                               use_qmmm,&
                                               use_qmmmx,&
                                               use_qs_force
-   USE gaussian_gridlevels,             ONLY: init_gaussian_gridlevel
-   USE global_types,                    ONLY: global_environment_type
    USE hirshfeld_methods,               ONLY: create_shape_function
-   USE hirshfeld_types,                 ONLY: create_hirshfeld_type,&
-                                              hirshfeld_type,&
-                                              release_hirshfeld_type,&
-                                              set_hirshfeld_info
+   USE hirshfeld_types,                 ONLY: hirshfeld_type
    USE input_constants,                 ONLY: becke_cutoff_element,&
                                               becke_cutoff_global,&
-                                              cdft_density_constraint,&
-                                              do_spin_density,&
-                                              shape_function_gaussian
-   USE input_section_types,             ONLY: section_vals_duplicate,&
-                                              section_vals_get_subs_vals,&
-                                              section_vals_release,&
+                                              do_spin_density
+   USE input_section_types,             ONLY: section_vals_get_subs_vals,&
                                               section_vals_type,&
                                               section_vals_val_get
    USE kinds,                           ONLY: default_path_length,&
@@ -91,27 +73,22 @@ MODULE mixed_cdft_methods
                                               mp_testall,&
                                               mp_wait,&
                                               mp_waitall
-   USE mixed_cdft_types,                ONLY: mixed_cdft_type,&
+   USE mixed_cdft_types,                ONLY: mixed_cdft_settings_type,&
+                                              mixed_cdft_type,&
                                               mixed_cdft_type_create
+   USE mixed_cdft_utils,                ONLY: mixed_cdft_init_structures,&
+                                              mixed_cdft_parse_settings,&
+                                              mixed_cdft_transfer_settings
    USE mixed_environment_types,         ONLY: get_mixed_env,&
                                               mixed_environment_type,&
                                               set_mixed_env
    USE particle_list_types,             ONLY: particle_list_type
    USE particle_types,                  ONLY: particle_type
-   USE pw_env_methods,                  ONLY: pw_env_create
    USE pw_env_types,                    ONLY: pw_env_get,&
                                               pw_env_type
-   USE pw_grid_types,                   ONLY: HALFSPACE,&
-                                              pw_grid_type
-   USE pw_grids,                        ONLY: do_pw_grid_blocked_false,&
-                                              pw_grid_create,&
-                                              pw_grid_release,&
-                                              pw_grid_setup
    USE pw_methods,                      ONLY: pw_scale
-   USE pw_pool_types,                   ONLY: pw_pool_create,&
-                                              pw_pool_create_pw,&
+   USE pw_pool_types,                   ONLY: pw_pool_create_pw,&
                                               pw_pool_give_back_pw,&
-                                              pw_pool_p_type,&
                                               pw_pool_type
    USE pw_types,                        ONLY: REALDATA3D,&
                                               REALSPACE
@@ -119,8 +96,7 @@ MODULE mixed_cdft_methods
    USE qs_energy_types,                 ONLY: qs_energy_type
    USE qs_environment_types,            ONLY: get_qs_env,&
                                               qs_environment_type
-   USE qs_kind_types,                   ONLY: create_qs_kind_set,&
-                                              qs_kind_type
+   USE qs_kind_types,                   ONLY: qs_kind_type
    USE qs_mo_io,                        ONLY: read_mo_set,&
                                               wfn_restart_file_name
    USE qs_mo_methods,                   ONLY: make_basis_simple,&
@@ -130,10 +106,12 @@ MODULE mixed_cdft_methods
                                               mo_set_p_type,&
                                               set_mo_set
    USE qs_modify_pab_block,             ONLY: FUNC_AB
-   USE realspace_grid_types,            ONLY: &
-        realspace_grid_desc_p_type, realspace_grid_input_type, realspace_grid_p_type, &
-        realspace_grid_type, rs2pw, rs_grid_create, rs_grid_create_descriptor, rs_grid_print, &
-        rs_grid_release, rs_grid_retain, rs_grid_zero, rs_pw_transfer
+   USE realspace_grid_types,            ONLY: realspace_grid_type,&
+                                              rs2pw,&
+                                              rs_grid_release,&
+                                              rs_grid_retain,&
+                                              rs_grid_zero,&
+                                              rs_pw_transfer
    USE util,                            ONLY: sort
 #include "./base/base_uses.f90"
 
@@ -150,7 +128,7 @@ MODULE mixed_cdft_methods
 
 CONTAINS
 
-! *****************************************************************************
+! **************************************************************************************************
 !> \brief Initialize mixed cdft calculation (currently only relevant with Becke constraint)
 !> \param force_env ...
 !> \param calculate_forces ...
@@ -164,51 +142,26 @@ CONTAINS
       CHARACTER(len=*), PARAMETER :: routineN = 'mixed_cdft_init', &
          routineP = moduleN//':'//routineN
 
-      INTEGER :: handle, i, iforce_eval, imap, iounit, j, max_nkinds, n_force_eval, nbecke, ncpu, &
-         nforce_eval, nkinds, ntargets, offset, req(3)
-      INTEGER, ALLOCATABLE, DIMENSION(:, :)              :: bounds
-      INTEGER, DIMENSION(2, 3)                           :: bo, bo_mixed
-      INTEGER, DIMENSION(3)                              :: higher_grid_layout
-      INTEGER, DIMENSION(:), POINTER                     :: grid_span, i_force_eval, mixed_rs_dims, &
-                                                            odd, recvbuffer, recvbuffer2, &
-                                                            sendbuffer, spherical
-      INTEGER, DIMENSION(:, :), POINTER                  :: atoms, npts, rs_dims, settings_int
-      LOGICAL                                            :: is_match, is_odd, is_qmmm, is_spherical
-      REAL(KIND=dp)                                      :: radius
-      REAL(KIND=dp), DIMENSION(:), POINTER               :: cutoff, rel_cutoff
-      REAL(KIND=dp), DIMENSION(:, :), POINTER            :: coeffs, confine_bounds, cutoffs, radii, &
-                                                            settings_real
-      TYPE(atomic_kind_type), DIMENSION(:), POINTER      :: atomic_kind_set
-      TYPE(cell_type), POINTER                           :: cell_mix
-      TYPE(cp_blacs_env_type), POINTER                   :: blacs_env
+      INTEGER                                            :: handle, iforce_eval, iounit, nforce_eval
+      LOGICAL                                            :: is_qmmm
       TYPE(cp_logger_type), POINTER                      :: logger
       TYPE(cp_subsys_type), POINTER                      :: subsys_mix
-      TYPE(dft_control_type), POINTER                    :: dft_control
       TYPE(force_env_type), POINTER                      :: force_env_qs
-      TYPE(global_environment_type), POINTER             :: globenv
+      TYPE(mixed_cdft_settings_type)                     :: settings
       TYPE(mixed_cdft_type), POINTER                     :: mixed_cdft
       TYPE(mixed_environment_type), POINTER              :: mixed_env
       TYPE(particle_list_type), POINTER                  :: particles_mix
-      TYPE(pw_env_type), POINTER                         :: pw_env
-      TYPE(pw_grid_type), POINTER                        :: pw_grid
-      TYPE(pw_pool_p_type), DIMENSION(:), POINTER        :: pw_pools
-      TYPE(pw_pool_type), POINTER                        :: auxbas_pw_pool
-      TYPE(qs_environment_type), POINTER                 :: qs_env
-      TYPE(qs_kind_type), DIMENSION(:), POINTER          :: qs_kind_set
-      TYPE(realspace_grid_desc_p_type), DIMENSION(:), &
-         POINTER                                         :: rs_descs
-      TYPE(realspace_grid_input_type)                    :: input_settings
-      TYPE(realspace_grid_p_type), DIMENSION(:), POINTER :: rs_grids
-      TYPE(section_vals_type), POINTER :: force_env_section, force_env_sections, kind_section, &
-         md_section, mixed_section, print_section, root_section, rs_grid_section, subsys_section
+      TYPE(section_vals_type), POINTER                   :: force_env_section, md_section, &
+                                                            mixed_section, print_section, &
+                                                            root_section
 
-      NULLIFY (cell_mix, subsys_mix, force_env_qs, force_env_section, subsys_section, &
-               print_section, root_section, kind_section, force_env_sections, rs_grid_section, &
-               mixed_section, md_section, mixed_env, mixed_cdft, pw_env, auxbas_pw_pool, &
-               pw_pools, qs_env, pw_grid, dft_control, sendbuffer, grid_span, odd, spherical, &
-               mixed_rs_dims, i_force_eval, recvbuffer, recvbuffer2, npts, rs_dims, atoms, &
-               settings_int, cutoff, rel_cutoff, coeffs, settings_real, confine_bounds, &
-               cutoffs, blacs_env, globenv, atomic_kind_set, qs_kind_set, rs_descs, rs_grids)
+      NULLIFY (subsys_mix, force_env_qs, force_env_section, print_section, &
+               root_section, mixed_section, md_section, mixed_env, mixed_cdft)
+
+      NULLIFY (settings%grid_span, settings%npts, settings%cutoff, settings%rel_cutoff, &
+               settings%spherical, settings%rs_dims, settings%odd, settings%atoms, &
+               settings%coeffs, settings%si, settings%sr, settings%confine_bounds, &
+               settings%cutoffs, settings%radii)
 
       is_qmmm = .FALSE.
       logger => cp_get_default_logger()
@@ -236,18 +189,15 @@ CONTAINS
       ! Get infos about the mixed subsys
       IF (.NOT. is_qmmm) THEN
          CALL force_env_get(force_env=force_env, &
-                            subsys=subsys_mix, &
-                            cell=cell_mix)
+                            subsys=subsys_mix)
          CALL cp_subsys_get(subsys=subsys_mix, &
                             particles=particles_mix)
       ELSE
          CALL get_qs_env(force_env_qs%qmmm_env%qs_env, &
-                         cp_subsys=subsys_mix, &
-                         cell=cell_mix)
+                         cp_subsys=subsys_mix)
          CALL cp_subsys_get(subsys=subsys_mix, &
                             particles=particles_mix)
       END IF
-      ncpu = force_env%para_env%num_pe
       mixed_env => force_env%mixed_env
       mixed_section => section_vals_get_subs_vals(force_env_section, "MIXED")
       print_section => section_vals_get_subs_vals(force_env_section, "MIXED%PRINT%PROGRAM_RUN_INFO")
@@ -255,11 +205,14 @@ CONTAINS
       ! Init mixed_cdft_type
       ALLOCATE (mixed_cdft)
       CALL mixed_cdft_type_create(mixed_cdft)
+      mixed_cdft%first_iteration = .TRUE.
+      mixed_cdft%is_parallel = .TRUE.
       ! Store QMMM flag
       mixed_env%do_mixed_qmmm_cdft = is_qmmm
       ! Setup dynamic load balancing
       CALL section_vals_val_get(mixed_section, "LINEAR%MIXED_CDFT_DLB", l_val=mixed_cdft%dlb)
       mixed_cdft%dlb = mixed_cdft%dlb .AND. calculate_forces ! disable if forces are not needed
+      mixed_cdft%dlb = mixed_cdft%dlb .AND. mixed_cdft%is_parallel ! disable if not parallel
       IF (mixed_cdft%dlb) THEN
          ALLOCATE (mixed_cdft%dlb_control)
          NULLIFY (mixed_cdft%dlb_control%weight, mixed_cdft%dlb_control%gradients, &
@@ -284,245 +237,6 @@ CONTAINS
       CALL section_vals_val_get(mixed_section, "LINEAR%EPS_SVD", r_val=mixed_cdft%eps_svd)
       IF (mixed_cdft%eps_svd .LT. 0.0_dp .OR. mixed_cdft%eps_svd .GT. 1.0_dp) &
          CPABORT("Illegal value for EPS_SVD. Value must be between 0.0 and 1.0.")
-      ! Start building the mixed auxbas_pw_pool
-      CALL pw_grid_create(pw_grid, force_env%para_env%group)
-      CALL pw_env_create(mixed_cdft%pw_env)
-      ! Allocate storage for temporaries
-      ALLOCATE (grid_span(nforce_eval))
-      grid_span = 0
-      ALLOCATE (npts(3, nforce_eval))
-      npts = 0
-      ALLOCATE (cutoff(nforce_eval))
-      cutoff = 0.0_dp
-      ALLOCATE (rel_cutoff(nforce_eval))
-      rel_cutoff = 0.0_dp
-      ALLOCATE (spherical(nforce_eval))
-      spherical = 0
-      is_spherical = .FALSE.
-      ALLOCATE (rs_dims(2, nforce_eval))
-      rs_dims = 0
-      ALLOCATE (odd(nforce_eval))
-      odd = 0
-      is_odd = .FALSE.
-      ALLOCATE (atoms(SIZE(particles_mix%els), nforce_eval))
-      atoms = 0
-      ALLOCATE (coeffs(SIZE(particles_mix%els), nforce_eval))
-      coeffs = 0.0_dp
-      ALLOCATE (settings_int(17, nforce_eval))
-      settings_int = 0
-      ALLOCATE (settings_real(6, nforce_eval))
-      settings_real = 0.0_dp
-      ALLOCATE (confine_bounds(2, nforce_eval))
-      confine_bounds = 0.0_dp
-      max_nkinds = 30
-      ALLOCATE (cutoffs(max_nkinds, nforce_eval))
-      cutoffs = 0.0_dp
-      ALLOCATE (radii(max_nkinds, nforce_eval))
-      radii = 0.0_dp
-      ! Get information from the sub_force_envs
-      ! TODO: transfer logicals as logicals instead of ints
-      DO iforce_eval = 1, nforce_eval
-         IF (.NOT. ASSOCIATED(force_env%sub_force_env(iforce_eval)%force_env)) CYCLE
-         IF (is_qmmm) THEN
-            qs_env => force_env_qs%qmmm_env%qs_env
-         ELSE
-            CALL force_env_get(force_env_qs, qs_env=qs_env)
-         END IF
-         CALL get_qs_env(qs_env, pw_env=pw_env, dft_control=dft_control)
-         IF (.NOT. dft_control%qs_control%becke_restraint) &
-            CALL cp_abort(__LOCATION__, "Mixed CDFT currently only supports the Becke constraint."// &
-                          "Becke constraint must be active in QS section of both force_evals!")
-         CALL pw_env_get(pw_env, auxbas_pw_pool=auxbas_pw_pool)
-         bo = auxbas_pw_pool%pw_grid%bounds_local
-         ! Only the rank 0 process collects info about pw_grid and becke
-         IF (force_env_qs%para_env%mepos == &
-             force_env_qs%para_env%source) THEN
-            grid_span(iforce_eval) = auxbas_pw_pool%pw_grid%grid_span
-            npts(:, iforce_eval) = auxbas_pw_pool%pw_grid%npts
-            cutoff(iforce_eval) = auxbas_pw_pool%pw_grid%cutoff
-            rel_cutoff(iforce_eval) = dft_control%qs_control%relative_cutoff
-            IF (auxbas_pw_pool%pw_grid%spherical) spherical(iforce_eval) = 1
-            rs_dims(:, iforce_eval) = auxbas_pw_pool%pw_grid%para%rs_dims
-            IF (auxbas_pw_pool%pw_grid%grid_span == HALFSPACE) odd(iforce_eval) = 1
-            IF (dft_control%qs_control%becke_control%natoms .GT. SIZE(atoms, 1)) &
-               CPABORT("More Becke constraint atoms than defined in mixed section. Use default values for MIXED\MAPPING.")
-            atoms(1:dft_control%qs_control%becke_control%natoms, iforce_eval) = dft_control%qs_control%becke_control%atoms
-            coeffs(1:dft_control%qs_control%becke_control%natoms, iforce_eval) = dft_control%qs_control%becke_control%coeff
-            ! Only GAPW needs to keep a copy of these arrays for constraint integration
-            IF (.NOT. dft_control%qs_control%gapw) THEN
-               DEALLOCATE (dft_control%qs_control%becke_control%atoms)
-               DEALLOCATE (dft_control%qs_control%becke_control%coeff)
-            END IF
-            settings_int(1, iforce_eval) = dft_control%qs_control%becke_control%confine_method
-            settings_int(2, iforce_eval) = dft_control%qs_control%becke_control%cutoff_type
-            IF (dft_control%qs_control%becke_control%confine) settings_int(3, iforce_eval) = 1
-            IF (dft_control%qs_control%becke_control%dynamic_confine) settings_int(4, iforce_eval) = 1
-            IF (dft_control%qs_control%becke_control%cavity_confine) THEN
-               settings_int(5, iforce_eval) = 1
-               CALL release_hirshfeld_type(dft_control%qs_control%becke_control%cavity_env)
-            END IF
-            IF (dft_control%qs_control%becke_control%should_skip) settings_int(6, iforce_eval) = 1
-            IF (dft_control%qs_control%becke_control%print_cavity) settings_int(7, iforce_eval) = 1
-            IF (dft_control%qs_control%becke_control%in_memory) settings_int(8, iforce_eval) = 1
-            settings_int(9, iforce_eval) = dft_control%qs_control%becke_control%confine_dir
-            IF (dft_control%qs_control%becke_control%adjust) settings_int(10, iforce_eval) = 1
-            IF (dft_control%qs_control%becke_control%atomic_charges) settings_int(11, iforce_eval) = 1
-            settings_int(12, iforce_eval) = dft_control%qs_control%becke_control%cavity_shape
-            settings_int(13, iforce_eval) = dft_control%multiplicity
-            IF (qs_env%has_unit_metric) THEN
-               settings_int(14, iforce_eval) = 1
-            ELSE
-               settings_int(14, iforce_eval) = 0
-            END IF
-            settings_int(15, iforce_eval) = dft_control%qs_control%becke_control%constraint_type
-            settings_int(16, iforce_eval) = dft_control%qs_control%becke_control%combined_type
-            IF (dft_control%qs_control%becke_control%use_bohr) THEN
-               settings_int(17, iforce_eval) = 1
-            ELSE
-               settings_int(17, iforce_eval) = 0
-            END IF
-            settings_real(1, iforce_eval) = dft_control%qs_control%becke_control%dynamic_radius
-            settings_real(2, iforce_eval) = dft_control%qs_control%becke_control%rcavity
-            settings_real(3, iforce_eval) = dft_control%qs_control%becke_control%rglobal
-            settings_real(4, iforce_eval) = dft_control%qs_control%becke_control%eps_cavity
-            settings_real(5, iforce_eval) = dft_control%qs_control%eps_rho_rspace
-            settings_real(6, iforce_eval) = pw_env%cube_info(pw_env%auxbas_grid)%max_rad_ga
-            confine_bounds(:, iforce_eval) = dft_control%qs_control%becke_control%confine_bounds
-            IF (dft_control%qs_control%becke_control%cutoff_type == becke_cutoff_element) THEN
-               nkinds = SIZE(dft_control%qs_control%becke_control%cutoffs_tmp)
-               IF (nkinds .GT. max_nkinds) &
-                  CALL cp_abort(__LOCATION__, "More than "//TRIM(cp_to_string(max_nkinds))//" unique elements"// &
-                                "were defined in BECKE_RESTRAINT\ELEMENT_CUTOFF. Are you sure"// &
-                                " your input is correct? If yes, please increase max_nkinds and recompile.")
-               cutoffs(1:nkinds, iforce_eval) = dft_control%qs_control%becke_control%cutoffs_tmp(:)
-               DEALLOCATE (dft_control%qs_control%becke_control%cutoffs_tmp)
-            END IF
-            IF (dft_control%qs_control%becke_control%adjust) THEN
-               CALL get_qs_env(qs_env, atomic_kind_set=atomic_kind_set)
-               IF (.NOT. SIZE(atomic_kind_set) == SIZE(dft_control%qs_control%becke_control%radii_tmp)) &
-                  CALL cp_abort(__LOCATION__, "Length of keyword BECKE_RESTRAINT\ATOMIC_RADII does not "// &
-                                "match number of atomic kinds in the input coordinate file.")
-               nkinds = SIZE(dft_control%qs_control%becke_control%radii_tmp)
-               IF (nkinds .GT. max_nkinds) &
-                  CALL cp_abort(__LOCATION__, "More than "//TRIM(cp_to_string(max_nkinds))//" unique elements"// &
-                                "were defined in BECKE_RESTRAINT\ATOMIC_RADII. Are you sure"// &
-                                " your input is correct? If yes, please increase max_nkinds and recompile.")
-               radii(1:nkinds, iforce_eval) = dft_control%qs_control%becke_control%radii_tmp(:)
-               DEALLOCATE (dft_control%qs_control%becke_control%radii_tmp)
-            END IF
-         END IF
-      END DO
-      ! Make sure the grids are consistent
-      CALL mp_sum(grid_span, force_env%para_env%group)
-      CALL mp_sum(npts, force_env%para_env%group)
-      CALL mp_sum(cutoff, force_env%para_env%group)
-      CALL mp_sum(rel_cutoff, force_env%para_env%group)
-      CALL mp_sum(spherical, force_env%para_env%group)
-      CALL mp_sum(rs_dims, force_env%para_env%group)
-      CALL mp_sum(odd, force_env%para_env%group)
-      is_match = .TRUE.
-      is_match = is_match .AND. (grid_span(1) == grid_span(2))
-      is_match = is_match .AND. (npts(1, 1) == npts(1, 2))
-      is_match = is_match .AND. (cutoff(1) == cutoff(2))
-      is_match = is_match .AND. (rel_cutoff(1) == rel_cutoff(2))
-      is_match = is_match .AND. (spherical(1) == spherical(2))
-      is_match = is_match .AND. (rs_dims(1, 1) == rs_dims(1, 2))
-      is_match = is_match .AND. (rs_dims(2, 1) == rs_dims(2, 2))
-      is_match = is_match .AND. (odd(1) == odd(2))
-      IF (.NOT. is_match) CPABORT("Mismatch detected in the &MGRID settings of the two force_evals.")
-      IF (spherical(1) == 1) is_spherical = .TRUE.
-      IF (odd(1) == 1) is_odd = .TRUE.
-      ! Make sure Becke settings are consistent and transfer them
-      CALL mp_sum(atoms, force_env%para_env%group)
-      CALL mp_sum(coeffs, force_env%para_env%group)
-      nbecke = 0
-      nkinds = 0
-      DO i = 1, SIZE(atoms, 1)
-         IF (atoms(i, 1) /= atoms(i, 2)) is_match = .FALSE.
-         IF (coeffs(i, 1) /= coeffs(i, 2)) is_match = .FALSE.
-         IF (atoms(i, 1) /= 0) nbecke = nbecke+1
-      END DO
-      IF (.NOT. is_match) CPABORT("Mismatch detected in the &BECKE_RESTRAINT settings of the two force_evals.")
-      CALL becke_control_create(mixed_cdft%becke_control)
-      ALLOCATE (mixed_cdft%becke_control%atoms(nbecke))
-      mixed_cdft%becke_control%atoms = atoms(1:nbecke, 1)
-      ALLOCATE (mixed_cdft%becke_control%coeff(nbecke))
-      mixed_cdft%becke_control%coeff = coeffs(1:nbecke, 1)
-      mixed_cdft%becke_control%natoms = nbecke
-      CALL mp_sum(settings_int, force_env%para_env%group)
-      CALL mp_sum(settings_real, force_env%para_env%group)
-      CALL mp_sum(confine_bounds, force_env%para_env%group)
-      DO i = 1, SIZE(settings_int, 1)
-         IF (settings_int(i, 1) /= settings_int(i, 2)) is_match = .FALSE.
-         IF (i <= 5) THEN
-            IF (settings_real(i, 1) /= settings_real(i, 2)) is_match = .FALSE.
-         END IF
-      END DO
-      IF (.NOT. is_match) CPABORT("Mismatch detected in the &BECKE_RESTRAINT settings of the two force_evals.")
-      is_match = is_match .AND. (confine_bounds(1, 1) == confine_bounds(1, 2))
-      is_match = is_match .AND. (confine_bounds(2, 1) == confine_bounds(2, 2))
-      IF (.NOT. is_match) &
-         CPABORT("Mismatch detected in the &BECKE_RESTRAINT&CONFINE_BOUNDS settings of the two force_evals.")
-      mixed_cdft%becke_control%confine_method = settings_int(1, 1)
-      mixed_cdft%becke_control%cutoff_type = settings_int(2, 1)
-      nkinds = 0
-      IF (mixed_cdft%becke_control%cutoff_type == becke_cutoff_element) THEN
-         CALL mp_sum(cutoffs, force_env%para_env%group)
-         DO i = 1, SIZE(cutoffs, 1)
-            IF (cutoffs(i, 1) /= cutoffs(i, 2)) is_match = .FALSE.
-            IF (cutoffs(i, 1) /= 0.0_dp) nkinds = nkinds+1
-         END DO
-         IF (.NOT. is_match) &
-            CPABORT("Mismatch detected in the &BECKE_RESTRAINT&ELEMENT_CUTOFF settings of the two force_evals.")
-         ALLOCATE (mixed_cdft%becke_control%cutoffs_tmp(nkinds))
-         mixed_cdft%becke_control%cutoffs_tmp = cutoffs(1:nkinds, 1)
-      END IF
-      IF (settings_int(3, 1) == 1) mixed_cdft%becke_control%confine = .TRUE.
-      IF (settings_int(4, 1) == 1) mixed_cdft%becke_control%dynamic_confine = .TRUE.
-      IF (settings_int(5, 1) == 1) mixed_cdft%becke_control%cavity_confine = .TRUE.
-      IF (settings_int(6, 1) == 1) mixed_cdft%becke_control%should_skip = .TRUE.
-      IF (settings_int(7, 1) == 1) mixed_cdft%becke_control%print_cavity = .TRUE.
-      IF (settings_int(8, 1) == 1) mixed_cdft%becke_control%in_memory = .TRUE.
-      mixed_cdft%becke_control%confine_dir = settings_int(9, 1)
-      IF (settings_int(10, 1) == 1) mixed_cdft%becke_control%adjust = .TRUE.
-      IF (mixed_cdft%becke_control%adjust) THEN
-         CALL mp_sum(radii, force_env%para_env%group)
-         DO i = 1, SIZE(radii, 1)
-            IF (radii(i, 1) /= radii(i, 2)) is_match = .FALSE.
-            IF (radii(i, 1) /= 0.0_dp) nkinds = nkinds+1
-         END DO
-         IF (.NOT. is_match) &
-            CPABORT("Mismatch detected in the &BECKE_RESTRAINT&ATOMIC_RADII settings of the two force_evals.")
-         ALLOCATE (mixed_cdft%becke_control%radii(nkinds))
-         mixed_cdft%becke_control%radii = radii(1:nkinds, 1)
-      END IF
-      IF (settings_int(11, 1) == 1) mixed_cdft%becke_control%atomic_charges = .TRUE.
-      mixed_cdft%becke_control%cavity_shape = settings_int(12, 1)
-      mixed_cdft%multiplicity = settings_int(13, 1)
-      mixed_cdft%has_unit_metric = .FALSE.
-      IF (settings_int(14, 1) == 1) mixed_cdft%has_unit_metric = .FALSE.
-      mixed_cdft%constraint_type = settings_int(15, 1)
-      IF (mixed_cdft%constraint_type /= cdft_density_constraint) &
-         CALL cp_abort(__LOCATION__, "Unsupported constraint type. Mixed CDFT only accepts total density "// &
-                       " density constraints at this moment.")
-      mixed_cdft%combined_type = settings_int(16, 1)
-      IF (settings_int(17, 1) == 1) mixed_cdft%becke_control%use_bohr = .TRUE.
-      mixed_cdft%becke_control%dynamic_radius = settings_real(1, 1)
-      mixed_cdft%becke_control%rcavity = settings_real(2, 1)
-      mixed_cdft%becke_control%rglobal = settings_real(3, 1)
-      mixed_cdft%becke_control%eps_cavity = settings_real(4, 1)
-      mixed_cdft%eps_rho_rspace = settings_real(5, 1)
-      mixed_cdft%becke_control%confine_bounds = confine_bounds(:, 1)
-      radius = settings_real(6, 1)
-      ! Initialize Gaussian cavity confinement
-      IF (mixed_cdft%becke_control%cavity_confine) THEN
-         CALL create_hirshfeld_type(mixed_cdft%becke_control%cavity_env)
-         CALL set_hirshfeld_info(mixed_cdft%becke_control%cavity_env, &
-                                 shape_function_type=shape_function_gaussian, iterative=.FALSE., &
-                                 radius_type=mixed_cdft%becke_control%cavity_shape, &
-                                 use_bohr=mixed_cdft%becke_control%use_bohr)
-      END IF
-      mixed_cdft%first_iteration = .TRUE.
       ! MD related settings
       CALL force_env_get(force_env, root_section=root_section)
       md_section => section_vals_get_subs_vals(root_section, "MOTION%MD")
@@ -530,6 +244,11 @@ CONTAINS
       CALL section_vals_val_get(md_section, "STEP_START_VAL", i_val=mixed_cdft%sim_step)
       mixed_cdft%sim_step = mixed_cdft%sim_step-1 ! to get the first step correct
       mixed_cdft%sim_dt = cp_unit_from_cp2k(mixed_cdft%sim_dt, "fs")
+      ! Parse constraint settings from individual force_eval and check consistency
+      CALL mixed_cdft_parse_settings(force_env, force_env_qs, mixed_env, mixed_cdft, &
+                                     settings, nforce_eval, natom=particles_mix%els)
+      ! Transfer settings to mixed_cdft
+      CALL mixed_cdft_transfer_settings(force_env, mixed_cdft, settings)
       ! Some CDFT features are currently disabled for mixed calculations: check that these features were not requested
       IF (.NOT. mixed_cdft%becke_control%confine_dir == 3) &
          CPABORT("Only z-direction allowed for static/dynamic confinement with mixed CDFT")
@@ -537,254 +256,8 @@ CONTAINS
          CPABORT("Calculation of atomic Becke charges not supported with mixed CDFT")
       IF (mixed_cdft%dlb .AND. .NOT. mixed_cdft%becke_control%cavity_confine) &
          CPABORT("Mixed CDFT load balancing requires Gaussian cavity confinement.")
-      ! Decide what kind of layout to use and setup the grid
-      ! Processor mappings currently supported:
-      !  (2np,1)  --> (np,1)
-      !  (nx,2ny) --> (nx,ny)
-      !  (nx,ny)  --> (nx*ny/2,1) (required when xc_smooth is in use and with intermediate proc counts)
-      !
-      ! For cases 2 and 3, dlb redistributes YZ slices from overloaded processors to underloaded processors
-      ! For case 1, XZ slices are redistributed
-      ! TODO: Unify mappings. Now we essentially have separate code for cases 1-2 and 3.
-      !       This leads to very messy code especially with dlb turned on...
-      !       In terms of memory usage, it would be beneficial to replace case 1 with 3
-      !       and implement a similar arbitrary mapping to replace case 2
-
-      mixed_cdft%is_pencil = .FALSE. ! Flag to control the first two mappings
-      mixed_cdft%is_special = .FALSE. ! Flag to control the last mapping
-      ! With xc smoothing, the grid is always (ncpu/2,1) distributed
-      ! and correct behavior cannot be guaranteed for ncpu/2 > nx, so we abort...
-      IF (ncpu/2 .GT. npts(1, 1)) &
-         CPABORT("ncpu/2 => nx: decrease ncpu or disable xc_smoothing")
-      !
-      ALLOCATE (mixed_rs_dims(2))
-      IF (rs_dims(2, 1) /= 1) mixed_cdft%is_pencil = .TRUE.
-      IF (.NOT. mixed_cdft%is_pencil .AND. ncpu .GT. npts(1, 1)) mixed_cdft%is_special = .TRUE.
-      IF (mixed_cdft%is_special) THEN
-         mixed_rs_dims = (/-1, -1/)
-      ELSE IF (mixed_cdft%is_pencil) THEN
-         mixed_rs_dims = (/rs_dims(1, 1), 2*rs_dims(2, 1)/)
-      ELSE
-         mixed_rs_dims = (/2*rs_dims(1, 1), 1/)
-      END IF
-      CALL pw_grid_setup(cell_mix%hmat, pw_grid, grid_span=grid_span(1), npts=npts(:, 1), &
-                         cutoff=cutoff(1), spherical=is_spherical, odd=is_odd, &
-                         fft_usage=.TRUE., ncommensurate=0, icommensurate=1, &
-                         blocked=do_pw_grid_blocked_false, rs_dims=mixed_rs_dims, &
-                         iounit=iounit)
-      ! Check if the layout was succesfully created
-      IF (mixed_cdft%is_special) THEN
-         IF (.NOT. pw_grid%para%rs_dims(2) /= 1) is_match = .FALSE.
-      ELSE IF (mixed_cdft%is_pencil) THEN
-         IF (.NOT. pw_grid%para%rs_dims(1) == mixed_rs_dims(1)) is_match = .FALSE.
-      ELSE
-         IF (.NOT. pw_grid%para%rs_dims(2) == 1) is_match = .FALSE.
-      END IF
-      IF (.NOT. is_match) &
-         CALL cp_abort(__LOCATION__, "Unable to create a suitable grid distribution "// &
-                       "for mixed CDFT calculations. Try decreasing the total number "// &
-                       " of processors or disabling xc_smoothing.")
-      ! Deallocate temporaries
-      DEALLOCATE (mixed_rs_dims)
-      DEALLOCATE (grid_span)
-      DEALLOCATE (npts)
-      DEALLOCATE (spherical)
-      DEALLOCATE (rs_dims)
-      DEALLOCATE (odd)
-      DEALLOCATE (atoms)
-      DEALLOCATE (coeffs)
-      DEALLOCATE (cutoffs)
-      DEALLOCATE (radii)
-      DEALLOCATE (settings_int)
-      DEALLOCATE (settings_real)
-      DEALLOCATE (confine_bounds)
-      ! Create the pool
-      bo_mixed = pw_grid%bounds_local
-      ALLOCATE (pw_pools(1))
-      NULLIFY (pw_pools(1)%pool)
-      CALL pw_pool_create(pw_pools(1)%pool, pw_grid=pw_grid)
-      ! Gaussian confinement/wavefunction overlap method needs qs_kind_set
-      ! Gaussian cavity confinement also needs the auxbas_rs_grid
-      IF (mixed_cdft%becke_control%cavity_confine .OR. &
-          mixed_cdft%wfn_overlap_method) THEN
-         print_section => section_vals_get_subs_vals(force_env_section, &
-                                                     "PRINT%GRID_INFORMATION")
-         ALLOCATE (mixed_cdft%pw_env%gridlevel_info)
-         CALL init_gaussian_gridlevel(mixed_cdft%pw_env%gridlevel_info, &
-                                      ngrid_levels=1, cutoff=cutoff, &
-                                      rel_cutoff=rel_cutoff(1), &
-                                      print_section=print_section)
-         ALLOCATE (rs_descs(1))
-         ALLOCATE (rs_grids(1))
-         ALLOCATE (mixed_cdft%pw_env%cube_info(1))
-         higher_grid_layout = (/-1, -1, -1/)
-         CALL init_d3_poly_module()
-         CALL init_cube_info(mixed_cdft%pw_env%cube_info(1), &
-                             pw_grid%dr(:), pw_grid%dh(:, :), &
-                             pw_grid%dh_inv(:, :), &
-                             pw_grid%orthorhombic, radius)
-         NULLIFY (root_section, force_env_section, force_env_sections, rs_grid_section)
-         CALL force_env_get(force_env, root_section=root_section)
-         force_env_sections => section_vals_get_subs_vals(root_section, "FORCE_EVAL")
-         CALL multiple_fe_list(force_env_sections, root_section, i_force_eval, n_force_eval)
-         CALL section_vals_duplicate(force_env_sections, force_env_section, &
-                                     i_force_eval(2), i_force_eval(2))
-         rs_grid_section => section_vals_get_subs_vals(force_env_section, "DFT%MGRID%RS_GRID")
-         CALL init_input_type(input_settings, &
-                              nsmax=2*MAX(1, return_cube_max_iradius(mixed_cdft%pw_env%cube_info(1)))+1, &
-                              rs_grid_section=rs_grid_section, ilevel=1, &
-                              higher_grid_layout=higher_grid_layout)
-         NULLIFY (rs_descs(1)%rs_desc)
-         CALL rs_grid_create_descriptor(rs_descs(1)%rs_desc, pw_grid, input_settings)
-         IF (rs_descs(1)%rs_desc%distributed) higher_grid_layout = rs_descs(1)%rs_desc%group_dim
-         NULLIFY (rs_grids(1)%rs_grid)
-         CALL rs_grid_create(rs_grids(1)%rs_grid, rs_descs(1)%rs_desc)
-         CALL rs_grid_print(rs_grids(1)%rs_grid, iounit)
-         mixed_cdft%pw_env%rs_descs => rs_descs
-         mixed_cdft%pw_env%rs_grids => rs_grids
-         ! qs_kind_set
-         subsys_section => section_vals_get_subs_vals(force_env_sections, "SUBSYS", &
-                                                      i_rep_section=i_force_eval(1))
-         kind_section => section_vals_get_subs_vals(subsys_section, "KIND")
-         NULLIFY (qs_kind_set)
-         CALL cp_subsys_get(subsys_mix, atomic_kind_set=atomic_kind_set)
-         CALL create_qs_kind_set(qs_kind_set, atomic_kind_set, kind_section, &
-                                 force_env%para_env, force_env_section)
-         mixed_cdft%qs_kind_set => qs_kind_set
-         DEALLOCATE (i_force_eval)
-         CALL section_vals_release(force_env_section)
-      END IF
-      CALL force_env_get(force_env=force_env, &
-                         force_env_section=force_env_section)
-      DEALLOCATE (cutoff, rel_cutoff)
-      CALL pw_grid_release(pw_grid)
-      mixed_cdft%pw_env%auxbas_grid = 1
-      NULLIFY (mixed_cdft%pw_env%pw_pools)
-      mixed_cdft%pw_env%pw_pools => pw_pools
-      ! Determine which processors need to exchange data when redistributing the weight/gradient
-      IF (.NOT. mixed_cdft%is_special) THEN
-         ALLOCATE (mixed_cdft%dest_list(2))
-         ALLOCATE (mixed_cdft%source_list(2))
-         imap = force_env%para_env%mepos/2
-         mixed_cdft%dest_list = (/imap, imap+force_env%para_env%num_pe/2/)
-         imap = MOD(force_env%para_env%mepos, force_env%para_env%num_pe/2)+ &
-                MODULO(force_env%para_env%mepos, force_env%para_env%num_pe/2)
-         mixed_cdft%source_list = (/imap, imap+1/)
-         ! Determine bounds of the data that is replicated
-         ALLOCATE (mixed_cdft%recv_bo(4))
-         ALLOCATE (sendbuffer(2), recvbuffer(2), recvbuffer2(2))
-         IF (mixed_cdft%is_pencil) THEN
-            sendbuffer = (/bo_mixed(1, 2), bo_mixed(2, 2)/)
-         ELSE
-            sendbuffer = (/bo_mixed(1, 1), bo_mixed(2, 1)/)
-         END IF
-         ! Communicate bounds in steps
-         CALL mp_isend(msgin=sendbuffer, dest=mixed_cdft%dest_list(1), &
-                       request=req(1), comm=force_env%para_env%group)
-         CALL mp_irecv(msgout=recvbuffer, source=mixed_cdft%source_list(1), &
-                       request=req(2), comm=force_env%para_env%group)
-         CALL mp_irecv(msgout=recvbuffer2, source=mixed_cdft%source_list(2), &
-                       request=req(3), comm=force_env%para_env%group)
-         CALL mp_wait(req(1))
-         CALL mp_isend(msgin=sendbuffer, dest=mixed_cdft%dest_list(2), &
-                       request=req(1), comm=force_env%para_env%group)
-         CALL mp_waitall(req)
-         mixed_cdft%recv_bo(1:2) = recvbuffer
-         mixed_cdft%recv_bo(3:4) = recvbuffer2
-         DEALLOCATE (sendbuffer, recvbuffer, recvbuffer2)
-      ELSE
-         ! work out the pw grid points each proc holds in the two (identical) parallel proc groups
-         ! note we only care about the x dir since we assume the y dir is not subdivided
-         ALLOCATE (bounds(0:auxbas_pw_pool%pw_grid%para%group_size-1, 1:2))
-         DO i = 0, auxbas_pw_pool%pw_grid%para%group_size-1
-            bounds(i, 1:2) = auxbas_pw_pool%pw_grid%para%bo(1:2, 1, i, 1)
-            bounds(i, 1:2) = bounds(i, 1:2)-auxbas_pw_pool%pw_grid%npts(1)/2-1
-         END DO
-         ! work out which procs to send my grid points
-         ! first get the number of target procs per group
-         ntargets = 0
-         offset = -1
-         DO i = 0, auxbas_pw_pool%pw_grid%para%group_size-1
-            IF ((bounds(i, 1) .GE. bo_mixed(1, 1) .AND. bounds(i, 1) .LE. bo_mixed(2, 1)) .OR. &
-                (bounds(i, 2) .GE. bo_mixed(1, 1) .AND. bounds(i, 2) .LE. bo_mixed(2, 1))) THEN
-               ntargets = ntargets+1
-               IF (offset == -1) offset = i
-            ELSE IF (bounds(i, 2) .GT. bo_mixed(2, 1)) THEN
-               EXIT
-            ELSE
-               CYCLE
-            END IF
-         END DO
-         ALLOCATE (mixed_cdft%dest_list(ntargets))
-         ALLOCATE (mixed_cdft%dest_list_bo(2, ntargets))
-         ! now determine the actual grid points to send
-         j = 1
-         DO i = offset, offset+ntargets-1
-            mixed_cdft%dest_list(j) = i
-            mixed_cdft%dest_list_bo(:, j) = (/bo_mixed(1, 1)+(bounds(i, 1)-bo_mixed(1, 1)), &
-                                              bo_mixed(2, 1)+(bounds(i, 2)-bo_mixed(2, 1))/)
-            j = j+1
-         END DO
-         ALLOCATE (mixed_cdft%dest_list_save(ntargets), mixed_cdft%dest_bo_save(2, ntargets))
-         ! We need to store backups of these arrays since they might get reallocated during dlb
-         mixed_cdft%dest_list_save = mixed_cdft%dest_list
-         mixed_cdft%dest_bo_save = mixed_cdft%dest_list_bo
-         ! finally determine which procs will send me grid points
-         ! now we need info about y dir also
-         DEALLOCATE (bounds)
-         ALLOCATE (bounds(0:pw_pools(1)%pool%pw_grid%para%group_size-1, 1:4))
-         DO i = 0, pw_pools(1)%pool%pw_grid%para%group_size-1
-            bounds(i, 1:2) = pw_pools(1)%pool%pw_grid%para%bo(1:2, 1, i, 1)
-            bounds(i, 3:4) = pw_pools(1)%pool%pw_grid%para%bo(1:2, 2, i, 1)
-            bounds(i, 1:2) = bounds(i, 1:2)-pw_pools(1)%pool%pw_grid%npts(1)/2-1
-            bounds(i, 3:4) = bounds(i, 3:4)-pw_pools(1)%pool%pw_grid%npts(2)/2-1
-         END DO
-         ntargets = 0
-         offset = -1
-         DO i = 0, pw_pools(1)%pool%pw_grid%para%group_size-1
-            IF ((bo(1, 1) .GE. bounds(i, 1) .AND. bo(1, 1) .LE. bounds(i, 2)) .OR. &
-                (bo(2, 1) .GE. bounds(i, 1) .AND. bo(2, 1) .LE. bounds(i, 2))) THEN
-               ntargets = ntargets+1
-               IF (offset == -1) offset = i
-            ELSE IF (bo(2, 1) .LT. bounds(i, 1)) THEN
-               EXIT
-            ELSE
-               CYCLE
-            END IF
-         END DO
-         ALLOCATE (mixed_cdft%source_list(ntargets))
-         ALLOCATE (mixed_cdft%source_list_bo(4, ntargets))
-         j = 1
-         DO i = offset, offset+ntargets-1
-            mixed_cdft%source_list(j) = i
-            IF (bo(1, 1) .GE. bounds(i, 1) .AND. bo(2, 1) .LE. bounds(i, 2)) THEN
-               mixed_cdft%source_list_bo(:, j) = (/bo(1, 1), bo(2, 1), &
-                                                   bounds(i, 3), bounds(i, 4)/)
-            ELSE IF (bo(1, 1) .GE. bounds(i, 1) .AND. bo(1, 1) .LE. bounds(i, 2)) THEN
-               mixed_cdft%source_list_bo(:, j) = (/bo(1, 1), bounds(i, 2), &
-                                                   bounds(i, 3), bounds(i, 4)/)
-            ELSE
-               mixed_cdft%source_list_bo(:, j) = (/bounds(i, 1), bo(2, 1), &
-                                                   bounds(i, 3), bounds(i, 4)/)
-            END IF
-            j = j+1
-         END DO
-         ALLOCATE (mixed_cdft%source_list_save(ntargets), mixed_cdft%source_bo_save(4, ntargets))
-         ! We need to store backups of these arrays since they might get reallocated during dlb
-         mixed_cdft%source_list_save = mixed_cdft%source_list
-         mixed_cdft%source_bo_save = mixed_cdft%source_list_bo
-         DEALLOCATE (bounds)
-      END IF
-      ! Setup mixed blacs_env for redistributing arrays during ET coupling calculation
-      IF (mixed_env%do_mixed_et) THEN
-         NULLIFY (root_section)
-         CALL force_env_get(force_env, globenv=globenv, root_section=root_section)
-         CALL cp_blacs_env_create(blacs_env, force_env%para_env, globenv%blacs_grid_layout, &
-                                  globenv%blacs_repeatable)
-         mixed_cdft%blacs_env => blacs_env
-         CALL cp_blacs_env_retain(mixed_cdft%blacs_env)
-         CALL cp_blacs_env_release(blacs_env)
-      END IF
+      ! Initilize necessary structures
+      CALL mixed_cdft_init_structures(force_env, force_env_qs, mixed_env, mixed_cdft, settings)
       ! Write information about the mixed CDFT calculation
       IF (iounit > 0) THEN
          WRITE (iounit, *) ""
@@ -820,7 +293,7 @@ CONTAINS
 
    END SUBROUTINE mixed_cdft_init
 
-! *****************************************************************************
+! **************************************************************************************************
 !> \brief Build CDFT weight and gradient
 !> \param force_env ...
 !> \param calculate_forces ...
@@ -1300,7 +773,7 @@ CONTAINS
 
    END SUBROUTINE mixed_cdft_build_weight
 
-! *****************************************************************************
+! **************************************************************************************************
 !> \brief ET coupling adapted to mixed calculations
 !> \param force_env ...
 !> \par History
@@ -1879,7 +1352,7 @@ CONTAINS
       CALL timestop(handle)
 
    END SUBROUTINE mixed_cdft_calculate_coupling
-! *****************************************************************************
+! **************************************************************************************************
 !> \brief Becke constraint adapted to mixed calculations, details in et_coupling.F
 !> \param force_env ...
 !> \param calculate_forces ...
@@ -3149,7 +2622,7 @@ CONTAINS
 
    END SUBROUTINE mixed_becke_constraint_dlb
 
-! *****************************************************************************
+! **************************************************************************************************
 !> \brief Low level routine to build mixed Becke constraint and gradients
 !> \param force_env ...
 !> \param mixed_cdft ...
@@ -3890,76 +3363,5 @@ CONTAINS
       CALL timestop(handle)
 
    END SUBROUTINE mixed_becke_constraint_low
-
-! *****************************************************************************
-!> \brief Determine confinement bounds along confinement dir (hardcoded to be z)
-!>        and determine the number of nonzero entries
-!>        Optionally zero entries below a given threshold
-!> \param fun ...
-!> \param th ...
-!> \param just_zero ...
-!> \param bounds ...
-!> \param work ...
-! **************************************************************************************************
-   SUBROUTINE hfun_zero(fun, th, just_zero, bounds, work)
-      REAL(KIND=dp), DIMENSION(:, :, :), INTENT(INOUT)   :: fun
-      REAL(KIND=dp), INTENT(IN)                          :: th
-      LOGICAL                                            :: just_zero
-      INTEGER, OPTIONAL                                  :: bounds(2), work
-
-      CHARACTER(len=*), PARAMETER :: routineN = 'hfun_zero', routineP = moduleN//':'//routineN
-
-      INTEGER                                            :: i1, i2, i3, lb, n1, n2, n3, nzeroed, &
-                                                            nzeroed_total, ub
-      LOGICAL                                            :: lb_final, ub_final
-
-      n1 = SIZE(fun, 1)
-      n2 = SIZE(fun, 2)
-      n3 = SIZE(fun, 3)
-      nzeroed_total = 0
-      IF (.NOT. just_zero) THEN
-         CPASSERT(PRESENT(bounds))
-         CPASSERT(PRESENT(work))
-         lb = 1
-         lb_final = .FALSE.
-         ub_final = .FALSE.
-      END IF
-      DO i3 = 1, n3
-         IF (.NOT. just_zero) nzeroed = 0
-         DO i2 = 1, n2
-            DO i1 = 1, n1
-               IF (fun(i1, i2, i3) < th) THEN
-                  IF (.NOT. just_zero) THEN
-                     nzeroed = nzeroed+1
-                     nzeroed_total = nzeroed_total+1
-                  ELSE
-                     fun(i1, i2, i3) = 0.0_dp
-                  END IF
-               END IF
-            END DO
-         END DO
-         IF (.NOT. just_zero) THEN
-            IF (nzeroed == (n2*n1)) THEN
-               IF (.NOT. lb_final) THEN
-                  lb = i3
-               ELSE IF (.NOT. ub_final) THEN
-                  ub = i3
-                  ub_final = .TRUE.
-               END IF
-            ELSE
-               IF (.NOT. lb_final) lb_final = .TRUE.
-               IF (ub_final) ub_final = .FALSE. ! Safeguard against "holes"
-            END IF
-         END IF
-      END DO
-      IF (.NOT. just_zero) THEN
-         IF (.NOT. ub_final) ub = n3
-         bounds(1) = lb
-         bounds(2) = ub
-         bounds = bounds-(n3/2)-1
-         work = n3*n2*n1-nzeroed_total
-      END IF
-
-   END SUBROUTINE hfun_zero
 
 END MODULE mixed_cdft_methods

@@ -1593,6 +1593,7 @@ CONTAINS
          END SELECT
          ALLOCATE (strength(nvar))
          strength = dft_control%qs_control%becke_control%strength
+         ! This a null pointer with external_control
          cutoffs => dft_control%qs_control%becke_control%cutoffs
          eps_cavity = dft_control%qs_control%becke_control%eps_cavity
          ALLOCATE (atom_of_kind(natom))

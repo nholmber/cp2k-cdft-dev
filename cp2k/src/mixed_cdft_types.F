@@ -84,7 +84,8 @@ MODULE mixed_cdft_types
                                                           is_special, first_iteration, &
                                                           calculate_metric, &
                                                           wfn_overlap_method, &
-                                                          has_unit_metric
+                                                          has_unit_metric, &
+                                                          is_parallel
       REAL(KIND=dp)                                    :: eps_rho_rspace, sim_dt, &
                                                           eps_svd
       REAL(KIND=dp), POINTER, DIMENSION(:, :, :)         :: weight, cavity
@@ -97,9 +98,36 @@ MODULE mixed_cdft_types
       TYPE(pw_env_type), POINTER                      :: pw_env
    END TYPE mixed_cdft_type
 
+! **************************************************************************************************
+!> \brief Container for constraint settings to check consistency of force_evals
+! **************************************************************************************************
+   TYPE mixed_cdft_settings_type
+      LOGICAL                                            :: is_spherical, &
+                                                            is_odd
+      INTEGER                                            :: nbecke
+      INTEGER, DIMENSION(2, 3)                           :: bo
+      INTEGER, PARAMETER                                 :: max_nkinds = 30
+      INTEGER, DIMENSION(:), POINTER                     :: npts, &
+                                                            grid_span, &
+                                                            spherical, &
+                                                            odd
+      INTEGER, DIMENSION(:, :), POINTER                  :: si, &
+                                                            rs_dims, &
+                                                            atoms
+      REAL(KIND=dp)                                      :: radius
+      REAL(KIND=dp), DIMENSION(:), POINTER               :: cutoff, &
+                                                            rel_cutoff
+      REAL(KIND=dp), DIMENSION(:, :), POINTER            :: sr, &
+                                                            coeffs, &
+                                                            confine_bounds, &
+                                                            cutoffs, &
+                                                            radii
+   END TYPE mixed_cdft_settings_type
+
 ! *** Public data types ***
 
-   PUBLIC :: mixed_cdft_type
+   PUBLIC :: mixed_cdft_type, &
+             mixed_cdft_settings_type
 
 ! *** Public subroutines ***
 
