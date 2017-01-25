@@ -78,7 +78,8 @@ MODULE mixed_cdft_methods
                                               mixed_cdft_type_create
    USE mixed_cdft_utils,                ONLY: mixed_cdft_init_structures,&
                                               mixed_cdft_parse_settings,&
-                                              mixed_cdft_transfer_settings
+                                              mixed_cdft_transfer_settings,&
+                                              hfun_zero
    USE mixed_environment_types,         ONLY: get_mixed_env,&
                                               mixed_environment_type,&
                                               set_mixed_env
@@ -246,7 +247,7 @@ CONTAINS
       mixed_cdft%sim_dt = cp_unit_from_cp2k(mixed_cdft%sim_dt, "fs")
       ! Parse constraint settings from individual force_eval and check consistency
       CALL mixed_cdft_parse_settings(force_env, force_env_qs, mixed_env, mixed_cdft, &
-                                     settings, nforce_eval, natom=particles_mix%els)
+                                     settings, nforce_eval, natom=SIZE(particles_mix%els))
       ! Transfer settings to mixed_cdft
       CALL mixed_cdft_transfer_settings(force_env, mixed_cdft, settings)
       ! Some CDFT features are currently disabled for mixed calculations: check that these features were not requested
