@@ -104,9 +104,9 @@ MODULE mixed_cdft_types
    TYPE mixed_cdft_settings_type
       LOGICAL                                            :: is_spherical, &
                                                             is_odd
-      INTEGER                                            :: nbecke
+      INTEGER                                            :: nbecke, &
+                                                            max_nkinds
       INTEGER, DIMENSION(2, 3)                           :: bo
-      INTEGER, PARAMETER                                 :: max_nkinds = 30
       INTEGER, DIMENSION(:), POINTER                     :: npts, &
                                                             grid_span, &
                                                             spherical, &

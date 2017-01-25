@@ -152,6 +152,7 @@ CONTAINS
       settings%confine_bounds = 0.0_dp
       settings%cutoffs = 0.0_dp
       settings%radii = 0.0_dp
+      settings%max_nkinds = 30
       ! Get information from the sub_force_envs
       ! TODO: transfer logicals as logicals instead of ints
       DO iforce_eval = 1, nforce_eval
