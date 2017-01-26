@@ -215,9 +215,9 @@ MODULE cp_control_types
       TYPE(ddapc_restraint_type), POINTER:: ddapc_restraint_control
    END TYPE ddapc_restraint_p_type
 
-! *****************************************************************************
+! **************************************************************************************************
 ! \brief some parameters useful for becke_restraints
-! *****************************************************************************
+! **************************************************************************************************
    TYPE becke_restraint_type
       CHARACTER(LEN=default_path_length)            :: fragment_a_fname, &
                                                        fragment_b_fname
@@ -264,11 +264,11 @@ MODULE cp_control_types
       REAL(KIND=dp), POINTER, DIMENSION(:)          :: coeff
    END TYPE hirshfeld_constraint_type
 
-! *****************************************************************************
+! **************************************************************************************************
 ! \brief control parameters for CDFT with OT
-!        TODO: make cdft_control parent section for all constraint related sections
-!              refactor to support diagonalization
-! *****************************************************************************
+!        TODO: make cdft_control parent section for Becke restraint type
+!> 
+! **************************************************************************************************
    ! Copied from qs_scf_types to avoid circular dependency
    TYPE qs_outer_scf_type
       INTEGER :: iter_count

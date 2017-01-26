@@ -150,10 +150,10 @@ MODULE mixed_cdft_methods
 
 CONTAINS
 
-! *****************************************************************************
-!> \brief Initialize mixed cdft calculation (currently only relevant with Becke constraint)
-!> \param force_env ...
-!> \param calculate_forces ...
+! **************************************************************************************************
+!> \brief Initialize a mixed CDFT calculation (currently only relevant with Becke constraint)
+!> \param force_env the force_env that holds the CDFT states
+!> \param calculate_forces determines if forces should be calculted
 !> \par History
 !>       01.2016  created [Nico Holmberg]
 ! **************************************************************************************************
@@ -820,10 +820,10 @@ CONTAINS
 
    END SUBROUTINE mixed_cdft_init
 
-! *****************************************************************************
-!> \brief Build CDFT weight and gradient
-!> \param force_env ...
-!> \param calculate_forces ...
+! **************************************************************************************************
+!> \brief Build CDFT weight and gradient in parallel on all available processors
+!> \param force_env the force_env that holds the CDFT states
+!> \param calculate_forces determines if forces should be calculted
 !> \par History
 !>       01.2016  created [Nico Holmberg]
 ! **************************************************************************************************
@@ -1300,9 +1300,9 @@ CONTAINS
 
    END SUBROUTINE mixed_cdft_build_weight
 
-! *****************************************************************************
+! **************************************************************************************************
 !> \brief ET coupling adapted to mixed calculations
-!> \param force_env ...
+!> \param force_env the force_env that holds the CDFT states
 !> \par History
 !>       02.15  created [Nico Holmberg]
 ! **************************************************************************************************
@@ -1879,10 +1879,10 @@ CONTAINS
       CALL timestop(handle)
 
    END SUBROUTINE mixed_cdft_calculate_coupling
-! *****************************************************************************
+! **************************************************************************************************
 !> \brief Becke constraint adapted to mixed calculations, details in et_coupling.F
-!> \param force_env ...
-!> \param calculate_forces ...
+!> \param force_env the force_env that holds the CDFT states
+!> \param calculate_forces determines if forces should be calculted
 !> \par History
 !>       02.2016  created [Nico Holmberg]
 !>       03.2016  added dynamic load balancing (dlb)
@@ -1926,19 +1926,21 @@ CONTAINS
       CALL timestop(handle)
 
    END SUBROUTINE mixed_becke_constraint
-! *****************************************************************************
+! **************************************************************************************************
 !> \brief Initialize the mixed Becke constraint calculation
-!> \param force_env ...
-!> \param mixed_cdft ...
-!> \param calculate_forces ...
-!> \param is_constraint ...
-!> \param in_memory ...
-!> \param store_vectors ...
-!> \param R12 ...
-!> \param position_vecs ...
-!> \param pair_dist_vecs ...
-!> \param coefficients ...
-!> \param catom ...
+!> \param force_env the force_env that holds the CDFT states
+!> \param mixed_cdft container for structures needed to build the mixed CDFT constraint
+!> \param calculate_forces determines if forces should be calculted
+!> \param is_constraint a list used to determine which atoms in the system define the constraint
+!> \param in_memory decides whether to build the weight function gradients in parallel before solving 
+!                   the CDFT states or later during the SCF procedure of the individual states
+!> \param store_vectors should temporary arrays be stored in memory to accelerate the calculation
+!> \param R12 temporary array holding the pairwise atomic distances
+!> \param position_vecs temporary array holding the pbc corrected atomic position vectors
+!> \param pair_dist_vecs temporary array holding the pairwise displament vectors
+!> \param coefficients array that determines how atoms should be summed to form the constraint 
+!> \param catom temporary array to map the global index of constraint atoms to their position
+!>              in a list that holds only constraint atoms
 !> \par History
 !>       03.2016  created [Nico Holmberg]
 ! **************************************************************************************************
@@ -2407,15 +2409,16 @@ CONTAINS
 
    END SUBROUTINE mixed_becke_constraint_init
 
-! *****************************************************************************
+! **************************************************************************************************
 !> \brief Setup load balancing for mixed Becke calculation
-!> \param force_env ...
-!> \param mixed_cdft ...
-!> \param my_work ...
-!> \param my_work_size ...
-!> \param natom ...
-!> \param bo ...
-!> \param bo_conf ...
+!> \param force_env the force_env that holds the CDFT states
+!> \param mixed_cdft container for structures needed to build the mixed CDFT constraint
+!> \param my_work an estimate of the work per processor
+!> \param my_work_size size of the smallest array slice per processor. overloaded processors will 
+!>                     redistribute works as integer multiples of this value.   
+!> \param natom the total number of atoms
+!> \param bo bounds of the realspace grid that holds the electron density  
+!> \param bo_conf same as bo, but bounds along z-direction have been compacted with confinement 
 !> \par History
 !>       03.2016  created [Nico Holmberg]
 ! **************************************************************************************************
@@ -3149,18 +3152,20 @@ CONTAINS
 
    END SUBROUTINE mixed_becke_constraint_dlb
 
-! *****************************************************************************
+! **************************************************************************************************
 !> \brief Low level routine to build mixed Becke constraint and gradients
-!> \param force_env ...
-!> \param mixed_cdft ...
-!> \param in_memory ...
-!> \param is_constraint ...
-!> \param store_vectors ...
-!> \param R12 ...
-!> \param position_vecs ...
-!> \param pair_dist_vecs ...
-!> \param coefficients ...
-!> \param catom ...
+!> \param force_env the force_env that holds the CDFT states
+!> \param mixed_cdft container for structures needed to build the mixed CDFT constraint
+!> \param in_memory decides whether to build the weight function gradients in parallel before solving 
+!                   the CDFT states or later during the SCF procedure of the individual states
+!> \param is_constraint a list used to determine which atoms in the system define the constraint
+!> \param store_vectors should temporary arrays be stored in memory to accelerate the calculation
+!> \param R12 temporary array holding the pairwise atomic distances
+!> \param position_vecs temporary array holding the pbc corrected atomic position vectors
+!> \param pair_dist_vecs temporary array holding the pairwise displament vectors
+!> \param coefficients array that determines how atoms should be summed to form the constraint 
+!> \param catom temporary array to map the global index of constraint atoms to their position
+!>              in a list that holds only constraint atoms
 !> \par History
 !>       03.2016  created [Nico Holmberg]
 ! **************************************************************************************************
@@ -3891,15 +3896,15 @@ CONTAINS
 
    END SUBROUTINE mixed_becke_constraint_low
 
-! *****************************************************************************
+! **************************************************************************************************
 !> \brief Determine confinement bounds along confinement dir (hardcoded to be z)
 !>        and determine the number of nonzero entries
 !>        Optionally zero entries below a given threshold
-!> \param fun ...
-!> \param th ...
-!> \param just_zero ...
-!> \param bounds ...
-!> \param work ...
+!> \param fun input 3D potential (real space) 
+!> \param th threshold for screening values
+!> \param just_zero determines if fun should only be zeroed without returning bounds/work  
+!> \param bounds the confinement bounds: fun is nonzero only between these values along 3rd dimension
+!> \param work an estimate of the total number of grid points where fun is nonzero 
 ! **************************************************************************************************
    SUBROUTINE hfun_zero(fun, th, just_zero, bounds, work)
       REAL(KIND=dp), DIMENSION(:, :, :), INTENT(INOUT)   :: fun

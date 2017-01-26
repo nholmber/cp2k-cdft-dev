@@ -324,12 +324,12 @@ CONTAINS
    END SUBROUTINE calc_et_coupling
 
 ! **************************************************************************************************
-!> \brief calculates a becke contraint
-!> \param qs_env ...
-!> \param becke_const ...
-!> \param charge ...
-!> \param calc_pot logical if potential has to be calculated or only_energy
-!> \param calculate_forces ...
+!> \brief calculates a Becke contraint
+!> \param qs_env the qs_env where to build the constraint 
+!> \param becke_const the Becke real space potential
+!> \param charge atomic Becke real space potentials defined on the constraint atoms
+!> \param calc_pot if the potential needs to be recalculated or just integrated
+!> \param calculate_forces logical if potential has to be calculated or only_energy
 !> \par   History
 !>        Created 01.2007 [fschiff]
 !>        Extended functionality 12/15-12/16 [Nico Holmberg]
@@ -1521,9 +1521,9 @@ CONTAINS
    END SUBROUTINE becke_restraint
 
 ! *****************************************************************************
-!> \brief calculates a becke contraint forces
-!> \param qs_env ...
-!> \param becke_const ...
+!> \brief calculates Becke constraint gradients
+!> \param qs_env the qs_env where to build the gradients
+!> \param becke_const the Becke real space potential
 !> \par   History
 !>        Created 01.2007 [fschiff]
 !>        Extended functionality 12/15-12/16 [Nico Holmberg]
@@ -2010,12 +2010,12 @@ CONTAINS
 
    END SUBROUTINE becke_force
 
-! *****************************************************************************
+! **************************************************************************************************
 !> \brief calculates a Gaussian Hirshfeld constraint
-!> \param qs_env ...
-!> \param cdft_control ...
-!> \param calc_pot logical if potential has to be calculated or only_energy
-!> \param calculate_forces ...
+!> \param qs_env the qs_env where to build the constraint
+!> \param cdft_control the container for constraint related structures
+!> \param calc_pot if the constraint potential should be rebuilt or just integrated 
+!> \param calculate_forces logical if potential has to be calculated or only_energy
 !> \author  Nico Holmberg (01.2016)
 ! **************************************************************************************************
    SUBROUTINE hirshfeld_constraint(qs_env, cdft_control, calc_pot, calculate_forces)
@@ -2272,8 +2272,8 @@ CONTAINS
 
 ! *****************************************************************************
 !> \brief calculates forces due to a Gaussian Hirshfeld constraint
-!> \param qs_env ...
-!> \param cdft_control ...
+!> \param qs_env the qs_env where to build the constraint
+!> \param cdft_control the container for constraint related structures
 !> \author  Nico Holmberg (01.2016)
 ! **************************************************************************************************
    SUBROUTINE hirshfeld_force(qs_env, cdft_control)
@@ -2505,12 +2505,12 @@ CONTAINS
 
    END SUBROUTINE hirshfeld_force
 
-! *****************************************************************************
+! **************************************************************************************************
 !> \brief Calculate fout = fun1/fun2 or fout = fun1*fun2
-!> \param fout ...
-!> \param fun1 ...
-!> \param fun2 ...
-!> \param mode ...
+!> \param fout the output 3D potential
+!> \param fun1 the first input 3D potential
+!> \param fun2 the second input 3D potential
+!> \param mode decides whether to divide or multiply the input potentials
 ! **************************************************************************************************
    SUBROUTINE hfun_scale(fout, fun1, fun2, mode)
       REAL(KIND=dp), DIMENSION(:, :, :), INTENT(OUT)     :: fout
@@ -2557,13 +2557,13 @@ CONTAINS
 
    END SUBROUTINE hfun_scale
 
-! *****************************************************************************
+! **************************************************************************************************
 !> \brief Determine confinement bounds along confinement dir (hardcoded to be z)
 !>        and optionally zero entries below a given threshold
-!> \param fun ...
-!> \param th ...
-!> \param just_bounds ...
-!> \param bounds ...
+!> \param fun input 3D potential (real space) 
+!> \param th threshold for screening values
+!> \param just_bounds if the bounds should be computed without zeroing values  
+!> \param bounds the confinement bounds: fun is nonzero only between these values along 3rd dimension
 ! **************************************************************************************************
    SUBROUTINE hfun_zero(fun, th, just_bounds, bounds)
       REAL(KIND=dp), DIMENSION(:, :, :), INTENT(INOUT)   :: fun
