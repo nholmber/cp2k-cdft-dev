@@ -1040,8 +1040,11 @@ CONTAINS
                END DO
             END IF
          END IF
-         ! Forces are not needed => time to deallocate Becke
-         IF (.NOT. dft_control%qs_control%becke_control%save_pot) THEN
+         print *, 'Status', dft_control%qs_control%becke_control%save_pot, dft_control%qs_control%becke_control%transfer_pot, &
+         .NOT. (dft_control%qs_control%becke_control%save_pot .OR. dft_control%qs_control%becke_control%transfer_pot)
+         ! Forces are not needed/serial mode mixed CDFT calculation is not active => time to deallocate Becke
+         IF (.NOT. (dft_control%qs_control%becke_control%save_pot .OR. &
+                    dft_control%qs_control%becke_control%transfer_pot)) THEN
             CALL get_qs_env(qs_env, pw_env=pw_env)
             CALL pw_env_get(pw_env, auxbas_pw_pool=auxbas_pw_pool)
             CALL pw_pool_give_back_pw(auxbas_pw_pool, &

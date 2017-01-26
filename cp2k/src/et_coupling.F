@@ -1620,27 +1620,27 @@ CONTAINS
 
          IF (dft_control%qs_control%becke_control%in_memory) THEN
             gradients => dft_control%qs_control%becke_control%gradients
-            bo_conf = bo
-            IF (dft_control%qs_control%becke_control%dynamic_confine .OR. &
-                dft_control%qs_control%becke_control%confine) THEN
-               IF (ub_index .GT. bo(2, dir)) THEN
-                  tmp_index(2) = bo(2, dir)-1
-               ELSE
-                  tmp_index(2) = ub_index-1
-               END IF
-               IF (lb_index .LT. bo(1, dir)) THEN
-                  tmp_index(1) = bo(1, dir)+1
-               ELSE
-                  tmp_index(1) = lb_index+1
-               END IF
-               bo_conf(2, dir) = tmp_index(2)
-               bo_conf(1, dir) = tmp_index(1)
-            ELSE IF (dft_control%qs_control%becke_control%cavity_confine) THEN
-               IF (dft_control%qs_control%becke_control%confine_bounds_int(2) .LT. bo(2, 3)) &
-                  bo_conf(2, 3) = dft_control%qs_control%becke_control%confine_bounds_int(2)-1
-               IF (dft_control%qs_control%becke_control%confine_bounds_int(1) .GT. bo(1, 3)) &
-                  bo_conf(1, 3) = dft_control%qs_control%becke_control%confine_bounds_int(1)+1
-            END IF
+            !bo_conf = bo
+            !IF (dft_control%qs_control%becke_control%dynamic_confine .OR. &
+            !    dft_control%qs_control%becke_control%confine) THEN
+            !   IF (ub_index .GT. bo(2, dir)) THEN
+            !      tmp_index(2) = bo(2, dir)-1
+            !   ELSE
+            !      tmp_index(2) = ub_index-1
+            !   END IF
+            !   IF (lb_index .LT. bo(1, dir)) THEN
+            !      tmp_index(1) = bo(1, dir)+1
+            !   ELSE
+            !      tmp_index(1) = lb_index+1
+            !   END IF
+            !   bo_conf(2, dir) = tmp_index(2)
+            !   bo_conf(1, dir) = tmp_index(1)
+            !ELSE IF (dft_control%qs_control%becke_control%cavity_confine) THEN
+            !   IF (dft_control%qs_control%becke_control%confine_bounds_int(2) .LT. bo(2, 3)) &
+            !      bo_conf(2, 3) = dft_control%qs_control%becke_control%confine_bounds_int(2)-1
+            !   IF (dft_control%qs_control%becke_control%confine_bounds_int(1) .GT. bo(1, 3)) &
+            !      bo_conf(1, 3) = dft_control%qs_control%becke_control%confine_bounds_int(1)+1
+            !END IF
          END IF
 
          integrated = 0.0_dp
@@ -1722,7 +1722,8 @@ CONTAINS
                END DO
             END IF
             NULLIFY (gradients)
-            DEALLOCATE (dft_control%qs_control%becke_control%gradients)
+            IF (.NOT. dft_control%qs_control%becke_control%transfer_pot) &
+              DEALLOCATE (dft_control%qs_control%becke_control%gradients)
             IF (dft_control%qs_control%becke_control%should_skip .AND. .NOT. &
                 dft_control%qs_control%becke_control%cavity_confine) &
                DEALLOCATE (dft_control%qs_control%becke_control%skip_list)

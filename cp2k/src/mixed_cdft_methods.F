@@ -89,7 +89,8 @@ MODULE mixed_cdft_methods
    USE particle_types,                  ONLY: particle_type
    USE pw_env_types,                    ONLY: pw_env_get,&
                                               pw_env_type
-   USE pw_methods,                      ONLY: pw_scale
+   USE pw_methods,                      ONLY: pw_scale, &
+                                              pw_transfer
    USE pw_pool_types,                   ONLY: pw_pool_create_pw,&
                                               pw_pool_give_back_pw,&
                                               pw_pool_type
@@ -227,8 +228,8 @@ CONTAINS
                CASE DEFAULT
                   CPASSERT(.FALSE.)
                END SELECT
+               CPASSERT(ASSOCIATED(force_env_qs))
             END DO
-            CPASSERT(ASSOCIATED(force_env_qs))
             ! Get infos about the mixed subsys
             IF (.NOT. is_qmmm) THEN
                CALL force_env_get(force_env=force_env, &
@@ -288,17 +289,10 @@ CONTAINS
             mixed_cdft%sim_step = mixed_cdft%sim_step-1 ! to get the first step correct
             mixed_cdft%sim_dt = cp_unit_from_cp2k(mixed_cdft%sim_dt, "fs")
             ! Parse constraint settings from individual force_eval and check consistency
-            CALL mixed_cdft_parse_settings(force_env, force_env_qs, mixed_env, mixed_cdft, &
-                                           settings, nforce_eval, natom=SIZE(particles_mix%els))
+            CALL mixed_cdft_parse_settings(force_env, mixed_env, mixed_cdft, &
+                                           settings, natom=SIZE(particles_mix%els))
             ! Transfer settings to mixed_cdft
             CALL mixed_cdft_transfer_settings(force_env, mixed_cdft, settings)
-            ! Some CDFT features are currently disabled for mixed calculations: check that these features were not requested
-            IF (.NOT. mixed_cdft%becke_control%confine_dir == 3) &
-               CPABORT("Only z-direction allowed for static/dynamic confinement with mixed CDFT")
-            IF (mixed_cdft%becke_control%atomic_charges) &
-               CPABORT("Calculation of atomic Becke charges not supported with mixed CDFT")
-            IF (mixed_cdft%dlb .AND. .NOT. mixed_cdft%becke_control%cavity_confine) &
-               CPABORT("Mixed CDFT load balancing requires Gaussian cavity confinement.")
             ! Initilize necessary structures
             CALL mixed_cdft_init_structures(force_env, force_env_qs, mixed_env, mixed_cdft, settings)
             ! Write information about the mixed CDFT calculation
@@ -342,17 +336,48 @@ CONTAINS
    END SUBROUTINE mixed_cdft_init
 
 ! **************************************************************************************************
-!> \brief Build CDFT weight and gradient
+!> \brief Driver routine to handle the build of CDFT weight/gradient in parallel and serial modes  
+!> \param force_env ...
+!> \param calculate_forces ...
+!> \par History
+!>       01.2017  created [Nico Holmberg]
+! **************************************************************************************************
+   SUBROUTINE mixed_cdft_build_weight(force_env, calculate_forces, iforce_eval)
+      TYPE(force_env_type), POINTER                      :: force_env
+      LOGICAL, INTENT(IN)                                :: calculate_forces
+      INTEGER, OPTIONAL, INTENT(IN)                      :: iforce_eval
+
+      CHARACTER(len=*), PARAMETER :: routineN = 'mixed_cdft_build_weight', &
+         routineP = moduleN//':'//routineN
+      TYPE(mixed_cdft_type), POINTER                     :: mixed_cdft
+      
+      NULLIFY(mixed_cdft)
+      CPASSERT(ASSOCIATED(force_env))
+      CALL get_mixed_env(force_env%mixed_env, cdft_control=mixed_cdft)
+      CPASSERT(ASSOCIATED(mixed_cdft))
+      print *, 'is_parallel', mixed_cdft%is_parallel, PRESENT(iforce_eval)
+      IF (.NOT. PRESENT(iforce_eval)) THEN
+         IF (mixed_cdft%is_parallel) &
+            CALL mixed_cdft_build_weight_parallel(force_env, calculate_forces)
+      ELSE
+         IF (.NOT. mixed_cdft%is_parallel) &
+            CALL mixed_cdft_transfer_weight(force_env, calculate_forces, iforce_eval)
+      END IF
+
+   END SUBROUTINE mixed_cdft_build_weight
+
+! **************************************************************************************************
+!> \brief Build CDFT weight and gradient on 2N processors and copy it to two N processor subgroups
 !> \param force_env ...
 !> \param calculate_forces ...
 !> \par History
 !>       01.2016  created [Nico Holmberg]
 ! **************************************************************************************************
-   SUBROUTINE mixed_cdft_build_weight(force_env, calculate_forces)
+   SUBROUTINE mixed_cdft_build_weight_parallel(force_env, calculate_forces)
       TYPE(force_env_type), POINTER                      :: force_env
       LOGICAL, INTENT(IN)                                :: calculate_forces
 
-      CHARACTER(len=*), PARAMETER :: routineN = 'mixed_cdft_build_weight', &
+      CHARACTER(len=*), PARAMETER :: routineN = 'mixed_cdft_build_weight_parallel', &
          routineP = moduleN//':'//routineN
 
       INTEGER :: handle, handle2, i, iforce_eval, ind, INDEX(6), iounit, j, lb_min, &
@@ -402,7 +427,7 @@ CONTAINS
                          particles=particles_mix)
       DO iforce_eval = 1, nforce_eval
          IF (.NOT. ASSOCIATED(force_env%sub_force_env(iforce_eval)%force_env)) CYCLE
-         SELECT CASE (force_env%sub_force_env (iforce_eval)%force_env%in_use)
+         SELECT CASE (force_env%sub_force_env(iforce_eval)%force_env%in_use)
          CASE (use_qs_force)
             force_env_qs => force_env%sub_force_env(iforce_eval)%force_env
          CASE (use_qmmm)
@@ -792,6 +817,7 @@ CONTAINS
       ! Set some flags so the weight is not rebuilt during SCF
       dft_control%qs_control%becke_control%external_control = .TRUE.
       dft_control%qs_control%becke_control%need_pot = .FALSE.
+      dft_control%qs_control%becke_control%transfer_pot = .FALSE.
       ! Store the bound indices for force calculation
       IF (calculate_forces) THEN
          ! Note: these are the final bounds i.e. the first nonzero elements of the arrays...
@@ -819,7 +845,123 @@ CONTAINS
                                         "MIXED%PRINT%PROGRAM_RUN_INFO")
       CALL timestop(handle)
 
-   END SUBROUTINE mixed_cdft_build_weight
+   END SUBROUTINE mixed_cdft_build_weight_parallel
+
+! **************************************************************************************************
+!> \brief Transfer CDFT weight/gradient between force_evals  
+!> \param force_env ...
+!> \param calculate_forces ...
+!> \par History
+!>       01.2017  created [Nico Holmberg]
+! **************************************************************************************************
+   SUBROUTINE mixed_cdft_transfer_weight(force_env, calculate_forces, iforce_eval)
+      TYPE(force_env_type), POINTER                      :: force_env
+      LOGICAL, INTENT(IN)                                :: calculate_forces
+      INTEGER, INTENT(IN)                                :: iforce_eval
+
+      CHARACTER(len=*), PARAMETER :: routineN = 'mixed_cdft_transfer_weight', &
+         routineP = moduleN//':'//routineN
+      
+      INTEGER                                            :: handle, i, bounds_of(8)
+      TYPE(dft_control_type), POINTER                    :: dft_control_source, dft_control_target
+      TYPE(force_env_type), POINTER                      :: force_env_qs_source, &
+                                                            force_env_qs_target
+      TYPE(mixed_environment_type), POINTER              :: mixed_env
+      TYPE(mixed_cdft_type), POINTER                     :: mixed_cdft
+      TYPE(pw_env_type), POINTER                         :: pw_env_source, pw_env_target
+      TYPE(pw_pool_type), POINTER                        :: auxbas_pw_pool_source, auxbas_pw_pool_target
+      TYPE(qs_environment_type), POINTER                 :: qs_env_source, qs_env_target
+      
+      NULLIFY(mixed_cdft, dft_control_source, dft_control_target, force_env_qs_source, &
+             force_env_qs_target, pw_env_source, pw_env_target, auxbas_pw_pool_source, &
+             auxbas_pw_pool_target, qs_env_source, qs_env_target, mixed_env)
+      mixed_env => force_env%mixed_env
+      CALL get_mixed_env(mixed_env, cdft_control=mixed_cdft)
+      CALL timeset(routineN, handle)
+      SELECT CASE (force_env%sub_force_env(1)%force_env%in_use)
+      CASE (use_qs_force, use_qmmm)
+         force_env_qs_source => force_env%sub_force_env(1)%force_env
+         force_env_qs_target => force_env%sub_force_env(2)%force_env
+      CASE DEFAULT
+         CPASSERT(.FALSE.)
+      END SELECT
+      IF (.NOT. force_env%mixed_env%do_mixed_qmmm_cdft) THEN
+         CALL force_env_get(force_env=force_env_qs_source, &
+                            qs_env=qs_env_source)
+         CALL force_env_get(force_env=force_env_qs_target, &
+                            qs_env=qs_env_target)
+      ELSE
+         qs_env_source => force_env_qs_source%qmmm_env%qs_env
+         qs_env_target => force_env_qs_target%qmmm_env%qs_env
+      END IF
+      IF (iforce_eval == 1) THEN
+         ! The first force_eval builds the weight function and gradients in et_coupling.F
+         ! Set some flags so the constraint is saved
+         CALL get_qs_env(qs_env_source, dft_control=dft_control_source)
+         dft_control_source%qs_control%becke_control%external_control = .FALSE.
+         dft_control_source%qs_control%becke_control%need_pot = .TRUE.
+         dft_control_source%qs_control%becke_control%transfer_pot = .TRUE.
+      ELSE
+         ! Transfer the constraint from the first force_eval to the second
+         CALL get_qs_env(qs_env_source, dft_control=dft_control_source, &
+                         pw_env=pw_env_source)
+         CALL pw_env_get(pw_env_source, auxbas_pw_pool=auxbas_pw_pool_source)
+         CALL get_qs_env(qs_env_target, dft_control=dft_control_target, &
+                         pw_env=pw_env_target)
+         CALL pw_env_get(pw_env_target, auxbas_pw_pool=auxbas_pw_pool_target)
+         ! Weight function
+         CALL pw_pool_create_pw(auxbas_pw_pool_target, dft_control_target%qs_control%becke_control%becke_pot%pw, &
+                                use_data=REALDATA3D, in_space=REALSPACE)
+         ! We have ensured that the grids are consistent => no danger in using explicit copy
+         dft_control_target%qs_control%becke_control%becke_pot%pw%cr3d(:,:,:) =&
+            dft_control_source%qs_control%becke_control%becke_pot%pw%cr3d
+         CALL pw_pool_give_back_pw(auxbas_pw_pool_source, dft_control_source%qs_control%becke_control%becke_pot%pw)
+         ! Cavity
+         IF (dft_control_source%qs_control%becke_control%cavity_confine) THEN
+            CALL pw_pool_create_pw(auxbas_pw_pool_target, dft_control_target%qs_control%becke_control%cavity%pw, &
+                                   use_data=REALDATA3D, in_space=REALSPACE)
+            dft_control_target%qs_control%becke_control%cavity%pw%cr3d(:,:,:) =&
+               dft_control_source%qs_control%becke_control%cavity%pw%cr3d
+            CALL pw_pool_give_back_pw(auxbas_pw_pool_source, dft_control_source%qs_control%becke_control%cavity%pw)
+         END IF
+         ! Gradients
+         IF (calculate_forces) THEN
+            bounds_of = (/ LBOUND(dft_control_source%qs_control%becke_control%gradients, 1), &
+                           UBOUND(dft_control_source%qs_control%becke_control%gradients, 1), &
+                           LBOUND(dft_control_source%qs_control%becke_control%gradients, 2), &
+                           UBOUND(dft_control_source%qs_control%becke_control%gradients, 2), &
+                           LBOUND(dft_control_source%qs_control%becke_control%gradients, 3), &
+                           UBOUND(dft_control_source%qs_control%becke_control%gradients, 3), &
+                           LBOUND(dft_control_source%qs_control%becke_control%gradients, 4), &
+                           UBOUND(dft_control_source%qs_control%becke_control%gradients, 4) /)
+            ALLOCATE (dft_control_target%qs_control%becke_control%&
+                      gradients(bounds_of(1):bounds_of(2), bounds_of(3):bounds_of(4), &
+                                bounds_of(5):bounds_of(6), bounds_of(7):bounds_of(8)))
+            dft_control_target%qs_control%becke_control%gradients =&
+               dft_control_source%qs_control%becke_control%gradients
+            DEALLOCATE(dft_control_source%qs_control%becke_control%gradients)
+         END IF
+         ! Set some flags so the weight is not rebuilt during SCF
+         dft_control_target%qs_control%becke_control%external_control = .FALSE.
+         dft_control_target%qs_control%becke_control%need_pot = .FALSE.
+         dft_control_target%qs_control%becke_control%transfer_pot = .FALSE.
+         dft_control_target%qs_control%becke_control%first_iteration = .FALSE.
+      END IF
+      ! Set flags for ET coupling calculation
+      IF (mixed_env%do_mixed_et) THEN
+         IF (MODULO(mixed_cdft%sim_step, mixed_env%et_freq) == 0) THEN
+            IF (iforce_eval == 1) THEN
+               dft_control_source%qs_control%cdft_control%do_et = .TRUE.
+               dft_control_source%qs_control%cdft_control%calculate_metric = mixed_cdft%calculate_metric
+            ELSE
+               dft_control_target%qs_control%cdft_control%do_et = .TRUE.
+               dft_control_target%qs_control%cdft_control%calculate_metric = mixed_cdft%calculate_metric
+            END IF
+         END IF
+      END IF
+      CALL timestop(handle)
+
+   END SUBROUTINE mixed_cdft_transfer_weight
 
 ! **************************************************************************************************
 !> \brief ET coupling adapted to mixed calculations

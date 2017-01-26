@@ -899,30 +899,8 @@ CONTAINS
       END IF
       ! Handling Parallel execution
       CALL mp_sync(force_env%para_env%group)
-      ! Transfer cdft strengths for writing restart
-      IF (force_env%mixed_env%do_mixed_cdft) THEN
-         IF (.NOT. ASSOCIATED(force_env%mixed_env%strength)) &
-            ALLOCATE (force_env%mixed_env%strength(2))
-         force_env%mixed_env%strength = 0.0_dp
-         DO iforce_eval = 1, nforce_eval
-            IF (.NOT. ASSOCIATED(force_env%sub_force_env(iforce_eval)%force_env)) CYCLE
-            IF (force_env%mixed_env%do_mixed_qmmm_cdft) THEN
-               qs_env => force_env%sub_force_env(iforce_eval)%force_env%qmmm_env%qs_env
-            ELSE
-               CALL force_env_get(force_env%sub_force_env(iforce_eval)%force_env, qs_env=qs_env)
-            END IF
-            CALL get_qs_env(qs_env, dft_control=dft_control)
-            IF (force_env%sub_force_env(iforce_eval)%force_env%para_env%mepos == &
-                force_env%sub_force_env(iforce_eval)%force_env%para_env%source) &
-               force_env%mixed_env%strength(iforce_eval) = dft_control%qs_control%cdft_control%strength(1)
-         END DO
-         CALL mp_sum(force_env%mixed_env%strength, force_env%para_env%group)
-      END IF
-      ! Mixed CDFT: calculate ET coupling
-      IF (force_env%mixed_env%do_mixed_et) THEN
-         IF (MODULO(force_env%mixed_env%cdft_control%sim_step, force_env%mixed_env%et_freq) == 0) &
-            CALL mixed_cdft_calculate_coupling(force_env)
-      END IF
+      ! Post CDFT operations
+      CALL mixed_cdft_post_energy_forces(force_env)
       ! Let's transfer energy, natom, forces, virials
       CALL mp_sum(energies, force_env%para_env%group)
       CALL mp_sum(glob_natoms, force_env%para_env%group)
@@ -1121,7 +1099,6 @@ CONTAINS
       INTEGER                                            :: iforce_eval, iparticle, jparticle, &
                                                             my_group, natom, nforce_eval
       INTEGER, DIMENSION(:), POINTER                     :: map_index
-      LOGICAL                                            :: is_parallel
       REAL(KIND=dp)                                      :: energy
       TYPE(cell_type), POINTER                           :: cell_mix
       TYPE(cp_logger_type), POINTER                      :: logger, my_logger
@@ -1150,7 +1127,6 @@ CONTAINS
       mixed_section => section_vals_get_subs_vals(force_env_section, "MIXED")
       mapping_section => section_vals_get_subs_vals(mixed_section, "MAPPING")
       ALLOCATE (subsystems(nforce_eval))
-      is_parallel = force_env%mixed_env%cdft_control%is_parallel
       DO iforce_eval = 1, nforce_eval
          NULLIFY (subsystems(iforce_eval)%subsys, particles(iforce_eval)%list)
          NULLIFY (results(iforce_eval)%results, virials(iforce_eval)%virial)
@@ -1176,7 +1152,9 @@ CONTAINS
 
          ! Get Mapping index array
          natom = SIZE(particles(iforce_eval)%list%els)
-
+         ! Serial mode need to deallocate first 
+         IF (ASSOCIATED(map_index)) &
+            DEALLOCATE (map_index)
          CALL get_subsys_map_index(mapping_section, natom, iforce_eval, nforce_eval, &
                                    map_index)
 
@@ -1192,12 +1170,11 @@ CONTAINS
       ! For mixed CDFT calculations parallized over CDFT states
       ! build weight and gradient on all processors before splitting into groups and
       ! starting energy calculation
-      IF (is_parallel) &
-         CALL mixed_cdft_build_weight(force_env, calculate_forces)
+      CALL mixed_cdft_build_weight(force_env, calculate_forces)
       DO iforce_eval = 1, nforce_eval
          IF (.NOT. ASSOCIATED(force_env%sub_force_env(iforce_eval)%force_env)) CYCLE
-         IF (.NOT. is_parallel) &
-            CALL mixed_cdft_build_weight(force_env, calculate_forces)
+         ! Serial CDFT calculation: transfer weight/gradient
+         CALL mixed_cdft_build_weight(force_env, calculate_forces, iforce_eval)
          CALL cp_add_default_logger(my_logger)
          ! Calculate energy and forces for each sub_force_env
          CALL force_env_calc_energy_force(force_env%sub_force_env(iforce_eval)%force_env, &
@@ -1224,5 +1201,58 @@ CONTAINS
       DEALLOCATE (subsystems)
 
    END SUBROUTINE mixed_cdft_energy_forces
+
+ ! **************************************************************************************************
+!> \brief Perform additional tasks for mixed CDFT calculations after calculating each CDFT state
+!> \param force_env ...
+!> \param calculate_forces ...
+!> \param particles ...
+!> \param energies ...
+!> \param global_natoms ...
+!> \param virials ...
+!> \param results ...
+!> \par History
+!>       01.17  created [Nico Holmberg]
+!> \author Nico Holmberg
+! **************************************************************************************************
+   SUBROUTINE mixed_cdft_post_energy_forces(force_env)
+      TYPE(force_env_type), POINTER                      :: force_env
+
+      CHARACTER(len=*), PARAMETER :: routineN = 'mixed_cdft_post_energy_forces', &
+         routineP = moduleN//':'//routineN
+
+      INTEGER                                            :: iforce_eval, nforce_eval
+      TYPE(qs_environment_type), POINTER                 :: qs_env
+      TYPE(dft_control_type), POINTER                    :: dft_control
+
+      CPASSERT(ASSOCIATED(force_env))
+      NULLIFY(qs_env, dft_control)
+      IF (force_env%mixed_env%do_mixed_cdft) THEN
+         nforce_eval = SIZE(force_env%sub_force_env)
+         ! Transfer cdft strengths for writing restart
+         IF (.NOT. ASSOCIATED(force_env%mixed_env%strength)) &
+            ALLOCATE (force_env%mixed_env%strength(2))
+         force_env%mixed_env%strength = 0.0_dp
+         DO iforce_eval = 1, nforce_eval
+            IF (.NOT. ASSOCIATED(force_env%sub_force_env(iforce_eval)%force_env)) CYCLE
+            IF (force_env%mixed_env%do_mixed_qmmm_cdft) THEN
+               qs_env => force_env%sub_force_env(iforce_eval)%force_env%qmmm_env%qs_env
+            ELSE
+               CALL force_env_get(force_env%sub_force_env(iforce_eval)%force_env, qs_env=qs_env)
+            END IF
+            CALL get_qs_env(qs_env, dft_control=dft_control)
+            IF (force_env%sub_force_env(iforce_eval)%force_env%para_env%mepos == &
+                force_env%sub_force_env(iforce_eval)%force_env%para_env%source) &
+               force_env%mixed_env%strength(iforce_eval) = dft_control%qs_control%cdft_control%strength(1)
+         END DO
+         CALL mp_sum(force_env%mixed_env%strength, force_env%para_env%group)
+         ! Mixed CDFT: calculate ET coupling
+         IF (force_env%mixed_env%do_mixed_et) THEN
+            IF (MODULO(force_env%mixed_env%cdft_control%sim_step, force_env%mixed_env%et_freq) == 0) &
+               CALL mixed_cdft_calculate_coupling(force_env)
+         END IF
+      END IF
+
+   END SUBROUTINE mixed_cdft_post_energy_forces
 
 END MODULE force_env_methods

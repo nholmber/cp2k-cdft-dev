@@ -202,7 +202,8 @@ CONTAINS
          END DO
          DEALLOCATE (cdft_control%sendbuff)
       END IF
-      CALL becke_control_release(cdft_control%becke_control)
+      IF (ASSOCIATED(cdft_control%becke_control)) &
+         CALL becke_control_release(cdft_control%becke_control)
       IF (ASSOCIATED(cdft_control%blacs_env)) &
          CALL cp_blacs_env_release(cdft_control%blacs_env)
       IF (ASSOCIATED(cdft_control%qs_kind_set)) &

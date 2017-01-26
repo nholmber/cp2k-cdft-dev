@@ -222,9 +222,9 @@ MODULE cp_control_types
       CHARACTER(LEN=default_path_length)            :: fragment_a_fname, &
                                                        fragment_b_fname
       INTEGER                                       :: ref_count
-      REAL(KIND=dp)                               :: rglobal
-      REAL(KIND=dp), DIMENSION(:), POINTER        :: TARGET, strength, &
-                                                     becke_order_p
+      REAL(KIND=dp)                                 :: rglobal
+      REAL(KIND=dp), DIMENSION(:), POINTER          :: TARGET, strength, &
+                                                       becke_order_p
       INTEGER                                       :: natoms
       INTEGER                                       :: confine_method, cavity_shape, cutoff_type, &
                                                        constraint_type, combined_type
@@ -237,7 +237,7 @@ MODULE cp_control_types
                                                        should_skip, print_cavity, &
                                                        external_control, first_iteration, &
                                                        fragment_density, fragments_integrated, &
-                                                       use_bohr
+                                                       use_bohr, transfer_pot
       REAL(KIND=dp), POINTER, DIMENSION(:)          :: coeff, cutoffs, cutoffs_tmp, &
                                                        charges_fragment, radii_tmp, &
                                                        radii
@@ -776,6 +776,7 @@ CONTAINS
       becke_control%natoms = 0
       becke_control%need_pot = .TRUE.
       becke_control%save_pot = .FALSE.
+      becke_control%transfer_pot = .FALSE.
       becke_control%adjust = .FALSE.
       becke_control%atomic_charges = .FALSE.
       becke_control%confine_method = becke_none_conf
@@ -801,6 +802,9 @@ CONTAINS
       becke_control%external_control = .FALSE.
       becke_control%constraint_type = cdft_density_constraint
       becke_control%combined_type = cdft_combined_all
+      NULLIFY (becke_control%becke_pot%pw)
+      NULLIFY (becke_control%cavity%pw)
+      NULLIFY (becke_control%combined_weight%pw)
       NULLIFY (becke_control%strength)
       NULLIFY (becke_control%target)
       NULLIFY (becke_control%becke_order_p)

@@ -39,7 +39,12 @@ MODULE mixed_cdft_utils
                                               set_hirshfeld_info
    USE input_constants,                 ONLY: becke_cutoff_element,&
                                               cdft_density_constraint,&
-                                              shape_function_gaussian
+                                              shape_function_gaussian, &
+                                              becke_none_conf, &
+                                              becke_cavity_conf, &
+                                              becke_static_conf, &
+                                              becke_dynamic_conf, &
+                                              becke_mixed_conf
    USE input_section_types,             ONLY: section_vals_duplicate,&
                                               section_vals_get_subs_vals,&
                                               section_vals_release,&
@@ -101,28 +106,31 @@ CONTAINS
 !> \par History
 !>       01.2017  created [Nico Holmberg]
 ! **************************************************************************************************
-   SUBROUTINE mixed_cdft_parse_settings(force_env, force_env_qs, mixed_env, mixed_cdft, &
-                                        settings, nforce_eval, natom)
-      TYPE(force_env_type), POINTER                      :: force_env, force_env_qs
+   SUBROUTINE mixed_cdft_parse_settings(force_env, mixed_env, mixed_cdft, &
+                                        settings, natom)
+      TYPE(force_env_type), POINTER                      :: force_env
       TYPE(mixed_environment_type), POINTER              :: mixed_env
       TYPE(mixed_cdft_type), POINTER                     :: mixed_cdft
       TYPE(mixed_cdft_settings_type)                     :: settings
-      INTEGER                                            :: nforce_eval, natom
+      INTEGER                                            :: natom
 
       CHARACTER(len=*), PARAMETER :: routineN = 'mixed_cdft_parse_settings', &
          routineP = moduleN//':'//routineN
 
-      INTEGER                                            :: i, iforce_eval, nkinds
+      INTEGER                                            :: i, iforce_eval, nkinds, &
+                                                            nforce_eval
       LOGICAL                                            :: is_match
       TYPE(atomic_kind_type), DIMENSION(:), POINTER      :: atomic_kind_set
       TYPE(dft_control_type), POINTER                    :: dft_control
+      TYPE(force_env_type), POINTER                      :: force_env_qs
       TYPE(pw_env_type), POINTER                         :: pw_env
       TYPE(pw_pool_type), POINTER                        :: auxbas_pw_pool
       TYPE(qs_environment_type), POINTER                 :: qs_env
 
-      NULLIFY (dft_control, qs_env, pw_env, auxbas_pw_pool)
+      NULLIFY (dft_control, qs_env, pw_env, auxbas_pw_pool, force_env_qs)
       ! Allocate storage for temporaries used for checking settings consistency
       settings%max_nkinds = 30
+      nforce_eval = SIZE(force_env%sub_force_env)
       ALLOCATE (settings%grid_span(nforce_eval))
       ALLOCATE (settings%npts(3, nforce_eval))
       ALLOCATE (settings%cutoff(nforce_eval))
@@ -156,10 +164,13 @@ CONTAINS
       ! Get information from the sub_force_envs
       ! TODO: transfer logicals as logicals instead of ints
       DO iforce_eval = 1, nforce_eval
+         print *, 'iforce_eval loop',  iforce_eval, nforce_eval
          IF (.NOT. ASSOCIATED(force_env%sub_force_env(iforce_eval)%force_env)) CYCLE
          IF (mixed_env%do_mixed_qmmm_cdft) THEN
+            force_env_qs => force_env%sub_force_env(iforce_eval)%force_env
             qs_env => force_env_qs%qmmm_env%qs_env
          ELSE
+            force_env_qs => force_env%sub_force_env(iforce_eval)%force_env
             CALL force_env_get(force_env_qs, qs_env=qs_env)
          END IF
          CALL get_qs_env(qs_env, pw_env=pw_env, dft_control=dft_control)
@@ -185,10 +196,13 @@ CONTAINS
             settings%coeffs(1:dft_control%qs_control%becke_control%natoms, iforce_eval) = &
                dft_control%qs_control%becke_control%coeff
             ! Only GAPW and serial calculation needs to keep a copy of these arrays for constraint integration
-            IF (.NOT. dft_control%qs_control%gapw .OR. &
-                .NOT. mixed_cdft%is_parallel) THEN
-               DEALLOCATE (dft_control%qs_control%becke_control%atoms)
-               DEALLOCATE (dft_control%qs_control%becke_control%coeff)
+            print *, 'truth value ', iforce_eval, .NOT. (dft_control%qs_control%gapw .OR. mixed_cdft%is_parallel)
+            IF (.NOT. dft_control%qs_control%gapw) THEN
+               IF (mixed_cdft%is_parallel .OR. &
+                  (.NOT. mixed_cdft%is_parallel .AND. iforce_eval /= 1)) THEN
+                  DEALLOCATE (dft_control%qs_control%becke_control%atoms)
+                  DEALLOCATE (dft_control%qs_control%becke_control%coeff)
+               END IF
             END IF
             settings%si(1, iforce_eval) = dft_control%qs_control%becke_control%confine_method
             settings%si(2, iforce_eval) = dft_control%qs_control%becke_control%cutoff_type
@@ -298,6 +312,23 @@ CONTAINS
       is_match = is_match .AND. (settings%confine_bounds(2, 1) == settings%confine_bounds(2, 2))
       IF (.NOT. is_match) &
          CPABORT("Mismatch detected in the &BECKE_RESTRAINT&CONFINE_BOUNDS settings of the two force_evals.")
+      ! Some CDFT features are currently disabled for mixed calculations: check that these features were not requested
+      SELECT CASE (settings%si(1, 1))
+         CASE (becke_cavity_conf, becke_none_conf)
+            ! Do nothing
+         CASE (becke_static_conf, becke_dynamic_conf, becke_mixed_conf)
+            IF (.NOT. mixed_cdft%is_parallel) &
+               CALL cp_abort(__LOCATION__, "Serial mode mixed CDFT calculation supports only confinement types"// &
+                             "NONE and CAVITY.")
+            IF (settings%si(9,1) /= 3) &
+               CPABORT("Only z-direction allowed for static/dynamic confinement with mixed CDFT")
+         CASE DEFAULT
+            CPABORT("Unknown confinement method.")
+         END SELECT
+      IF (settings%si(11, 1) == 1) &
+         CPABORT("Calculation of atomic Becke charges not supported with mixed CDFT")
+      IF (mixed_cdft%dlb .AND. .NOT. settings%si(5, 1) == 1) &
+         CPABORT("Mixed CDFT load balancing requires Gaussian cavity confinement.")
 
    END SUBROUTINE mixed_cdft_parse_settings
 
@@ -382,6 +413,14 @@ CONTAINS
             ALLOCATE (mixed_cdft%becke_control%radii(nkinds))
             mixed_cdft%becke_control%radii = settings%radii(1:nkinds, 1)
          END IF
+      ELSE
+         SELECT CASE (settings%si(1, 1))
+         CASE (becke_cavity_conf, becke_none_conf)
+            ! Do nothing
+         CASE DEFAULT
+            CALL cp_abort(__LOCATION__, "Serial mode mixed CDFT calculation supports only confinement types"// &
+                          "NONE and CAVITY.")
+         END SELECT
       END IF
 
    END SUBROUTINE mixed_cdft_transfer_settings

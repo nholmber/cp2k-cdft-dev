@@ -109,6 +109,7 @@ CONTAINS
             END IF
             becke%need_pot = .FALSE.
          ELSE
+            print *, 'ASSOCIATED pw', ASSOCIATED(becke%becke_pot%pw%cr3d)
             inv_vol = 1.0_dp/becke%becke_pot%pw%pw_grid%dvol
             CALL pw_scale(becke%becke_pot%pw, inv_vol)
             IF (dft_control%qs_control%becke_control%constraint_type == cdft_combined_constraint) THEN
