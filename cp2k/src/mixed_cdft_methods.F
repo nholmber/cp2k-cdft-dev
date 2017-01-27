@@ -226,7 +226,8 @@ CONTAINS
             ! This is really the container for QMMM
             force_env_qs => force_env%sub_force_env(iforce_eval)%force_env
          CASE (use_qmmmx)
-            CPABORT("No force mixing allowed for mixed CDFT QM/MM")
+            CALL cp_abort(__LOCATION__, &
+                          "No force mixing allowed for mixed CDFT QM/MM")
          CASE DEFAULT
             CPASSERT(.FALSE.)
          END SELECT
@@ -283,7 +284,8 @@ CONTAINS
       ! Inversion method
       CALL section_vals_val_get(mixed_section, "LINEAR%EPS_SVD", r_val=mixed_cdft%eps_svd)
       IF (mixed_cdft%eps_svd .LT. 0.0_dp .OR. mixed_cdft%eps_svd .GT. 1.0_dp) &
-         CPABORT("Illegal value for EPS_SVD. Value must be between 0.0 and 1.0.")
+         CALL cp_abort(__LOCATION__, &
+                       "Illegal value for EPS_SVD. Value must be between 0.0 and 1.0.")
       ! Start building the mixed auxbas_pw_pool
       CALL pw_grid_create(pw_grid, force_env%para_env%group)
       CALL pw_env_create(mixed_cdft%pw_env)
@@ -330,7 +332,8 @@ CONTAINS
          END IF
          CALL get_qs_env(qs_env, pw_env=pw_env, dft_control=dft_control)
          IF (.NOT. dft_control%qs_control%becke_restraint) &
-            CALL cp_abort(__LOCATION__, "Mixed CDFT currently only supports the Becke constraint."// &
+            CALL cp_abort(__LOCATION__, &
+                          "Mixed CDFT currently only supports the Becke constraint."// &
                           "Becke constraint must be active in QS section of both force_evals!")
          CALL pw_env_get(pw_env, auxbas_pw_pool=auxbas_pw_pool)
          bo = auxbas_pw_pool%pw_grid%bounds_local
@@ -345,7 +348,9 @@ CONTAINS
             rs_dims(:, iforce_eval) = auxbas_pw_pool%pw_grid%para%rs_dims
             IF (auxbas_pw_pool%pw_grid%grid_span == HALFSPACE) odd(iforce_eval) = 1
             IF (dft_control%qs_control%becke_control%natoms .GT. SIZE(atoms, 1)) &
-               CPABORT("More Becke constraint atoms than defined in mixed section. Use default values for MIXED\MAPPING.")
+               CALL cp_abort(__LOCATION__, &
+                             "More Becke constraint atoms than defined in mixed section."//&
+                             " Use default values for MIXED\MAPPING.")
             atoms(1:dft_control%qs_control%becke_control%natoms, iforce_eval) = dft_control%qs_control%becke_control%atoms
             coeffs(1:dft_control%qs_control%becke_control%natoms, iforce_eval) = dft_control%qs_control%becke_control%coeff
             ! Only GAPW needs to keep a copy of these arrays for constraint integration
@@ -391,7 +396,8 @@ CONTAINS
             IF (dft_control%qs_control%becke_control%cutoff_type == becke_cutoff_element) THEN
                nkinds = SIZE(dft_control%qs_control%becke_control%cutoffs_tmp)
                IF (nkinds .GT. max_nkinds) &
-                  CALL cp_abort(__LOCATION__, "More than "//TRIM(cp_to_string(max_nkinds))//" unique elements"// &
+                  CALL cp_abort(__LOCATION__, &
+                                "More than "//TRIM(cp_to_string(max_nkinds))//" unique elements"// &
                                 "were defined in BECKE_RESTRAINT\ELEMENT_CUTOFF. Are you sure"// &
                                 " your input is correct? If yes, please increase max_nkinds and recompile.")
                cutoffs(1:nkinds, iforce_eval) = dft_control%qs_control%becke_control%cutoffs_tmp(:)
@@ -400,11 +406,13 @@ CONTAINS
             IF (dft_control%qs_control%becke_control%adjust) THEN
                CALL get_qs_env(qs_env, atomic_kind_set=atomic_kind_set)
                IF (.NOT. SIZE(atomic_kind_set) == SIZE(dft_control%qs_control%becke_control%radii_tmp)) &
-                  CALL cp_abort(__LOCATION__, "Length of keyword BECKE_RESTRAINT\ATOMIC_RADII does not "// &
+                  CALL cp_abort(__LOCATION__, &
+                                "Length of keyword BECKE_RESTRAINT\ATOMIC_RADII does not "// &
                                 "match number of atomic kinds in the input coordinate file.")
                nkinds = SIZE(dft_control%qs_control%becke_control%radii_tmp)
                IF (nkinds .GT. max_nkinds) &
-                  CALL cp_abort(__LOCATION__, "More than "//TRIM(cp_to_string(max_nkinds))//" unique elements"// &
+                  CALL cp_abort(__LOCATION__, &
+                                "More than "//TRIM(cp_to_string(max_nkinds))//" unique elements"// &
                                 "were defined in BECKE_RESTRAINT\ATOMIC_RADII. Are you sure"// &
                                 " your input is correct? If yes, please increase max_nkinds and recompile.")
                radii(1:nkinds, iforce_eval) = dft_control%qs_control%becke_control%radii_tmp(:)
@@ -429,7 +437,9 @@ CONTAINS
       is_match = is_match .AND. (rs_dims(1, 1) == rs_dims(1, 2))
       is_match = is_match .AND. (rs_dims(2, 1) == rs_dims(2, 2))
       is_match = is_match .AND. (odd(1) == odd(2))
-      IF (.NOT. is_match) CPABORT("Mismatch detected in the &MGRID settings of the two force_evals.")
+      IF (.NOT. is_match) &
+         CALL cp_abort(__LOCATION__, &
+                       "Mismatch detected in the &MGRID settings of the two force_evals.")
       IF (spherical(1) == 1) is_spherical = .TRUE.
       IF (odd(1) == 1) is_odd = .TRUE.
       ! Make sure Becke settings are consistent and transfer them
@@ -442,7 +452,9 @@ CONTAINS
          IF (coeffs(i, 1) /= coeffs(i, 2)) is_match = .FALSE.
          IF (atoms(i, 1) /= 0) nbecke = nbecke+1
       END DO
-      IF (.NOT. is_match) CPABORT("Mismatch detected in the &BECKE_RESTRAINT settings of the two force_evals.")
+      IF (.NOT. is_match) &
+         CALL cp_abort(__LOCATION__, &
+                       "Mismatch detected in the &BECKE_RESTRAINT settings of the two force_evals.")
       CALL becke_control_create(mixed_cdft%becke_control)
       ALLOCATE (mixed_cdft%becke_control%atoms(nbecke))
       mixed_cdft%becke_control%atoms = atoms(1:nbecke, 1)
@@ -458,11 +470,15 @@ CONTAINS
             IF (settings_real(i, 1) /= settings_real(i, 2)) is_match = .FALSE.
          END IF
       END DO
-      IF (.NOT. is_match) CPABORT("Mismatch detected in the &BECKE_RESTRAINT settings of the two force_evals.")
+      IF (.NOT. is_match) &
+         CALL cp_abort(__LOCATION__, &
+                       "Mismatch detected in the &BECKE_RESTRAINT settings of the two force_evals.")
       is_match = is_match .AND. (confine_bounds(1, 1) == confine_bounds(1, 2))
       is_match = is_match .AND. (confine_bounds(2, 1) == confine_bounds(2, 2))
       IF (.NOT. is_match) &
-         CPABORT("Mismatch detected in the &BECKE_RESTRAINT&CONFINE_BOUNDS settings of the two force_evals.")
+         CALL cp_abort(__LOCATION__, &
+                      "Mismatch detected in the &BECKE_RESTRAINT&CONFINE_BOUNDS"//&
+                      " settings of the two force_evals.")
       mixed_cdft%becke_control%confine_method = settings_int(1, 1)
       mixed_cdft%becke_control%cutoff_type = settings_int(2, 1)
       nkinds = 0
@@ -473,7 +489,9 @@ CONTAINS
             IF (cutoffs(i, 1) /= 0.0_dp) nkinds = nkinds+1
          END DO
          IF (.NOT. is_match) &
-            CPABORT("Mismatch detected in the &BECKE_RESTRAINT&ELEMENT_CUTOFF settings of the two force_evals.")
+            CALL cp_abort(__LOCATION__, &
+                         "Mismatch detected in the &BECKE_RESTRAINT&ELEMENT_CUTOFF"//&
+                         " settings of the two force_evals.")
          ALLOCATE (mixed_cdft%becke_control%cutoffs_tmp(nkinds))
          mixed_cdft%becke_control%cutoffs_tmp = cutoffs(1:nkinds, 1)
       END IF
@@ -492,7 +510,9 @@ CONTAINS
             IF (radii(i, 1) /= 0.0_dp) nkinds = nkinds+1
          END DO
          IF (.NOT. is_match) &
-            CPABORT("Mismatch detected in the &BECKE_RESTRAINT&ATOMIC_RADII settings of the two force_evals.")
+            CALL cp_abort(__LOCATION__, &
+                         "Mismatch detected in the &BECKE_RESTRAINT&ATOMIC_RADII"//&
+                         " settings of the two force_evals.")
          ALLOCATE (mixed_cdft%becke_control%radii(nkinds))
          mixed_cdft%becke_control%radii = radii(1:nkinds, 1)
       END IF
@@ -503,7 +523,8 @@ CONTAINS
       IF (settings_int(14, 1) == 1) mixed_cdft%has_unit_metric = .FALSE.
       mixed_cdft%constraint_type = settings_int(15, 1)
       IF (mixed_cdft%constraint_type /= cdft_density_constraint) &
-         CALL cp_abort(__LOCATION__, "Unsupported constraint type. Mixed CDFT only accepts total density "// &
+         CALL cp_abort(__LOCATION__, &
+                       "Unsupported constraint type. Mixed CDFT only accepts total density "// &
                        " density constraints at this moment.")
       mixed_cdft%combined_type = settings_int(16, 1)
       IF (settings_int(17, 1) == 1) mixed_cdft%becke_control%use_bohr = .TRUE.
@@ -532,11 +553,14 @@ CONTAINS
       mixed_cdft%sim_dt = cp_unit_from_cp2k(mixed_cdft%sim_dt, "fs")
       ! Some CDFT features are currently disabled for mixed calculations: check that these features were not requested
       IF (.NOT. mixed_cdft%becke_control%confine_dir == 3) &
-         CPABORT("Only z-direction allowed for static/dynamic confinement with mixed CDFT")
+         CALL cp_abort(__LOCATION__, &
+                       "Only z-direction allowed for static/dynamic confinement with mixed CDFT")
       IF (mixed_cdft%becke_control%atomic_charges) &
-         CPABORT("Calculation of atomic Becke charges not supported with mixed CDFT")
+         CALL cp_abort(__LOCATION__, &
+                       "Calculation of atomic Becke charges not supported with mixed CDFT")
       IF (mixed_cdft%dlb .AND. .NOT. mixed_cdft%becke_control%cavity_confine) &
-         CPABORT("Mixed CDFT load balancing requires Gaussian cavity confinement.")
+         CALL cp_abort(__LOCATION__, &
+                       "Mixed CDFT load balancing requires Gaussian cavity confinement.")
       ! Decide what kind of layout to use and setup the grid
       ! Processor mappings currently supported:
       !  (2np,1)  --> (np,1)
@@ -545,17 +569,18 @@ CONTAINS
       !
       ! For cases 2 and 3, dlb redistributes YZ slices from overloaded processors to underloaded processors
       ! For case 1, XZ slices are redistributed
-      ! TODO: Unify mappings. Now we essentially have separate code for cases 1-2 and 3.
-      !       This leads to very messy code especially with dlb turned on...
-      !       In terms of memory usage, it would be beneficial to replace case 1 with 3
-      !       and implement a similar arbitrary mapping to replace case 2
+      ! These mappings could be unified. Now we essentially have separate code for cases 1-2 and 3.
+      ! This leads to very messy code especially with dlb turned on...
+      ! In terms of memory usage, it would be beneficial to replace case 1 with 3
+      ! and implement a similar arbitrary mapping to replace case 2
 
       mixed_cdft%is_pencil = .FALSE. ! Flag to control the first two mappings
       mixed_cdft%is_special = .FALSE. ! Flag to control the last mapping
       ! With xc smoothing, the grid is always (ncpu/2,1) distributed
       ! and correct behavior cannot be guaranteed for ncpu/2 > nx, so we abort...
       IF (ncpu/2 .GT. npts(1, 1)) &
-         CPABORT("ncpu/2 => nx: decrease ncpu or disable xc_smoothing")
+         CALL cp_abort(__LOCATION__, &
+                       "ncpu/2 => nx: decrease ncpu or disable xc_smoothing")
       !
       ALLOCATE (mixed_rs_dims(2))
       IF (rs_dims(2, 1) /= 1) mixed_cdft%is_pencil = .TRUE.
@@ -581,7 +606,8 @@ CONTAINS
          IF (.NOT. pw_grid%para%rs_dims(2) == 1) is_match = .FALSE.
       END IF
       IF (.NOT. is_match) &
-         CALL cp_abort(__LOCATION__, "Unable to create a suitable grid distribution "// &
+         CALL cp_abort(__LOCATION__, &
+                       "Unable to create a suitable grid distribution "// &
                        "for mixed CDFT calculations. Try decreasing the total number "// &
                        " of processors or disabling xc_smoothing.")
       ! Deallocate temporaries
@@ -1711,7 +1737,8 @@ CONTAINS
          ! Read wfn file (note we assume that the basis set is the same)
          IF (force_env%mixed_env%do_mixed_qmmm_cdft) &
             ! This really shouldnt be a problem?
-            CPABORT("QMMM + wavefunction overlap method not supported.")
+            CALL cp_abort(__LOCATION__, &
+                          "QMMM + wavefunction overlap method not supported.")
          CALL force_env_get(force_env=force_env, subsys=subsys_mix)
          linear_section => section_vals_get_subs_vals(force_env_section, "MIXED%LINEAR")
          CALL cp_subsys_get(subsys_mix, atomic_kind_set=atomic_kind_set, particle_set=particle_set)
@@ -1721,7 +1748,8 @@ CONTAINS
          CALL mp_bcast(exist, force_env%para_env%source, force_env%para_env%group)
          CALL mp_bcast(file_name, force_env%para_env%source, force_env%para_env%group)
          IF (.NOT. exist) &
-            CALL cp_abort(__LOCATION__, "User requested to restart the wavefunction from the file named: "// &
+            CALL cp_abort(__LOCATION__, &
+                          "User requested to restart the wavefunction from the file named: "// &
                           TRIM(file_name)//". This file does not exist. Please check the existence of"// &
                           " the file or change properly the value of the keyword WFN_RESTART_FILE_NAME in"// &
                           " section FORCE_EVAL\MIXED\LINEAR.")
@@ -1731,7 +1759,8 @@ CONTAINS
                           dft_section=linear_section, natom_mismatch=natom_mismatch, &
                           cdft=.TRUE.)
          IF (natom_mismatch) &
-            CPABORT("Restart wfn file has a wrong number of atoms")
+            CALL cp_abort(__LOCATION__, &
+                          "Restart wfn file has a wrong number of atoms")
          ! Orthonormalize wfn
          DO ispin = 1, nspins
             IF (mixed_cdft%has_unit_metric) THEN
@@ -2025,7 +2054,8 @@ CONTAINS
             mixed_cdft%becke_control%cutoffs(:) = mixed_cdft%becke_control%rglobal
          CASE (becke_cutoff_element)
             IF (.NOT. SIZE(atomic_kind_set) == SIZE(mixed_cdft%becke_control%cutoffs_tmp)) &
-               CALL cp_abort(__LOCATION__, "Size of keyword BECKE_RESTRAINT\ELEMENT_CUTOFFS does"// &
+               CALL cp_abort(__LOCATION__, &
+                             "Size of keyword BECKE_RESTRAINT\ELEMENT_CUTOFFS does"// &
                              "not match number of atomic kinds in the input coordinate file.")
             DO ikind = 1, SIZE(atomic_kind_set)
                CALL get_atomic_kind(atomic_kind_set(ikind), natom=katom, atom_list=atom_list)
@@ -2054,7 +2084,8 @@ CONTAINS
       END IF
       in_memory = calculate_forces .AND. mixed_cdft%becke_control%in_memory
       IF (in_memory .NEQV. calculate_forces) &
-         CALL cp_abort(__LOCATION__, "The flag BECKE_RESTRAINT\IN_MEMORY must be activated "// &
+         CALL cp_abort(__LOCATION__, &
+                       "The flag BECKE_RESTRAINT\IN_MEMORY must be activated "// &
                        "for the calculation of mixed CDFT forces")
       IF (in_memory .OR. mixed_cdft%first_iteration) ALLOCATE (coefficients(natom))
       DO i = 1, mixed_cdft%becke_control%natoms
@@ -2300,7 +2331,8 @@ CONTAINS
                                            extension=".cube", file_position="REWIND", &
                                            log_filename=.FALSE.)
             IF (force_env%para_env%mepos == force_env%para_env%source .AND. unit_nr .LT. 1) &
-               CPABORT("Please turn on PROGRAM_RUN_INFO to print cavity")
+               CALL cp_abort(__LOCATION__, &
+                             "Please turn on PROGRAM_RUN_INFO to print cavity")
             CALL cp_pw_to_cube(mixed_cdft%becke_control%cavity%pw, &
                                unit_nr, "CAVITY", particles=particles, &
                                stride=stride)
@@ -2464,8 +2496,10 @@ CONTAINS
                cumulative_work, sendbuffer, buffsize, req_recv, req_total, &
                tmp, nrecv, nsend_proc, targets, tmp_bo, touched, &
                mask_recv, mask_send, cavity, recvbuffer, sbuff)
-      ! TODO: These numerical values control data redistribution and are system sensitive
-      !       Currently they are not refined during run time which may cause crashes
+      ! These numerical values control data redistribution and are system sensitive
+      ! Currently they are not refined during run time which may cause crashes
+      ! However, using too many processors or a confinement cavity that is too large relative to the
+      ! total system volume are more likely culprits.
       load_scale = mixed_cdft%dlb_control%load_scale
       very_overloaded = mixed_cdft%dlb_control%very_overloaded
       more_work = mixed_cdft%dlb_control%more_work
@@ -2660,7 +2694,9 @@ CONTAINS
                EXIT
             END IF
             i = i+1
-            IF (i .GT. max_targets) CPABORT("Load balancing error: increase max_targets")
+            IF (i .GT. max_targets) &
+               CALL cp_abort(__LOCATION__, &
+                             "Load balancing error: increase max_targets")
          END DO
          IF (.NOT. mixed_cdft%is_special) THEN
             CALL reallocate(mixed_cdft%dlb_control%target_list, 1, 3, 1, i)
@@ -2684,7 +2720,8 @@ CONTAINS
       IF (debug_this_module) THEN
          CALL mp_sum(should_warn, force_env%para_env%group)
          IF (ANY(should_warn == 1)) &
-            CALL cp_warn(__LOCATION__, "MIXED_CDFT DLB: Attempted to redistribute more array"// &
+            CALL cp_warn(__LOCATION__, &
+                         "MIXED_CDFT DLB: Attempted to redistribute more array"// &
                          " slices than actually available. Leaving a fraction of the total "// &
                          " slices on the overloaded processor. Perhaps you have set LOAD_SCALE too high?")
          DEALLOCATE (should_warn)
@@ -2708,8 +2745,11 @@ CONTAINS
             END IF
          END DO
          IF (.NOT. consistent) &
-            CALL cp_abort(__LOCATION__, "Load balancing error: too much data to redistribute."// &
-                          " Increase LOAD_SCALE or change the number of processors.")
+            CALL cp_abort(__LOCATION__, &
+                          "Load balancing error: too much data to redistribute."// &
+                          " Increase LOAD_SCALE or change the number of processors."//&
+                          " If the confinement cavity occupies a large volume relative"//&
+                          " to the total system volume, it might be worth disabling DLB.")
       END IF
       ! Tell the target processors which grid points they should compute
       IF (my_pos .LE. no_underloaded) THEN

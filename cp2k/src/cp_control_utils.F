@@ -1712,8 +1712,8 @@ CONTAINS
 
 ! **************************************************************************************************
 !> \brief reads the input parameters needed for evaluating a becke weight population constraint
-!> \param qs_control ...
-!> \param becke_section ...
+!> \param qs_control the qs_control which holds the Becke control type
+!> \param becke_section the input section containing Becke constraint information
 !> \author fschiff
 ! **************************************************************************************************
    SUBROUTINE read_becke_section(qs_control, becke_section)
@@ -1921,10 +1921,10 @@ CONTAINS
 
    END SUBROUTINE read_becke_section
 
-! *****************************************************************************
+! **************************************************************************************************
 !> \brief reads the input parameters needed for CDFT with OT
-!> \param qs_control ...
-!> \param cdft_control_section ...
+!> \param qs_control the qs_control which holds the CDFT control type
+!> \param cdft_control_section the input section for CDFT
 !> \author Nico Holmberg [12.2015]
 ! **************************************************************************************************
    SUBROUTINE read_cdft_control_section(qs_control, cdft_control_section)
@@ -2012,10 +2012,10 @@ CONTAINS
 
    END SUBROUTINE read_cdft_control_section
 
-! *****************************************************************************
+! **************************************************************************************************
 !> \brief reads the input parameters needed for Hirshfeld constraint
-!> \param qs_control ...
-!> \param hirshfeld_constraint_section ...
+!> \param qs_control the qs_control which holds the Hirshfeld constraint
+!> \param hirshfeld_constraint_section the input section for a Hirshfeld constraint
 !> \author Nico Holmberg [12.2015]
 ! **************************************************************************************************
    SUBROUTINE read_hirshfeld_constraint_section(qs_control, hirshfeld_constraint_section)

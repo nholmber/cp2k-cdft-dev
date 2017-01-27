@@ -81,6 +81,10 @@ MODULE scf_control_types
 !> \param id_nr unique number to identify an scf control
 !> \param ref_count reference count (see cp2k/doc/ReferenceCounting.html)
 !> \param added_mos additional number of MOs that might be used in the SCF
+!> \param build_jacobian logical which determines if the inverse Jacobian should be computed
+!> \param step_size the optimizer step size
+!> \param jacobian_step the step size for calculating the finite difference Jacobian
+!> \param jacobian_type the finite difference scheme to compute the Jacobian
 !> \par History
 !>      09.2002 created [fawzi]
 !> \author Fawzi Mohamed

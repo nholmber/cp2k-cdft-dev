@@ -83,7 +83,7 @@ MODULE mixed_environment_types
                                                           do_mixed_qmmm_cdft
       INTEGER                                          :: et_freq
       REAL(KIND=dp), DIMENSION(:), POINTER             :: strength
-      TYPE(mixed_cdft_type), POINTER                :: cdft_control
+      TYPE(mixed_cdft_type), POINTER                   :: cdft_control
    END TYPE mixed_environment_type
 
 ! **************************************************************************************************

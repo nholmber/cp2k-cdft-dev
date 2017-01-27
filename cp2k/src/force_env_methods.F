@@ -754,8 +754,8 @@ CONTAINS
 !> \brief ****f* force_env_methods/mixed_energy_forces  [1.0]
 !>
 !>     Computes energy and forces for a mixed force_env type
-!> \param force_env ...
-!> \param calculate_forces ...
+!> \param force_env the force_env that holds the mixed_env type
+!> \param calculate_forces decides if forces should be calculated
 !> \par History
 !>       11.06  created [fschiff]
 !>       04.07  generalization to an illimited number of force_eval [tlaino]

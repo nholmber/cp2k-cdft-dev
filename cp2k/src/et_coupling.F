@@ -49,7 +49,8 @@ MODULE et_coupling
         cdft_magnetization_constraint, ref_charge_atomic, ref_charge_mulliken
    USE input_section_types,             ONLY: section_vals_get_subs_vals,&
                                               section_vals_type
-   USE kahan_sum,                       ONLY: accurate_sum
+   USE kahan_sum,                       ONLY: accurate_sum ,&
+                                              accurate_sum_arrays_product
    USE kinds,                           ONLY: dp,&
                                               int_8
    USE mathlib,                         ONLY: diamat_all
@@ -62,7 +63,7 @@ MODULE et_coupling
                                               pw_copy,&
                                               pw_integrate_function,&
                                               pw_scale,&
-                                              pw_set_masked
+                                              pw_set
    USE pw_pool_types,                   ONLY: pw_pool_create_pw,&
                                               pw_pool_give_back_pw,&
                                               pw_pool_type
@@ -426,11 +427,13 @@ CONTAINS
             nvar = 1
             ngrad = 1
             IF (dft_control%nspins == 1) &
-               CPABORT("Becke magnetization density constraint requires UKS calculation.")
+               CALL cp_abort(__LOCATION__, &
+                             "Becke magnetization density constraint requires UKS calculation.")
          CASE (cdft_combined_constraint)
             nvar = 2
             IF (dft_control%nspins == 1) &
-               CPABORT("Becke combined charge+spin constraint requires UKS calculation.")
+               CALL cp_abort(__LOCATION__, &
+                             "Becke combined charge+spin constraint requires UKS calculation.")
             SELECT CASE (dft_control%qs_control%becke_control%combined_type)
             CASE (cdft_combined_all)
                ngrad = 1
@@ -456,7 +459,8 @@ CONTAINS
                IF (.NOT. ASSOCIATED(dft_control%qs_control%becke_control%radii)) THEN
                   CALL get_qs_env(qs_env, atomic_kind_set=atomic_kind_set)
                   IF (.NOT. SIZE(atomic_kind_set) == SIZE(dft_control%qs_control%becke_control%radii_tmp)) &
-                     CALL cp_abort(__LOCATION__, "Length of keyword BECKE_RESTRAINT\ATOMIC_RADII does not "// &
+                     CALL cp_abort(__LOCATION__, &
+                                   "Length of keyword BECKE_RESTRAINT\ATOMIC_RADII does not "// &
                                    "match number of atomic kinds in the input coordinate file.")
                   ALLOCATE (dft_control%qs_control%becke_control%radii(SIZE(atomic_kind_set)))
                   dft_control%qs_control%becke_control%radii(:) = dft_control%qs_control%becke_control%radii_tmp(:)
@@ -473,7 +477,8 @@ CONTAINS
                   dft_control%qs_control%becke_control%cutoffs(:) = dft_control%qs_control%becke_control%rglobal
                CASE (becke_cutoff_element)
                   IF (.NOT. SIZE(atomic_kind_set) == SIZE(dft_control%qs_control%becke_control%cutoffs_tmp)) &
-                     CALL cp_abort(__LOCATION__, "Length of keyword BECKE_RESTRAINT\ELEMENT_CUTOFFS does not "// &
+                     CALL cp_abort(__LOCATION__, &
+                                   "Length of keyword BECKE_RESTRAINT\ELEMENT_CUTOFFS does not "// &
                                    "match number of atomic kinds in the input coordinate file.")
                   DO ikind = 1, SIZE(atomic_kind_set)
                      CALL get_atomic_kind(atomic_kind_set(ikind), natom=katom, atom_list=atom_list)
@@ -783,7 +788,8 @@ CONTAINS
                                                  extension=".cube", file_position="REWIND", &
                                                  log_filename=.FALSE.)
                   IF (para_env%mepos == para_env%source .AND. unit_nr .LT. 1) &
-                     CPABORT("Please turn on PROGRAM_RUN_INFO to print cavity")
+                     CALL cp_abort(__LOCATION__, &
+                                   "Please turn on PROGRAM_RUN_INFO to print cavity")
                   CALL get_qs_env(qs_env, subsys=subsys)
                   CALL qs_subsys_get(subsys, particles=particles)
                   CALL cp_pw_to_cube(dft_control%qs_control%becke_control%cavity%pw, &
@@ -1179,9 +1185,10 @@ CONTAINS
                      IF (i == 2) sign = -1.0_dp
                      SELECT CASE (dft_control%qs_control%becke_control%combined_type)
                      CASE (cdft_combined_all)
-                        dE(ivar) = dE(ivar)+sign* &
-                                   accurate_sum(becke_const%pw%cr3d, rho_r(i)%pw%cr3d, &
-                                                dft_control%qs_control%becke_control%cavity_mat, eps_cavity)*dvol
+                        dE(ivar) = dE(ivar)+&
+                                  sign*accurate_sum_arrays_product(becke_const%pw%cr3d, rho_r(i)%pw%cr3d, &
+                                                                   dft_control%qs_control%becke_control%cavity_mat, &
+                                                                   eps_cavity)*dvol
                      CASE (cdft_combined_donor, cdft_combined_acceptor)
                         ! Transfer spin constraint weight truncated real-3D matrix -> pw%cr3d
                         IF (ASSOCIATED(dft_control%qs_control%becke_control%combined_mat)) THEN
@@ -1192,14 +1199,16 @@ CONTAINS
                                                   dft_control%qs_control%becke_control%combined_weight%pw, &
                                                   use_data=REALDATA3D, in_space=REALSPACE)
                            dft_control%qs_control%becke_control%combined_weight%pw%cr3d = 0.0_dp
-                           CALL pw_set_masked(dft_control%qs_control%becke_control%combined_weight%pw, &
-                                              dft_control%qs_control%becke_control%combined_mat)
+                           CALL pw_set(dft_control%qs_control%becke_control%combined_weight%pw, &
+                                       dft_control%qs_control%becke_control%combined_mat)
                            DEALLOCATE (dft_control%qs_control%becke_control%combined_mat)
                         END IF
                         dE(ivar) = dE(ivar)+sign* &
-                                   accurate_sum(dft_control%qs_control%becke_control%combined_weight%pw%cr3d, &
-                                                rho_r(i)%pw%cr3d, dft_control%qs_control%becke_control%cavity_mat, &
-                                                eps_cavity)*dvol
+                                   accurate_sum_arrays_product(dft_control%qs_control%becke_control%&
+                                                               combined_weight%pw%cr3d, &
+                                                               rho_r(i)%pw%cr3d,&
+                                                               dft_control%qs_control%becke_control%cavity_mat, &
+                                                               eps_cavity)*dvol
                      END SELECT
                   ELSE
                      sign = 1.0_dp
@@ -1207,8 +1216,9 @@ CONTAINS
                      IF (dft_control%qs_control%becke_control%constraint_type == &
                          cdft_magnetization_constraint .AND. i == 2) sign = -1.0_dp
                      dE(ivar) = dE(ivar)+sign* &
-                                accurate_sum(becke_const%pw%cr3d, rho_r(i)%pw%cr3d, &
-                                             dft_control%qs_control%becke_control%cavity_mat, eps_cavity)*dvol
+                                accurate_sum_arrays_product(becke_const%pw%cr3d, rho_r(i)%pw%cr3d, &
+                                                            dft_control%qs_control%becke_control%cavity_mat, &
+                                                            eps_cavity)*dvol
                   END IF
                ELSE
                   IF (ivar == 2) THEN
@@ -1246,17 +1256,21 @@ CONTAINS
          IF (dft_control%qs_control%becke_control%fragment_density) THEN
             ! Fragment densities are meaningful only for some calculation types
             IF (.NOT. qs_env%single_point_run) &
-               CALL cp_abort(__LOCATION__, "Becke deformation density only compatible with single "// &
+               CALL cp_abort(__LOCATION__, &
+                             "Becke deformation density only compatible with single "// &
                              "point calculations (run_type ENERGY or ENERGY_FORCE).")
             IF (dft_control%qs_control%gapw) &
-               CPABORT("Becke deformation density not compatible with GAPW.")
+               CALL cp_abort(__LOCATION__, &
+                             "Becke deformation density not compatible with GAPW.")
             SELECT CASE (dft_control%qs_control%becke_control%constraint_type)
             CASE (cdft_density_constraint)
                ! Pass
             CASE (cdft_magnetization_constraint)
-               CPABORT("Becke deformation density not yet compatible with magnetization density constraint.")
+               CALL cp_abort(__LOCATION__, &
+                             "Becke deformation density not yet compatible with magnetization density constraint.")
             CASE (cdft_combined_constraint)
-               CPABORT("Becke deformation density not yet compatible with combined charge+spin constraint.")
+               CALL cp_abort(__LOCATION__, &
+                             "Becke deformation density not yet compatible with combined charge+spin constraint.")
             END SELECT
             IF (.NOT. dft_control%qs_control%becke_control%fragments_integrated) THEN
                ALLOCATE (dft_control%qs_control%becke_control%fragments(2))
@@ -1285,19 +1299,21 @@ CONTAINS
                CALL qs_subsys_get(subsys, nelectron_total=nelectron_total)
                nelectron_frag = pw_integrate_function(rho_frag%pw)
                IF (NINT(nelectron_frag) /= nelectron_total) &
-                  CALL cp_abort(__LOCATION__, "The number of electrons in the reference and interacting "// &
+                  CALL cp_abort(__LOCATION__, &
+                                "The number of electrons in the reference and interacting "// &
                                 " configurations does not match. Check your fragment cube files.")
                ! Update constraint target value i.e. perform integration w*rho_frag*dr
                ! Note, we assume the weight w is defined only on one of the fragments
                dft_control%qs_control%becke_control%target = 0.0_dp
                IF (ANY(dft_control%qs_control%becke_control%coeff .NE. 1.0_dp)) &
-                  CPABORT("Absolute weight required for Becke deformation density.")
+                  CALL cp_abort(__LOCATION__, &
+                                "Absolute weight required for Becke deformation density.")
                IF (dft_control%qs_control%becke_control%external_control .AND. &
                    dft_control%qs_control%becke_control%cavity_confine) THEN
                   dft_control%qs_control%becke_control%target(1) = &
                      dft_control%qs_control%becke_control%target(1)+ &
-                     accurate_sum(becke_const%pw%cr3d, rho_frag%pw%cr3d, &
-                                  dft_control%qs_control%becke_control%cavity_mat, eps_cavity)*dvol
+                     accurate_sum_arrays_product(becke_const%pw%cr3d, rho_frag%pw%cr3d, &
+                                                 dft_control%qs_control%becke_control%cavity_mat, eps_cavity)*dvol
                ELSE
                   dft_control%qs_control%becke_control%target(1) = &
                      dft_control%qs_control%becke_control%target(1)+ &
@@ -1520,7 +1536,7 @@ CONTAINS
 
    END SUBROUTINE becke_restraint
 
-! *****************************************************************************
+! **************************************************************************************************
 !> \brief calculates Becke constraint gradients
 !> \param qs_env the qs_env where to build the gradients
 !> \param becke_const the Becke real space potential
@@ -2127,9 +2143,11 @@ CONTAINS
                      END DO
                   END DO
                CASE (ref_charge_mulliken)
-                  CPABORT("Mulliken reference charge NYI for Hirshfeld partitioning.")
+                  CALL cp_abort(__LOCATION__, &
+                                "Mulliken reference charge NYI for Hirshfeld partitioning.")
                CASE DEFAULT
-                  CPABORT("Unknown type of reference charge for Hirshfeld partitioning.")
+                  CALL cp_abort(__LOCATION__, &
+                                "Unknown type of reference charge for Hirshfeld partitioning.")
                END SELECT
             END IF
             ! Calculate densities
@@ -2270,7 +2288,7 @@ CONTAINS
 
    END SUBROUTINE hirshfeld_constraint
 
-! *****************************************************************************
+! **************************************************************************************************
 !> \brief calculates forces due to a Gaussian Hirshfeld constraint
 !> \param qs_env the qs_env where to build the constraint
 !> \param cdft_control the container for constraint related structures

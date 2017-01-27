@@ -290,12 +290,12 @@ CONTAINS
 
    END SUBROUTINE qs_scf_ensure_outer_loop_vars
 
-! *****************************************************************************
+! **************************************************************************************************
 !> \brief performs allocation of CDFT SCF variables
-!> \param qs_env ...
-!> \param scf_env ...
-!> \param dft_control ...
-!> \param scf_control ...
+!> \param qs_env the qs_env where to perform the allocation
+!> \param scf_env the currently active scf_env
+!> \param dft_control the dft_control that holds the cdft_control type
+!> \param scf_control the currently active scf_control
 ! **************************************************************************************************
    SUBROUTINE qs_scf_ensure_cdft_loop_vars(qs_env, scf_env, dft_control, scf_control)
       TYPE(qs_environment_type), POINTER                 :: qs_env

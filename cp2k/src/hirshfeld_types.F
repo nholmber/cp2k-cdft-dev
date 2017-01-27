@@ -29,7 +29,7 @@ MODULE hirshfeld_types
    PUBLIC :: get_hirshfeld_info, set_hirshfeld_info
 
 ! **************************************************************************************************
-!> \brief quantities needed for a Hischfeld based partitioning of real space
+!> \brief quantities needed for a Hirshfeld based partitioning of real space
 !> \author JGH
 ! **************************************************************************************************
    TYPE hirshfeld_type
@@ -127,14 +127,15 @@ CONTAINS
    END SUBROUTINE release_hirshfeld_type
 
 ! **************************************************************************************************
-!> \brief ...
-!> \param hirshfeld_env ...
-!> \param shape_function_type ...
-!> \param iterative ...
-!> \param ref_charge ...
-!> \param fnorm ...
-!> \param radius_type ...
-!> \param use_bohr ...
+!> \brief Get information from a Hirshfeld env
+!> \param hirshfeld_env the env that holds the information
+!> \param shape_function_type the type of shape function used
+!> \param iterative logical which determins if iterative Hirshfeld charges should be computed 
+!> \param ref_charge the reference charge type (core charge or mulliken)
+!> \param fnorm normalization of the shape function
+!> \param radius_type the type of radius used for building the shape functions
+!> \param use_bohr logical which determines if angstrom or bohr units are used to build the 
+!>                 shape functions
 ! **************************************************************************************************
    SUBROUTINE get_hirshfeld_info(hirshfeld_env, shape_function_type, iterative, &
                                  ref_charge, fnorm, radius_type, use_bohr)
@@ -173,14 +174,15 @@ CONTAINS
    END SUBROUTINE get_hirshfeld_info
 
 ! **************************************************************************************************
-!> \brief ...
-!> \param hirshfeld_env ...
-!> \param shape_function_type ...
-!> \param iterative ...
-!> \param ref_charge ...
-!> \param fnorm ...
-!> \param radius_type ...
-!> \param use_bohr ...
+!> \brief Set values of a Hirshfeld env
+!> \param hirshfeld_env the env that holds the information
+!> \param shape_function_type the type of shape function used
+!> \param iterative logical which determins if iterative Hirshfeld charges should be computed 
+!> \param ref_charge the reference charge type (core charge or mulliken)
+!> \param fnorm normalization of the shape function
+!> \param radius_type the type of radius used for building the shape functions
+!> \param use_bohr logical which determines if angstrom or bohr units are used to build the 
+!>                 shape functions
 ! **************************************************************************************************
    SUBROUTINE set_hirshfeld_info(hirshfeld_env, shape_function_type, iterative, &
                                  ref_charge, fnorm, radius_type, use_bohr)

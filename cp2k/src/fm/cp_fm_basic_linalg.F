@@ -1201,11 +1201,12 @@ CONTAINS
    END SUBROUTINE cp_fm_column_scale
 
 ! **************************************************************************************************
-!> \brief ...
-!> \param matrix_a ...
-!> \param matrix_inverse ...
-!> \param det_a ...
-!> \param eps_svd ...
+!> \brief Inverts a cp_fm_type matrix, optionally returning the determinant of the input matrix
+!> \param matrix_a the matrix to invert
+!> \param matrix_inverse the inverse of matrix_a
+!> \param det_a the determinant of matrix_a
+!> \param eps_svd optional parameter to active SVD based inversion, singular values below eps_svd
+!>                are screened
 !> \par History
 !>      note of Jan Wilhelm (12.2015)
 !>      - computation of determinant corrected
@@ -1224,7 +1225,7 @@ CONTAINS
 
       INTEGER                                  :: n
       INTEGER, ALLOCATABLE, DIMENSION(:)       :: ipivot
-      REAL(KIND=dp)                            :: determinant
+      REAL(KIND=dp)                            :: determinant, my_eps_svd
       REAL(KIND=dp), DIMENSION(:, :), POINTER  :: a
       TYPE(cp_fm_type), POINTER                :: matrix_B, matrix_lu, &
                                                   u, vt, sigma, inv_sigma_ut
@@ -1232,7 +1233,7 @@ CONTAINS
       INTEGER                                  :: i, info, liwork, lwork, group, exponent_of_minus_one
       INTEGER, DIMENSION(9)                    :: desca
       INTEGER, ALLOCATABLE, DIMENSION(:)       :: iwork
-      REAL(KIND=dp)                            :: alpha, beta, my_eps_svd
+      REAL(KIND=dp)                            :: alpha, beta
       REAL(KIND=dp), DIMENSION(:), POINTER     :: diag
       REAL(KIND=dp), ALLOCATABLE, DIMENSION(:) :: berr, ferr, work
 #else

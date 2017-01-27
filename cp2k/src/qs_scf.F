@@ -1096,7 +1096,7 @@ CONTAINS
 !> \param cdft_control container for the external CDFT SCF loop variables 
 !> \par History
 !>      12.2015 created [Nico Holmberg]
-!> \author
+!> \author Nico Holmberg
 ! **************************************************************************************************
    SUBROUTINE cdft_control_cleanup(cdft_control)
       TYPE(cdft_control_type), POINTER                   :: cdft_control

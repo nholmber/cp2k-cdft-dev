@@ -2821,10 +2821,10 @@ CONTAINS
    END SUBROUTINE write_mo_free_results
 
 ! **************************************************************************************************
-!> \brief ...
-!> \param qs_env ...
-!> \param input_section ...
-!> \param unit_nr ...
+!> \brief Calculates Hirshfeld charges
+!> \param qs_env the qs_env where to calculate the charges
+!> \param input_section the input section for Hirshfeld charges
+!> \param unit_nr the output unit number
 ! **************************************************************************************************
    SUBROUTINE hirshfeld_charges(qs_env, input_section, unit_nr)
       TYPE(qs_environment_type), POINTER                 :: qs_env
@@ -2868,7 +2868,8 @@ CONTAINS
          radius_type = radius_user
          CALL section_vals_val_get(input_section, "ATOMIC_RADII", r_vals=radii)
          IF (.NOT. SIZE(radii) == nkind) &
-            CALL cp_abort(__LOCATION__, "Length of keyword HIRSHFELD\ATOMIC_RADII does not "// &
+            CALL cp_abort(__LOCATION__, &
+                          "Length of keyword HIRSHFELD\ATOMIC_RADII does not "// &
                           "match number of atomic kinds in the input coordinate file.")
       ELSE
          radius_type = radius_covalent

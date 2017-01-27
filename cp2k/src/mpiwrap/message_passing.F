@@ -1734,11 +1734,11 @@ CONTAINS
       CALL mp_timestop(handle)
    END SUBROUTINE mp_waitany
 
-! *****************************************************************************
+! **************************************************************************************************
 !> \brief Tests for completion of the given requests.
 !> \brief We use mpi_test so that we can use a single status.
-!> \param requests ...
-!> \retval flag ...
+!> \param requests the list of requests to test
+!> \retval flag logical which determines if requests are complete 
 !> \par History
 !>      3.2016 adapted to any shape [Nico Holmberg]
 !> \author Alfio Lazzaro
@@ -1770,11 +1770,10 @@ CONTAINS
 #endif
    END FUNCTION mp_testall_tv
 
-! *****************************************************************************
+! **************************************************************************************************
 !> \brief Tests for completion of the given request.
-!> \param request ...
-!> \param flag ...
-!> \retval flag ...
+!> \param request the request
+!> \param flag logical which determines if the request is completed
 !> \par History
 !>      3.2016 created
 !> \author Nico Holmberg
@@ -2190,13 +2189,13 @@ CONTAINS
       CALL mp_timestop(handle)
    END SUBROUTINE mp_bcast_bv
 
-! *****************************************************************************
+! **************************************************************************************************
 !> \brief Non-blocking send of logical vector data
-!> \param msgin ...
-!> \param dest ...
-!> \param comm ...
-!> \param request ...
-!> \param tag ...
+!> \param msgin the input message
+!> \param dest the destination processor
+!> \param comm  the communicator object
+!> \param request communication request index 
+!> \param tag message tag
 !> \par History
 !>      3.2016 added _bv subroutine [Nico Holmberg]
 !> \author fawzi
@@ -2251,13 +2250,13 @@ CONTAINS
       CALL mp_timestop(handle)
    END SUBROUTINE mp_isend_bv
 
-! *****************************************************************************
+! **************************************************************************************************
 !> \brief Non-blocking recieve of logical vector data
-!> \param msgout ...
-!> \param source ...
-!> \param comm ...
-!> \param request ...
-!> \param tag ...
+!> \param msgout the received message
+!> \param source the source processor
+!> \param comm  the communicator object
+!> \param request communication request index 
+!> \param tag message tag
 !> \par History
 !>      3.2016 added _bv subroutine [Nico Holmberg]
 !> \author fawzi
@@ -2312,13 +2311,13 @@ CONTAINS
       CALL mp_timestop(handle)
    END SUBROUTINE mp_irecv_bv
 
-! *****************************************************************************
+! **************************************************************************************************
 !> \brief Non-blocking send of rank-3 logical data
-!> \param msgin ...
-!> \param dest ...
-!> \param comm ...
-!> \param request ...
-!> \param tag ...
+!> \param msgin the input message
+!> \param dest the destination processor
+!> \param comm  the communicator object
+!> \param request communication request index 
+!> \param tag message tag
 !> \par History
 !>      2.2016 added _bm3 subroutine [Nico Holmberg]
 !> \author fawzi
@@ -2373,13 +2372,13 @@ CONTAINS
       CALL mp_timestop(handle)
    END SUBROUTINE mp_isend_bm3
 
-! *****************************************************************************
+! **************************************************************************************************
 !> \brief Non-blocking receive of rank-3 logical data
-!> \param msgout ...
-!> \param source ...
-!> \param comm ...
-!> \param request ...
-!> \param tag ...
+!> \param msgout the received message
+!> \param source the source processor
+!> \param comm  the communicator object
+!> \param request communication request index 
+!> \param tag message tag
 !> \par History
 !>      2.2016 added _bm3 subroutine [Nico Holmberg]
 !> \author fawzi
