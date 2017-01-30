@@ -53,7 +53,9 @@ MODULE qs_scf
                                               cp_fm_to_fm,&
                                               cp_fm_type
    USE cp_files,                        ONLY: open_file
-   USE cp_log_handling,                 ONLY: cp_get_default_logger,&
+   USE cp_log_handling,                 ONLY: cp_add_default_logger,&
+                                              cp_get_default_logger,&
+                                              cp_rm_default_logger,&
                                               cp_logger_create,&
                                               cp_logger_release
                                               cp_logger_type,&
@@ -1132,10 +1134,10 @@ CONTAINS
       CHARACTER(LEN=*), PARAMETER :: routineN = 'outer_loop_calculate_inverse_jacobian', &
          routineP = moduleN//':'//routineN
 
-      CHARACTER(len=default_path_length)                 :: project_filename, tmp_filename
+      CHARACTER(len=default_path_length)                 :: project_name
       INTEGER                                            :: handle, i, ispin, iter_count, iwork, j, &
                                                             max_scf, nspins, nvar, nwork, &
-                                                            output_unit, pwork
+                                                            output_unit, pwork, lp
       LOGICAL                                            :: converged, should_stop
       REAL(KIND=dp)                                      :: dh, inv_error
       REAL(KIND=dp), ALLOCATABLE, DIMENSION(:)           :: coeff, step_multiplier
@@ -1182,11 +1184,10 @@ CONTAINS
       IF (scf_control%outer_scf%build_jacobian) THEN
          ! Redirect output from Jacobian calculation to a new file by creating a temporary logger
          project_name = logger%iter_info%project_name
-         print *, 'global_ name', project_name
          IF (para_env%mepos == para_env%source) THEN
             lp = LEN_TRIM(project_name)
-            tmp_filename(lp+1:LEN(input_file_path)) = "-JacobianInfo.out"
-            CALL open_file(file_name=tmp_filename, file_status="UNKNOWN", &
+            project_name(lp+1:LEN(project_name)) = "-JacobianInfo.out"
+            CALL open_file(file_name=project_name, file_status="UNKNOWN", &
                            file_action="WRITE", file_position="APPEND", &
                            unit_number=output_unit)
          ELSE
@@ -1275,7 +1276,7 @@ CONTAINS
          ! Print some info
          IF (output_unit > 0) THEN
             WRITE (output_unit, FMT="(/,A)") &
-               " ================================== JACOBIAN CALCULATION =================================="
+               " ================================== JACOBIAN CALCULATION ================================="
             WRITE (output_unit, FMT="(A)") &
                " Evaluating inverse Jacobian using finite differences"
             SELECT CASE (scf_control%outer_scf%jacobian_type)
