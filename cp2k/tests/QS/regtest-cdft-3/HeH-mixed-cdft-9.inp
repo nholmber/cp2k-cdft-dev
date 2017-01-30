@@ -1,7 +1,7 @@
 @SET RESTART_WFN          TRUE
 @SET WFN_FILE_1           HeH-cdft-state-1-1_0.wfn
 @SET WFN_FILE_2           HeH-cdft-state-2-1_0.wfn
-@SET PROJECT_NAME         HeH-mixed-cdft-1
+@SET PROJECT_NAME         HeH-mixed-cdft-4
 @SET NAME                 ${PROJECT_NAME}
 @SET WRITE_WFN            0
 @SET CHARGE               1
@@ -35,14 +35,17 @@
 
 @SET USE_DLB              FALSE
 @SET COMPUTE_METRIC       FALSE
-@SET WFN_OVERLAP_METHOD   FALSE  
+@SET WFN_OVERLAP_METHOD   FALSE
 
-@SET NGROUPS              2
+@SET NGROUPS              1 
 
 &GLOBAL
   PROJECT ${PROJECT_NAME}
-  RUN_TYPE ENERGY
+  RUN_TYPE ENERGY_FORCE
   PRINT_LEVEL MEDIUM
+  &TIMINGS
+    THRESHOLD 0.001
+  &END
 &END GLOBAL
 
 &MULTIPLE_FORCE_EVALS

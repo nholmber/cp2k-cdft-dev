@@ -301,10 +301,21 @@ CONTAINS
                WRITE (iounit, *) ""
                WRITE (iounit, FMT="(T2,A,T71)") &
                   "MIXED_CDFT| Activating mixed CDFT calculation"
-               WRITE (iounit, FMT="(T2,A,T71)") &
-                  "MIXED_CDFT| Becke constraint is first built using all available processors"
-               WRITE (iounit, FMT="(T2,A,T71)") &
-                  "MIXED_CDFT| and then copied to both states with their own processor groups"
+               IF (mixed_cdft%is_parallel) THEN
+                  WRITE (iounit, FMT="(T2,A,T71)") &
+                     "MIXED_CDFT| CDFT states calculation mode: parallel"
+                  WRITE (iounit, FMT="(T2,A,T71)") &
+                     "MIXED_CDFT| Becke constraint is first built using all available processors"
+                  WRITE (iounit, FMT="(T2,A,T71)") &
+                     "            and then copied to both states with their own processor groups"
+               ELSE
+                  WRITE (iounit, FMT="(T2,A,T71)") &
+                     "MIXED_CDFT| CDFT states calculation mode: serial"
+                  WRITE (iounit, FMT="(T2,A,T71)") &
+                     "MIXED_CDFT| Becke constraint is built before the SCF procedure of the first"
+                  WRITE (iounit, FMT="(T2,A,T71)") &
+                     "             CDFT state and subsequently copied to the second state"
+               END IF
                WRITE (iounit, FMT="(T2,A,T71,L10)") &
                   "MIXED_CDFT| Calculating electronic coupling between states:         ", mixed_env%do_mixed_et
                WRITE (iounit, FMT="(T2,A,T71,L10)") &

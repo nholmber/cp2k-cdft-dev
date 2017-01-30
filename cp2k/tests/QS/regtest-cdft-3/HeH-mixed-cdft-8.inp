@@ -1,7 +1,7 @@
 @SET RESTART_WFN          TRUE
 @SET WFN_FILE_1           HeH-cdft-state-1-1_0.wfn
 @SET WFN_FILE_2           HeH-cdft-state-2-1_0.wfn
-@SET PROJECT_NAME         HeH-mixed-cdft-1
+@SET PROJECT_NAME         HeH-mixed-cdft-3
 @SET NAME                 ${PROJECT_NAME}
 @SET WRITE_WFN            0
 @SET CHARGE               1
@@ -34,10 +34,10 @@
 @SET BECKE_IN_MEMORY      TRUE
 
 @SET USE_DLB              FALSE
-@SET COMPUTE_METRIC       FALSE
-@SET WFN_OVERLAP_METHOD   FALSE  
+@SET COMPUTE_METRIC       TRUE
+@SET WFN_OVERLAP_METHOD   TRUE
 
-@SET NGROUPS              2
+@SET NGROUPS              1
 
 &GLOBAL
   PROJECT ${PROJECT_NAME}
