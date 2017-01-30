@@ -314,7 +314,7 @@ CONTAINS
                   WRITE (iounit, FMT="(T2,A,T71)") &
                      "MIXED_CDFT| Becke constraint is built before the SCF procedure of the first"
                   WRITE (iounit, FMT="(T2,A,T71)") &
-                     "             CDFT state and subsequently copied to the second state"
+                     "            CDFT state and subsequently copied to the second state"
                END IF
                WRITE (iounit, FMT="(T2,A,T71,L10)") &
                   "MIXED_CDFT| Calculating electronic coupling between states:         ", mixed_env%do_mixed_et
@@ -367,7 +367,6 @@ CONTAINS
       CPASSERT(ASSOCIATED(force_env))
       CALL get_mixed_env(force_env%mixed_env, cdft_control=mixed_cdft)
       CPASSERT(ASSOCIATED(mixed_cdft))
-      print *, 'is_parallel', mixed_cdft%is_parallel, PRESENT(iforce_eval)
       IF (.NOT. PRESENT(iforce_eval)) THEN
          IF (mixed_cdft%is_parallel) &
             CALL mixed_cdft_build_weight_parallel(force_env, calculate_forces)

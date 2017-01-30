@@ -1040,8 +1040,6 @@ CONTAINS
                END DO
             END IF
          END IF
-         print *, 'Status', dft_control%qs_control%becke_control%save_pot, dft_control%qs_control%becke_control%transfer_pot, &
-         .NOT. (dft_control%qs_control%becke_control%save_pot .OR. dft_control%qs_control%becke_control%transfer_pot)
          ! Forces are not needed/serial mode mixed CDFT calculation is not active => time to deallocate Becke
          IF (.NOT. (dft_control%qs_control%becke_control%save_pot .OR. &
                     dft_control%qs_control%becke_control%transfer_pot)) THEN

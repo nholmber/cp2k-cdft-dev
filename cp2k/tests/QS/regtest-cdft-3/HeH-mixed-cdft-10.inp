@@ -1,7 +1,7 @@
 @SET RESTART_WFN          TRUE
 @SET WFN_FILE_1           HeH-cdft-state-1-1_0.wfn
 @SET WFN_FILE_2           HeH-cdft-state-2-1_0.wfn
-@SET PROJECT_NAME         HeH-mixed-cdft-6
+@SET PROJECT_NAME         HeH-mixed-cdft-10
 @SET NAME                 ${PROJECT_NAME}
 @SET WRITE_WFN            0
 @SET CHARGE               1

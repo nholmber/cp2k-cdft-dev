@@ -251,8 +251,6 @@ CONTAINS
          CALL get_qs_env(qs_env, sab_kp=sab_nl)
          CALL kpoint_init_cell_index(kpoints, sab_nl, para_env, dft_control)
       ENDIF
-      print *, 'qs_energies_init', dft_control%qs_control%becke_control%external_control, &
-      ASSOCIATED(dft_control%qs_control%becke_control%becke_pot%pw), dft_control%qs_control%becke_control%need_pot 
       IF (.NOT. (dft_control%qs_control%becke_control%external_control .OR. &
                  ASSOCIATED(dft_control%qs_control%becke_control%becke_pot%pw))) &
          dft_control%qs_control%becke_control%need_pot = .TRUE.

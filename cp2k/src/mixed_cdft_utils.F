@@ -180,7 +180,6 @@ CONTAINS
       ! Get information from the sub_force_envs
       ! TODO: transfer logicals as logicals instead of ints
       DO iforce_eval = 1, nforce_eval
-         print *, 'iforce_eval loop',  iforce_eval, nforce_eval
          IF (.NOT. ASSOCIATED(force_env%sub_force_env(iforce_eval)%force_env)) CYCLE
          IF (mixed_env%do_mixed_qmmm_cdft) THEN
             force_env_qs => force_env%sub_force_env(iforce_eval)%force_env
@@ -212,7 +211,6 @@ CONTAINS
             settings%coeffs(1:dft_control%qs_control%becke_control%natoms, iforce_eval) = &
                dft_control%qs_control%becke_control%coeff
             ! Only GAPW and serial calculation needs to keep a copy of these arrays for constraint integration
-            print *, 'truth value ', iforce_eval, .NOT. (dft_control%qs_control%gapw .OR. mixed_cdft%is_parallel)
             IF (.NOT. dft_control%qs_control%gapw) THEN
                IF (mixed_cdft%is_parallel .OR. &
                   (.NOT. mixed_cdft%is_parallel .AND. iforce_eval /= 1)) THEN
