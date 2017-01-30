@@ -1167,8 +1167,6 @@ CONTAINS
       CALL mixed_cdft_build_weight(force_env, calculate_forces)
       DO iforce_eval = 1, nforce_eval
          IF (.NOT. ASSOCIATED(force_env%sub_force_env(iforce_eval)%force_env)) CYCLE
-         ! Serial CDFT calculation: transfer weight/gradient
-         CALL mixed_cdft_build_weight(force_env, calculate_forces, iforce_eval)
          ! From this point on the error is the sub_error
          IF (.NOT. force_env%mixed_env%cdft_control%is_parallel .AND. iforce_eval == 2) THEN
             my_logger => force_env%mixed_env%cdft_control%sub_logger
@@ -1179,6 +1177,8 @@ CONTAINS
          ! Copy iterations info (they are updated only in the main mixed_env)
          CALL cp_iteration_info_copy_iter(logger%iter_info, my_logger%iter_info)
          CALL cp_add_default_logger(my_logger)
+         ! Serial CDFT calculation: transfer weight/gradient
+         CALL mixed_cdft_build_weight(force_env, calculate_forces, iforce_eval)
          ! Calculate energy and forces for each sub_force_env
          CALL force_env_calc_energy_force(force_env%sub_force_env(iforce_eval)%force_env, &
                                           calc_force=calculate_forces, &
