@@ -29,7 +29,10 @@ MODULE mixed_cdft_utils
                                               cp_fm_p_type,&
                                               cp_fm_release,&
                                               cp_fm_to_fm
+   USE cp_files,                        ONLY: open_file
    USE cp_log_handling,                 ONLY: cp_get_default_logger,&
+                                              cp_logger_create,&
+                                              cp_logger_set,&
                                               cp_logger_type,&
                                               cp_to_string
    USE cp_output_handling,              ONLY: cp_print_key_finished_output,&
@@ -458,8 +461,9 @@ CONTAINS
       CHARACTER(len=*), PARAMETER :: routineN = 'mixed_cdft_init_structures', &
          routineP = moduleN//':'//routineN
 
+      CHARACTER(len=default_path_length)                 :: c_val, input_file_path, output_file_path
       INTEGER                                            :: i, imap, iounit, j, n_force_eval, ncpu, &
-                                                            ntargets, offset, req(3)
+                                                            ntargets, offset, req(3), unit_nr
       INTEGER, ALLOCATABLE, DIMENSION(:, :)              :: bounds
       INTEGER, DIMENSION(2, 3)                           :: bo, bo_mixed
       INTEGER, DIMENSION(3)                              :: higher_grid_layout
@@ -759,6 +763,40 @@ CONTAINS
             DEALLOCATE (bounds)
          END IF
       ELSE
+         ! Create a logger to redirect output of the second CDFT state to a different file than the first state
+         CALL force_env_get(force_env, root_section=root_section)
+         IF (force_env%para_env%mepos == force_env%para_env%source) THEN
+            CALL section_vals_val_get(root_section, "GLOBAL%PROJECT_NAME", &
+                                      c_val=input_file_path)
+            lp = LEN_TRIM(input_file_path)
+            input_file_path(lp+1:LEN(input_file_path)) = "-r-2"
+            lp = LEN_TRIM(input_file_path)
+            output_file_path = input_file_path(1:lp)//".out"
+            CALL open_file(file_name=output_file_path, file_status="UNKNOWN", &
+                           file_action="WRITE", file_position="APPEND", &
+                           unit_number=unit_nr)
+         ELSE
+            unit_nr = -1
+         END IF
+         CALL cp_logger_create(mixed_cdft%sub_logger, &
+                               para_env=force_env%para_env, &
+                               default_global_unit_nr=unit_nr, &
+                               close_global_unit_on_dealloc=.FALSE.)
+         ! Try to use better names for the local log if it is not too late
+         CALL section_vals_val_get(root_section, "GLOBAL%OUTPUT_FILE_NAME", &
+                                   c_val=c_val)
+         IF (c_val /= "") THEN
+            CALL cp_logger_set(mixed_cdft%sub_logger, &
+                               local_filename=TRIM(c_val)//"_localLog")
+         END IF
+         CALL section_vals_val_get(root_section, "GLOBAL%PROJECT", c_val=c_val)
+         IF (c_val /= "") THEN
+            CALL cp_logger_set(mixed_cdft%sub_logger, &
+                               local_filename=TRIM(c_val)//"_localLog")
+         END IF
+         mixed_cdft%sub_logger%iter_info%project_name = c_val
+         CALL section_vals_val_get(root_section, "GLOBAL%PRINT_LEVEL", &
+                                   i_val=mixed_cdft%sub_logger%iter_info%print_level)
          IF (mixed_cdft%wfn_overlap_method) THEN
             ! qs_kind_set
             NULLIFY (root_section, force_env_section, force_env_sections, rs_grid_section)

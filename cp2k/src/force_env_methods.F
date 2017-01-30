@@ -842,8 +842,12 @@ CONTAINS
             CALL cp_result_create(results(iforce_eval)%results)
             IF (.NOT. ASSOCIATED(force_env%sub_force_env(iforce_eval)%force_env)) CYCLE
             ! From this point on the error is the sub_error
-            my_group = force_env%mixed_env%group_distribution(force_env%para_env%mepos)
-            my_logger => force_env%mixed_env%sub_logger(my_group+1)%p
+            IF (.NOT. mixed_env%cdft_control%is_parallel .AND. iforce_eval == 2) THEN
+               my_logger => mixed_env%cdft_control%sub_logger
+            ELSE
+               my_group = force_env%mixed_env%group_distribution(force_env%para_env%mepos)
+               my_logger => force_env%mixed_env%sub_logger(my_group+1)%p
+            END IF
             ! Copy iterations info (they are updated only in the main mixed_env)
             CALL cp_iteration_info_copy_iter(logger%iter_info, my_logger%iter_info)
             CALL cp_add_default_logger(my_logger)
@@ -1202,15 +1206,10 @@ CONTAINS
 
    END SUBROUTINE mixed_cdft_energy_forces
 
- ! **************************************************************************************************
-!> \brief Perform additional tasks for mixed CDFT calculations after calculating each CDFT state
-!> \param force_env ...
-!> \param calculate_forces ...
-!> \param particles ...
-!> \param energies ...
-!> \param global_natoms ...
-!> \param virials ...
-!> \param results ...
+! **************************************************************************************************
+!> \brief Perform additional tasks for mixed CDFT calculations after solving the electronic structure
+!>        of both CDFT states
+!> \param force_env the force_env that holds the CDFT states
 !> \par History
 !>       01.17  created [Nico Holmberg]
 !> \author Nico Holmberg

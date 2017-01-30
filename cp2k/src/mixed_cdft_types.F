@@ -14,6 +14,8 @@ MODULE mixed_cdft_types
                                               cp_blacs_env_type
    USE cp_control_types,                ONLY: becke_control_release,&
                                               becke_restraint_type
+   USE cp_log_handling,                 ONLY: cp_logger_type,&
+                                              cp_logger_release                                              
    USE kinds,                           ONLY: dp
    USE pw_env_types,                    ONLY: pw_env_release,&
                                               pw_env_type
@@ -95,7 +97,8 @@ MODULE mixed_cdft_types
       TYPE(mixed_cdft_dlb_type), POINTER               :: dlb_control
       TYPE(qs_kind_type), DIMENSION(:), &
          POINTER                                       :: qs_kind_set
-      TYPE(pw_env_type), POINTER                      :: pw_env
+      TYPE(pw_env_type), POINTER                       :: pw_env
+      TYPE(cp_logger_type), POINTER                    :: sub_logger
    END TYPE mixed_cdft_type
 
 ! **************************************************************************************************
@@ -155,6 +158,7 @@ CONTAINS
       NULLIFY (cdft_control%source_list_save, cdft_control%source_bo_save, cdft_control%source_list_bo)
       NULLIFY (cdft_control%cavity, cdft_control%weight, cdft_control%sendbuff)
       NULLIFY (cdft_control%becke_control, cdft_control%recv_bo)
+      NULLIFY (cdft_control%sub_logger)
 
    END SUBROUTINE mixed_cdft_type_create
 
@@ -208,6 +212,8 @@ CONTAINS
          CALL cp_blacs_env_release(cdft_control%blacs_env)
       IF (ASSOCIATED(cdft_control%qs_kind_set)) &
          CALL deallocate_qs_kind_set(cdft_control%qs_kind_set)
+      IF (ASSOCIATED(cdft_control%sub_logger)) &
+         CALL cp_logger_release(cdft_control%sub_logger)
       DEALLOCATE (cdft_control)
 
    END SUBROUTINE mixed_cdft_type_release
