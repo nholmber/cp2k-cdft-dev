@@ -1058,7 +1058,7 @@ CONTAINS
                CALL dbcsr_copy(dft_control%qs_control%cdft_control%wmat%matrix, mixed_wmat_b)
             END IF
             CALL dbcsr_release_p(dft_control%qs_control%cdft_control%matrix_s%matrix)
-            CALL dbcsr_release_p(dft_control%qs_control%cdft_control%wmat)
+            CALL dbcsr_release_p(dft_control%qs_control%cdft_control%wmat%matrix)
             CALL get_qs_env(qs_env, dft_control=dft_control)
             IF (mixed_cdft%calculate_metric) THEN
                DO ispin = 1, nspins
