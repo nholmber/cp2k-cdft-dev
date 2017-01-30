@@ -82,7 +82,8 @@ MODULE qs_scf
         outer_scf_optimizer_newton
    USE input_section_types,             ONLY: section_vals_get_subs_vals,&
                                               section_vals_type
-   USE kinds,                           ONLY: default_string_length,&
+   USE kinds,                           ONLY: default_path_length,&
+                                              default_string_length,&
                                               dp
    USE kpoint_io,                       ONLY: write_kpoints_restart
    USE kpoint_types,                    ONLY: kpoint_type
@@ -1128,7 +1129,7 @@ CONTAINS
       CHARACTER(LEN=*), PARAMETER :: routineN = 'outer_loop_calculate_inverse_jacobian', &
          routineP = moduleN//':'//routineN
 
-      CHARACTER(len=*)                                   :: global_filename, tmp_filename
+      CHARACTER(len=default_path_length)                 :: global_filename, tmp_filename
       INTEGER                                            :: handle, i, ispin, iter_count, iwork, j, &
                                                             max_scf, nspins, nvar, nwork, &
                                                             output_unit, pwork
