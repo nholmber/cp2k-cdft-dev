@@ -1128,6 +1128,7 @@ CONTAINS
       CHARACTER(LEN=*), PARAMETER :: routineN = 'outer_loop_calculate_inverse_jacobian', &
          routineP = moduleN//':'//routineN
 
+      CHARACTER(len=*),                                  :: global_filename, tmp_filename
       INTEGER                                            :: handle, i, ispin, iter_count, iwork, j, &
                                                             max_scf, nspins, nvar, nwork, &
                                                             output_unit, pwork
@@ -1139,6 +1140,7 @@ CONTAINS
       REAL(KIND=dp), DIMENSION(:, :), POINTER            :: gradient, inv_jacobian
       TYPE(cdft_control_type), POINTER                   :: cdft_control
       TYPE(cp_logger_type), POINTER                      :: logger
+      TYPE(cp_para_env_type), POINTER                    :: para_env
       TYPE(dbcsr_p_type), DIMENSION(:), POINTER          :: p_rmpv
       TYPE(dbcsr_p_type), DIMENSION(:, :), POINTER       :: rho_ao_kp
       TYPE(dft_control_type), POINTER                    :: dft_control
@@ -1153,13 +1155,14 @@ CONTAINS
 
       NULLIFY (energy, gradient, p_rmpv, rho_ao_kp, mos, rho, &
                mos_stashed, ks_env, scf_env, scf_control, dft_control, &
-               cdft_control, input, scf_section, inv_jacobian)
+               cdft_control, input, scf_section, inv_jacobian, para_env)
       logger => cp_get_default_logger()
 
       CPASSERT(ASSOCIATED(qs_env))
       CALL get_qs_env(qs_env, scf_env=scf_env, ks_env=ks_env, &
                       scf_control=scf_control, mos=mos, rho=rho, &
-                      dft_control=dft_control, input=input)
+                      dft_control=dft_control, input=input, &
+                      para_env=para_env)
 
       SELECT CASE (scf_control%outer_scf%optimizer)
       CASE DEFAULT
@@ -1172,6 +1175,22 @@ CONTAINS
       END SELECT
 
       IF (scf_control%outer_scf%build_jacobian) THEN
+         ! Redirect output from Jacobian calculation to a new file
+         global_filename = logger%global_filename
+         print *, 'global_ name', global_filename
+         !IF (para_env%mepos == para_env%source) THEN
+         !   CALL section_vals_val_get(root_section, "GLOBAL%PROJECT_NAME", &
+         !                             c_val=input_file_path)
+         !   lp = LEN_TRIM(input_file_path)
+         !   input_file_path(lp+1:LEN(input_file_path)) = "-r-2"
+         !   lp = LEN_TRIM(input_file_path)
+         !   output_file_path = input_file_path(1:lp)//".out"
+         !   CALL open_file(file_name=output_file_path, file_status="UNKNOWN", &
+         !                  file_action="WRITE", file_position="APPEND", &
+         !                  unit_number=output_unit)
+         !ELSE
+         !   output_unit = -1
+         !END IF
          ! Get output_unit
          scf_section => section_vals_get_subs_vals(input, "DFT%SCF")
          output_unit = cp_print_key_unit_nr(logger, scf_section, "PRINT%PROGRAM_RUN_INFO", &
