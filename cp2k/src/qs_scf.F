@@ -1128,7 +1128,7 @@ CONTAINS
       CHARACTER(LEN=*), PARAMETER :: routineN = 'outer_loop_calculate_inverse_jacobian', &
          routineP = moduleN//':'//routineN
 
-      CHARACTER(len=*),                                  :: global_filename, tmp_filename
+      CHARACTER(len=*)                                   :: global_filename, tmp_filename
       INTEGER                                            :: handle, i, ispin, iter_count, iwork, j, &
                                                             max_scf, nspins, nvar, nwork, &
                                                             output_unit, pwork
