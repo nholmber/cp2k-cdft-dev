@@ -1031,7 +1031,7 @@ CONTAINS
       CPASSERT(ASSOCIATED(mixed_cdft))
       ! Move needed arrays from individual CDFT states to the mixed CDFT env 
       CALL mixed_cdft_redistribute_arrays(force_env, mixed_wmat_a, mixed_wmat_b, &
-                                          mixed_matrix_s, mo_coeff, density_matrix)
+                                          mixed_matrix_s, mixed_mo_coeff, density_matrix)
       ! Begin coupling calculation
       ! TODO: Handle magnetization/combined constraints
       my_id = -1
