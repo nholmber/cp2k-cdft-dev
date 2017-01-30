@@ -842,8 +842,8 @@ CONTAINS
             CALL cp_result_create(results(iforce_eval)%results)
             IF (.NOT. ASSOCIATED(force_env%sub_force_env(iforce_eval)%force_env)) CYCLE
             ! From this point on the error is the sub_error
-            IF (.NOT. mixed_env%cdft_control%is_parallel .AND. iforce_eval == 2) THEN
-               my_logger => mixed_env%cdft_control%sub_logger
+            IF (.NOT. force_env%mixed_env%cdft_control%is_parallel .AND. iforce_eval == 2) THEN
+               my_logger => force_env%mixed_env%cdft_control%sub_logger
             ELSE
                my_group = force_env%mixed_env%group_distribution(force_env%para_env%mepos)
                my_logger => force_env%mixed_env%sub_logger(my_group+1)%p
