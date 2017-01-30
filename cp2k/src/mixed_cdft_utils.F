@@ -1046,6 +1046,9 @@ CONTAINS
             END IF
             DO ispin = 1, nspins
                NULLIFY (mixed_mo_coeff(iforce_eval, ispin)%matrix)
+               CALL cp_fm_create(matrix=mixed_mo_coeff(iforce_eval, ispin)%matrix, &
+                                 matrix_struct=dft_control%qs_control%cdft_control%mo_coeff(ispin)%matrix_struct, &
+                                 name="MO_COEFF_MATRIX")
                CALL cp_fm_to_fm(dft_control%qs_control%cdft_control%mo_coeff(ispin)%matrix, &
                                 mixed_mo_coeff(iforce_eval, ispin)%matrix)
                CALL cp_fm_release(dft_control%qs_control%cdft_control%mo_coeff(ispin)%matrix)
