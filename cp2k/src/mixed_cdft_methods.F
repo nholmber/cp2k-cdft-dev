@@ -1043,7 +1043,7 @@ CONTAINS
          ! Create the MOxMO fm struct (mo_mo_fm_pools%struct)
          ! The number of MOs/AOs is equal to the number of columns/rows of mo_coeff(:,:)%matrix
          NULLIFY (fm_struct_mo, mo_mo_fmstruct)
-         CALL cp_fm_get_info(mixed_mo_coeff(1, ispin)%matrix, ncol_global=nrow_mo(ispin), nrow_global=ncol_mo(ispin))
+         CALL cp_fm_get_info(mixed_mo_coeff(1, ispin)%matrix, ncol_global=ncol_mo(ispin), nrow_global=nrow_mo(ispin))
          nao = nrow_mo(ispin)
          nmo = ncol_mo(ispin)
          CALL cp_fm_struct_create(fm_struct_mo, nrow_global=nao, ncol_global=nmo, &
@@ -1145,7 +1145,7 @@ CONTAINS
          ELSE
             CALL force_env_get(force_env%sub_force_env(iforce_eval)%force_env, qs_env=qs_env)
          END IF
-         CALL get_qs_env(qs_env, energy=energy)
+         CALL get_qs_env(qs_env, energy=energy, dft_control=dft_control)
          IF (force_env%sub_force_env(iforce_eval)%force_env%para_env%mepos == &
              force_env%sub_force_env(iforce_eval)%force_env%para_env%source) THEN
             IF (iforce_eval == 1) THEN
