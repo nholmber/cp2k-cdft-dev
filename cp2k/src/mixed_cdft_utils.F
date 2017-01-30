@@ -40,7 +40,7 @@ MODULE mixed_cdft_utils
    USE cube_utils,                      ONLY: init_cube_info,&
                                               return_cube_max_iradius
    USE dbcsr_api,                       ONLY: &
-        dbcsr_create, dbcsr_desymmetrize, dbcsr_get_info, dbcsr_init_p, dbcsr_p_type, &
+        dbcsr_create, dbcsr_copy, dbcsr_desymmetrize, dbcsr_get_info, dbcsr_init_p, dbcsr_p_type, &
         dbcsr_release, dbcsr_release_p, dbcsr_type
    USE d3_poly,                         ONLY: init_d3_poly_module
    USE force_env_types,                 ONLY: force_env_get,&
@@ -71,7 +71,8 @@ MODULE mixed_cdft_utils
                                               mp_waitall
    USE mixed_cdft_types,                ONLY: mixed_cdft_settings_type,&
                                               mixed_cdft_type
-   USE mixed_environment_types,         ONLY: mixed_environment_type
+   USE mixed_environment_types,         ONLY: mixed_environment_type, &
+                                              get_mixed_env
    USE pw_env_methods,                  ONLY: pw_env_create
    USE pw_env_types,                    ONLY: pw_env_get,&
                                               pw_env_type
@@ -820,13 +821,13 @@ CONTAINS
 !> \param mixed_wmat_a matrix representation of the weight function of state A
 !> \param mixed_wmat_b matrix representation of the weight function of state B
 !> \param mixed_matrix_s atomic orbital overlap matrix
-!> \param mo_coeff molecular orbitals coefficients for both states
+!> \param mixed_mo_coeff molecular orbitals coefficients for both states
 !> \param density_matrix density matrices for both states
 !> \par History
 !>       01.2017  created [Nico Holmberg]
 ! **************************************************************************************************
    SUBROUTINE mixed_cdft_redistribute_arrays(force_env, mixed_wmat_a, mixed_wmat_b, &
-                                             mixed_matrix_s, mo_coeff, density_matrix)
+                                             mixed_matrix_s, mixed_mo_coeff, density_matrix)
       TYPE(force_env_type), POINTER                      :: force_env
       TYPE(dbcsr_type)                                   :: mixed_wmat_a, &
                                                             mixed_wmat_b
@@ -861,7 +862,6 @@ CONTAINS
                mixed_matrix_s, density_matrix, blacs_env)
 
       CPASSERT(ASSOCIATED(force_env))
-      CALL timeset(routineN, handle)
       mixed_env => force_env%mixed_env
       nforce_eval = SIZE(force_env%sub_force_env)
       CALL get_mixed_env(mixed_env, cdft_control=mixed_cdft)
