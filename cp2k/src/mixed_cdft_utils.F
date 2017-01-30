@@ -18,6 +18,17 @@ MODULE mixed_cdft_utils
                                               cp_blacs_env_type
    USE cp_control_types,                ONLY: becke_control_create,&
                                               dft_control_type
+   USE cp_dbcsr_operations,             ONLY: copy_dbcsr_to_fm,&
+                                              copy_fm_to_dbcsr_bc
+   USE cp_fm_struct,                    ONLY: cp_fm_struct_create,&
+                                              cp_fm_struct_release,&
+                                              cp_fm_struct_type                                              
+   USE cp_fm_types,                     ONLY: cp_fm_copy_general,&
+                                              cp_fm_create,&
+                                              cp_fm_get_info,&
+                                              cp_fm_p_type,&
+                                              cp_fm_release,&
+                                              cp_fm_to_fm
    USE cp_log_handling,                 ONLY: cp_get_default_logger,&
                                               cp_logger_type,&
                                               cp_to_string
@@ -28,6 +39,9 @@ MODULE mixed_cdft_utils
                                               cp_subsys_type
    USE cube_utils,                      ONLY: init_cube_info,&
                                               return_cube_max_iradius
+   USE dbcsr_api,                       ONLY: &
+        dbcsr_create, dbcsr_desymmetrize, dbcsr_get_info, dbcsr_init_p, dbcsr_p_type, &
+        dbcsr_release, dbcsr_release_p, dbcsr_type
    USE d3_poly,                         ONLY: init_d3_poly_module
    USE force_env_types,                 ONLY: force_env_get,&
                                               force_env_type,&
