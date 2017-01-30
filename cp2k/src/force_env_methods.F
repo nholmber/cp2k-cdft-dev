@@ -842,12 +842,8 @@ CONTAINS
             CALL cp_result_create(results(iforce_eval)%results)
             IF (.NOT. ASSOCIATED(force_env%sub_force_env(iforce_eval)%force_env)) CYCLE
             ! From this point on the error is the sub_error
-            IF (.NOT. force_env%mixed_env%cdft_control%is_parallel .AND. iforce_eval == 2) THEN
-               my_logger => force_env%mixed_env%cdft_control%sub_logger
-            ELSE
-               my_group = force_env%mixed_env%group_distribution(force_env%para_env%mepos)
-               my_logger => force_env%mixed_env%sub_logger(my_group+1)%p
-            END IF
+            my_group = force_env%mixed_env%group_distribution(force_env%para_env%mepos)
+            my_logger => force_env%mixed_env%sub_logger(my_group+1)%p
             ! Copy iterations info (they are updated only in the main mixed_env)
             CALL cp_iteration_info_copy_iter(logger%iter_info, my_logger%iter_info)
             CALL cp_add_default_logger(my_logger)
@@ -1137,12 +1133,6 @@ CONTAINS
          CALL virial_create(virials(iforce_eval)%virial)
          CALL cp_result_create(results(iforce_eval)%results)
          IF (.NOT. ASSOCIATED(force_env%sub_force_env(iforce_eval)%force_env)) CYCLE
-         ! From this point on the error is the sub_error
-         my_group = force_env%mixed_env%group_distribution(force_env%para_env%mepos)
-         my_logger => force_env%mixed_env%sub_logger(my_group+1)%p
-         ! Copy iterations info (they are updated only in the main mixed_env)
-         CALL cp_iteration_info_copy_iter(logger%iter_info, my_logger%iter_info)
-
          ! Get all available subsys
          CALL force_env_get(force_env=force_env%sub_force_env(iforce_eval)%force_env, &
                             subsys=subsystems(iforce_eval)%subsys)
@@ -1179,6 +1169,15 @@ CONTAINS
          IF (.NOT. ASSOCIATED(force_env%sub_force_env(iforce_eval)%force_env)) CYCLE
          ! Serial CDFT calculation: transfer weight/gradient
          CALL mixed_cdft_build_weight(force_env, calculate_forces, iforce_eval)
+         ! From this point on the error is the sub_error
+         IF (.NOT. force_env%mixed_env%cdft_control%is_parallel .AND. iforce_eval == 2) THEN
+            my_logger => force_env%mixed_env%cdft_control%sub_logger
+         ELSE
+            my_group = force_env%mixed_env%group_distribution(force_env%para_env%mepos)
+            my_logger => force_env%mixed_env%sub_logger(my_group+1)%p
+         END IF
+         ! Copy iterations info (they are updated only in the main mixed_env)
+         CALL cp_iteration_info_copy_iter(logger%iter_info, my_logger%iter_info)
          CALL cp_add_default_logger(my_logger)
          ! Calculate energy and forces for each sub_force_env
          CALL force_env_calc_energy_force(force_env%sub_force_env(iforce_eval)%force_env, &
