@@ -52,7 +52,10 @@ MODULE qs_scf
                                               cp_fm_release,&
                                               cp_fm_to_fm,&
                                               cp_fm_type
+   USE cp_files,                        ONLY: open_file
    USE cp_log_handling,                 ONLY: cp_get_default_logger,&
+                                              cp_logger_create,&
+                                              cp_logger_release
                                               cp_logger_type,&
                                               cp_to_string
    USE cp_output_handling,              ONLY: cp_add_iter_level,&
@@ -1129,7 +1132,7 @@ CONTAINS
       CHARACTER(LEN=*), PARAMETER :: routineN = 'outer_loop_calculate_inverse_jacobian', &
          routineP = moduleN//':'//routineN
 
-      CHARACTER(len=default_path_length)                 :: global_filename, tmp_filename
+      CHARACTER(len=default_path_length)                 :: project_filename, tmp_filename
       INTEGER                                            :: handle, i, ispin, iter_count, iwork, j, &
                                                             max_scf, nspins, nvar, nwork, &
                                                             output_unit, pwork
@@ -1140,7 +1143,7 @@ CONTAINS
       REAL(KIND=dp), DIMENSION(:), POINTER               :: energy
       REAL(KIND=dp), DIMENSION(:, :), POINTER            :: gradient, inv_jacobian
       TYPE(cdft_control_type), POINTER                   :: cdft_control
-      TYPE(cp_logger_type), POINTER                      :: logger
+      TYPE(cp_logger_type), POINTER                      :: logger, tmp_logger
       TYPE(cp_para_env_type), POINTER                    :: para_env
       TYPE(dbcsr_p_type), DIMENSION(:), POINTER          :: p_rmpv
       TYPE(dbcsr_p_type), DIMENSION(:, :), POINTER       :: rho_ao_kp
@@ -1156,7 +1159,8 @@ CONTAINS
 
       NULLIFY (energy, gradient, p_rmpv, rho_ao_kp, mos, rho, &
                mos_stashed, ks_env, scf_env, scf_control, dft_control, &
-               cdft_control, input, scf_section, inv_jacobian, para_env)
+               cdft_control, input, scf_section, inv_jacobian, para_env, &
+               tmp_logger)
       logger => cp_get_default_logger()
 
       CPASSERT(ASSOCIATED(qs_env))
@@ -1176,26 +1180,22 @@ CONTAINS
       END SELECT
 
       IF (scf_control%outer_scf%build_jacobian) THEN
-         ! Redirect output from Jacobian calculation to a new file
-         global_filename = logger%global_filename
-         print *, 'global_ name', global_filename
-         !IF (para_env%mepos == para_env%source) THEN
-         !   CALL section_vals_val_get(root_section, "GLOBAL%PROJECT_NAME", &
-         !                             c_val=input_file_path)
-         !   lp = LEN_TRIM(input_file_path)
-         !   input_file_path(lp+1:LEN(input_file_path)) = "-r-2"
-         !   lp = LEN_TRIM(input_file_path)
-         !   output_file_path = input_file_path(1:lp)//".out"
-         !   CALL open_file(file_name=output_file_path, file_status="UNKNOWN", &
-         !                  file_action="WRITE", file_position="APPEND", &
-         !                  unit_number=output_unit)
-         !ELSE
-         !   output_unit = -1
-         !END IF
-         ! Get output_unit
-         scf_section => section_vals_get_subs_vals(input, "DFT%SCF")
-         output_unit = cp_print_key_unit_nr(logger, scf_section, "PRINT%PROGRAM_RUN_INFO", &
-                                            extension=".scfLog")
+         ! Redirect output from Jacobian calculation to a new file by creating a temporary logger
+         project_name = logger%iter_info%project_name
+         print *, 'global_ name', project_name
+         IF (para_env%mepos == para_env%source) THEN
+            lp = LEN_TRIM(project_name)
+            tmp_filename(lp+1:LEN(input_file_path)) = "-JacobianInfo.out"
+            CALL open_file(file_name=tmp_filename, file_status="UNKNOWN", &
+                           file_action="WRITE", file_position="APPEND", &
+                           unit_number=output_unit)
+         ELSE
+            output_unit = -1
+         END IF
+         CALL cp_logger_create(tmp_logger, &
+                               para_env=para_env, &
+                               default_global_unit_nr=output_unit, &
+                               close_global_unit_on_dealloc=.FALSE.)
          ! Save last converged state so we can roll back to it (mo_coeff and some outer_loop variables)
          nspins = dft_control%nspins
          ALLOCATE (mos_stashed(nspins))
@@ -1275,7 +1275,7 @@ CONTAINS
          ! Print some info
          IF (output_unit > 0) THEN
             WRITE (output_unit, FMT="(/,A)") &
-               " ============================== CDFT SCF LOOP =================================="
+               " ================================== JACOBIAN CALCULATION =================================="
             WRITE (output_unit, FMT="(A)") &
                " Evaluating inverse Jacobian using finite differences"
             SELECT CASE (scf_control%outer_scf%jacobian_type)
@@ -1296,6 +1296,7 @@ CONTAINS
             WRITE (output_unit, '(A,ES12.4)') " Step size          : ", scf_control%outer_scf%jacobian_step
          END IF
          ! Calculate the Jacobian by perturbing each Lagrangian and recalculating the energy self-consistently
+         CALL cp_add_default_logger(tmp_logger)
          DO i = 1, nvar
             DO iwork = nwork, pwork
                IF (iwork == 0) CYCLE
@@ -1346,7 +1347,9 @@ CONTAINS
          DEALLOCATE (mos_stashed, jacobian, gradient, energy, coeff, step_multiplier)
          IF (output_unit > 0) &
             WRITE (output_unit, FMT="(/,A)") &
-            " ============================= JACOBIAN CALCULATED ============================="
+            " ================================== JACOBIAN CALCULATED =================================="
+         CALL cp_rm_default_logger()
+         CALL cp_logger_release(tmp_logger)
       END IF
       CALL timestop(handle)
 
