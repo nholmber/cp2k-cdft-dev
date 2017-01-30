@@ -65,8 +65,10 @@ MODULE mixed_cdft_utils
    USE input_section_types,             ONLY: section_vals_duplicate,&
                                               section_vals_get_subs_vals,&
                                               section_vals_release,&
-                                              section_vals_type
-   USE kinds,                           ONLY: dp
+                                              section_vals_type, &
+                                              section_vals_val_get
+   USE kinds,                           ONLY: default_path_length, &
+                                              dp
    USE message_passing,                 ONLY: mp_irecv,&
                                               mp_isend,&
                                               mp_sum,&
@@ -463,7 +465,7 @@ CONTAINS
 
       CHARACTER(len=default_path_length)                 :: c_val, input_file_path, output_file_path
       INTEGER                                            :: i, imap, iounit, j, n_force_eval, ncpu, &
-                                                            ntargets, offset, req(3), unit_nr
+                                                            ntargets, offset, req(3), unit_nr, lp
       INTEGER, ALLOCATABLE, DIMENSION(:, :)              :: bounds
       INTEGER, DIMENSION(2, 3)                           :: bo, bo_mixed
       INTEGER, DIMENSION(3)                              :: higher_grid_layout
