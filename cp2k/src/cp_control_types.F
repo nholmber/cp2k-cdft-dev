@@ -217,9 +217,9 @@ MODULE cp_control_types
 
 ! **************************************************************************************************
 !> \brief some parameters useful for becke_restraints
-!> \param fragment_a_fname filename of cube file holding the isolated electron density of fragment a  
-!> \param fragment_b_fname filename of cube file holding the isolated electron density of fragment b  
-!> \param ref_count the ref count  
+!> \param fragment_a_fname filename of cube file holding the isolated electron density of fragment a
+!> \param fragment_b_fname filename of cube file holding the isolated electron density of fragment b
+!> \param ref_count the ref count
 !> \param rglobal global cutoff to use for building the constraint
 !> \param target target values of the constraints
 !> \param strength Lagrangian multipliers of the constraints
@@ -235,13 +235,13 @@ MODULE cp_control_types
 !> \param becke_pot the Becke real space potential
 !> \param cavity the Gaussian confinement cavity: the constraint is nonzero outside this cavity
 !> \param combined_weight the Becke real space potential for the spin constraint when using combined
-!>                        density+spin constraint 
+!>                        density+spin constraint
 !> \param charge atomic Becke real space potentials needed to calculate atomic Becke charges
 !> \param fragments container for isolated fragment densities read from cube files
 !> \param need_pot logical which determines if the Becke potential needs to be built
-!> \param save_pot logical which determines if the Becke potential should be saved until forces 
+!> \param save_pot logical which determines if the Becke potential should be saved until forces
 !>                 have been evaluated
-!> \param in_memory logical which determines if the gradients of the Becke potential should be 
+!> \param in_memory logical which determines if the gradients of the Becke potential should be
 !>                  computed simultaneously with the potential instead of separately
 !> \param adjust logical which determines if the Becke potential is adjusted with atomic radii
 !> \param atomic_charges logical which determines if atomic Becke charges should be computed
@@ -249,7 +249,7 @@ MODULE cp_control_types
 !> \param dynamic_confine logical which determines if dynamic confinement is active
 !> \param cavity_confine logical which determines if cavity confinement is active
 !> \param should_skip logical which determines is grid points should be skipped if all constraint
-!>                    atoms are found to reside beyond the cutoff distance from it 
+!>                    atoms are found to reside beyond the cutoff distance from it
 !> \param print_cavity logical to print the Gaussian confinement cavity
 !> \param external_control logical which determines if the constraint has already been built
 !>                         in a mixed_env that holds multiple CDFT states
@@ -267,12 +267,12 @@ MODULE cp_control_types
 !> \param confine_bounds_int grid point indices outside which the constraint vanishes along confine_dir
 !> \param confine_bounds same as confine_bounds_int, but in distance units
 !> \param dynamic_radius the radius parameter used for creating the dynamic confinement bounds
-!> \param rcavity an optional global radius parameter used to define the Gaussian confinement cavity 
+!> \param rcavity an optional global radius parameter used to define the Gaussian confinement cavity
 !> \param eps_cavity threshold used screen small values of the Gaussian cavity density
 !> \param cavity_env the structure used to build the Gaussian cavity
 !> \param aij pairwise parameters used to adjust the Becke cell boundaries built from atomic radii
 !> \param skip_list a list of grid points skipped my keyword should_skip
-!> \param cavity_mat a compacted version of cavity 
+!> \param cavity_mat a compacted version of cavity
 !> \param combined_mat a compated version of combined_weight
 !> \param gradients atomic gradients of the weight function
 ! **************************************************************************************************
@@ -288,7 +288,7 @@ MODULE cp_control_types
                                               constraint_type, combined_type
       INTEGER, POINTER, DIMENSION(:)       :: atoms
       TYPE(pw_p_type)                      :: becke_pot, cavity, combined_weight
-      TYPE(pw_p_type), POINTER,&
+      TYPE(pw_p_type), POINTER, &
          DIMENSION(:)                      :: charge, fragments
       LOGICAL                              :: need_pot, save_pot, in_memory, &
                                               adjust, atomic_charges, confine, &
@@ -340,10 +340,10 @@ MODULE cp_control_types
 !> \param precond_freq preconditioner can be used if SCF converged in less than precond_freq steps
 !> \param nreused determines how many times the current OT preconditioner has been reused
 !> \param max_reuse the same preconditioner can be used a maximum of max_reuse times
-!> \param purge_freq determines how large nbad_conv can grow before purging the wfn/constraint history 
+!> \param purge_freq determines how large nbad_conv can grow before purging the wfn/constraint history
 !> \param nbad_conv a running counter keeping track of the number of CDFT SCF loops when the first
-!>                  CDFT SCF iteration required more than 1 outer SCF loop. Reset when convergence is 
-!>                  smooth 
+!>                  CDFT SCF iteration required more than 1 outer SCF loop. Reset when convergence is
+!>                  smooth
 !> \param purge_offset purging is only allowed when more than purge_offset steps have passed since
 !>                     last purge
 !> \param istep a counter to keep track of how many steps have passed since the last purge
@@ -360,7 +360,7 @@ MODULE cp_control_types
 !> \param value integrated values of the constraints
 !> \param weight the constraint potential
 !> \param need_pot logical which determines if the constraint potential needs to be built
-!> \param save_pot logical which determines if the constraint potential should be saved until forces 
+!> \param save_pot logical which determines if the constraint potential should be saved until forces
 !>                 have been evaluated
 !> \param do_et logical which determines if a ET coupling calculation was requested
 !> \param reuse_precond logical which determines if a preconditioner can be reused
@@ -550,7 +550,7 @@ MODULE cp_control_types
 !   TDDFPT operator without the perturbation kernel.
 ! **************************************************************************************************
    TYPE tddfpt_control_type
-      TYPE(cp_fm_p_type), DIMENSION(:),&
+      TYPE(cp_fm_p_type), DIMENSION(:), &
          POINTER                           :: lumos
       REAL(KIND=dp)                        :: tolerance
       INTEGER                              :: n_ev

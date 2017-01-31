@@ -130,11 +130,11 @@ CONTAINS
 !> \brief Get information from a Hirshfeld env
 !> \param hirshfeld_env the env that holds the information
 !> \param shape_function_type the type of shape function used
-!> \param iterative logical which determins if iterative Hirshfeld charges should be computed 
+!> \param iterative logical which determins if iterative Hirshfeld charges should be computed
 !> \param ref_charge the reference charge type (core charge or mulliken)
 !> \param fnorm normalization of the shape function
 !> \param radius_type the type of radius used for building the shape functions
-!> \param use_bohr logical which determines if angstrom or bohr units are used to build the 
+!> \param use_bohr logical which determines if angstrom or bohr units are used to build the
 !>                 shape functions
 ! **************************************************************************************************
    SUBROUTINE get_hirshfeld_info(hirshfeld_env, shape_function_type, iterative, &
@@ -177,11 +177,11 @@ CONTAINS
 !> \brief Set values of a Hirshfeld env
 !> \param hirshfeld_env the env that holds the information
 !> \param shape_function_type the type of shape function used
-!> \param iterative logical which determins if iterative Hirshfeld charges should be computed 
+!> \param iterative logical which determins if iterative Hirshfeld charges should be computed
 !> \param ref_charge the reference charge type (core charge or mulliken)
 !> \param fnorm normalization of the shape function
 !> \param radius_type the type of radius used for building the shape functions
-!> \param use_bohr logical which determines if angstrom or bohr units are used to build the 
+!> \param use_bohr logical which determines if angstrom or bohr units are used to build the
 !>                 shape functions
 ! **************************************************************************************************
    SUBROUTINE set_hirshfeld_info(hirshfeld_env, shape_function_type, iterative, &

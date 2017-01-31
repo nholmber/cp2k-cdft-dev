@@ -132,11 +132,11 @@ CONTAINS
    END SUBROUTINE write_hirshfeld_charges
 
 ! **************************************************************************************************
-!> \brief creates kind specific shape functions for Hirshfeld charges 
+!> \brief creates kind specific shape functions for Hirshfeld charges
 !> \param hirshfeld_env the env that holds information about Hirshfeld
 !> \param qs_kind_set the qs_kind_set
 !> \param atomic_kind_set the atomic_kind_set
-!> \param radius optional radius parameter to use for all atomic kinds 
+!> \param radius optional radius parameter to use for all atomic kinds
 !> \param radii_list optional list of radii to use for different atomic kinds
 ! **************************************************************************************************
    SUBROUTINE create_shape_function(hirshfeld_env, qs_kind_set, atomic_kind_set, radius, radii_list)

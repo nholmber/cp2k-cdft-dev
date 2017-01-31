@@ -52,7 +52,12 @@ MODULE cp_fm_basic_linalg
              cp_fm_solve ! solves the equation  A*B=C A and C are input
 
    REAL(KIND=dp), EXTERNAL :: dlange, pdlange, pdlatra
+#if defined (__ACCELERATE)
+   REAL(KIND=dp), EXTERNAL :: slange
+   REAL(KIND=sp), EXTERNAL :: pslange, pslatra
+#else
    REAL(KIND=sp), EXTERNAL :: slange, pslange, pslatra
+#endif
 
 CONTAINS
 
@@ -1227,15 +1232,15 @@ CONTAINS
       INTEGER, ALLOCATABLE, DIMENSION(:)       :: ipivot
       REAL(KIND=dp)                            :: determinant, my_eps_svd
       REAL(KIND=dp), DIMENSION(:, :), POINTER  :: a
-      TYPE(cp_fm_type), POINTER                :: matrix_B, matrix_lu, &
-                                                  u, vt, sigma, inv_sigma_ut
+      TYPE(cp_fm_type), POINTER                :: matrix_lu
+
 #if defined(__SCALAPACK)
+      TYPE(cp_fm_type), POINTER                :: u, vt, sigma, inv_sigma_ut
       INTEGER                                  :: i, info, liwork, lwork, group, exponent_of_minus_one
       INTEGER, DIMENSION(9)                    :: desca
-      INTEGER, ALLOCATABLE, DIMENSION(:)       :: iwork
       REAL(KIND=dp)                            :: alpha, beta
       REAL(KIND=dp), DIMENSION(:), POINTER     :: diag
-      REAL(KIND=dp), ALLOCATABLE, DIMENSION(:) :: berr, ferr, work
+      REAL(KIND=dp), ALLOCATABLE, DIMENSION(:) :: work
 #else
       LOGICAL                                  :: sign
       REAL(KIND=dp)                            :: eps1
@@ -1249,9 +1254,6 @@ CONTAINS
                         name="A_lu"//TRIM(ADJUSTL(cp_to_string(1)))//"MATRIX")
       CALL cp_fm_to_fm(matrix_a, matrix_lu)
 
-      !CALL cp_fm_create(matrix=matrix_B, &
-      !                  matrix_struct=matrix_a%matrix_struct, &
-      !                  name="B_mat"//TRIM(ADJUSTL(cp_to_string(1)))//"MATRIX")
       a => matrix_lu%local_data
       n = matrix_lu%matrix_struct%nrow_global
       ALLOCATE (ipivot(n+matrix_a%matrix_struct%nrow_block))
@@ -1259,10 +1261,6 @@ CONTAINS
 #if defined(__SCALAPACK)
       IF (my_eps_svd .EQ. 0.0_dp) THEN
          ! Use LU decomposition
-         !ALLOCATE (ferr(n))
-         !ALLOCATE (berr(n))
-         !ALLOCATE (work(3*n))
-         !ALLOCATE (iwork(3*N))
          lwork = 3*n
          liwork = 3*n
          desca(:) = matrix_lu%matrix_struct%descriptor(:)
@@ -1297,22 +1295,6 @@ CONTAINS
          beta = 1.0_dp
          CALL cp_fm_set_all(matrix_inverse, alpha, beta)
          CALL pdgetrs('N', n, n, matrix_lu%local_data, 1, 1, desca, ipivot, matrix_inverse%local_data, 1, 1, desca, info)
-!   CALL cp_fm_set_all(matrix_B,alpha,beta)
-!    DO iter=1,10
-!       CALL pdgerfs('N',n,n,matrix_a%local_data,1,1,desca,matrix_lu%local_data,&
-!                      1,1,desca,ipivot,matrix_B%local_data,&
-!                     1,1,desca,matrix_inverse%local_data,1,1,&
-!                      desca,ferr,berr,work,lwork,iwork,liwork,info)
-!       eps1=eps2
-!       eps2=MAXVAL(ferr)
-!       IF (ABS( eps2 - eps1) <= EPSILON(1.0_dp))THEN
-!          EXIT
-!       END IF
-!    END DO
-!      DEALLOCATE (ferr)
-!      DEALLOCATE (berr)
-!      DEALLOCATE (work)
-!      DEALLOCATE (iwork)
       ELSE
          ! Use singular value decomposition
          CALL cp_fm_create(matrix=u, &
@@ -1387,7 +1369,6 @@ CONTAINS
       END IF
 #endif
       CALL cp_fm_release(matrix_lu)
-!      CALL cp_fm_release(matrix_B)
       DEALLOCATE (ipivot)
       IF (PRESENT(det_a)) det_a = determinant
    END SUBROUTINE cp_fm_invert

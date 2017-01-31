@@ -171,7 +171,7 @@ CONTAINS
 !> \param qs_env the qs_env where to apply the constraint
 !> \param auxbas_pw_pool the pool that owns the real space grid where the CDFT potential is defined
 !> \param calculate_forces if forces should be calculated
-!> \param cdft the CDFT control type
+!> \param cdft_control the CDFT control type
 ! **************************************************************************************************
    SUBROUTINE qs_ks_cdft_constraint(qs_env, auxbas_pw_pool, calculate_forces, cdft_control)
       TYPE(qs_environment_type), POINTER                 :: qs_env

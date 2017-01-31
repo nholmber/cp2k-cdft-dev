@@ -1738,7 +1738,7 @@ CONTAINS
 !> \brief Tests for completion of the given requests.
 !> \brief We use mpi_test so that we can use a single status.
 !> \param requests the list of requests to test
-!> \retval flag logical which determines if requests are complete 
+!> \retval flag logical which determines if requests are complete
 !> \par History
 !>      3.2016 adapted to any shape [Nico Holmberg]
 !> \author Alfio Lazzaro
@@ -1789,6 +1789,9 @@ CONTAINS
 #if defined(__parallel)
       CALL mpi_test(request, flag, MPI_STATUS_IGNORE, ierr)
       IF (ierr /= 0) CALL mp_stop(ierr, "mpi_test @ mp_test_1")
+#else
+      MARK_USED(request)
+      flag = .TRUE.
 #endif
    END SUBROUTINE mp_test_1
 
@@ -2194,7 +2197,7 @@ CONTAINS
 !> \param msgin the input message
 !> \param dest the destination processor
 !> \param comm  the communicator object
-!> \param request communication request index 
+!> \param request communication request index
 !> \param tag message tag
 !> \par History
 !>      3.2016 added _bv subroutine [Nico Holmberg]
@@ -2255,7 +2258,7 @@ CONTAINS
 !> \param msgout the received message
 !> \param source the source processor
 !> \param comm  the communicator object
-!> \param request communication request index 
+!> \param request communication request index
 !> \param tag message tag
 !> \par History
 !>      3.2016 added _bv subroutine [Nico Holmberg]
@@ -2316,7 +2319,7 @@ CONTAINS
 !> \param msgin the input message
 !> \param dest the destination processor
 !> \param comm  the communicator object
-!> \param request communication request index 
+!> \param request communication request index
 !> \param tag message tag
 !> \par History
 !>      2.2016 added _bm3 subroutine [Nico Holmberg]
@@ -2377,7 +2380,7 @@ CONTAINS
 !> \param msgout the received message
 !> \param source the source processor
 !> \param comm  the communicator object
-!> \param request communication request index 
+!> \param request communication request index
 !> \param tag message tag
 !> \par History
 !>      2.2016 added _bm3 subroutine [Nico Holmberg]

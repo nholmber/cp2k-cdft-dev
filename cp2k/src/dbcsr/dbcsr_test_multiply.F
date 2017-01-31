@@ -562,14 +562,18 @@ CONTAINS
       LOGICAL, INTENT(out)                               :: success
 
       CHARACTER(len=*), PARAMETER :: routineN = 'dbcsr_check_multiply', &
-         routineP = moduleN//':'//routineN
+                                     routineP = moduleN//':'//routineN
       INTEGER :: a_col, a_m, a_n, a_row, b_col, b_m, b_n, b_row, c_col, c_col_size, c_row, &
-         c_row_size, handle, i, istat, j, k, lda, ldb, ldc, lwork, m, mynode, n, numnodes
+                 c_row_size, handle, i, istat, j, k, lda, ldb, ldc, lwork, m, mynode, n, numnodes
       CHARACTER, PARAMETER                               :: norm = 'I'
 
       LOGICAL                                            :: valid
       REAL(real_4), ALLOCATABLE, DIMENSION(:)            :: work_sp
+#if defined (__ACCELERATE)
+      REAL(real_8), EXTERNAL                             :: clange, slamch, slange
+#else
       REAL(real_4), EXTERNAL                             :: clange, slamch, slange
+#endif
       REAL(real_8)                                       :: a_norm, b_norm, c_norm_dbcsr, c_norm_in, &
                                                             c_norm_out, eps, residual
       REAL(real_8), ALLOCATABLE, DIMENSION(:)            :: work

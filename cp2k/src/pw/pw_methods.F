@@ -1955,22 +1955,21 @@ CONTAINS
    END FUNCTION pw_integrate_function
 
 ! **************************************************************************************************
-!> \brief Initialize pw values using values from a real array data, which might be defined on a 
+!> \brief Initialize pw values using values from a real array data, which might be defined on a
 !>        smaller grid than pw but which is contained in it
 !> \param pw the pw to initialize
-!> \param data the array holding the input data
+!> \param values the array holding the input data
 !> \par History
 !>      Created 12.2016
 !> \author Nico Holmberg
 ! **************************************************************************************************
-   SUBROUTINE pw_set(pw, data)
+   SUBROUTINE pw_set(pw, values)
 
       TYPE(pw_type), INTENT(INOUT)                       :: pw
       REAL(KIND=dp), DIMENSION(:, :, :), INTENT(IN), &
-         POINTER                                         :: data
+         POINTER                                         :: values
 
-      CHARACTER(len=*), PARAMETER :: routineN = 'pw_set', &
-         routineP = moduleN//':'//routineN
+      CHARACTER(len=*), PARAMETER :: routineN = 'pw_set', routineP = moduleN//':'//routineN
 
       INTEGER                                            :: handle, i, j, k
       LOGICAL                                            :: is_match
@@ -1978,19 +1977,19 @@ CONTAINS
       CALL timeset(routineN, handle)
       CPASSERT(pw%ref_count > 0)
       IF (pw%in_use == REALDATA3D) THEN
-         is_match = .TRUE. 
-         is_match = is_match .AND. (LBOUND(data, 1) .GE. LBOUND(pw%cr3d, 1))
-         is_match = is_match .AND. (UBOUND(data, 1) .LE. UBOUND(pw%cr3d, 1))
-         is_match = is_match .AND. (LBOUND(data, 2) .GE. LBOUND(pw%cr3d, 2))
-         is_match = is_match .AND. (UBOUND(data, 2) .LE. UBOUND(pw%cr3d, 2))
-         is_match = is_match .AND. (LBOUND(data, 3) .GE. LBOUND(pw%cr3d, 3))
-         is_match = is_match .AND. (UBOUND(data, 3) .LE. UBOUND(pw%cr3d, 3))
-         IF (.NOT. is_match)&
+         is_match = .TRUE.
+         is_match = is_match .AND. (LBOUND(values, 1) .GE. LBOUND(pw%cr3d, 1))
+         is_match = is_match .AND. (UBOUND(values, 1) .LE. UBOUND(pw%cr3d, 1))
+         is_match = is_match .AND. (LBOUND(values, 2) .GE. LBOUND(pw%cr3d, 2))
+         is_match = is_match .AND. (UBOUND(values, 2) .LE. UBOUND(pw%cr3d, 2))
+         is_match = is_match .AND. (LBOUND(values, 3) .GE. LBOUND(pw%cr3d, 3))
+         is_match = is_match .AND. (UBOUND(values, 3) .LE. UBOUND(pw%cr3d, 3))
+         IF (.NOT. is_match) &
             CPABORT("Incompatible data fields")
-         DO i = LBOUND(data, 3), UBOUND(data, 3)
-            DO j = LBOUND(data, 2), UBOUND(data, 2)
-               DO k = LBOUND(data, 1), UBOUND(data, 1)
-                  pw%cr3d(k, j, i) = data(k, j, i)
+         DO i = LBOUND(values, 3), UBOUND(values, 3)
+            DO j = LBOUND(values, 2), UBOUND(values, 2)
+               DO k = LBOUND(values, 1), UBOUND(values, 1)
+                  pw%cr3d(k, j, i) = values(k, j, i)
                END DO
             END DO
          END DO

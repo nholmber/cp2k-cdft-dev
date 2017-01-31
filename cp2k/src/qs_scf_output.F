@@ -620,7 +620,7 @@ CONTAINS
 !> \param scf_env the env which holds convergence data
 !> \param cdft_control the env which holds information about the constraint
 !> \param energy the total energy
-!> \param total_steps the total number of performed SCF iterations  
+!> \param total_steps the total number of performed SCF iterations
 !> \param should_stop if the calculation should stop
 !> \param outer_loop_converged logical which determines if the CDFT SCF loop converged
 !> \param cdft_loop logical which determines a CDFT SCF loop is active
@@ -706,8 +706,8 @@ CONTAINS
 ! **************************************************************************************************
 !> \brief writes information about the CDFT env
 !> \param output_unit where to write the information
-!> \param cdft_control the CDFT env that stores information about the constraint calculation 
-!> \param dft_control çontainer for Becke constraint related information
+!> \param cdft_control the CDFT env that stores information about the constraint calculation
+!> \param dft_control container for Becke constraint related information
 !> \par History
 !>      12.2015 created [Nico Holmberg]
 ! **************************************************************************************************

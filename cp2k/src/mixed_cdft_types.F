@@ -59,9 +59,9 @@ MODULE mixed_cdft_types
 !> \brief Load balancing control for mixed CDFT calculation
 !> \param my_source index of the processor which will send this processor data
 !> \param distributed bounds that determine which grid points this processor will compute after
-!>                    applying load balancing (is_special = .FALSE.) 
-!> \param my_dest_repl the dest_list arrays of all processors which send additional work to this 
-!>                     processor (indices of the processors where the redistributed slices should be 
+!>                    applying load balancing (is_special = .FALSE.)
+!> \param my_dest_repl the dest_list arrays of all processors which send additional work to this
+!>                     processor (indices of the processors where the redistributed slices should be
 !>                     returned)
 !> \param dest_tags_repl tags for the send messages (is_special = .FALSE.)
 !> \param more_work allow heavily overloaded processors to redistribute more_work slices
@@ -72,14 +72,14 @@ MODULE mixed_cdft_types
 !> \param target_list a list of processors to send data and the size of data to send
 !> \param recv_work flag that determines if this processor will receive data from others
 !> \param send_work flag that determines if this processor will send data to others
-!> \param recv_work_repl list of processor indices where this processor will send data during load 
+!> \param recv_work_repl list of processor indices where this processor will send data during load
 !>                       balancing
 !> \param load_scale allow underloaded processors to accept load_scale additional work
 !> \param very_overloaded value to determine which processors are heavily overloaded
 !> \param cavity the cavity that this processor builds in addition to its own cavity defined
-!>               on the grid points which were redistributed to this processor 
-!> \param weight the weight that this processor builds in addition to its own weight 
-!> \param gradients the gradients that this processor builds in addition to its own gradients 
+!>               on the grid points which were redistributed to this processor
+!> \param weight the weight that this processor builds in addition to its own weight
+!> \param gradients the gradients that this processor builds in addition to its own gradients
 !> \param sendbuffer buffer to hold the data this processor will send
 !> \param sendbuffer buffer to hold the data this processor will receive
 !> \param recv_info additional information on the data this processor will receive
@@ -108,7 +108,7 @@ MODULE mixed_cdft_types
 !> \param sim_step counter to keep track of the simulation step for MD
 !> \param multiplicity spin multiplicity
 !> \param constraint_type determins what kind of constraint to use
-!> \param combined_type for combined density+spin constraint, determines which atoms to apply the 
+!> \param combined_type for combined density+spin constraint, determines which atoms to apply the
 !>                      spin constraint
 !> \param source_list a list of processors which will send this processor data
 !> \param dest_list a list of processors which this processor will send data to
@@ -119,8 +119,8 @@ MODULE mixed_cdft_types
 !>                       load balancing
 !> \param source_list_bo bounds of the data which this processor will receive (is_special = .TRUE.)
 !> \param dest_list_bo bounds of the data this processor will send (is_special = .TRUE.)
-!> \param source_bo_save permanent copy of source_list_bo  
-!> \param deset_bo_save permanent copy of dest_list_bo  
+!> \param source_bo_save permanent copy of source_list_bo
+!> \param deset_bo_save permanent copy of dest_list_bo
 !> \param is_pencil flag controlling which scheme to use for constraint replication
 !> \param dlb flag to enable dynamic load balancing
 !> \param is_special another flag controlling which scheme to use for constraint replication

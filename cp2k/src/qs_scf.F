@@ -1093,7 +1093,7 @@ CONTAINS
 
 ! **************************************************************************************************
 !> \brief perform cleanup operations for cdft_control
-!> \param cdft_control container for the external CDFT SCF loop variables 
+!> \param cdft_control container for the external CDFT SCF loop variables
 !> \par History
 !>      12.2015 created [Nico Holmberg]
 !> \author Nico Holmberg

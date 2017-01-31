@@ -53,7 +53,7 @@ MODULE qs_outer_scf
 CONTAINS
 
 ! **************************************************************************************************
-!> \brief returns the number of variables that is employed in the outer loop. with a CDFT constraint 
+!> \brief returns the number of variables that is employed in the outer loop. with a CDFT constraint
 !>        this value is returned by the cdft_control type
 !> \param scf_control the outer loop control type
 !> \param cdft_control the cdft loop control type

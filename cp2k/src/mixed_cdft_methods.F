@@ -349,7 +349,7 @@ CONTAINS
             IF (auxbas_pw_pool%pw_grid%grid_span == HALFSPACE) odd(iforce_eval) = 1
             IF (dft_control%qs_control%becke_control%natoms .GT. SIZE(atoms, 1)) &
                CALL cp_abort(__LOCATION__, &
-                             "More Becke constraint atoms than defined in mixed section."//&
+                             "More Becke constraint atoms than defined in mixed section."// &
                              " Use default values for MIXED\MAPPING.")
             atoms(1:dft_control%qs_control%becke_control%natoms, iforce_eval) = dft_control%qs_control%becke_control%atoms
             coeffs(1:dft_control%qs_control%becke_control%natoms, iforce_eval) = dft_control%qs_control%becke_control%coeff
@@ -477,8 +477,8 @@ CONTAINS
       is_match = is_match .AND. (confine_bounds(2, 1) == confine_bounds(2, 2))
       IF (.NOT. is_match) &
          CALL cp_abort(__LOCATION__, &
-                      "Mismatch detected in the &BECKE_RESTRAINT&CONFINE_BOUNDS"//&
-                      " settings of the two force_evals.")
+                       "Mismatch detected in the &BECKE_RESTRAINT&CONFINE_BOUNDS"// &
+                       " settings of the two force_evals.")
       mixed_cdft%becke_control%confine_method = settings_int(1, 1)
       mixed_cdft%becke_control%cutoff_type = settings_int(2, 1)
       nkinds = 0
@@ -490,8 +490,8 @@ CONTAINS
          END DO
          IF (.NOT. is_match) &
             CALL cp_abort(__LOCATION__, &
-                         "Mismatch detected in the &BECKE_RESTRAINT&ELEMENT_CUTOFF"//&
-                         " settings of the two force_evals.")
+                          "Mismatch detected in the &BECKE_RESTRAINT&ELEMENT_CUTOFF"// &
+                          " settings of the two force_evals.")
          ALLOCATE (mixed_cdft%becke_control%cutoffs_tmp(nkinds))
          mixed_cdft%becke_control%cutoffs_tmp = cutoffs(1:nkinds, 1)
       END IF
@@ -511,8 +511,8 @@ CONTAINS
          END DO
          IF (.NOT. is_match) &
             CALL cp_abort(__LOCATION__, &
-                         "Mismatch detected in the &BECKE_RESTRAINT&ATOMIC_RADII"//&
-                         " settings of the two force_evals.")
+                          "Mismatch detected in the &BECKE_RESTRAINT&ATOMIC_RADII"// &
+                          " settings of the two force_evals.")
          ALLOCATE (mixed_cdft%becke_control%radii(nkinds))
          mixed_cdft%becke_control%radii = radii(1:nkinds, 1)
       END IF
@@ -1961,13 +1961,13 @@ CONTAINS
 !> \param mixed_cdft container for structures needed to build the mixed CDFT constraint
 !> \param calculate_forces determines if forces should be calculted
 !> \param is_constraint a list used to determine which atoms in the system define the constraint
-!> \param in_memory decides whether to build the weight function gradients in parallel before solving 
-!                   the CDFT states or later during the SCF procedure of the individual states
+!> \param in_memory decides whether to build the weight function gradients in parallel before solving
+!>                  the CDFT states or later during the SCF procedure of the individual states
 !> \param store_vectors should temporary arrays be stored in memory to accelerate the calculation
 !> \param R12 temporary array holding the pairwise atomic distances
 !> \param position_vecs temporary array holding the pbc corrected atomic position vectors
 !> \param pair_dist_vecs temporary array holding the pairwise displament vectors
-!> \param coefficients array that determines how atoms should be summed to form the constraint 
+!> \param coefficients array that determines how atoms should be summed to form the constraint
 !> \param catom temporary array to map the global index of constraint atoms to their position
 !>              in a list that holds only constraint atoms
 !> \par History
@@ -2446,11 +2446,11 @@ CONTAINS
 !> \param force_env the force_env that holds the CDFT states
 !> \param mixed_cdft container for structures needed to build the mixed CDFT constraint
 !> \param my_work an estimate of the work per processor
-!> \param my_work_size size of the smallest array slice per processor. overloaded processors will 
-!>                     redistribute works as integer multiples of this value.   
+!> \param my_work_size size of the smallest array slice per processor. overloaded processors will
+!>                     redistribute works as integer multiples of this value.
 !> \param natom the total number of atoms
-!> \param bo bounds of the realspace grid that holds the electron density  
-!> \param bo_conf same as bo, but bounds along z-direction have been compacted with confinement 
+!> \param bo bounds of the realspace grid that holds the electron density
+!> \param bo_conf same as bo, but bounds along z-direction have been compacted with confinement
 !> \par History
 !>       03.2016  created [Nico Holmberg]
 ! **************************************************************************************************
@@ -2747,8 +2747,8 @@ CONTAINS
          IF (.NOT. consistent) &
             CALL cp_abort(__LOCATION__, &
                           "Load balancing error: too much data to redistribute."// &
-                          " Increase LOAD_SCALE or change the number of processors."//&
-                          " If the confinement cavity occupies a large volume relative"//&
+                          " Increase LOAD_SCALE or change the number of processors."// &
+                          " If the confinement cavity occupies a large volume relative"// &
                           " to the total system volume, it might be worth disabling DLB.")
       END IF
       ! Tell the target processors which grid points they should compute
@@ -3196,14 +3196,14 @@ CONTAINS
 !> \brief Low level routine to build mixed Becke constraint and gradients
 !> \param force_env the force_env that holds the CDFT states
 !> \param mixed_cdft container for structures needed to build the mixed CDFT constraint
-!> \param in_memory decides whether to build the weight function gradients in parallel before solving 
-!                   the CDFT states or later during the SCF procedure of the individual states
+!> \param in_memory decides whether to build the weight function gradients in parallel before solving
+!>                  the CDFT states or later during the SCF procedure of the individual states
 !> \param is_constraint a list used to determine which atoms in the system define the constraint
 !> \param store_vectors should temporary arrays be stored in memory to accelerate the calculation
 !> \param R12 temporary array holding the pairwise atomic distances
 !> \param position_vecs temporary array holding the pbc corrected atomic position vectors
 !> \param pair_dist_vecs temporary array holding the pairwise displament vectors
-!> \param coefficients array that determines how atoms should be summed to form the constraint 
+!> \param coefficients array that determines how atoms should be summed to form the constraint
 !> \param catom temporary array to map the global index of constraint atoms to their position
 !>              in a list that holds only constraint atoms
 !> \par History
@@ -3940,11 +3940,11 @@ CONTAINS
 !> \brief Determine confinement bounds along confinement dir (hardcoded to be z)
 !>        and determine the number of nonzero entries
 !>        Optionally zero entries below a given threshold
-!> \param fun input 3D potential (real space) 
+!> \param fun input 3D potential (real space)
 !> \param th threshold for screening values
-!> \param just_zero determines if fun should only be zeroed without returning bounds/work  
+!> \param just_zero determines if fun should only be zeroed without returning bounds/work
 !> \param bounds the confinement bounds: fun is nonzero only between these values along 3rd dimension
-!> \param work an estimate of the total number of grid points where fun is nonzero 
+!> \param work an estimate of the total number of grid points where fun is nonzero
 ! **************************************************************************************************
    SUBROUTINE hfun_zero(fun, th, just_zero, bounds, work)
       REAL(KIND=dp), DIMENSION(:, :, :), INTENT(INOUT)   :: fun

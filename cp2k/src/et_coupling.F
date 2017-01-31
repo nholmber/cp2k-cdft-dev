@@ -49,7 +49,7 @@ MODULE et_coupling
         cdft_magnetization_constraint, ref_charge_atomic, ref_charge_mulliken
    USE input_section_types,             ONLY: section_vals_get_subs_vals,&
                                               section_vals_type
-   USE kahan_sum,                       ONLY: accurate_sum ,&
+   USE kahan_sum,                       ONLY: accurate_sum,&
                                               accurate_sum_arrays_product
    USE kinds,                           ONLY: dp,&
                                               int_8
@@ -326,7 +326,7 @@ CONTAINS
 
 ! **************************************************************************************************
 !> \brief calculates a Becke contraint
-!> \param qs_env the qs_env where to build the constraint 
+!> \param qs_env the qs_env where to build the constraint
 !> \param becke_const the Becke real space potential
 !> \param charge atomic Becke real space potentials defined on the constraint atoms
 !> \param calc_pot if the potential needs to be recalculated or just integrated
@@ -444,8 +444,8 @@ CONTAINS
          ALLOCATE (strength(nvar))
          ALLOCATE (target_val(nvar))
          ALLOCATE (dE(nvar))
-         strength = dft_control%qs_control%becke_control%strength
-         target_val = dft_control%qs_control%becke_control%target
+         strength(:) = dft_control%qs_control%becke_control%strength(:)
+         target_val(:) = dft_control%qs_control%becke_control%target(:)
          dE = 0.0_dp
          dvol = becke_const%pw%pw_grid%dvol
          eps_cavity = dft_control%qs_control%becke_control%eps_cavity
@@ -1185,10 +1185,10 @@ CONTAINS
                      IF (i == 2) sign = -1.0_dp
                      SELECT CASE (dft_control%qs_control%becke_control%combined_type)
                      CASE (cdft_combined_all)
-                        dE(ivar) = dE(ivar)+&
-                                  sign*accurate_sum_arrays_product(becke_const%pw%cr3d, rho_r(i)%pw%cr3d, &
-                                                                   dft_control%qs_control%becke_control%cavity_mat, &
-                                                                   eps_cavity)*dvol
+                        dE(ivar) = dE(ivar)+ &
+                                   sign*accurate_sum_arrays_product(becke_const%pw%cr3d, rho_r(i)%pw%cr3d, &
+                                                                    dft_control%qs_control%becke_control%cavity_mat, &
+                                                                    eps_cavity)*dvol
                      CASE (cdft_combined_donor, cdft_combined_acceptor)
                         ! Transfer spin constraint weight truncated real-3D matrix -> pw%cr3d
                         IF (ASSOCIATED(dft_control%qs_control%becke_control%combined_mat)) THEN
@@ -1204,9 +1204,9 @@ CONTAINS
                            DEALLOCATE (dft_control%qs_control%becke_control%combined_mat)
                         END IF
                         dE(ivar) = dE(ivar)+sign* &
-                                   accurate_sum_arrays_product(dft_control%qs_control%becke_control%&
+                                   accurate_sum_arrays_product(dft_control%qs_control%becke_control% &
                                                                combined_weight%pw%cr3d, &
-                                                               rho_r(i)%pw%cr3d,&
+                                                               rho_r(i)%pw%cr3d, &
                                                                dft_control%qs_control%becke_control%cavity_mat, &
                                                                eps_cavity)*dvol
                      END SELECT
@@ -1352,7 +1352,7 @@ CONTAINS
                   CALL mp_sum(dft_control%qs_control%becke_control%charges_fragment, para_env%group)
                END IF
                CALL pw_pool_give_back_pw(auxbas_pw_pool, rho_frag%pw)
-               target_val = dft_control%qs_control%becke_control%target
+               target_val(:) = dft_control%qs_control%becke_control%target(:)
                IF (dft_control%qs_control%cdft) dft_control%qs_control%cdft_control%target = target_val
                dft_control%qs_control%becke_control%fragments_integrated = .TRUE.
             END IF
@@ -1608,7 +1608,7 @@ CONTAINS
             END SELECT
          END SELECT
          ALLOCATE (strength(nvar))
-         strength = dft_control%qs_control%becke_control%strength
+         strength(:) = dft_control%qs_control%becke_control%strength(:)
          cutoffs => dft_control%qs_control%becke_control%cutoffs
          eps_cavity = dft_control%qs_control%becke_control%eps_cavity
          ALLOCATE (atom_of_kind(natom))
@@ -2030,7 +2030,7 @@ CONTAINS
 !> \brief calculates a Gaussian Hirshfeld constraint
 !> \param qs_env the qs_env where to build the constraint
 !> \param cdft_control the container for constraint related structures
-!> \param calc_pot if the constraint potential should be rebuilt or just integrated 
+!> \param calc_pot if the constraint potential should be rebuilt or just integrated
 !> \param calculate_forces logical if potential has to be calculated or only_energy
 !> \author  Nico Holmberg (01.2016)
 ! **************************************************************************************************
@@ -2578,9 +2578,9 @@ CONTAINS
 ! **************************************************************************************************
 !> \brief Determine confinement bounds along confinement dir (hardcoded to be z)
 !>        and optionally zero entries below a given threshold
-!> \param fun input 3D potential (real space) 
+!> \param fun input 3D potential (real space)
 !> \param th threshold for screening values
-!> \param just_bounds if the bounds should be computed without zeroing values  
+!> \param just_bounds if the bounds should be computed without zeroing values
 !> \param bounds the confinement bounds: fun is nonzero only between these values along 3rd dimension
 ! **************************************************************************************************
    SUBROUTINE hfun_zero(fun, th, just_bounds, bounds)
