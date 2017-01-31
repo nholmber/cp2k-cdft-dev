@@ -2498,6 +2498,7 @@ CONTAINS
                tmp, nrecv, nsend_proc, targets, tmp_bo, touched, &
                mask_recv, mask_send, cavity, recvbuffer, sbuff, force_env_section,&
                print_section)
+      CALL force_env_get(force_env=force_env, force_env_section=force_env_section)
       print_section => section_vals_get_subs_vals(force_env_section, "MIXED%PRINT%PROGRAM_RUN_INFO")
       iounit = cp_print_key_unit_nr(logger, print_section, '', extension='.mixedLog')
       ! These numerical values control data redistribution and are system sensitive
@@ -3274,6 +3275,7 @@ CONTAINS
                print_section)
       CALL timeset(routineN, handle)
       nforce_eval = SIZE(force_env%sub_force_env)
+      CALL force_env_get(force_env=force_env, force_env_section=force_env_section)
       print_section => section_vals_get_subs_vals(force_env_section, "MIXED%PRINT%PROGRAM_RUN_INFO")
       iounit = cp_print_key_unit_nr(logger, print_section, '', extension='.mixedLog')
       IF (.NOT. force_env%mixed_env%do_mixed_qmmm_cdft) THEN
