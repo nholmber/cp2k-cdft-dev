@@ -3902,7 +3902,7 @@ CONTAINS
          IF (debug_this_module .AND. iounit > 0) THEN
             DO i = 1, SIZE(work, 1)
                WRITE(iounit, '(A,I10,I10,I10)')&
-                  'Work', work(i), work_dlb(i), mixed_cdft%dlb_control%expected_work(i), &
+                  'Work', work(i), work_dlb(i), mixed_cdft%dlb_control%expected_work(i)
             END DO
          END IF
          DEALLOCATE (work, work_dlb, mixed_cdft%dlb_control%expected_work)
