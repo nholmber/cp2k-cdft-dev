@@ -1506,7 +1506,7 @@ CONTAINS
                               //TRIM(ADJUSTL(cp_to_string(ispin)))//"_MATRIX")
             CALL cp_fm_copy_general(mo_coeff_tmp(iforce_eval, ispin)%matrix, &
                                     mixed_mo_coeff(iforce_eval, ispin)%matrix, &
-                                    global_context=mixed_cdft%blacs_env%group)
+                                    mixed_cdft%blacs_env%para_env)
             CALL cp_fm_release(mo_coeff_tmp(iforce_eval, ispin)%matrix)
             CALL cp_fm_struct_release(fm_struct_mo)
          END DO
@@ -1517,7 +1517,7 @@ CONTAINS
                            name="WEIGHT_"//TRIM(ADJUSTL(cp_to_string(iforce_eval)))//"_MATRIX")
          CALL cp_fm_copy_general(wmat_tmp(iforce_eval)%matrix, &
                                  mixed_wmat_tmp(iforce_eval)%matrix, &
-                                 global_context=mixed_cdft%blacs_env%group)
+                                 mixed_cdft%blacs_env%para_env)
          CALL cp_fm_release(wmat_tmp(iforce_eval)%matrix)
          ! (fm -> dbcsr)
          IF (iforce_eval == 1) THEN
@@ -1538,7 +1538,7 @@ CONTAINS
                                  //TRIM(ADJUSTL(cp_to_string(ispin)))//"_MATRIX")
                CALL cp_fm_copy_general(matrix_p_tmp(iforce_eval, ispin)%matrix, &
                                        mixed_matrix_p_tmp(iforce_eval, ispin)%matrix, &
-                                       global_context=mixed_cdft%blacs_env%group)
+                                       mixed_cdft%blacs_env%para_env)
                CALL cp_fm_release(matrix_p_tmp(iforce_eval, ispin)%matrix)
                CALL copy_fm_to_dbcsr_bc(mixed_matrix_p_tmp(iforce_eval, ispin)%matrix, &
                                         density_matrix(iforce_eval, ispin)%matrix)
@@ -1561,7 +1561,7 @@ CONTAINS
       CALL cp_fm_struct_release(fm_struct_overlap)
       CALL cp_fm_copy_general(matrix_s_tmp%matrix, &
                               mixed_matrix_s_tmp%matrix, &
-                              global_context=mixed_cdft%blacs_env%group)
+                              mixed_cdft%blacs_env%para_env)
       CALL cp_fm_release(matrix_s_tmp%matrix)
       CALL copy_fm_to_dbcsr_bc(mixed_matrix_s_tmp%matrix, mixed_matrix_s)
       CALL cp_fm_release(mixed_matrix_s_tmp%matrix)
@@ -2496,7 +2496,7 @@ CONTAINS
       NULLIFY (expected_work, work_index, load_imbalance, work_size, &
                cumulative_work, sendbuffer, buffsize, req_recv, req_total, &
                tmp, nrecv, nsend_proc, targets, tmp_bo, touched, &
-               mask_recv, mask_send, cavity, recvbuffer, sbuff, force_env_section,&
+               mask_recv, mask_send, cavity, recvbuffer, sbuff, force_env_section, &
                print_section)
       CALL force_env_get(force_env=force_env, force_env_section=force_env_section)
       print_section => section_vals_get_subs_vals(force_env_section, "MIXED%PRINT%PROGRAM_RUN_INFO")
@@ -2745,7 +2745,7 @@ CONTAINS
          IF (.NOT. consistent) THEN
             IF (debug_this_module .AND. iounit > 0) THEN
                DO i = force_env%para_env%num_pe-1, force_env%para_env%num_pe-no_overloaded+1, -1
-                  WRITE(iounit, '(A,I8,I8,I8,I8,I8)')&
+                  WRITE (iounit, '(A,I8,I8,I8,I8,I8)') &
                      'load balancing info', load_imbalance(i), work_index(i), &
                      work_size(i), targets(1, i), targets(2, i)
                END DO
@@ -3236,7 +3236,7 @@ CONTAINS
       CHARACTER(len=*), PARAMETER :: routineN = 'mixed_becke_constraint_low', &
          routineP = moduleN//':'//routineN
 
-      INTEGER :: dir, handle, i, iatom, icomm, iforce_eval, ind(3), index, iounit, ip, ispecial,&
+      INTEGER :: dir, handle, i, iatom, icomm, iforce_eval, ind(3), index, iounit, ip, ispecial, &
          iwork, j, jatom, jcomm, k, lb_index, my_special_work, my_work, natom, nbuffs, &
          nforce_eval, np(3), nsent_total, nskipped, nwork, offset, offset_repl, ub_index
       INTEGER, DIMENSION(:), POINTER                     :: req_recv, work, work_dlb
@@ -3266,7 +3266,6 @@ CONTAINS
       TYPE(particle_type), DIMENSION(:), POINTER         :: particle_set
       TYPE(pw_pool_type), POINTER                        :: auxbas_pw_pool
       TYPE(section_vals_type), POINTER                   :: force_env_section, print_section
-
 
       logger => cp_get_default_logger()
       NULLIFY (work, req_recv, req_send, work_dlb, nsent, cutoffs, cavity, &
@@ -3903,7 +3902,7 @@ CONTAINS
          mixed_cdft%dlb_control%prediction_error = mixed_cdft%dlb_control%expected_work-work
          IF (debug_this_module .AND. iounit > 0) THEN
             DO i = 1, SIZE(work, 1)
-               WRITE(iounit, '(A,I10,I10,I10)')&
+               WRITE (iounit, '(A,I10,I10,I10)') &
                   'Work', work(i), work_dlb(i), mixed_cdft%dlb_control%expected_work(i)
             END DO
          END IF
