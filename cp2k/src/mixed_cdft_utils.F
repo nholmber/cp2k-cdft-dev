@@ -766,6 +766,8 @@ CONTAINS
          END IF
       ELSE
          ! Create a logger to redirect output of the second CDFT state to a different file than the first state
+         ! even when the states are treated in serial (the initial print of QS data [basis set etc] for the 
+         ! second state unfortunately goes to the first log file)
          CALL force_env_get(force_env, root_section=root_section)
          IF (force_env%para_env%mepos == force_env%para_env%source) THEN
             CALL section_vals_val_get(root_section, "GLOBAL%PROJECT_NAME", &
