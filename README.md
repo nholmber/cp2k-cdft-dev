@@ -9,17 +9,21 @@ Holmberg, Nico; Laasonen, Kari, *Efficient Constrained Density Functional Theory
 ## Available branches
 
 1. `main`: latest stable build
-	* ideally a synced clone of the official cp2k [`trunk`](https://github.com/cp2k/cp2k) branch with finalized CDFT features pushed upstream 
-	* currently based on cp2k version `r17702`, patch submitted upstream but **NOT** yet available from the [official SVN mirror](https://sourceforge.net/projects/cp2k/?source=navbar)  
+	* synced clone of the official cp2k [`trunk`](https://github.com/cp2k/cp2k) branch, also available from the [official SVN mirror](https://sourceforge.net/projects/cp2k/?source=navbar) 
 
-2. `development`: unstable development branch
+2. `staging`: branch for submitting new patches to official repos
+	* merges new, complete features from `development`  
+	* hotfixes to potential bugs in `main`
+	* synced with `main` whenever a new patch is not in preparation
+
+3. `development`: unstable development branch
 	* might not compile, incomplete implementation of new features, code not cleaned 
 	* features under development:
 		- combined charge + spin constraints
 		- allow the user to choose between serial and parallel mode of calculating mixed CDFT state  
 		- refactoring of Becke constraint type under CDFT control type  
 
-3. `legacy`: deprecated stable build
+4. `legacy`: deprecated stable build
 	* old stable build based on cp2k version `r15682` with some backport buxfixes from newer versions
 	* **NOT** available from the [official SVN mirror](https://sourceforge.net/projects/cp2k/?source=navbar) 
 	* will be removed in the future
@@ -34,7 +38,7 @@ Holmberg, Nico; Laasonen, Kari, *Efficient Constrained Density Functional Theory
 	* Follow the installation instructions in the file [`INSTALL`](cp2k/INSTALL), also available at the official [CP2K project page](https://www.cp2k.org/howto:compile) 
 
 2. Other versions
-	* Clone the latest stable build in a directory of your choice  
+	* Clone the branch in a directory of your choice  
 	  `git clone -b branch_name --single-branch https://github.com/nholmber/cp2k-cdft-dev branch_name`
 	* Continue as above
 

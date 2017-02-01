@@ -53,10 +53,11 @@ MODULE qs_outer_scf
 CONTAINS
 
 ! **************************************************************************************************
-!> \brief returns the number of variables that is employed in the outer loop
-!> \param scf_control ...
-!> \param cdft_control ...
-!> \retval res ...
+!> \brief returns the number of variables that is employed in the outer loop. with a CDFT constraint
+!>        this value is returned by the cdft_control type
+!> \param scf_control the outer loop control type
+!> \param cdft_control the cdft loop control type
+!> \retval res the number of variables
 !> \par History
 !>      03.2006 created [Joost VandeVondele]
 ! **************************************************************************************************
@@ -185,8 +186,8 @@ CONTAINS
 
 ! **************************************************************************************************
 !> \brief optimizes the parameters of the outer_scf
-!> \param scf_env ...
-!> \param scf_control ...
+!> \param scf_env the scf_env where to optimize the parameters
+!> \param scf_control control parameters for the optimization
 !> \par History
 !>      03.2006 created [Joost VandeVondele]
 !>      01.2017 added Broyden and Newton optimizers [Nico Holmberg]
@@ -436,7 +437,7 @@ CONTAINS
 ! **************************************************************************************************
 !> \brief uses the outer_scf_history to extrapolate new values for the variables
 !>       and updates their value in qs_env accordingly
-!> \param qs_env ...
+!> \param qs_env the qs_environment_type where to update the variables
 !> \par History
 !>      03.2006 created [Joost VandeVondele]
 !> \note
@@ -538,12 +539,12 @@ CONTAINS
 
    END SUBROUTINE outer_loop_extrapolate
 
-! *****************************************************************************
+! **************************************************************************************************
 !> \brief switch between two outer_scf envs stored in cdft_control
-!> \param scf_env ...
-!> \param scf_control ...
-!> \param cdft_control ...
-!> \param dir ...
+!> \param scf_env the scf_env where values need to be updated using cdft_control
+!> \param scf_control the scf_control where values need to be updated using cdft_control
+!> \param cdft_control container for the second outer_scf env
+!> \param dir determines what switching operation to perform
 !> \par History
 !>      12.2015 created [Nico Holmberg]
 ! **************************************************************************************************
@@ -629,10 +630,10 @@ CONTAINS
 
    END SUBROUTINE outer_loop_switch
 
-! *****************************************************************************
+! **************************************************************************************************
 !> \brief purges outer_scf_history zeroing everything except
 !>        the latest value of the outer_scf variable stored in qs_control
-!> \param qs_env ...
+!> \param qs_env the qs_environment_type where to purge
 !> \par History
 !>      05.2016 created [Nico Holmberg]
 ! **************************************************************************************************

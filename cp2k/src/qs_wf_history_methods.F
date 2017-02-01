@@ -1078,7 +1078,7 @@ CONTAINS
       CALL timestop(handle)
    END SUBROUTINE reorthogonalize_vectors
 
-! *****************************************************************************
+! **************************************************************************************************
 !> \brief purges wf_history retaining only the latest snapshot
 !> \param qs_env the qs env with the latest result, and that will contain
 !>        the purged wf_history
@@ -1121,7 +1121,7 @@ CONTAINS
             wfi_aspc_nr)
          IF (qs_env%wf_history%snapshot_count .GE. 2) THEN
             IF (debug_this_module .AND. output_unit > 0) &
-               WRITE (output_unit, FMT="(T2,A)") "QS| Purging WFN history"
+               WRITE (output_unit, FMT="(T2,A)") "QS| Purging WFN history"
             CALL wfi_create(wf_history, interpolation_method_nr= &
                             dft_control%qs_control%wf_interpolation_method_nr, &
                             extrapolation_order=dft_control%qs_control%wf_extrapolation_order, &

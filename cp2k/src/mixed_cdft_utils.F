@@ -855,7 +855,7 @@ CONTAINS
    END SUBROUTINE mixed_cdft_init_structures
 
 ! **************************************************************************************************
-!> \brief Redistribute arrays needed for an ET coupling calculation from individiual CDFT states to
+!> \brief Redistribute arrays needed for an ET coupling calculation from individual CDFT states to
 !>        the mixed CDFT env, that is, move the arrays to the correct blacs context. For parallel 
 !>        simulations, the array processor distributions also change from N to 2N processors. 
 !> \param force_env the force_env that holds the CDFT states

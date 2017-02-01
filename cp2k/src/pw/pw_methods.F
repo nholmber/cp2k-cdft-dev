@@ -61,7 +61,7 @@ MODULE pw_methods
    PUBLIC :: pw_derive, pw_dr2, pw_write
    PUBLIC :: pw_integral_ab, pw_integral_a2b
    PUBLIC :: pw_dr2_gg, pw_integrate_function
-   PUBLIC :: pw_set_masked
+   PUBLIC :: pw_set
 
    CHARACTER(len=*), PARAMETER, PRIVATE :: moduleN = 'pw_methods'
    LOGICAL, PARAMETER, PRIVATE :: debug_this_module = .FALSE.
@@ -72,10 +72,6 @@ MODULE pw_methods
 
    INTERFACE pw_scatter
       MODULE PROCEDURE pw_scatter_s, pw_scatter_p
-   END INTERFACE
-
-   INTERFACE pw_set_masked
-      MODULE PROCEDURE pw_set_masked_d3
    END INTERFACE
 
 CONTAINS
@@ -1958,32 +1954,42 @@ CONTAINS
 
    END FUNCTION pw_integrate_function
 
-! *****************************************************************************
-!> \brief Initialize pw values using a mask
-!> \param pw ...
-!> \param mask ...
+! **************************************************************************************************
+!> \brief Initialize pw values using values from a real array data, which might be defined on a
+!>        smaller grid than pw but which is contained in it
+!> \param pw the pw to initialize
+!> \param values the array holding the input data
 !> \par History
 !>      Created 12.2016
 !> \author Nico Holmberg
 ! **************************************************************************************************
-   SUBROUTINE pw_set_masked_d3(pw, mask)
+   SUBROUTINE pw_set(pw, values)
 
       TYPE(pw_type), INTENT(INOUT)                       :: pw
       REAL(KIND=dp), DIMENSION(:, :, :), INTENT(IN), &
-         POINTER                                         :: mask
+         POINTER                                         :: values
 
-      CHARACTER(len=*), PARAMETER :: routineN = 'pw_set_masked_d3', &
-         routineP = moduleN//':'//routineN
+      CHARACTER(len=*), PARAMETER :: routineN = 'pw_set', routineP = moduleN//':'//routineN
 
       INTEGER                                            :: handle, i, j, k
+      LOGICAL                                            :: is_match
 
       CALL timeset(routineN, handle)
       CPASSERT(pw%ref_count > 0)
       IF (pw%in_use == REALDATA3D) THEN
-         DO i = LBOUND(mask, 3), UBOUND(mask, 3)
-            DO j = LBOUND(mask, 2), UBOUND(mask, 2)
-               DO k = LBOUND(mask, 1), UBOUND(mask, 1)
-                  pw%cr3d(k, j, i) = mask(k, j, i)
+         is_match = .TRUE.
+         is_match = is_match .AND. (LBOUND(values, 1) .GE. LBOUND(pw%cr3d, 1))
+         is_match = is_match .AND. (UBOUND(values, 1) .LE. UBOUND(pw%cr3d, 1))
+         is_match = is_match .AND. (LBOUND(values, 2) .GE. LBOUND(pw%cr3d, 2))
+         is_match = is_match .AND. (UBOUND(values, 2) .LE. UBOUND(pw%cr3d, 2))
+         is_match = is_match .AND. (LBOUND(values, 3) .GE. LBOUND(pw%cr3d, 3))
+         is_match = is_match .AND. (UBOUND(values, 3) .LE. UBOUND(pw%cr3d, 3))
+         IF (.NOT. is_match) &
+            CPABORT("Incompatible data fields")
+         DO i = LBOUND(values, 3), UBOUND(values, 3)
+            DO j = LBOUND(values, 2), UBOUND(values, 2)
+               DO k = LBOUND(values, 1), UBOUND(values, 1)
+                  pw%cr3d(k, j, i) = values(k, j, i)
                END DO
             END DO
          END DO
@@ -1992,7 +1998,7 @@ CONTAINS
       END IF
       CALL timestop(handle)
 
-   END SUBROUTINE pw_set_masked_d3
+   END SUBROUTINE pw_set
 
 END MODULE pw_methods
 

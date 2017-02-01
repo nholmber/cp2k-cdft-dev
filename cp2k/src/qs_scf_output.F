@@ -613,17 +613,17 @@ CONTAINS
 
    END SUBROUTINE qs_scf_loop_print
 
-   ! *****************************************************************************
-!> \brief writes cdft constraint information and optionally cdft scf loop info
-!> \param output_unit ...
-!> \param scf_control ...
-!> \param scf_env ...
-!> \param cdft_control ...
-!> \param energy ...
-!> \param total_steps ...
-!> \param should_stop ...
-!> \param outer_loop_converged ...
-!> \param cdft_loop ...
+! **************************************************************************************************
+!> \brief writes CDFT constraint information and optionally CDFT scf loop info
+!> \param output_unit where to write the information
+!> \param scf_control settings of the SCF loop
+!> \param scf_env the env which holds convergence data
+!> \param cdft_control the env which holds information about the constraint
+!> \param energy the total energy
+!> \param total_steps the total number of performed SCF iterations
+!> \param should_stop if the calculation should stop
+!> \param outer_loop_converged logical which determines if the CDFT SCF loop converged
+!> \param cdft_loop logical which determines a CDFT SCF loop is active
 !> \par History
 !>      12.2015 created [Nico Holmberg]
 ! **************************************************************************************************
@@ -703,11 +703,11 @@ CONTAINS
       END IF
    END SUBROUTINE qs_scf_cdft_info
 
-! *****************************************************************************
+! **************************************************************************************************
 !> \brief writes information about the CDFT env
-!> \param output_unit ...
-!> \param cdft_control ...
-!> \param dft_control ...
+!> \param output_unit where to write the information
+!> \param cdft_control the CDFT env that stores information about the constraint calculation
+!> \param dft_control container for Becke constraint related information
 !> \par History
 !>      12.2015 created [Nico Holmberg]
 ! **************************************************************************************************
@@ -718,8 +718,7 @@ CONTAINS
 
       CHARACTER(LEN=*), PARAMETER :: routineN = 'qs_scf_cdft_initial_info', &
          routineP = moduleN//':'//routineN
-
-      CHARACTER, DIMENSION(3)                            :: dir = (/"x", "y", "z"/)
+      CHARACTER, DIMENSION(3), PARAMETER                 :: dir = (/"x", "y", "z"/)
 
       IF (output_unit > 0) THEN
          WRITE (output_unit, '(/,A)') &
@@ -771,7 +770,6 @@ CONTAINS
          SELECT CASE (cdft_control%type)
          CASE (outer_scf_hirshfeld_constraint)
             WRITE (output_unit, '(A)') "  Type of constraint      : Hirshfeld"
-            ! TODO print hirshfeld settings
          CASE (outer_scf_becke_constraint)
             WRITE (output_unit, '(A)') "  Type of constraint      : Becke"
             WRITE (output_unit, '(A)') "  "

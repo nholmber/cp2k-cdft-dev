@@ -1921,19 +1921,25 @@ CONTAINS
       LOGICAL, INTENT(in), OPTIONAL                      :: use_absolute, filter_diag, quick
 
       CHARACTER(len=*), PARAMETER :: routineN = 'dbcsr_filter_anytype', &
-         routineP = moduleN//':'//routineN
+                                     routineP = moduleN//':'//routineN
 
       COMPLEX(KIND=real_4), DIMENSION(:), POINTER        :: data_c
       COMPLEX(KIND=real_8), DIMENSION(:), POINTER        :: data_z
       INTEGER                                            :: blk, blk_nze, col, col_size, handle, &
                                                             my_method, row, row_size
       LOGICAL                                            :: gt0, my_filter_diag, reshuffle, tr
-      REAL(KIND=real_4)                                  :: nrm_s, sdot
+      REAL(KIND=real_4)                                  :: nrm_s
       REAL(KIND=real_4), DIMENSION(:), POINTER           :: data_s
-      REAL(KIND=real_8)                                  :: ddot, my_absolute, nrm_d
+      REAL(KIND=real_8)                                  :: my_absolute, nrm_d
       REAL(KIND=real_8), DIMENSION(:), POINTER           :: data_d
-      REAL(KIND=real_8), EXTERNAL                        :: DZNRM2, SCNRM2
       TYPE(dbcsr_iterator)                               :: iter
+
+      REAL(KIND=real_8), EXTERNAL                        :: DZNRM2, DDOT
+#if defined (__ACCELERATE)
+      REAL(KIND=real_8), EXTERNAL                        :: SCNRM2, SDOT
+#else
+      REAL(KIND=real_4), EXTERNAL                        :: SCNRM2, SDOT
+#endif
 
 !   ---------------------------------------------------------------------------
 

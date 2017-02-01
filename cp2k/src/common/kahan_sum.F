@@ -28,7 +28,7 @@ MODULE kahan_sum
 
    IMPLICIT NONE
    PRIVATE
-   PUBLIC :: accurate_sum
+   PUBLIC :: accurate_sum, accurate_sum_arrays_product
    INTEGER, PARAMETER :: sp = KIND(0.0), dp = KIND(0.0D0)
    REAL(KIND=sp), PARAMETER :: szero = 0.0_sp
    REAL(KIND=dp), PARAMETER :: dzero = 0.0_dp
@@ -43,8 +43,10 @@ MODULE kahan_sum
          kahan_sum_s5, kahan_sum_d5, kahan_sum_c5, kahan_sum_z5, &
          kahan_sum_s6, kahan_sum_d6, kahan_sum_c6, kahan_sum_z6, &
          kahan_sum_s7, kahan_sum_d7, kahan_sum_c7, kahan_sum_z7
-      MODULE PROCEDURE kahan_sum_masked_d3
    END INTERFACE accurate_sum
+   INTERFACE accurate_sum_arrays_product
+      MODULE PROCEDURE kahan_sum_arrays_product_masked_d3
+   END INTERFACE
 CONTAINS
 ! **************************************************************************************************
 !> \brief ...
@@ -428,15 +430,17 @@ CONTAINS
       ENDIF
    END FUNCTION kahan_sum_d3
 
-! *****************************************************************************
-!> \brief ...
-!> \param array1 ...
-!> \param array2 ...
-!> \param mask ...
-!> \param th ...
-!> \retval ks ...
 ! **************************************************************************************************
-   FUNCTION kahan_sum_masked_d3(array1, array2, mask, th) RESULT(ks)
+!> \brief computes the accurate sum of an array that is the element wise product of two input arrays.
+!>        a mask array determines which product array points to include in the sum
+!> \param array1 the first input array to compute the product array
+!> \param array2 the second input array to compute the product array
+!> \param mask the mask array
+!> \param th screening threshold: only array points where the value of mask is greater than th are
+!>           included in the sum
+!> \retval ks the result of the summation
+! **************************************************************************************************
+   FUNCTION kahan_sum_arrays_product_masked_d3(array1, array2, mask, th) RESULT(ks)
       REAL(KIND=dp), DIMENSION(:, :, :), INTENT(IN), &
          POINTER                                         :: array1, array2, mask
       REAL(KIND=dp), INTENT(in)                          :: th
@@ -460,7 +464,7 @@ CONTAINS
       ENDDO
       ENDDO
 
-   END FUNCTION kahan_sum_masked_d3
+   END FUNCTION kahan_sum_arrays_product_masked_d3
 
 ! **************************************************************************************************
 !> \brief ...

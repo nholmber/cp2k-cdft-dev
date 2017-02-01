@@ -3171,11 +3171,11 @@
 
 ! *****************************************************************************
 !> \brief Non-blocking send of rank-4 data
-!> \param msgin ...
-!> \param dest ...
-!> \param comm ...
-!> \param request ...
-!> \param tag ...
+!> \param msgin the input message
+!> \param dest the destination processor
+!> \param comm the communicator object
+!> \param request the communication request id
+!> \param tag the message tag
 !> \par History
 !>      2.2016 added _rm4 subroutine [Nico Holmberg]
 !> \author fawzi
@@ -3420,11 +3420,11 @@
 
 ! *****************************************************************************
 !> \brief Non-blocking receive of rank-4 data
-!> \param msgout ...
-!> \param source ...
-!> \param comm ...
-!> \param request ...
-!> \param tag ...
+!> \param msgout the output message
+!> \param source the source processor
+!> \param comm the communicator object
+!> \param request the communication request id
+!> \param tag the message tag
 !> \par History
 !>      2.2016 added _rm4 subroutine [Nico Holmberg]
 !> \author fawzi

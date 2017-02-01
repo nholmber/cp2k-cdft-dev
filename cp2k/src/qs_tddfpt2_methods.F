@@ -62,8 +62,8 @@ MODULE qs_tddfpt2_methods
    USE cp_para_types,                   ONLY: cp_para_env_type
    USE dbcsr_api,                       ONLY: &
         dbcsr_allocate_matrix_set, dbcsr_copy, dbcsr_create, dbcsr_deallocate_matrix, &
-        dbcsr_deallocate_matrix_set, dbcsr_desymmetrize, dbcsr_distribution_obj, &
-        dbcsr_distribution_release, dbcsr_get_info, dbcsr_init_p, dbcsr_p_type, dbcsr_release, &
+        dbcsr_deallocate_matrix_set, dbcsr_desymmetrize, dbcsr_distribution_release, &
+        dbcsr_distribution_type, dbcsr_get_info, dbcsr_init_p, dbcsr_p_type, dbcsr_release, &
         dbcsr_set, dbcsr_type, dbcsr_type_no_symmetry
    USE distribution_1d_types,           ONLY: distribution_1d_type
    USE distribution_2d_types,           ONLY: distribution_2d_release,&
@@ -309,7 +309,7 @@ CONTAINS
                                                             work_fm_sub
       TYPE(cp_logger_type), POINTER                      :: logger
       TYPE(cp_para_env_type), POINTER                    :: para_env_global, para_env_sub
-      TYPE(dbcsr_distribution_obj), POINTER              :: dbcsr_dist_sub
+      TYPE(dbcsr_distribution_type), POINTER             :: dbcsr_dist_sub
       TYPE(dbcsr_p_type), DIMENSION(:), POINTER :: dipole_op_xyz_sub, matrix_ks_global, &
          matrix_ks_sub, matrix_s_aux_fit_global, matrix_s_global, rho_ij_ao, rRc_xyz
       TYPE(dbcsr_type), POINTER                          :: matrix_s_aux_fit_sub, matrix_s_sub
@@ -1215,7 +1215,7 @@ CONTAINS
 ! **************************************************************************************************
    SUBROUTINE tddfpt_build_distribution_2d(distribution_2d, dbcsr_dist, blacs_env, qs_env)
       TYPE(distribution_2d_type), POINTER                :: distribution_2d
-      TYPE(dbcsr_distribution_obj), POINTER              :: dbcsr_dist
+      TYPE(dbcsr_distribution_type), POINTER             :: dbcsr_dist
       TYPE(cp_blacs_env_type), POINTER                   :: blacs_env
       TYPE(qs_environment_type), POINTER                 :: qs_env
 
@@ -1354,7 +1354,7 @@ CONTAINS
 ! **************************************************************************************************
    SUBROUTINE tddfpt_dbcsr_create_by_dist(matrix, template, dbcsr_dist, sab)
       TYPE(dbcsr_type), POINTER                          :: matrix, template
-      TYPE(dbcsr_distribution_obj), POINTER              :: dbcsr_dist
+      TYPE(dbcsr_distribution_type), POINTER             :: dbcsr_dist
       TYPE(neighbor_list_set_p_type), DIMENSION(:), &
          POINTER                                         :: sab
 
@@ -1418,8 +1418,9 @@ CONTAINS
       CHARACTER(LEN=*), PARAMETER :: routineN = 'tddfpt_fm_replicate_across_subgroups', &
          routineP = moduleN//':'//routineN
 
-      INTEGER :: context_global, handle, igroup, igroup_local, ncols_global_dest, &
-         ncols_global_src, nrows_global_dest, nrows_global_src
+      INTEGER                                            :: handle, igroup, igroup_local, &
+                                                            ncols_global_dest, ncols_global_src, &
+                                                            nrows_global_dest, nrows_global_src
       TYPE(cp_blacs_env_type), POINTER                   :: blacs_env_global
       TYPE(cp_fm_type), POINTER                          :: fm_null
       TYPE(cp_para_env_type), POINTER                    :: para_env_global
@@ -1434,14 +1435,13 @@ CONTAINS
       CPASSERT(ncols_global_src == ncols_global_dest)
 
       NULLIFY (fm_null)
-      context_global = blacs_env_global%group
       igroup_local = subgroup(para_env_global%mepos)
 
       DO igroup = 0, nsubgroups-1
          IF (igroup == igroup_local) THEN
-            CALL cp_fm_copy_general(source=fm_src, destination=fm_dest_sub, global_context=context_global)
+            CALL cp_fm_copy_general(fm_src, fm_dest_sub, para_env_global)
          ELSE
-            CALL cp_fm_copy_general(source=fm_src, destination=fm_null, global_context=context_global)
+            CALL cp_fm_copy_general(fm_src, fm_null, para_env_global)
          END IF
       END DO
 
@@ -1478,8 +1478,7 @@ CONTAINS
       CHARACTER(LEN=*), PARAMETER :: routineN = 'tddfpt_fm_broadcast_to_all_subgroups', &
          routineP = moduleN//':'//routineN
 
-      INTEGER                                            :: context_global, handle, igroup, &
-                                                            igroup_local, igroup_root
+      INTEGER                                            :: handle, igroup, igroup_local, igroup_root
       TYPE(cp_fm_type), POINTER                          :: fm_null
       TYPE(cp_para_env_type), POINTER                    :: para_env_global, para_env_sub
 
@@ -1488,7 +1487,6 @@ CONTAINS
       CALL cp_fm_struct_get(fm_struct_sub, para_env=para_env_sub)
       CALL get_blacs_info(blacs_env_global, para_env=para_env_global)
 
-      context_global = blacs_env_global%group
       igroup_local = subgroup(para_env_global%mepos)
       igroup_root = 0
 
@@ -1505,12 +1503,12 @@ CONTAINS
       DO igroup = 0, nsubgroups-1
          IF (igroup /= igroup_root) THEN
             IF (igroup_local == igroup_root) THEN
-               CALL cp_fm_copy_general(source=fm_sub, destination=fm_null, global_context=context_global)
+               CALL cp_fm_copy_general(fm_sub, fm_null, para_env_global)
             ELSE
                IF (igroup_local == igroup) THEN
-                  CALL cp_fm_copy_general(source=fm_null, destination=fm_sub, global_context=context_global)
+                  CALL cp_fm_copy_general(fm_null, fm_sub, para_env_global)
                ELSE
-                  CALL cp_fm_copy_general(source=fm_null, destination=fm_null, global_context=context_global)
+                  CALL cp_fm_copy_general(fm_null, fm_null, para_env_global)
                END IF
             END IF
          END IF
@@ -2792,6 +2790,7 @@ CONTAINS
       TYPE(cp_fm_struct_type), POINTER                   :: fm_struct
       TYPE(cp_fm_type), POINTER                          :: admm_A_sub, rho_ia_fm_global, &
                                                             work_aux_orb_sub
+      TYPE(cp_para_env_type), POINTER                    :: para_env
       TYPE(dbcsr_p_type), DIMENSION(:), POINTER :: hmat_aux_fit, hmat_global, hmat_orb, &
          matrix_s_aux_fit_global, matrix_s_global, rho_ia_aux_fit, rho_ia_global, rho_ia_orb
       TYPE(dbcsr_type), POINTER                          :: hmat_nosym_global
@@ -3073,18 +3072,20 @@ CONTAINS
       CALL cp_fm_create(rho_ia_fm_global, fm_struct)
       CALL cp_fm_struct_release(fm_struct)
 
+      para_env => blacs_env_global%para_env
       DO istate = 1, nstates
          DO ispin = 1, nspins
             IF (do_admm) THEN
-               CALL cp_fm_copy_general(source=rho_ia_aux_fit_fm(ispin, istate)%matrix, &
-                                       destination=rho_ia_fm_global, &
-                                       global_context=blacs_env_global%group)
+               CALL cp_fm_copy_general(rho_ia_aux_fit_fm(ispin, istate)%matrix, &
+                                       rho_ia_fm_global, &
+                                       blacs_env_global%para_env &
+                                       )
             ELSE
-               CALL cp_fm_copy_general(source=rho_ia_orb_fm(ispin, istate)%matrix, &
-                                       destination=rho_ia_fm_global, &
-                                       global_context=blacs_env_global%group)
+               CALL cp_fm_copy_general(rho_ia_orb_fm(ispin, istate)%matrix, &
+                                       rho_ia_fm_global, &
+                                       blacs_env_global%para_env &
+                                       )
             END IF
-
             CALL copy_fm_to_dbcsr(rho_ia_fm_global, rho_ia_global(ispin)%matrix, keep_sparsity=.TRUE.)
             CALL dbcsr_set(hmat_global(ispin)%matrix, 0.0_dp)
          END DO
@@ -3094,15 +3095,16 @@ CONTAINS
          DO ispin = 1, nspins
             CALL dbcsr_desymmetrize(hmat_global(ispin)%matrix, hmat_nosym_global)
             CALL copy_dbcsr_to_fm(hmat_nosym_global, rho_ia_fm_global)
-
             IF (do_admm) THEN
-               CALL cp_fm_copy_general(source=rho_ia_fm_global, &
-                                       destination=rho_ia_aux_fit_fm(ispin, istate)%matrix, &
-                                       global_context=blacs_env_global%group)
+               CALL cp_fm_copy_general(rho_ia_fm_global, &
+                                       rho_ia_aux_fit_fm(ispin, istate)%matrix, &
+                                       blacs_env_global%para_env &
+                                       )
             ELSE
-               CALL cp_fm_copy_general(source=rho_ia_fm_global, &
-                                       destination=rho_ia_orb_fm(ispin, istate)%matrix, &
-                                       global_context=blacs_env_global%group)
+               CALL cp_fm_copy_general(rho_ia_fm_global, &
+                                       rho_ia_orb_fm(ispin, istate)%matrix, &
+                                       blacs_env_global%para_env &
+                                       )
             END IF
          END DO
       END DO
@@ -4021,10 +4023,10 @@ CONTAINS
 
          DO istate = 1, nstates
             DO ispin = 1, nspins
-               CALL cp_fm_copy_general(source=evects(ispin, istate)%matrix, &
-                                       destination=evects_global(ispin)%matrix, &
-                                       global_context=blacs_env_global%group)
-
+               CALL cp_fm_copy_general(evects(ispin, istate)%matrix, &
+                                       evects_global(ispin)%matrix, &
+                                       blacs_env_global%para_env &
+                                       )
                ! TDDFPT wave function is actually stored as a linear combination of virtual MOs
                ! that replaces the corresponding deoccupied MO. Unfortunately, the phase
                ! of the occupied MOs varies depending on the eigensolver used as well as
@@ -4190,10 +4192,10 @@ CONTAINS
 
             IF (istate <= nstates) THEN
                CALL cp_fm_column_scale(evects_read(ispin)%matrix, gs_mos(ispin)%phases_occ)
-
-               CALL cp_fm_copy_general(source=evects_read(ispin)%matrix, &
-                                       destination=evects(ispin, istate)%matrix, &
-                                       global_context=blacs_env_global%group)
+               CALL cp_fm_copy_general(evects_read(ispin)%matrix, &
+                                       evects(ispin, istate)%matrix, &
+                                       blacs_env_global%para_env &
+                                       )
             END IF
          END DO
       END DO

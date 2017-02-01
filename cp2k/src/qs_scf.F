@@ -893,10 +893,10 @@ CONTAINS
 
    END SUBROUTINE scf_env_cleanup
 
-! *****************************************************************************
-!> \brief perform a cdft scf procedure in the given qs_env
+! **************************************************************************************************
+!> \brief perform a CDFT scf procedure in the given qs_env
 !> \param qs_env the qs_environment where to perform the scf procedure
-!> \param should_stop ...
+!> \param should_stop flag determing if calculation should stop
 !> \par History
 !>      12.2015 Created
 !> \author Nico Holmberg
@@ -1098,12 +1098,12 @@ CONTAINS
 
    END SUBROUTINE cdft_scf
 
-! *****************************************************************************
+! **************************************************************************************************
 !> \brief perform cleanup operations for cdft_control
-!> \param cdft_control ...
+!> \param cdft_control container for the external CDFT SCF loop variables
 !> \par History
 !>      12.2015 created [Nico Holmberg]
-!> \author
+!> \author Nico Holmberg
 ! **************************************************************************************************
    SUBROUTINE cdft_control_cleanup(cdft_control)
       TYPE(cdft_control_type), POINTER                   :: cdft_control
@@ -1122,9 +1122,9 @@ CONTAINS
 
    END SUBROUTINE cdft_control_cleanup
 
-! *****************************************************************************
+! **************************************************************************************************
 !> \brief Calculates the finite difference inverse Jacobian
-!> \param qs_env ...
+!> \param qs_env the qs_environment_type where to compute the Jacobian
 !> \par History
 !>      01.2017 created [Nico Holmberg]
 ! **************************************************************************************************

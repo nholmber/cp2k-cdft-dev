@@ -134,9 +134,9 @@ MODULE mixed_cdft_methods
 CONTAINS
 
 ! **************************************************************************************************
-!> \brief Initialize mixed cdft calculation (currently only relevant with Becke constraint)
-!> \param force_env ...
-!> \param calculate_forces ...
+!> \brief Initialize a mixed CDFT calculation (currently only relevant with Becke constraint)
+!> \param force_env the force_env that holds the CDFT states
+!> \param calculate_forces determines if forces should be calculted
 !> \par History
 !>       01.2016  created [Nico Holmberg]
 ! **************************************************************************************************
@@ -976,7 +976,7 @@ CONTAINS
 
 ! **************************************************************************************************
 !> \brief ET coupling adapted to mixed calculations
-!> \param force_env ...
+!> \param force_env the force_env that holds the CDFT states
 !> \par History
 !>       02.15  created [Nico Holmberg]
 ! **************************************************************************************************
@@ -1220,7 +1220,8 @@ CONTAINS
          ! Read wfn file (note we assume that the basis set is the same)
          IF (force_env%mixed_env%do_mixed_qmmm_cdft) &
             ! This really shouldnt be a problem?
-            CPABORT("QMMM + wavefunction overlap method not supported.")
+            CALL cp_abort(__LOCATION__, &
+                          "QMMM + wavefunction overlap method not supported.")
          CALL force_env_get(force_env=force_env, subsys=subsys_mix)
          linear_section => section_vals_get_subs_vals(force_env_section, "MIXED%LINEAR")
          CALL cp_subsys_get(subsys_mix, atomic_kind_set=atomic_kind_set, particle_set=particle_set)
@@ -1230,7 +1231,8 @@ CONTAINS
          CALL mp_bcast(exist, force_env%para_env%source, force_env%para_env%group)
          CALL mp_bcast(file_name, force_env%para_env%source, force_env%para_env%group)
          IF (.NOT. exist) &
-            CALL cp_abort(__LOCATION__, "User requested to restart the wavefunction from the file named: "// &
+            CALL cp_abort(__LOCATION__, &
+                          "User requested to restart the wavefunction from the file named: "// &
                           TRIM(file_name)//". This file does not exist. Please check the existence of"// &
                           " the file or change properly the value of the keyword WFN_RESTART_FILE_NAME in"// &
                           " section FORCE_EVAL\MIXED\LINEAR.")
@@ -1240,7 +1242,8 @@ CONTAINS
                           dft_section=linear_section, natom_mismatch=natom_mismatch, &
                           cdft=.TRUE.)
          IF (natom_mismatch) &
-            CPABORT("Restart wfn file has a wrong number of atoms")
+            CALL cp_abort(__LOCATION__, &
+                          "Restart wfn file has a wrong number of atoms")
          ! Orthonormalize wfn
          DO ispin = 1, nspins
             IF (mixed_cdft%has_unit_metric) THEN
@@ -1390,8 +1393,8 @@ CONTAINS
    END SUBROUTINE mixed_cdft_calculate_coupling
 ! **************************************************************************************************
 !> \brief Becke constraint adapted to mixed calculations, details in et_coupling.F
-!> \param force_env ...
-!> \param calculate_forces ...
+!> \param force_env the force_env that holds the CDFT states
+!> \param calculate_forces determines if forces should be calculted
 !> \par History
 !>       02.2016  created [Nico Holmberg]
 !>       03.2016  added dynamic load balancing (dlb)
@@ -1435,19 +1438,21 @@ CONTAINS
       CALL timestop(handle)
 
    END SUBROUTINE mixed_becke_constraint
-! *****************************************************************************
+! **************************************************************************************************
 !> \brief Initialize the mixed Becke constraint calculation
-!> \param force_env ...
-!> \param mixed_cdft ...
-!> \param calculate_forces ...
-!> \param is_constraint ...
-!> \param in_memory ...
-!> \param store_vectors ...
-!> \param R12 ...
-!> \param position_vecs ...
-!> \param pair_dist_vecs ...
-!> \param coefficients ...
-!> \param catom ...
+!> \param force_env the force_env that holds the CDFT states
+!> \param mixed_cdft container for structures needed to build the mixed CDFT constraint
+!> \param calculate_forces determines if forces should be calculted
+!> \param is_constraint a list used to determine which atoms in the system define the constraint
+!> \param in_memory decides whether to build the weight function gradients in parallel before solving
+!>                  the CDFT states or later during the SCF procedure of the individual states
+!> \param store_vectors should temporary arrays be stored in memory to accelerate the calculation
+!> \param R12 temporary array holding the pairwise atomic distances
+!> \param position_vecs temporary array holding the pbc corrected atomic position vectors
+!> \param pair_dist_vecs temporary array holding the pairwise displament vectors
+!> \param coefficients array that determines how atoms should be summed to form the constraint
+!> \param catom temporary array to map the global index of constraint atoms to their position
+!>              in a list that holds only constraint atoms
 !> \par History
 !>       03.2016  created [Nico Holmberg]
 ! **************************************************************************************************
@@ -1532,7 +1537,8 @@ CONTAINS
             mixed_cdft%becke_control%cutoffs(:) = mixed_cdft%becke_control%rglobal
          CASE (becke_cutoff_element)
             IF (.NOT. SIZE(atomic_kind_set) == SIZE(mixed_cdft%becke_control%cutoffs_tmp)) &
-               CALL cp_abort(__LOCATION__, "Size of keyword BECKE_RESTRAINT\ELEMENT_CUTOFFS does"// &
+               CALL cp_abort(__LOCATION__, &
+                             "Size of keyword BECKE_RESTRAINT\ELEMENT_CUTOFFS does"// &
                              "not match number of atomic kinds in the input coordinate file.")
             DO ikind = 1, SIZE(atomic_kind_set)
                CALL get_atomic_kind(atomic_kind_set(ikind), natom=katom, atom_list=atom_list)
@@ -1561,7 +1567,8 @@ CONTAINS
       END IF
       in_memory = calculate_forces .AND. mixed_cdft%becke_control%in_memory
       IF (in_memory .NEQV. calculate_forces) &
-         CALL cp_abort(__LOCATION__, "The flag BECKE_RESTRAINT\IN_MEMORY must be activated "// &
+         CALL cp_abort(__LOCATION__, &
+                       "The flag BECKE_RESTRAINT\IN_MEMORY must be activated "// &
                        "for the calculation of mixed CDFT forces")
       IF (in_memory .OR. mixed_cdft%first_iteration) ALLOCATE (coefficients(natom))
       DO i = 1, mixed_cdft%becke_control%natoms
@@ -1807,7 +1814,8 @@ CONTAINS
                                            extension=".cube", file_position="REWIND", &
                                            log_filename=.FALSE.)
             IF (force_env%para_env%mepos == force_env%para_env%source .AND. unit_nr .LT. 1) &
-               CPABORT("Please turn on PROGRAM_RUN_INFO to print cavity")
+               CALL cp_abort(__LOCATION__, &
+                             "Please turn on PROGRAM_RUN_INFO to print cavity")
             CALL cp_pw_to_cube(mixed_cdft%becke_control%cavity%pw, &
                                unit_nr, "CAVITY", particles=particles, &
                                stride=stride)
@@ -1916,15 +1924,16 @@ CONTAINS
 
    END SUBROUTINE mixed_becke_constraint_init
 
-! *****************************************************************************
+! **************************************************************************************************
 !> \brief Setup load balancing for mixed Becke calculation
-!> \param force_env ...
-!> \param mixed_cdft ...
-!> \param my_work ...
-!> \param my_work_size ...
-!> \param natom ...
-!> \param bo ...
-!> \param bo_conf ...
+!> \param force_env the force_env that holds the CDFT states
+!> \param mixed_cdft container for structures needed to build the mixed CDFT constraint
+!> \param my_work an estimate of the work per processor
+!> \param my_work_size size of the smallest array slice per processor. overloaded processors will
+!>                     redistribute works as integer multiples of this value.
+!> \param natom the total number of atoms
+!> \param bo bounds of the realspace grid that holds the electron density
+!> \param bo_conf same as bo, but bounds along z-direction have been compacted with confinement
 !> \par History
 !>       03.2016  created [Nico Holmberg]
 ! **************************************************************************************************
@@ -1940,7 +1949,7 @@ CONTAINS
       INTEGER, PARAMETER                                 :: should_deallocate = 7000, &
                                                             uninitialized = -7000
 
-      INTEGER :: actually_sent, exhausted_work, handle, i, ind, ispecial, j, max_targets, &
+      INTEGER :: actually_sent, exhausted_work, handle, i, ind, iounit, ispecial, j, max_targets, &
          more_work, my_pos, my_req(2), my_special_work, my_target, no_overloaded, no_underloaded, &
          nsend, nsend_limit, nsend_max, offset, offset_proc, offset_special, req(4), send_total, &
          tags(2)
@@ -1954,6 +1963,7 @@ CONTAINS
                                                             very_overloaded, work_factor
       REAL(KIND=dp), DIMENSION(:, :, :), POINTER         :: cavity
       TYPE(cp_logger_type), POINTER                      :: logger
+      TYPE(section_vals_type), POINTER                   :: force_env_section, print_section
 
       TYPE buffers
          LOGICAL, POINTER, DIMENSION(:)        :: bv
@@ -1969,9 +1979,15 @@ CONTAINS
       NULLIFY (expected_work, work_index, load_imbalance, work_size, &
                cumulative_work, sendbuffer, buffsize, req_recv, req_total, &
                tmp, nrecv, nsend_proc, targets, tmp_bo, touched, &
-               mask_recv, mask_send, cavity, recvbuffer, sbuff)
-      ! TODO: These numerical values control data redistribution and are system sensitive
-      !       Currently they are not refined during run time which may cause crashes
+               mask_recv, mask_send, cavity, recvbuffer, sbuff, force_env_section, &
+               print_section)
+      CALL force_env_get(force_env=force_env, force_env_section=force_env_section)
+      print_section => section_vals_get_subs_vals(force_env_section, "MIXED%PRINT%PROGRAM_RUN_INFO")
+      iounit = cp_print_key_unit_nr(logger, print_section, '', extension='.mixedLog')
+      ! These numerical values control data redistribution and are system sensitive
+      ! Currently they are not refined during run time which may cause crashes
+      ! However, using too many processors or a confinement cavity that is too large relative to the
+      ! total system volume are more likely culprits.
       load_scale = mixed_cdft%dlb_control%load_scale
       very_overloaded = mixed_cdft%dlb_control%very_overloaded
       more_work = mixed_cdft%dlb_control%more_work
@@ -2166,7 +2182,9 @@ CONTAINS
                EXIT
             END IF
             i = i+1
-            IF (i .GT. max_targets) CPABORT("Load balancing error: increase max_targets")
+            IF (i .GT. max_targets) &
+               CALL cp_abort(__LOCATION__, &
+                             "Load balancing error: increase max_targets")
          END DO
          IF (.NOT. mixed_cdft%is_special) THEN
             CALL reallocate(mixed_cdft%dlb_control%target_list, 1, 3, 1, i)
@@ -2190,7 +2208,8 @@ CONTAINS
       IF (debug_this_module) THEN
          CALL mp_sum(should_warn, force_env%para_env%group)
          IF (ANY(should_warn == 1)) &
-            CALL cp_warn(__LOCATION__, "MIXED_CDFT DLB: Attempted to redistribute more array"// &
+            CALL cp_warn(__LOCATION__, &
+                         "MIXED_CDFT DLB: Attempted to redistribute more array"// &
                          " slices than actually available. Leaving a fraction of the total "// &
                          " slices on the overloaded processor. Perhaps you have set LOAD_SCALE too high?")
          DEALLOCATE (should_warn)
@@ -2198,14 +2217,7 @@ CONTAINS
       ! check that there is one-to-one mapping between over- and underloaded processors
       IF (force_env%para_env%mepos == force_env%para_env%source) THEN
          consistent = .TRUE.
-         IF (debug_this_module) THEN
-            PRINT*, 'no_underloaded', no_underloaded
-            PRINT*, 'Work size', work_size
-            PRINT*, 'Load imbalance', load_imbalance
-            PRINT*, 'targets', work_index(force_env%para_env%num_pe), targets(:, force_env%para_env%num_pe)
-         END IF
          DO i = force_env%para_env%num_pe-1, force_env%para_env%num_pe-no_overloaded+1, -1
-            IF (debug_this_module) PRINT*, 'targets', work_index(i), targets(1, i), targets(2, i)
             IF (targets(1, i) .GT. no_underloaded) consistent = .FALSE.
             IF (targets(1, i) .GT. targets(2, i+1)) THEN
                CYCLE
@@ -2213,9 +2225,20 @@ CONTAINS
                consistent = .FALSE.
             END IF
          END DO
-         IF (.NOT. consistent) &
-            CALL cp_abort(__LOCATION__, "Load balancing error: too much data to redistribute."// &
-                          " Increase LOAD_SCALE or change the number of processors.")
+         IF (.NOT. consistent) THEN
+            IF (debug_this_module .AND. iounit > 0) THEN
+               DO i = force_env%para_env%num_pe-1, force_env%para_env%num_pe-no_overloaded+1, -1
+                  WRITE (iounit, '(A,I8,I8,I8,I8,I8)') &
+                     'load balancing info', load_imbalance(i), work_index(i), &
+                     work_size(i), targets(1, i), targets(2, i)
+               END DO
+            END IF
+            CALL cp_abort(__LOCATION__, &
+                          "Load balancing error: too much data to redistribute."// &
+                          " Increase LOAD_SCALE or change the number of processors."// &
+                          " If the confinement cavity occupies a large volume relative"// &
+                          " to the total system volume, it might be worth disabling DLB.")
+         END IF
       END IF
       ! Tell the target processors which grid points they should compute
       IF (my_pos .LE. no_underloaded) THEN
@@ -2654,22 +2677,26 @@ CONTAINS
          END IF
       END IF
       DEALLOCATE (sbuff)
+      CALL cp_print_key_finished_output(iounit, logger, force_env_section, &
+                                        "MIXED%PRINT%PROGRAM_RUN_INFO")
       CALL timestop(handle)
 
    END SUBROUTINE mixed_becke_constraint_dlb
 
 ! **************************************************************************************************
 !> \brief Low level routine to build mixed Becke constraint and gradients
-!> \param force_env ...
-!> \param mixed_cdft ...
-!> \param in_memory ...
-!> \param is_constraint ...
-!> \param store_vectors ...
-!> \param R12 ...
-!> \param position_vecs ...
-!> \param pair_dist_vecs ...
-!> \param coefficients ...
-!> \param catom ...
+!> \param force_env the force_env that holds the CDFT states
+!> \param mixed_cdft container for structures needed to build the mixed CDFT constraint
+!> \param in_memory decides whether to build the weight function gradients in parallel before solving
+!>                  the CDFT states or later during the SCF procedure of the individual states
+!> \param is_constraint a list used to determine which atoms in the system define the constraint
+!> \param store_vectors should temporary arrays be stored in memory to accelerate the calculation
+!> \param R12 temporary array holding the pairwise atomic distances
+!> \param position_vecs temporary array holding the pbc corrected atomic position vectors
+!> \param pair_dist_vecs temporary array holding the pairwise displament vectors
+!> \param coefficients array that determines how atoms should be summed to form the constraint
+!> \param catom temporary array to map the global index of constraint atoms to their position
+!>              in a list that holds only constraint atoms
 !> \par History
 !>       03.2016  created [Nico Holmberg]
 ! **************************************************************************************************
@@ -2692,9 +2719,9 @@ CONTAINS
       CHARACTER(len=*), PARAMETER :: routineN = 'mixed_becke_constraint_low', &
          routineP = moduleN//':'//routineN
 
-      INTEGER :: dir, handle, i, iatom, icomm, iforce_eval, ind(3), index, ip, ispecial, iwork, j, &
-         jatom, jcomm, k, lb_index, my_special_work, my_work, natom, nbuffs, nforce_eval, np(3), &
-         nsent_total, nskipped, nwork, offset, offset_repl, ub_index
+      INTEGER :: dir, handle, i, iatom, icomm, iforce_eval, ind(3), index, iounit, ip, ispecial, &
+         iwork, j, jatom, jcomm, k, lb_index, my_special_work, my_work, natom, nbuffs, &
+         nforce_eval, np(3), nsent_total, nskipped, nwork, offset, offset_repl, ub_index
       INTEGER, DIMENSION(:), POINTER                     :: req_recv, work, work_dlb
       INTEGER, DIMENSION(:, :), POINTER                  :: nsent, req_send
       LOGICAL                                            :: completed_recv, should_communicate
@@ -2721,13 +2748,18 @@ CONTAINS
       TYPE(particle_list_type), POINTER                  :: particles
       TYPE(particle_type), DIMENSION(:), POINTER         :: particle_set
       TYPE(pw_pool_type), POINTER                        :: auxbas_pw_pool
+      TYPE(section_vals_type), POINTER                   :: force_env_section, print_section
 
       logger => cp_get_default_logger()
       NULLIFY (work, req_recv, req_send, work_dlb, nsent, cutoffs, cavity, &
                weight, gradients, cell, subsys_mix, force_env_qs, &
-               particle_set, particles, auxbas_pw_pool)
+               particle_set, particles, auxbas_pw_pool, force_env_section, &
+               print_section)
       CALL timeset(routineN, handle)
       nforce_eval = SIZE(force_env%sub_force_env)
+      CALL force_env_get(force_env=force_env, force_env_section=force_env_section)
+      print_section => section_vals_get_subs_vals(force_env_section, "MIXED%PRINT%PROGRAM_RUN_INFO")
+      iounit = cp_print_key_unit_nr(logger, print_section, '', extension='.mixedLog')
       IF (.NOT. force_env%mixed_env%do_mixed_qmmm_cdft) THEN
          CALL force_env_get(force_env=force_env, &
                             subsys=subsys_mix, &
@@ -3351,13 +3383,11 @@ CONTAINS
          IF (.NOT. ASSOCIATED(mixed_cdft%dlb_control%prediction_error)) &
             ALLOCATE (mixed_cdft%dlb_control%prediction_error(force_env%para_env%num_pe))
          mixed_cdft%dlb_control%prediction_error = mixed_cdft%dlb_control%expected_work-work
-         IF (debug_this_module) THEN
-            IF (force_env%para_env%mepos == force_env%para_env%source) THEN
-               PRINT*, 'Actual work', work
-               PRINT*, 'Actual work with redistribution', work_dlb
-               PRINT*, 'Expected work', mixed_cdft%dlb_control%expected_work
-               PRINT*, 'prediction_error', mixed_cdft%dlb_control%prediction_error
-            END IF
+         IF (debug_this_module .AND. iounit > 0) THEN
+            DO i = 1, SIZE(work, 1)
+               WRITE (iounit, '(A,I10,I10,I10)') &
+                  'Work', work(i), work_dlb(i), mixed_cdft%dlb_control%expected_work(i)
+            END DO
          END IF
          DEALLOCATE (work, work_dlb, mixed_cdft%dlb_control%expected_work)
       END IF
@@ -3396,6 +3426,8 @@ CONTAINS
          DEALLOCATE (req_send)
       IF (ASSOCIATED(req_recv)) &
          DEALLOCATE (req_recv)
+      CALL cp_print_key_finished_output(iounit, logger, force_env_section, &
+                                        "MIXED%PRINT%PROGRAM_RUN_INFO")
       CALL timestop(handle)
 
    END SUBROUTINE mixed_becke_constraint_low

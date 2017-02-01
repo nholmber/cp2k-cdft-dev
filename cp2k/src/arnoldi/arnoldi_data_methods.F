@@ -20,10 +20,11 @@ MODULE arnoldi_data_methods
         has_d_real, has_s_cmplx, has_s_real, set_control, set_data_c, set_data_d, set_data_s, &
         set_data_z
    USE dbcsr_api,                       ONLY: &
-        create_col_vec_from_matrix, dbcsr_distribution_obj, dbcsr_get_data_p, dbcsr_get_data_type, &
+        dbcsr_distribution_get, dbcsr_distribution_type, dbcsr_get_data_p, dbcsr_get_data_type, &
         dbcsr_get_info, dbcsr_get_matrix_type, dbcsr_mp_grid_setup, dbcsr_p_type, dbcsr_release, &
         dbcsr_type, dbcsr_type_complex_4, dbcsr_type_complex_8, dbcsr_type_real_4, &
         dbcsr_type_real_8, dbcsr_type_symmetric
+   USE dbcsr_vector,                    ONLY: create_col_vec_from_matrix
    USE kinds,                           ONLY: real_4,&
                                               real_8
    USE util,                            ONLY: sort
@@ -112,20 +113,23 @@ CONTAINS
       CHARACTER(LEN=*), PARAMETER :: routineN = 'setup_arnoldi_control', &
          routineP = moduleN//':'//routineN
 
+      LOGICAL                                            :: subgroups_defined
       TYPE(arnoldi_control_type), POINTER                :: control
-      TYPE(dbcsr_distribution_obj)                       :: distri
+      TYPE(dbcsr_distribution_type)                      :: distri
 
       ALLOCATE (control)
 ! Fill the information which will later on control the behavior of the arnoldi method and allow synchronization
       CALL dbcsr_get_info(matrix=matrix(1)%matrix, distribution=distri)
-      control%mp_group = distri%d%mp_env%mp%mp_group
-      control%myproc = distri%d%mp_env%mp%mynode
+      CALL dbcsr_mp_grid_setup(distri)
+      CALL dbcsr_distribution_get(distri, &
+                                  group=control%mp_group, &
+                                  mynode=control%myproc, &
+                                  subgroups_defined=subgroups_defined, &
+                                  prow_group=control%prow_group, &
+                                  pcol_group=control%pcol_group)
 
-      CALL dbcsr_mp_grid_setup(distri%d%mp_env)
-      IF (.NOT. distri%d%mp_env%mp%subgroups_defined) &
+      IF (.NOT. subgroups_defined) &
          CPABORT("arnoldi only with subgroups")
-      control%pcol_group = distri%d%mp_env%mp%pcol_group
-      control%prow_group = distri%d%mp_env%mp%prow_group
 
       control%symmetric = .FALSE.
 ! Will need a fix for complex because there it has to be hermitian

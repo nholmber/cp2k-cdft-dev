@@ -1712,8 +1712,8 @@ CONTAINS
 
 ! **************************************************************************************************
 !> \brief reads the input parameters needed for evaluating a becke weight population constraint
-!> \param qs_control ...
-!> \param becke_section ...
+!> \param qs_control the qs_control which holds the Becke control type
+!> \param becke_section the input section containing Becke constraint information
 !> \author fschiff
 ! **************************************************************************************************
    SUBROUTINE read_becke_section(qs_control, becke_section)
@@ -1741,7 +1741,14 @@ CONTAINS
          CALL section_vals_val_get(becke_section, "COMBINED_TYPE", &
                                    i_val=qs_control%becke_control%combined_type)
       END SELECT
-
+      ! Need to deallocate first in case ET_COUPLING calculation (in qs_energy_utils)
+      IF (ASSOCIATED(qs_control%becke_control%strength)) &
+         DEALLOCATE (qs_control%becke_control%strength)
+      IF (ASSOCIATED(qs_control%becke_control%becke_order_p)) &
+         DEALLOCATE (qs_control%becke_control%becke_order_p)
+      IF (ASSOCIATED(qs_control%becke_control%target)) &
+         DEALLOCATE (qs_control%becke_control%target)
+      !
       ALLOCATE (qs_control%becke_control%strength(nvar))
       ALLOCATE (qs_control%becke_control%becke_order_p(nvar))
       ALLOCATE (qs_control%becke_control%target(nvar))
@@ -1921,10 +1928,10 @@ CONTAINS
 
    END SUBROUTINE read_becke_section
 
-! *****************************************************************************
+! **************************************************************************************************
 !> \brief reads the input parameters needed for CDFT with OT
-!> \param qs_control ...
-!> \param cdft_control_section ...
+!> \param qs_control the qs_control which holds the CDFT control type
+!> \param cdft_control_section the input section for CDFT
 !> \author Nico Holmberg [12.2015]
 ! **************************************************************************************************
    SUBROUTINE read_cdft_control_section(qs_control, cdft_control_section)
@@ -2012,10 +2019,10 @@ CONTAINS
 
    END SUBROUTINE read_cdft_control_section
 
-! *****************************************************************************
+! **************************************************************************************************
 !> \brief reads the input parameters needed for Hirshfeld constraint
-!> \param qs_control ...
-!> \param hirshfeld_constraint_section ...
+!> \param qs_control the qs_control which holds the Hirshfeld constraint
+!> \param hirshfeld_constraint_section the input section for a Hirshfeld constraint
 !> \author Nico Holmberg [12.2015]
 ! **************************************************************************************************
    SUBROUTINE read_hirshfeld_constraint_section(qs_control, hirshfeld_constraint_section)
