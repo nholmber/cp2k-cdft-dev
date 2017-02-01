@@ -1323,11 +1323,8 @@ CONTAINS
                scf_env%outer_scf%gradient = gradient
                scf_env%outer_scf%energy = energy
                DO ispin = 1, nspins
+                  CALL deallocate_mo_set(mos(ispin)%mo_set)
                   CALL duplicate_mo_set(mos(ispin)%mo_set, mos_stashed(ispin)%mo_set)
-                  IF (mos(ispin)%mo_set%use_mo_coeff_b) THEN
-                     CALL copy_fm_to_dbcsr(mos(ispin)%mo_set%mo_coeff, &
-                                           mos(ispin)%mo_set%mo_coeff_b)
-                  ENDIF
                   CALL calculate_density_matrix(mos(ispin)%mo_set, &
                                                 p_rmpv(ispin)%matrix)
                END DO
@@ -1335,6 +1332,8 @@ CONTAINS
                CALL qs_ks_did_change(qs_env%ks_env, rho_changed=.TRUE.)
             END DO
          END DO
+         CALL cp_rm_default_logger()
+         CALL cp_logger_release(tmp_logger)
          ! Finalize and invert Jacobian
          jacobian = jacobian/dh
          IF (.NOT. ASSOCIATED(scf_env%outer_scf%inv_jacobian)) &
@@ -1349,8 +1348,6 @@ CONTAINS
          IF (output_unit > 0) &
             WRITE (output_unit, FMT="(/,A)") &
             " ================================== JACOBIAN CALCULATED =================================="
-         CALL cp_rm_default_logger()
-         CALL cp_logger_release(tmp_logger)
       END IF
       CALL timestop(handle)
 
