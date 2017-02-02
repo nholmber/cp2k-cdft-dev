@@ -770,13 +770,13 @@ CONTAINS
             WRITE (output_unit, '(A)') "  Minimizer               : Broyden"
             SELECT CASE (cdft_control%constraint_control%broyden_type)
             CASE (broyden_type_1)   
-               WRITE (output_unit, '(A)') "                    variant: 1st method" 
+               WRITE (output_unit, '(A)') "                  variant : 1st method" 
             CASE (broyden_type_1_explicit)   
-               WRITE (output_unit, '(A)') "                    variant: 1st method with explicit initial Jacobian" 
+               WRITE (output_unit, '(A)') "                  variant : 1st method with explicit initial Jacobian" 
             CASE (broyden_type_2)   
-               WRITE (output_unit, '(A)') "                    variant: 2nd method" 
+               WRITE (output_unit, '(A)') "                  variant : 2nd method" 
             CASE (broyden_type_2_explicit)   
-               WRITE (output_unit, '(A)') "                    variant: 2nd method with explicit initial Jacobian"
+               WRITE (output_unit, '(A)') "                  variant : 2nd method with explicit initial Jacobian"
             END SELECT
             WRITE (output_unit, '(A,I4,A)') &
                "  The Jacobian is restarted every ", &
