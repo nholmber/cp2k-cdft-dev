@@ -88,7 +88,8 @@ MODULE input_cp2k_dft
         wfi_ps_method_nr, wfi_use_guess_method_nr, wfi_use_prev_p_method_nr, &
         wfi_use_prev_rho_r_method_nr, wfi_use_prev_wf_method_nr, xas_1s_type, xas_2p_type, &
         xas_2s_type, xas_dip_len, xas_dip_vel, xas_dscf, xas_none, xas_tp_fh, xas_tp_flex, &
-        xas_tp_hh, xas_tp_xfh, xas_tp_xhh, xes_tp_val
+        xas_tp_hh, xas_tp_xfh, xas_tp_xhh, xes_tp_val, broyden_type_1, broyden_type_1_explicit, &
+        broyden_type_2, broyden_type_2_explicit
    USE input_cp2k_almo,                 ONLY: create_almo_scf_section
    USE input_cp2k_distribution,         ONLY: create_distribution_section
    USE input_cp2k_kpoints,              ONLY: create_kpoints_section
