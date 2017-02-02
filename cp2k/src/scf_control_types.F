@@ -24,8 +24,8 @@ MODULE scf_control_types
         ot_algo_taylor_or_diag, outer_scf_basis_center_opt, outer_scf_becke_constraint, &
         outer_scf_ddapc_constraint, outer_scf_none, outer_scf_optimizer_bisect, &
         outer_scf_optimizer_broyden, outer_scf_optimizer_diis, outer_scf_optimizer_newton, &
-        outer_scf_optimizer_none, outer_scf_optimizer_sd, outer_scf_s2_constraint, &
-        smear_energy_window, smear_fermi_dirac, smear_list
+        outer_scf_optimizer_none, outer_scf_optimizer_sd, outer_scf_optimizer_secant, &
+        outer_scf_s2_constraint, smear_energy_window, smear_fermi_dirac, smear_list
    USE input_cp2k_dft,                  ONLY: create_scf_section
    USE input_enumeration_types,         ONLY: enum_i2c,&
                                               enumeration_type
@@ -85,6 +85,11 @@ MODULE scf_control_types
 !> \param step_size the optimizer step size
 !> \param jacobian_step the step size for calculating the finite difference Jacobian
 !> \param jacobian_type the finite difference scheme to compute the Jacobian
+!> \param broyden_type the variant of Broyden's method to use
+!> \param jacobian_freq control parameters defining how often the Jacobian is built
+!> \param ijacobian counter to track how many outer_scf iterations have passed since the last
+!>                  Jacobian rebuild
+!> \param broyden_update logical which determines if a Broyden update is needed
 !> \par History
 !>      09.2002 created [fawzi]
 !> \author Fawzi Mohamed
@@ -93,6 +98,7 @@ MODULE scf_control_types
    TYPE outer_scf_control_type
       LOGICAL       :: have_scf
       LOGICAL       :: build_jacobian
+      LOGICAL       :: broyden_update
       INTEGER       :: max_scf
       REAL(KIND=dp) :: eps_scf, step_size, &
                        jacobian_step
@@ -102,6 +108,9 @@ MODULE scf_control_types
       INTEGER       :: extrapolation_order
       INTEGER       :: bisect_trust_count
       INTEGER       :: jacobian_type
+      INTEGER       :: broyden_type
+      INTEGER       :: jacobian_freq
+      INTEGER       :: ijacobian
    END TYPE outer_scf_control_type
 
    TYPE smear_type
@@ -268,8 +277,12 @@ CONTAINS
       scf_control%outer_scf%optimizer = -1
       scf_control%outer_scf%diis_buffer_length = -1
       scf_control%outer_scf%jacobian_type = -1
+      scf_control%outer_scf%broyden_type = -1
+      scf_control%outer_scf%jacobian_freq = 1
       scf_control%outer_scf%jacobian_step = 0.0_dp
+      scf_control%outer_scf%ijacobian = 0
       scf_control%outer_scf%build_jacobian = .FALSE.
+      scf_control%outer_scf%broyden_update = .FALSE.
 
       ! Smearing of the MO occupations
 
@@ -356,8 +369,8 @@ CONTAINS
          routineP = moduleN//':'//routineN
 
       INTEGER                                            :: cholesky_flag, handle, ialgo
-      INTEGER, DIMENSION(:), POINTER                     :: added_mos
-      LOGICAL                                            :: do_mixing
+      INTEGER, DIMENSION(:), POINTER                     :: added_mos, tmplist
+      LOGICAL                                            :: do_mixing, exists
       REAL(KIND=dp), DIMENSION(:), POINTER               :: roks_parameter
       TYPE(section_vals_type), POINTER                   :: mixing_section, outer_scf_section, &
                                                             scf_section, smear_section
@@ -509,6 +522,23 @@ CONTAINS
                                    i_val=scf_control%outer_scf%jacobian_type)
          CALL section_vals_val_get(outer_scf_section, "JACOBIAN_STEP", &
                                    r_val=scf_control%outer_scf%jacobian_step)
+         CALL section_vals_val_get(outer_scf_section, "BROYDEN_TYPE", &
+                                   i_val=scf_control%outer_scf%broyden_type)
+         CALL section_vals_val_get(outer_scf_section, "JACOBIAN_FREQ", explicit=exists)
+         IF (exists) THEN
+            CALL section_vals_val_get(outer_scf_section, "JACOBIAN_FREQ", &)
+                                      i_vals=tmplist)
+            IF (SIZE(tmplist) /= 2) &
+               CALL cp_abort(__LOCATION__, &
+                             "Keyword JACOBIAN_FREQ takes exactly two input values.")
+            IF (ANY(tmplist .LT. 0)) &
+               CALL cp_abort(__LOCATION__, &
+                             "Keyword JACOBIAN_FREQ takes only positive values.")
+            IF (ALL(tmplist .EQ. 0)) &
+               CALL cp_abort(__LOCATION__, &
+                             "Both values to keyword JACOBIAN_FREQ cannot be zero.")               
+            scf_control%outer_scf%jacobian_freq = tmplist
+         END IF         
       END IF
 
       smear_section => section_vals_get_subs_vals(scf_section, "SMEAR")
@@ -757,6 +787,8 @@ CONTAINS
                   WRITE (output_unit, '(T25,A)') "Optimization with Broyden's method"
                CASE (outer_scf_optimizer_newton)
                   WRITE (output_unit, '(T25,A)') "Optimization with Newton's method"
+               CASE (outer_scf_optimizer_secant)
+                  WRITE (output_unit, '(T25,A)') "Optimization with the secant method"                  
                CASE DEFAULT
                   CPABORT("")
                END SELECT

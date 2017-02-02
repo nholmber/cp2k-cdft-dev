@@ -347,6 +347,7 @@ MODULE cp_control_types
 !> \param purge_offset purging is only allowed when more than purge_offset steps have passed since
 !>                     last purge
 !> \param istep a counter to keep track of how many steps have passed since the last purge
+!> \param ienergy a counter tracking the total number of CDFT energy evaluations
 !> \param constraint_type the constraint type to use
 !> \param combined_type for combined density+spin constraint, determines which atoms to apply the spin
 !>                      constraint to
@@ -366,20 +367,23 @@ MODULE cp_control_types
 !> \param reuse_precond logical which determines if a preconditioner can be reused
 !> \param purge_history logical which determines if the wfn/constraint history can be purged
 !> \param should_purge logical which determines if purging should take place after this CDFT SCF loop
-!> \param calculate_metric logical which determines is the ET coupling reliablity metric is computed
+!> \param calculate_metric logical which determines if the ET coupling reliablity metric is computed
 !> \param mo_coeff save the MO coeffs (for do_et)
-!> \param wmat matrix representation of the weight (for do_et)
+!> \param wmat matrix representation of the weight function (for do_et)
 !> \param matrix_s save the overlap matrix (for do_et)
-!> \param matrix_s save the density matrix (for calculate_metric)
+!> \param matrix_p save the density matrix (for calculate_metric)
 ! **************************************************************************************************
    ! Copied from qs_scf_types to avoid circular dependency
    TYPE qs_outer_scf_type
       INTEGER                              :: iter_count
+      LOGICAL                              :: deallocate_jacobian
       REAL(KIND=dp), DIMENSION(:), POINTER :: energy
       REAL(KIND=dp), DIMENSION(:, :), &
          POINTER                           :: variables
       REAL(KIND=dp), DIMENSION(:, :), &
          POINTER                           :: gradient
+      REAL(KIND=dp), DIMENSION(:, :), &
+         POINTER                           :: inv_jacobian
       INTEGER, DIMENSION(:), POINTER       :: count
    END TYPE qs_outer_scf_type
 
@@ -387,7 +391,9 @@ MODULE cp_control_types
    TYPE outer_scf_control_type
       LOGICAL                              :: have_scf
       LOGICAL                              :: build_jacobian
-      INTEGER                              :: max_scf
+      LOGICAL                              :: broyden_update
+      INTEGER                              :: max_scf, &
+                                              ijacobian
       REAL(KIND=dp)                        :: eps_scf, step_size, &
                                               jacobian_step
       INTEGER                              :: TYPE
@@ -396,13 +402,16 @@ MODULE cp_control_types
       INTEGER                              :: extrapolation_order
       INTEGER                              :: bisect_trust_count
       INTEGER                              :: jacobian_type
+      INTEGER                              :: broyden_type
+      INTEGER                              :: jacobian_freq
    END TYPE outer_scf_control_type
 
    TYPE cdft_control_type
       INTEGER                              :: ref_count, total_steps, TYPE, &
                                               precond_freq, nreused, max_reuse, &
                                               purge_freq, nbad_conv, purge_offset, &
-                                              istep, constraint_type, combined_type
+                                              istep, constraint_type, combined_type, &
+                                              ienergy
       TYPE(qs_outer_scf_type)              :: constraint
       TYPE(outer_scf_control_type)         :: constraint_control, ot_control
       TYPE(hirshfeld_constraint_type), &
@@ -1047,6 +1056,7 @@ CONTAINS
       cdft_control%istep = 0
       cdft_control%constraint_type = cdft_density_constraint
       cdft_control%combined_type = cdft_combined_all
+      cdft_control%ienergy = 0
       NULLIFY (cdft_control%hirshfeld_control)
       NULLIFY (cdft_control%weight%pw)
       NULLIFY (cdft_control%wmat%matrix)
@@ -1071,12 +1081,19 @@ CONTAINS
       cdft_control%constraint_control%optimizer = -1
       cdft_control%constraint_control%diis_buffer_length = -1
       cdft_control%constraint_control%jacobian_type = -1
+      cdft_control%constraint_control%broyden_type = -1
+      cdft_control%constraint_control%jacobian_freq = 1
       cdft_control%constraint_control%jacobian_step = 0.0_dp
+      cdft_control%constraint_control%ijacobian = 0
+      cdft_control%constraint_control%build_jacobian = .FALSE.
+      cdft_control%constraint_control%broyden_update = .FALSE.
       cdft_control%constraint%iter_count = 0
       NULLIFY (cdft_control%constraint%variables)
       NULLIFY (cdft_control%constraint%gradient)
       NULLIFY (cdft_control%constraint%energy)
       NULLIFY (cdft_control%constraint%count)
+      NULLIFY (cdft_control%constraint%inv_jacobian)
+      cdft_control%constraint%deallocate_jacobian = .TRUE. 
    END SUBROUTINE cdft_control_create
 
 ! *****************************************************************************
@@ -1120,6 +1137,8 @@ CONTAINS
             DEALLOCATE (cdft_control%constraint%gradient)
          IF (ASSOCIATED(cdft_control%constraint%energy)) &
             DEALLOCATE (cdft_control%constraint%energy)
+         IF (ASSOCIATED(cdft_control%constraint%inv_jacobian)) &
+            DEALLOCATE (cdft_control%constraint%inv_jacobian)            
          DEALLOCATE (cdft_control)
       END IF
    END SUBROUTINE cdft_control_release
