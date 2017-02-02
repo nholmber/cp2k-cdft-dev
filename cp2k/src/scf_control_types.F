@@ -25,7 +25,8 @@ MODULE scf_control_types
         outer_scf_ddapc_constraint, outer_scf_none, outer_scf_optimizer_bisect, &
         outer_scf_optimizer_broyden, outer_scf_optimizer_diis, outer_scf_optimizer_newton, &
         outer_scf_optimizer_none, outer_scf_optimizer_sd, outer_scf_optimizer_secant, &
-        outer_scf_s2_constraint, smear_energy_window, smear_fermi_dirac, smear_list
+        outer_scf_s2_constraint, smear_energy_window, smear_fermi_dirac, smear_list, &
+        broyden_type_1, broyden_type_2, broyden_type_1_explicit, broyden_type_2_explicit
    USE input_cp2k_dft,                  ONLY: create_scf_section
    USE input_enumeration_types,         ONLY: enum_i2c,&
                                               enumeration_type
@@ -109,7 +110,7 @@ MODULE scf_control_types
       INTEGER       :: bisect_trust_count
       INTEGER       :: jacobian_type
       INTEGER       :: broyden_type
-      INTEGER       :: jacobian_freq
+      INTEGER       :: jacobian_freq(2)
       INTEGER       :: ijacobian
    END TYPE outer_scf_control_type
 
@@ -526,7 +527,7 @@ CONTAINS
                                    i_val=scf_control%outer_scf%broyden_type)
          CALL section_vals_val_get(outer_scf_section, "JACOBIAN_FREQ", explicit=exists)
          IF (exists) THEN
-            CALL section_vals_val_get(outer_scf_section, "JACOBIAN_FREQ", &)
+            CALL section_vals_val_get(outer_scf_section, "JACOBIAN_FREQ", &
                                       i_vals=tmplist)
             IF (SIZE(tmplist) /= 2) &
                CALL cp_abort(__LOCATION__, &
@@ -537,7 +538,7 @@ CONTAINS
             IF (ALL(tmplist .EQ. 0)) &
                CALL cp_abort(__LOCATION__, &
                              "Both values to keyword JACOBIAN_FREQ cannot be zero.")               
-            scf_control%outer_scf%jacobian_freq = tmplist
+            scf_control%outer_scf%jacobian_freq(:) = tmplist(1:2)
          END IF         
       END IF
 
@@ -785,8 +786,26 @@ CONTAINS
                      scf_control%outer_scf%diis_buffer_length
                CASE (outer_scf_optimizer_broyden)
                   WRITE (output_unit, '(T25,A)') "Optimization with Broyden's method"
+                  SELECT CASE (scf_control%outer_scf%broyden_type)
+                  CASE (broyden_type_1)   
+                     WRITE (output_unit, '(T25,A)') "   variant: 1st method" 
+                  CASE (broyden_type_1_explicit)   
+                     WRITE (output_unit, '(T25,A)') "   variant: 1st method with explicit initial Jacobian" 
+                  CASE (broyden_type_2)   
+                     WRITE (output_unit, '(T25,A)') "   variant: 2nd method" 
+                  CASE (broyden_type_2_explicit)   
+                     WRITE (output_unit, '(T25,A)') "   variant: 2nd method with explicit initial Jacobian"
+                  END SELECT
+                  WRITE (output_unit, '(T25,A,I4,A)') &
+                     "The Jacobian is restarted every ", scf_control%outer_scf%jacobian_freq(2), " energy evaluation"
+                  WRITE (output_unit, '(T25,A,I4,A)') &
+                     " or if the number of SCF iterations exceeds ", scf_control%outer_scf%jacobian_freq(1)                                                     
                CASE (outer_scf_optimizer_newton)
                   WRITE (output_unit, '(T25,A)') "Optimization with Newton's method"
+                  WRITE (output_unit, '(T25,A,I4,A)') &
+                     "The Jacobian is restarted every ", scf_control%outer_scf%jacobian_freq(2), " energy evaluation"
+                  WRITE (output_unit, '(T25,A,I4,A)') &
+                     " or if the number of SCF iterations exceeds ", scf_control%outer_scf%jacobian_freq(1)                     
                CASE (outer_scf_optimizer_secant)
                   WRITE (output_unit, '(T25,A)') "Optimization with the secant method"                  
                CASE DEFAULT

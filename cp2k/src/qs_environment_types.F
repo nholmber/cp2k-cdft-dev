@@ -630,8 +630,8 @@ CONTAINS
 
       IF (PRESENT(outer_scf_history)) outer_scf_history => qs_env%outer_scf_history
       IF (PRESENT(outer_scf_ihistory)) outer_scf_ihistory = qs_env%outer_scf_ihistory
-      IF (PRESENT(gradient_history)) gradient_history = qs_env%gradient_history
-      IF (PRESENT(variable_history)) variable_history = qs_env%variable_history
+      IF (PRESENT(gradient_history)) gradient_history => qs_env%gradient_history
+      IF (PRESENT(variable_history)) variable_history => qs_env%variable_history
       IF (PRESENT(mp2_env)) mp2_env => qs_env%mp2_env
       IF (PRESENT(kg_env)) kg_env => qs_env%kg_env
       IF (PRESENT(super_cell)) super_cell => qs_env%super_cell

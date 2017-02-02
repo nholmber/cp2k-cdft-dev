@@ -5402,7 +5402,7 @@ CONTAINS
                                         "Same as BT1, but computes the explicit Jacobian with finite differences. "//&
                                         "Requires a CDFT SCF procedure to be active.", &
                                         "Same as BT1, but uses Broyden's second method, also known as the bad method", &
-                                        "Same as BT1_EXPLICIT, but using Broyden's second method.", &
+                                        "Same as BT1_EXPLICIT, but using Broyden's second method."), &
                           enum_i_vals=(/broyden_type_1, broyden_type_1_explicit, broyden_type_2, &
                                         broyden_type_2_explicit/))
       CALL section_add_keyword(section, keyword)

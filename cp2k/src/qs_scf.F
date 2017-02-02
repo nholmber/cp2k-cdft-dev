@@ -187,9 +187,10 @@ CONTAINS
 
       CHARACTER(len=*), PARAMETER :: routineN = 'scf', routineP = moduleN//':'//routineN
 
-      INTEGER                                            :: max_scf_tmp
+      INTEGER                                            :: max_scf_tmp, ihistory
       LOGICAL                                            :: converged, outer_scf_loop, should_stop
       LOGICAL, SAVE                                      :: first_step_flag = .TRUE.
+      REAL(KIND=dp), DIMENSION(:,:), POINTER             :: gradient_history, variable_history
       TYPE(cp_logger_type), POINTER                      :: logger
       TYPE(dft_control_type), POINTER                    :: dft_control
       TYPE(qs_scf_env_type), POINTER                     :: scf_env
@@ -237,13 +238,17 @@ CONTAINS
          ! Add the converged outer_scf SCF gradient(s)/variable(s) to history
          IF (scf_control%outer_scf%have_scf) THEN
             ihistory = scf_env%outer_scf%iter_count
+            print *, 'Get gradient_history'
             CALL get_qs_env(qs_env, gradient_history=gradient_history, &
                             variable_history=variable_history)
+            print *, 'ASSOCIATED gradient_history', ASSOCIATED(gradient_history), ASSOCIATED(variable_history)
             ! We only store the latest two values
             gradient_history(:, 1) = gradient_history(:, 2)
             gradient_history(:, 2) = scf_env%outer_scf%gradient(:, ihistory)
             variable_history(:, 1) = variable_history(:, 2)
             variable_history(:, 2) = scf_env%outer_scf%variables(:, ihistory)
+            print *, 'gradient_history', gradient_history
+            print *, 'variable_history', variable_history
             ! Update a counter and check if the Jacobian should be deallocated
             scf_control%outer_scf%ijacobian = scf_control%outer_scf%ijacobian+1
             IF (ASSOCIATED(scf_env%outer_scf%inv_jacobian)) THEN
@@ -1021,7 +1026,7 @@ CONTAINS
                                should_stop, cdft_loop_converged, cdft_loop=.TRUE.)
          IF (exit_cdft_loop) EXIT cdft_outer_loop
          ! Check if inverse Jacobian needs to be calculated
-         CALL outer_loop_calculate_inverse_jacobian(qs_env)
+         CALL qs_calculate_inverse_jacobian(qs_env)
          ! Optimize constraint
          CALL outer_loop_optimize(scf_env, scf_control)
          CALL outer_loop_update_qs_env(qs_env, scf_env)
@@ -1152,10 +1157,10 @@ CONTAINS
 !> \par History
 !>      01.2017 created [Nico Holmberg]
 ! **************************************************************************************************
-   SUBROUTINE outer_loop_calculate_inverse_jacobian(qs_env)
+   SUBROUTINE qs_calculate_inverse_jacobian(qs_env)
       TYPE(qs_environment_type), POINTER                 :: qs_env
 
-      CHARACTER(LEN=*), PARAMETER :: routineN = 'outer_loop_calculate_inverse_jacobian', &
+      CHARACTER(LEN=*), PARAMETER :: routineN = 'qs_calculate_inverse_jacobian', &
          routineP = moduleN//':'//routineN
 
       CHARACTER(len=default_path_length)                 :: project_name
@@ -1178,6 +1183,7 @@ CONTAINS
       TYPE(dbcsr_p_type), DIMENSION(:, :), POINTER       :: rho_ao_kp
       TYPE(dft_control_type), POINTER                    :: dft_control
       TYPE(mo_set_p_type), DIMENSION(:), POINTER         :: mos, mos_stashed
+      TYPE(qs_energy_type), POINTER                      :: energy_qs
       TYPE(qs_ks_env_type), POINTER                      :: ks_env
       TYPE(qs_rho_type), POINTER                         :: rho
       TYPE(qs_scf_env_type), POINTER                     :: scf_env
@@ -1189,14 +1195,14 @@ CONTAINS
       NULLIFY (energy, gradient, p_rmpv, rho_ao_kp, mos, rho, &
                mos_stashed, ks_env, scf_env, scf_control, dft_control, &
                cdft_control, input, scf_section, inv_jacobian, para_env, &
-               tmp_logger, gradient_history, variable_history)
+               tmp_logger, gradient_history, variable_history, energy_qs)
       logger => cp_get_default_logger()
 
       CPASSERT(ASSOCIATED(qs_env))
       CALL get_qs_env(qs_env, scf_env=scf_env, ks_env=ks_env, &
                       scf_control=scf_control, mos=mos, rho=rho, &
                       dft_control=dft_control, input=input, &
-                      para_env=para_env)
+                      para_env=para_env, energy=energy_qs)
       explicit_jacobian = .FALSE.
       should_build = .FALSE.
       iter_count = scf_env%outer_scf%iter_count
@@ -1214,15 +1220,18 @@ CONTAINS
          CASE (broyden_type_1_explicit, broyden_type_2_explicit)
             scf_control%outer_scf%build_jacobian = .TRUE.
             explicit_jacobian = .TRUE.
+         END SELECT
       END SELECT
       IF (scf_control%outer_scf%build_jacobian) THEN
          ! Check if an old Jacobian can be reused avoiding a rebuild
          IF (ASSOCIATED(scf_env%outer_scf%inv_jacobian)) THEN
+            print *, 'ijacobian', scf_control%outer_scf%ijacobian
+            print *, 'iter_count', iter_count, scf_control%outer_scf%jacobian_freq(1), (MODULO(iter_count, scf_control%outer_scf%jacobian_freq(1)) == 0)
             ! Rebuild if number of previous energy evaluations exceeds limit
             IF (scf_control%outer_scf%ijacobian .GE. scf_control%outer_scf%jacobian_freq(2)) THEN
                should_build = .TRUE.
                ! Zero the corresponding counter
-               scf_env%outer_scf%ijacobian = 0
+               scf_control%outer_scf%ijacobian = 0
             ! Rebuild if number of previous SCF iterations exceeds limit   
             ELSE IF (MODULO(iter_count, scf_control%outer_scf%jacobian_freq(1)) == 0) THEN
                should_build = .TRUE.
@@ -1334,7 +1343,7 @@ CONTAINS
                WRITE (output_unit, FMT="(A)") &
                   " Evaluating inverse Jacobian using finite differences"
                WRITE (output_unit, '(A,I10,A,I10)') &
-                  " Energy evaluation: " cdft_control%ienergy, ", CDFT SCF iteration: ", iter_count  
+                  " Energy evaluation: ", cdft_control%ienergy, ", CDFT SCF iteration: ", iter_count  
                SELECT CASE (scf_control%outer_scf%jacobian_type)
                CASE (jacobian_fd1)
                   WRITE (output_unit, '(A)') " Type               : First order forward difference"
@@ -1366,9 +1375,12 @@ CONTAINS
                   CALL scf_env_do_scf(scf_env=scf_env, scf_control=scf_control, qs_env=qs_env, &
                                       converged=converged, should_stop=should_stop)
                   CALL outer_loop_switch(scf_env, scf_control, cdft_control, ot2cdft)
-                  ! Update (iter_count + 1) element of gradient
+                  ! Update (iter_count + 1) element of gradient and print constraint info
                   scf_env%outer_scf%iter_count = scf_env%outer_scf%iter_count+1
                   CALL outer_loop_gradient(qs_env, scf_env)
+                  CALL qs_scf_cdft_info(output_unit, scf_control, scf_env, cdft_control, &
+                                        energy_qs, cdft_control%total_steps, &
+                                        should_stop=.FALSE., outer_loop_converged=.FALSE., cdft_loop=.FALSE.)
                   scf_env%outer_scf%iter_count = scf_env%outer_scf%iter_count-1
                   ! Update Jacobian
                   DO j = 1, nvar
@@ -1412,8 +1424,7 @@ CONTAINS
             ihistory = scf_env%outer_scf%iter_count
             IF (outer_scf_ihistory .GE. 3) THEN
                ! First, lets try using the history from previous energy evaluations
-               CALL get_qs_env(qs_env, outer_scf_history=outer_scf_history, &
-                               gradient_history=gradient_history, &
+               CALL get_qs_env(qs_env, gradient_history=gradient_history, &
                                variable_history=variable_history)
                nvar = SIZE(scf_env%outer_scf%variables, 1)
                ALLOCATE (jacobian(nvar, nvar))
@@ -1453,6 +1464,6 @@ CONTAINS
       END IF
       CALL timestop(handle)
 
-   END SUBROUTINE outer_loop_calculate_inverse_jacobian
+   END SUBROUTINE qs_calculate_inverse_jacobian
 
 END MODULE qs_scf

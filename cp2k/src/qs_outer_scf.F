@@ -325,7 +325,7 @@ CONTAINS
                   CYCLE
                END IF
                inv_jacobian => scf_env%outer_scf%inv_jacobian
-               IF (scf_control%outer_scf%broyden_update)
+               IF (scf_control%outer_scf%broyden_update) THEN
                   ! Perform a Broyden update of the inverse Jacobian J^(-1)
                   IF (SIZE(scf_env%outer_scf%gradient, 2) .LT. 3) &
                      CALL cp_abort(__LOCATION__, &
@@ -656,7 +656,7 @@ CONTAINS
             IF (ASSOCIATED(scf_env%outer_scf%inv_jacobian)) &
                DEALLOCATE(scf_env%outer_scf%inv_jacobian)
             ALLOCATE(scf_env%outer_scf%inv_jacobian(nvariables, nvariables))
-            scf_env%outer_scf%inv_jacobian = scf_env%constraint%inv_jacobian
+            scf_env%outer_scf%inv_jacobian = cdft_control%constraint%inv_jacobian
          END IF
       CASE DEFAULT
          CPABORT("")
@@ -679,17 +679,20 @@ CONTAINS
 
       INTEGER                                            :: handle, outer_scf_ihistory
       REAL(kind=dp), DIMENSION(:, :), POINTER            :: outer_scf_history, &
-                                                            gradient_history
+                                                            gradient_history, &
+                                                            variable_history
 
       CALL timeset(routineN, handle)
 
       CALL get_qs_env(qs_env, outer_scf_history=outer_scf_history, &
                       outer_scf_ihistory=outer_scf_ihistory, &
-                      gradient_history=gradient_history)
+                      gradient_history=gradient_history, &
+                      variable_history=variable_history)
       CPASSERT(SIZE(outer_scf_history, 2) > 0)
       outer_scf_ihistory = 0
       outer_scf_history = 0.0_dp
       gradient_history  = 0.0_dp
+      variable_history = 0.0_dp
       CALL set_qs_env(qs_env, outer_scf_ihistory=outer_scf_ihistory)
 
       CALL timestop(handle)

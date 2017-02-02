@@ -1990,12 +1990,12 @@ CONTAINS
             CALL section_vals_val_get(outer_scf_section, "JACOBIAN_TYPE", &
                                       i_val=qs_control%cdft_control%constraint_control%jacobian_type)
             CALL section_vals_val_get(outer_scf_section, "JACOBIAN_STEP", &
-                                      i_val=qs_control%cdft_control%constraint_control%jacobian_step)
+                                      r_val=qs_control%cdft_control%constraint_control%jacobian_step)
             CALL section_vals_val_get(outer_scf_section, "BROYDEN_TYPE", &
                                       i_val=qs_control%cdft_control%constraint_control%broyden_type)
             CALL section_vals_val_get(outer_scf_section, "JACOBIAN_FREQ", explicit=exists)
             IF (exists) THEN
-               CALL section_vals_val_get(outer_scf_section, "JACOBIAN_FREQ", &)
+               CALL section_vals_val_get(outer_scf_section, "JACOBIAN_FREQ", &
                                          i_vals=tmplist)
                IF (SIZE(tmplist) /= 2) &
                   CALL cp_abort(__LOCATION__, &
@@ -2006,7 +2006,7 @@ CONTAINS
                IF (ALL(tmplist .EQ. 0)) &
                   CALL cp_abort(__LOCATION__, &
                                 "Both values to keyword JACOBIAN_FREQ cannot be zero.")
-               qs_control%cdft_control%constraint_control%jacobian_freq = tmplist
+               qs_control%cdft_control%constraint_control%jacobian_freq(:) = tmplist(1:2)
             END IF
 
             SELECT CASE (qs_control%cdft_control%type)

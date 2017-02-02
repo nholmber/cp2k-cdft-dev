@@ -403,7 +403,7 @@ MODULE cp_control_types
       INTEGER                              :: bisect_trust_count
       INTEGER                              :: jacobian_type
       INTEGER                              :: broyden_type
-      INTEGER                              :: jacobian_freq
+      INTEGER                              :: jacobian_freq(2)
    END TYPE outer_scf_control_type
 
    TYPE cdft_control_type
