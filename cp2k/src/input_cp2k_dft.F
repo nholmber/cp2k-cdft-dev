@@ -70,7 +70,7 @@ MODULE input_cp2k_dft
         ot_precond_solver_update, outer_scf_basis_center_opt, outer_scf_becke_constraint, &
         outer_scf_cdft_constraint, outer_scf_ddapc_constraint, outer_scf_hirshfeld_constraint, &
         outer_scf_none, outer_scf_optimizer_bisect, outer_scf_optimizer_broyden, &
-        outer_scf_optimizer_diis, outer_scf_optimizer_newton, outer_scf_optimizer_none, &
+        outer_scf_optimizer_diis, outer_scf_optimizer_newton, outer_scf_optimizer_newton_ls, outer_scf_optimizer_none, &
         outer_scf_optimizer_sd, outer_scf_optimizer_secant, outer_scf_s2_constraint, plus_u_lowdin, plus_u_mulliken, &
         plus_u_mulliken_charges, pw_interp, radius_covalent, radius_default, radius_single, &
         radius_user, radius_vdw, ramp_env, random_guess, real_time_propagation, ref_charge_atomic, &
@@ -89,7 +89,8 @@ MODULE input_cp2k_dft
         wfi_use_prev_rho_r_method_nr, wfi_use_prev_wf_method_nr, xas_1s_type, xas_2p_type, &
         xas_2s_type, xas_dip_len, xas_dip_vel, xas_dscf, xas_none, xas_tp_fh, xas_tp_flex, &
         xas_tp_hh, xas_tp_xfh, xas_tp_xhh, xes_tp_val, broyden_type_1, broyden_type_1_explicit, &
-        broyden_type_2, broyden_type_2_explicit
+        broyden_type_2, broyden_type_2_explicit, broyden_type_1_ls, broyden_type_1_explicit_ls, &
+        broyden_type_2_explicit_ls, broyden_type_2_ls
    USE input_cp2k_almo,                 ONLY: create_almo_scf_section
    USE input_cp2k_distribution,         ONLY: create_distribution_section
    USE input_cp2k_kpoints,              ONLY: create_kpoints_section
@@ -5376,7 +5377,7 @@ CONTAINS
                           description="Method used to bring the outer loop to a stationary point", &
                           usage="OPTIMIZER SD", &
                           default_i_val=outer_scf_optimizer_none, &
-                          enum_c_vals=s2a("SD", "DIIS", "NONE", "BISECT", "BROYDEN", "NEWTON", "SECANT"), &
+                          enum_c_vals=s2a("SD", "DIIS", "NONE", "BISECT", "BROYDEN", "NEWTON", "SECANT", "NEWTON_LS"), &
                           enum_desc=s2a("Takes steps in the direction of the gradient, multiplied by step_size", &
                                         "Uses a Direct Inversion in the Iterative Subspace method", &
                                         "Do nothing, useful only with the none type", &
@@ -5384,10 +5385,16 @@ CONTAINS
                                         "Broyden's method. Variant defined in BROYDEN_TYPE.", &
                                         "Newton's method. Only compatible with CDFT constraints", &
                                         "Secant method. Only for one dimensional cases. See Broyden for "//&
-                                        "multidimensional cases."), &
+                                        "multidimensional cases.", &
+                                        "Newton's method with backtracking line search to find the optimal step size. "//&
+                                        "Only compatible with CDFT constraints. Starts from the regular Newton solution "//&
+                                        "and successively reduces the step size until the L2 norm of the CDFT gradient "//&
+                                        "decreases. Potentially very expensive because each iteration performs a full "//&
+                                        " SCF calculation."), &
                           enum_i_vals=(/outer_scf_optimizer_sd, outer_scf_optimizer_diis, outer_scf_optimizer_none, &
                                         outer_scf_optimizer_bisect, outer_scf_optimizer_broyden, &
-                                        outer_scf_optimizer_newton, outer_scf_optimizer_secant/))
+                                        outer_scf_optimizer_newton, outer_scf_optimizer_secant, &
+                                        outer_scf_optimizer_newton_ls/))
       CALL section_add_keyword(section, keyword)
       CALL keyword_release(keyword)
 
@@ -5395,16 +5402,23 @@ CONTAINS
                           description="Specifies the Broyden optimizer variant to use.", &
                           usage="BROYDEN_TYPE BT1", &
                           default_i_val=broyden_type_1, &
-                          enum_c_vals=s2a("BT1", "BT1_EXPLICIT", "BT2", "BT2_EXPLICIT"), &
+                          enum_c_vals=s2a("BT1", "BT1_EXPLICIT", "BT2", "BT2_EXPLICIT", &
+                                          "BT1_LS", "BT1_EXPLICIT_LS", "BT2_LS", "BT2_EXPLICIT_LS"), &
                           enum_desc=s2a("Broyden's first method, also known as the good method. The initial Jacobian"//&
                                         " is built from MD history if available. Otherwise switches to SD for one"//&
                                         " SCF iteration until a Jacobian can be built from the SCF history.", &
                                         "Same as BT1, but computes the explicit Jacobian with finite differences. "//&
                                         "Requires a CDFT SCF procedure to be active.", &
                                         "Same as BT1, but uses Broyden's second method, also known as the bad method", &
-                                        "Same as BT1_EXPLICIT, but using Broyden's second method."), &
+                                        "Same as BT1_EXPLICIT, but using Broyden's second method.",&
+                                        "Same as BT1, but uses backtracking line search for optimizing the step size "//&
+                                        "(see optimizer NEWTON_LS).", &
+                                        "Same as BT1_EXPLICIT, but uses backtracking line search for optimizing the step size ",&
+                                        "Same as BT2, but uses backtracking line search for optimizing the step size ",&
+                                        "Same as BT2_EXPLICIT, but uses backtracking line search for optimizing the step size "), &
                           enum_i_vals=(/broyden_type_1, broyden_type_1_explicit, broyden_type_2, &
-                                        broyden_type_2_explicit/))
+                                        broyden_type_2_explicit, broyden_type_1_ls, broyden_type_1_explicit_ls, &
+                                        broyden_type_2_ls, broyden_type_2_explicit_ls/))
       CALL section_add_keyword(section, keyword)
       CALL keyword_release(keyword)
 

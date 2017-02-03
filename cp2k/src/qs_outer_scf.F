@@ -15,6 +15,7 @@ MODULE qs_outer_scf
                                               ddapc_restraint_type,&
                                               dft_control_type,&
                                               s2_restraint_type
+   USE cp_log_handling,                 ONLY: cp_to_string                                              
    USE input_constants,                 ONLY: &
         cdft2ot, cdft_combined_constraint, cdft_density_constraint, cdft_magnetization_constraint, &
         do_ddapc_constraint, do_s2_constraint, ot2cdft, outer_scf_basis_center_opt, &
@@ -22,7 +23,9 @@ MODULE qs_outer_scf
         outer_scf_none, outer_scf_optimizer_bisect, outer_scf_optimizer_broyden, &
         outer_scf_optimizer_diis, outer_scf_optimizer_newton, outer_scf_optimizer_none, &
         outer_scf_optimizer_sd, outer_scf_s2_constraint, outer_scf_optimizer_secant, &
-        broyden_type_1, broyden_type_1_explicit, broyden_type_2, broyden_type_2_explicit
+        broyden_type_1, broyden_type_1_explicit, broyden_type_2, broyden_type_2_explicit, &
+        outer_scf_optimizer_newton_ls, broyden_type_1_ls, broyden_type_1_explicit_ls, &
+        broyden_type_2_ls, broyden_type_2_explicit_ls
    USE kinds,                           ONLY: dp
    USE mathlib,                         ONLY: diamat_all,&
                                               invert_matrix
@@ -325,6 +328,7 @@ CONTAINS
                   CYCLE
                END IF
                inv_jacobian => scf_env%outer_scf%inv_jacobian
+               print *, 'broyden_update', scf_control%outer_scf%broyden_update
                IF (scf_control%outer_scf%broyden_update) THEN
                   ! Perform a Broyden update of the inverse Jacobian J^(-1)
                   IF (SIZE(scf_env%outer_scf%gradient, 2) .LT. 3) &
@@ -337,8 +341,9 @@ CONTAINS
                      f(i, 1) = scf_env%outer_scf%gradient(i, ihistory)-scf_env%outer_scf%gradient(i, ihistory-1)
                      x(i, 1) = scf_env%outer_scf%variables(i, ihistory)-scf_env%outer_scf%variables(i, ihistory-1)
                   END DO
-                  SELECT CASE (scf_control%outer_scf%jacobian_type)
-                  CASE (broyden_type_1, broyden_type_1_explicit)
+                  print *, 'Broyden type', scf_control%outer_scf%broyden_type
+                  SELECT CASE (scf_control%outer_scf%broyden_type)
+                  CASE (broyden_type_1, broyden_type_1_explicit, broyden_type_1_ls, broyden_type_1_explicit_ls)
                      ! Broyden's 1st method
                      ! Denote: dx_n = \delta x_n; df_n = \delta f_n
                      ! J_(n+1)^(-1) = J_n^(-1) + (dx_n - J_n^(-1)*df_n)*(dx_n^T * J_n^(-1))/(dx_n^T * J_n^(-1) * df_n)
@@ -347,25 +352,36 @@ CONTAINS
                      IF (scale < 1.0E-12_dp) scale = 1.0E-12_dp
                      inv_jacobian = inv_jacobian+scale*MATMUL((x-MATMUL(inv_jacobian, f)), &
                                                               MATMUL(TRANSPOSE(x), inv_jacobian))
-                  CASE (broyden_type_2, broyden_type_2_explicit)
+                      print *, 'updator', scale, f, x, scale*MATMUL((x-MATMUL(inv_jacobian, f)), &
+                                                              MATMUL(TRANSPOSE(x), inv_jacobian))
+                  CASE (broyden_type_2, broyden_type_2_explicit, broyden_type_2_ls, broyden_type_2_explicit_ls)
                      ! Broyden's 2nd method
                      ! J_(n+1)^(-1) = J_n^(-1) + (dx_n - J_n^(-1)*df_n)*(df_n^T)/(||df_n||^2)
                      scale = SUM(MATMUL(TRANSPOSE(f), f))
                      scale = 1.0_dp/scale
                      IF (scale < 1.0E-12_dp) scale = 1.0E-12_dp
                      inv_jacobian = inv_jacobian+scale*MATMUL((x-MATMUL(inv_jacobian, f)), TRANSPOSE(inv_jacobian))
+                     print *, 'updator', scale, f, x, scale*MATMUL((x-MATMUL(inv_jacobian, f)), TRANSPOSE(inv_jacobian))
+                  CASE DEFAULT
+                     CALL cp_abort(__LOCATION__, &
+                                   "Unknown Broyden type: "// &
+                                   cp_to_string(scf_control%outer_scf%broyden_type))
                   END SELECT
                   ! Clean up
                   DEALLOCATE (f, x)
                END IF
                ! Update variables x_(n+1) = x_n - J^(-1)*f(x_n)
+               print *, 'inv_jacobian', inv_jacobian
                scf_env%outer_scf%variables(:, ihistory+1) = scf_env%outer_scf%variables(:, ihistory)- &
+                                                            scf_control%outer_scf%newton_step* &
                                                             MATMUL(inv_jacobian, scf_env%outer_scf%gradient(:, ihistory))
                scf_control%outer_scf%broyden_update = .TRUE.
-            CASE (outer_scf_optimizer_newton)
+            CASE (outer_scf_optimizer_newton, outer_scf_optimizer_newton_ls)
                CPASSERT(ASSOCIATED(scf_env%outer_scf%inv_jacobian))
                inv_jacobian => scf_env%outer_scf%inv_jacobian
+               print *, 'inv_jacobian', inv_jacobian
                scf_env%outer_scf%variables(:, ihistory+1) = scf_env%outer_scf%variables(:, ihistory)- &
+                                                            scf_control%outer_scf%newton_step* &
                                                             MATMUL(inv_jacobian, scf_env%outer_scf%gradient(:, ihistory))
             CASE DEFAULT
                CPABORT("")
@@ -567,7 +583,11 @@ CONTAINS
       SELECT CASE (dir)
       CASE (cdft2ot)
          ! Constraint -> OT
-         ! Switch data in scf_control
+         ! Switch data in scf_control: first save flags that might have changed
+         print *, 'cdft2ot switch', cdft_control%constraint_control%broyden_update, scf_control%outer_scf%broyden_update, cdft_control%ot_control%broyden_update
+         cdft_control%constraint_control%broyden_update = scf_control%outer_scf%broyden_update
+         cdft_control%constraint_control%newton_step = scf_control%outer_scf%newton_step
+         ! Now switch
          scf_control%outer_scf%have_scf = cdft_control%ot_control%have_scf
          scf_control%outer_scf%max_scf = cdft_control%ot_control%max_scf
          scf_control%outer_scf%eps_scf = cdft_control%ot_control%eps_scf
@@ -579,6 +599,7 @@ CONTAINS
          scf_control%outer_scf%jacobian_type = cdft_control%ot_control%jacobian_type
          scf_control%outer_scf%jacobian_step = cdft_control%ot_control%jacobian_step
          scf_control%outer_scf%jacobian_freq = cdft_control%ot_control%jacobian_freq
+         scf_control%outer_scf%newton_step = cdft_control%ot_control%newton_step
          scf_control%outer_scf%ijacobian = cdft_control%ot_control%ijacobian
          scf_control%outer_scf%build_jacobian = cdft_control%ot_control%build_jacobian
          scf_control%outer_scf%broyden_type = cdft_control%ot_control%broyden_type
@@ -619,6 +640,7 @@ CONTAINS
             DEALLOCATE(scf_env%outer_scf%inv_jacobian)
       CASE (ot2cdft)
          ! OT -> constraint
+         print *, 'ot2cdft switch', cdft_control%constraint_control%broyden_update, scf_control%outer_scf%broyden_update, cdft_control%ot_control%broyden_update
          scf_control%outer_scf%have_scf = cdft_control%constraint_control%have_scf
          scf_control%outer_scf%max_scf = cdft_control%constraint_control%max_scf
          scf_control%outer_scf%eps_scf = cdft_control%constraint_control%eps_scf
@@ -633,6 +655,7 @@ CONTAINS
          scf_control%outer_scf%build_jacobian = cdft_control%constraint_control%build_jacobian
          scf_control%outer_scf%broyden_type = cdft_control%constraint_control%broyden_type
          scf_control%outer_scf%broyden_update = cdft_control%constraint_control%broyden_update
+         scf_control%outer_scf%newton_step = cdft_control%constraint_control%newton_step
          nvariables = SIZE(cdft_control%constraint%variables, 1)
          IF (ASSOCIATED(scf_env%outer_scf%energy)) &
             DEALLOCATE (scf_env%outer_scf%energy)

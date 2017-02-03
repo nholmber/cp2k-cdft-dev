@@ -85,7 +85,8 @@ MODULE qs_scf
         ot_precond_full_single, ot_precond_full_single_inverse, ot_precond_none, &
         ot_precond_s_inverse, outer_scf_hirshfeld_constraint, outer_scf_optimizer_broyden, &
         outer_scf_optimizer_newton, broyden_type_1, broyden_type_1_explicit, broyden_type_2, &
-        broyden_type_2_explicit
+        broyden_type_2_explicit, broyden_type_1_ls, broyden_type_1_explicit_ls, broyden_type_2_ls, &
+        broyden_type_2_explicit_ls, outer_scf_optimizer_newton_ls
    USE input_section_types,             ONLY: section_vals_get_subs_vals,&
                                               section_vals_type
    USE kinds,                           ONLY: default_path_length,&
@@ -1025,8 +1026,10 @@ CONTAINS
                                energy, cdft_control%total_steps, &
                                should_stop, cdft_loop_converged, cdft_loop=.TRUE.)
          IF (exit_cdft_loop) EXIT cdft_outer_loop
-         ! Check if inverse Jacobian needs to be calculated
+         ! Check if the inverse Jacobian needs to be calculated
          CALL qs_calculate_inverse_jacobian(qs_env)
+         ! Check if a line search should be performed to find an optimal step size for the optimizer
+         CALL qs_cdft_line_search(qs_env)
          ! Optimize constraint
          CALL outer_loop_optimize(scf_env, scf_control)
          CALL outer_loop_update_qs_env(qs_env, scf_env)
@@ -1188,20 +1191,19 @@ CONTAINS
       TYPE(qs_rho_type), POINTER                         :: rho
       TYPE(qs_scf_env_type), POINTER                     :: scf_env
       TYPE(scf_control_type), POINTER                    :: scf_control
-      TYPE(section_vals_type), POINTER                   :: input, scf_section
 
       CALL timeset(routineN, handle)
 
       NULLIFY (energy, gradient, p_rmpv, rho_ao_kp, mos, rho, &
                mos_stashed, ks_env, scf_env, scf_control, dft_control, &
-               cdft_control, input, scf_section, inv_jacobian, para_env, &
+               cdft_control, inv_jacobian, para_env, &
                tmp_logger, gradient_history, variable_history, energy_qs)
       logger => cp_get_default_logger()
 
       CPASSERT(ASSOCIATED(qs_env))
       CALL get_qs_env(qs_env, scf_env=scf_env, ks_env=ks_env, &
                       scf_control=scf_control, mos=mos, rho=rho, &
-                      dft_control=dft_control, input=input, &
+                      dft_control=dft_control, &
                       para_env=para_env, energy=energy_qs)
       explicit_jacobian = .FALSE.
       should_build = .FALSE.
@@ -1209,15 +1211,15 @@ CONTAINS
       SELECT CASE (scf_control%outer_scf%optimizer)
       CASE DEFAULT
          scf_control%outer_scf%build_jacobian = .FALSE.
-      CASE (outer_scf_optimizer_newton)
+      CASE (outer_scf_optimizer_newton, outer_scf_optimizer_newton_ls)
          scf_control%outer_scf%build_jacobian = .TRUE.
          explicit_jacobian = .TRUE.
       CASE (outer_scf_optimizer_broyden)
          SELECT CASE (scf_control%outer_scf%broyden_type)
-         CASE (broyden_type_1, broyden_type_2)   
+         CASE (broyden_type_1, broyden_type_2, broyden_type_1_ls, broyden_type_2_ls)   
             scf_control%outer_scf%build_jacobian = .TRUE.
             explicit_jacobian = .FALSE.
-         CASE (broyden_type_1_explicit, broyden_type_2_explicit)
+         CASE (broyden_type_1_explicit, broyden_type_2_explicit, broyden_type_1_explicit_ls, broyden_type_2_explicit_ls)
             scf_control%outer_scf%build_jacobian = .TRUE.
             explicit_jacobian = .TRUE.
          END SELECT
@@ -1239,8 +1241,11 @@ CONTAINS
          ELSE
             should_build = .TRUE.
          END IF
+         !print *, 'should_build', should_build, scf_control%outer_scf%broyden_update
       END IF
+      !print *, 'should_build midpos', should_build, scf_control%outer_scf%broyden_update
       IF (should_build) THEN
+        ! print *, 'Entered should_build', explicit_jacobian
          ! Actually need to (re)build the Jacobian
          IF (explicit_jacobian) THEN
             ! Build Jacobian with finite differences
@@ -1288,6 +1293,7 @@ CONTAINS
                              "Unknown Jacobian type: "// &
                              cp_to_string(scf_control%outer_scf%jacobian_type))
             CASE (jacobian_fd1)
+               ! f'(x0) = [ f(x0+h) - f(x0) ] / h
                nwork = 0
                pwork = 1
                ALLOCATE (coeff(nwork:pwork), step_multiplier(nwork:pwork))
@@ -1296,6 +1302,7 @@ CONTAINS
                step_multiplier = 1.0_dp
                dh = scf_control%outer_scf%jacobian_step
             CASE (jacobian_fd1_backward)
+               ! f'(x0) = [ f(x0) - f(x0-h) ] / h
                nwork = -1
                pwork = 0
                ALLOCATE (coeff(nwork:pwork), step_multiplier(nwork:pwork))
@@ -1304,38 +1311,46 @@ CONTAINS
                step_multiplier = -1.0_dp
                dh = scf_control%outer_scf%jacobian_step
             CASE (jacobian_fd2)
+               ! f'(x0) = [ -f(x0+2h) + 4f(x0+h) - 3f(x0) ] / 2h
                nwork = 0
                pwork = 2
                ALLOCATE (coeff(nwork:pwork), step_multiplier(nwork:pwork))
-               coeff(0) = -3.0_dp/2.0_dp
-               coeff(1) = 2.0_dp
-               coeff(2) = -1.0_dp/2.0_dp
-               step_multiplier = 1.0_dp
+               coeff(0) = -3.0_dp
+               coeff(1) = 4.0_dp
+               coeff(2) = -1.0_dp
+               step_multiplier(0) = 0.0_dp
+               step_multiplier(1) = 1.0_dp
                step_multiplier(2) = 2.0_dp
                dh = 2.0_dp*scf_control%outer_scf%jacobian_step
             CASE (jacobian_fd2_backward)
+               ! f'(x0) = [ 3f(x0) - 4f(x0-h) + f(x0-2h) ] / 2h
                nwork = -2
                pwork = 0
                ALLOCATE (coeff(nwork:pwork), step_multiplier(nwork:pwork))
-               coeff(0) = 3.0_dp/2.0_dp
-               coeff(-1) = -2.0_dp
-               coeff(-2) = 1.0_dp/2.0_dp
-               step_multiplier = -1.0_dp
+               coeff(0) = 3.0_dp
+               coeff(-1) = -4.0_dp
+               coeff(-2) = 1.0_dp
+               step_multiplier(0) = 0.0_dp
+               step_multiplier(-1) = -1.0_dp
                step_multiplier(-2) = -2.0_dp
                dh = 2.0_dp*scf_control%outer_scf%jacobian_step
             CASE (jacobian_fd1_central)
+               ! f'(x0) = [ f(x0+h) - f(x0-h) ] / 2h
                nwork = -1
                pwork = 1
                ALLOCATE (coeff(nwork:pwork), step_multiplier(nwork:pwork))
-               coeff(nwork) = -1.0_dp/2.0_dp
-               coeff(pwork) = 1.0_dp/2.0_dp
-               step_multiplier = 1.0_dp
+               coeff(0) = 0.0_dp
+               coeff(nwork) = -1.0_dp
+               coeff(pwork) = 1.0_dp
+               step_multiplier(0) = 0.0_dp
                step_multiplier(nwork) = -1.0_dp
+               step_multiplier(pwork) = 1.0_dp
                dh = 2.0_dp*scf_control%outer_scf%jacobian_step
             END SELECT
             DO i = 1, nvar
                jacobian(i, :) = coeff(0)*scf_env%outer_scf%gradient(i, iter_count)
             END DO
+            print *, 'Initial jacobian', para_env%mepos, jacobian
             ! Print some info
             IF (output_unit > 0) THEN
                WRITE (output_unit, FMT="(/,A)") &
@@ -1378,6 +1393,7 @@ CONTAINS
                   ! Update (iter_count + 1) element of gradient and print constraint info
                   scf_env%outer_scf%iter_count = scf_env%outer_scf%iter_count+1
                   CALL outer_loop_gradient(qs_env, scf_env)
+                  print *, 'JacobianInfo', para_env%mepos, coeff(iwork), scf_env%outer_scf%gradient(:, iter_count+1)
                   CALL qs_scf_cdft_info(output_unit, scf_control, scf_env, cdft_control, &
                                         energy_qs, cdft_control%total_steps, &
                                         should_stop=.FALSE., outer_loop_converged=.FALSE., cdft_loop=.FALSE.)
@@ -1408,13 +1424,14 @@ CONTAINS
                ALLOCATE (scf_env%outer_scf%inv_jacobian(nvar, nvar))
             inv_jacobian => scf_env%outer_scf%inv_jacobian
             CALL invert_matrix(jacobian, inv_jacobian, inv_error)
+            print *, 'inv_jacobian and jacobian', para_env%mepos, inv_jacobian, jacobian, inv_error
             scf_control%outer_scf%broyden_update = .FALSE.
             ! Release temporary storage
             DO ispin = 1, nspins
                CALL deallocate_mo_set(mos_stashed(ispin)%mo_set)
             END DO
             DEALLOCATE (mos_stashed, jacobian, gradient, energy, coeff, step_multiplier)
-            IF (output_unit > 0) &
+            IF (output_unit > 0) THEN
                WRITE (output_unit, FMT="(/,A)") &
                " ================================== JACOBIAN CALCULATED =================================="
             END IF
@@ -1461,9 +1478,214 @@ CONTAINS
             ELSE
                ! No history => will fall back to SD optimizer in outer_loop_optimize 
             END IF
+         END IF
       END IF
+      !print *, 'should_build on exit', should_build, scf_control%outer_scf%broyden_update
       CALL timestop(handle)
 
    END SUBROUTINE qs_calculate_inverse_jacobian
+
+! **************************************************************************************************
+!> \brief Perform backtracking line search to find the optimal step size for the CDFT constraint
+!>        optimizer. Assumes that the CDFT gradient function is a smooth function of the constraint
+!>        variables.
+!> \param qs_env the qs_environment_type where to perform the line search
+!> \par History
+!>      02.2017 created [Nico Holmberg]
+! **************************************************************************************************
+   SUBROUTINE qs_cdft_line_search(qs_env)
+      TYPE(qs_environment_type), POINTER                 :: qs_env
+
+      CHARACTER(LEN=*), PARAMETER :: routineN = 'qs_cdft_line_search', &
+         routineP = moduleN//':'//routineN
+
+      CHARACTER(len=default_path_length)                 :: project_name
+      INTEGER                                            :: handle, i, ispin, iter_count, &
+                                                            max_scf, nspins, nvar,  &
+                                                            output_unit, lp
+      INTEGER, PARAMETER                                 :: max_linesearch = 5
+      LOGICAL                                            :: converged, should_stop, &
+                                                            do_linesearch, should_exit
+      REAL(KIND=dp)                                      :: alpha
+      REAL(KIND=dp), DIMENSION(:), POINTER               :: energy
+      REAL(KIND=dp), DIMENSION(:, :), POINTER            :: gradient, inv_jacobian
+      TYPE(cdft_control_type), POINTER                   :: cdft_control
+      TYPE(cp_logger_type), POINTER                      :: logger, tmp_logger
+      TYPE(cp_para_env_type), POINTER                    :: para_env
+      TYPE(dbcsr_p_type), DIMENSION(:), POINTER          :: p_rmpv
+      TYPE(dbcsr_p_type), DIMENSION(:, :), POINTER       :: rho_ao_kp
+      TYPE(dft_control_type), POINTER                    :: dft_control
+      TYPE(mo_set_p_type), DIMENSION(:), POINTER         :: mos, mos_stashed
+      TYPE(qs_energy_type), POINTER                      :: energy_qs
+      TYPE(qs_ks_env_type), POINTER                      :: ks_env
+      TYPE(qs_rho_type), POINTER                         :: rho
+      TYPE(qs_scf_env_type), POINTER                     :: scf_env
+      TYPE(scf_control_type), POINTER                    :: scf_control
+
+      CALL timeset(routineN, handle)
+
+      NULLIFY (energy, gradient, p_rmpv, rho_ao_kp, mos, rho, &
+               mos_stashed, ks_env, scf_env, scf_control, dft_control, &
+               cdft_control, inv_jacobian, para_env, &
+               tmp_logger, energy_qs)
+      logger => cp_get_default_logger()
+
+      CPASSERT(ASSOCIATED(qs_env))
+      CALL get_qs_env(qs_env, scf_env=scf_env, ks_env=ks_env, &
+                      scf_control=scf_control, mos=mos, rho=rho, &
+                      dft_control=dft_control, &
+                      para_env=para_env, energy=energy_qs)
+      do_linesearch = .FALSE.
+      SELECT CASE (scf_control%outer_scf%optimizer)
+      CASE DEFAULT
+         do_linesearch = .FALSE.
+      CASE (outer_scf_optimizer_newton_ls)
+         do_linesearch = .TRUE.
+      CASE (outer_scf_optimizer_broyden)
+         SELECT CASE (scf_control%outer_scf%broyden_type)
+         CASE (broyden_type_1, broyden_type_2, broyden_type_1_explicit, broyden_type_2_explicit)
+            do_linesearch = .FALSE.
+         CASE (broyden_type_1_ls, broyden_type_1_explicit_ls, broyden_type_2_ls, broyden_type_2_explicit_ls)
+            cdft_control => dft_control%qs_control%cdft_control
+            IF (.NOT. ASSOCIATED(cdft_control)) &
+            CALL cp_abort(__LOCATION__, &
+                          "Optimizers that perform a line search can"// &
+                          " only be used together with a valid CDFT constraint")
+            IF (ASSOCIATED(scf_env%outer_scf%inv_jacobian)) &
+               do_linesearch = .TRUE.
+         END SELECT
+      END SELECT
+      IF (do_linesearch) THEN
+         cdft_control => dft_control%qs_control%cdft_control
+         IF (.NOT. ASSOCIATED(cdft_control)) &
+            CALL cp_abort(__LOCATION__, &
+                          "Optimizers that perform a line search can"// &
+                          " only be used together with a valid CDFT constraint")
+         CPASSERT(ASSOCIATED(scf_env%outer_scf%inv_jacobian))
+         alpha = 1.0_dp
+         iter_count = scf_env%outer_scf%iter_count
+         ! Redirect output from line search procedure to a new file by creating a temporary logger
+         project_name = logger%iter_info%project_name
+         IF (para_env%mepos == para_env%source) THEN
+            lp = LEN_TRIM(project_name)
+            project_name(lp+1:LEN(project_name)) = "-LineSearch.out"
+            CALL open_file(file_name=project_name, file_status="UNKNOWN", &
+                           file_action="WRITE", file_position="APPEND", &
+                           unit_number=output_unit)
+         ELSE
+            output_unit = -1
+         END IF
+         CALL cp_logger_create(tmp_logger, &
+                               para_env=para_env, &
+                               default_global_unit_nr=output_unit, &
+                               close_global_unit_on_dealloc=.FALSE.)
+         ! Save last converged state so we can roll back to it (mo_coeff and some outer_loop variables)
+         nspins = dft_control%nspins
+         ALLOCATE (mos_stashed(nspins))
+         DO ispin = 1, nspins
+            CALL duplicate_mo_set(mos_stashed(ispin)%mo_set, mos(ispin)%mo_set)
+         END DO
+         CALL qs_rho_get(rho, rho_ao_kp=rho_ao_kp)
+         p_rmpv => rho_ao_kp(:, 1)
+         ! Allocate work
+         nvar = SIZE(scf_env%outer_scf%variables, 1)
+         max_scf = scf_control%outer_scf%max_scf+1
+         ALLOCATE (gradient(nvar, max_scf))
+         gradient = scf_env%outer_scf%gradient
+         ALLOCATE (energy(max_scf))
+         energy = scf_env%outer_scf%energy
+         ! Broyden optimizers: perform update of inv_jacobian if necessary
+         IF (scf_control%outer_scf%broyden_update) THEN
+            CALL outer_loop_optimize(scf_env, scf_control)
+            ! Reset the variables and prevent a reupdate of inv_jacobian
+            scf_env%outer_scf%variables(:, iter_count+1) = 0
+            scf_control%outer_scf%broyden_update = .FALSE.
+         END IF 
+         ! Print some info
+         IF (output_unit > 0) THEN
+            WRITE (output_unit, FMT="(/,A)") &
+               " ==================================  LINE SEARCH STARTED  ================================="
+            WRITE (output_unit, FMT="(A)") &
+               " Evaluating optimal step size for optimizer"
+            WRITE (output_unit, '(A,I10,A,I10)') &
+               " Energy evaluation: ", cdft_control%ienergy, ", CDFT SCF iteration: ", iter_count  
+         END IF
+         ! Perform backtracking line search
+         CALL cp_add_default_logger(tmp_logger)
+         DO i = 1, max_linesearch
+            IF (output_unit > 0) THEN
+               WRITE (output_unit, FMT="(A)") " "
+               WRITE (output_unit, FMT="(A)") "#####################################"
+               WRITE (output_unit, '(A,I10,A)') &
+                  "###  Line search step: ", i, " ###"
+               WRITE (output_unit, FMT="(A)") "#####################################"
+            END IF
+            inv_jacobian => scf_env%outer_scf%inv_jacobian
+            ! Newton update of CDFT variables with a step size of alpha
+            scf_env%outer_scf%variables(:, iter_count+1) = scf_env%outer_scf%variables(:, iter_count)- alpha*&
+                                                           MATMUL(inv_jacobian, scf_env%outer_scf%gradient(:, iter_count))
+            ! With updated CDFT variables, perform SCF
+            CALL outer_loop_update_qs_env(qs_env, scf_env)
+            CALL qs_ks_did_change(ks_env, potential_changed=.TRUE.)
+            CALL outer_loop_switch(scf_env, scf_control, cdft_control, cdft2ot)
+            CALL scf_env_do_scf(scf_env=scf_env, scf_control=scf_control, qs_env=qs_env, &
+                                converged=converged, should_stop=should_stop)
+            CALL outer_loop_switch(scf_env, scf_control, cdft_control, ot2cdft)
+            ! Update (iter_count + 1) element of gradient and print constraint info
+            scf_env%outer_scf%iter_count = scf_env%outer_scf%iter_count+1
+            CALL outer_loop_gradient(qs_env, scf_env)
+            CALL qs_scf_cdft_info(output_unit, scf_control, scf_env, cdft_control, &
+                                  energy_qs, cdft_control%total_steps, &
+                                  should_stop=.FALSE., outer_loop_converged=.FALSE., cdft_loop=.FALSE.)
+            scf_env%outer_scf%iter_count = scf_env%outer_scf%iter_count-1
+            ! Check if the L2 norm of the gradient decreased
+            inv_jacobian => scf_env%outer_scf%inv_jacobian
+            IF (NORM2(scf_env%outer_scf%gradient(:, iter_count+1)) .LT.&
+                NORM2(scf_env%outer_scf%gradient(:, iter_count))) THEN
+               ! Optimal step size found
+               should_exit = .TRUE.
+            ELSE
+               ! Gradient increased => alpha is too large (if the gradient function is smooth)
+               should_exit = .FALSE.
+               ! Update alpha using Armijo's scheme
+               alpha = alpha * 0.5_dp
+            END IF
+            ! Reset everything to last converged state
+            scf_env%outer_scf%variables(:, iter_count+1) = 0.0_dp
+            scf_env%outer_scf%gradient = gradient
+            scf_env%outer_scf%energy = energy
+            ! If a suitable step size was found, do not reset the electronic structure so we can continue from it
+            IF (should_exit) EXIT
+            DO ispin = 1, nspins
+               CALL deallocate_mo_set(mos(ispin)%mo_set)
+               CALL duplicate_mo_set(mos(ispin)%mo_set, mos_stashed(ispin)%mo_set)
+               CALL calculate_density_matrix(mos(ispin)%mo_set, &
+                                             p_rmpv(ispin)%matrix)
+            END DO
+            CALL qs_rho_update_rho(rho, qs_env=qs_env)
+            CALL qs_ks_did_change(qs_env%ks_env, rho_changed=.TRUE.)
+         END DO
+         scf_control%outer_scf%newton_step = alpha
+         IF (.NOT. should_exit) THEN
+            CALL cp_warn(__LOCATION__, &
+                         "Line search did not converge.")
+            scf_control%outer_scf%newton_step = 1.0_dp
+         END IF
+         CALL cp_rm_default_logger()
+         CALL cp_logger_release(tmp_logger)
+         ! Release temporary storage
+         DO ispin = 1, nspins
+            CALL deallocate_mo_set(mos_stashed(ispin)%mo_set)
+         END DO
+         DEALLOCATE (mos_stashed, gradient, energy)
+         IF (output_unit > 0) THEN
+            WRITE (output_unit, FMT="(/,A)") &
+            " ================================== LINE SEARCH COMPLETE =================================="
+         END IF
+      END IF
+
+      CALL timestop(handle)
+
+   END SUBROUTINE qs_cdft_line_search
 
 END MODULE qs_scf

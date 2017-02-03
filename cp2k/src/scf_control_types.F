@@ -26,7 +26,9 @@ MODULE scf_control_types
         outer_scf_optimizer_broyden, outer_scf_optimizer_diis, outer_scf_optimizer_newton, &
         outer_scf_optimizer_none, outer_scf_optimizer_sd, outer_scf_optimizer_secant, &
         outer_scf_s2_constraint, smear_energy_window, smear_fermi_dirac, smear_list, &
-        broyden_type_1, broyden_type_2, broyden_type_1_explicit, broyden_type_2_explicit
+        broyden_type_1, broyden_type_2, broyden_type_1_explicit, broyden_type_2_explicit, &
+        outer_scf_optimizer_newton_ls, broyden_type_1_ls, broyden_type_2_ls, broyden_type_1_explicit_ls, &
+        broyden_type_2_explicit_ls
    USE input_cp2k_dft,                  ONLY: create_scf_section
    USE input_enumeration_types,         ONLY: enum_i2c,&
                                               enumeration_type
@@ -85,6 +87,7 @@ MODULE scf_control_types
 !> \param build_jacobian logical which determines if the inverse Jacobian should be computed
 !> \param step_size the optimizer step size
 !> \param jacobian_step the step size for calculating the finite difference Jacobian
+!> \param newton_step the step size used by Newton optimizer the with values between 0 and 1
 !> \param jacobian_type the finite difference scheme to compute the Jacobian
 !> \param broyden_type the variant of Broyden's method to use
 !> \param jacobian_freq control parameters defining how often the Jacobian is built
@@ -102,7 +105,8 @@ MODULE scf_control_types
       LOGICAL       :: broyden_update
       INTEGER       :: max_scf
       REAL(KIND=dp) :: eps_scf, step_size, &
-                       jacobian_step
+                       jacobian_step, &
+                       newton_step
       INTEGER       :: TYPE
       INTEGER       :: optimizer
       INTEGER       :: diis_buffer_length
@@ -281,6 +285,7 @@ CONTAINS
       scf_control%outer_scf%broyden_type = -1
       scf_control%outer_scf%jacobian_freq = 1
       scf_control%outer_scf%jacobian_step = 0.0_dp
+      scf_control%outer_scf%newton_step = 1.0_dp
       scf_control%outer_scf%ijacobian = 0
       scf_control%outer_scf%build_jacobian = .FALSE.
       scf_control%outer_scf%broyden_update = .FALSE.
@@ -787,14 +792,28 @@ CONTAINS
                CASE (outer_scf_optimizer_broyden)
                   WRITE (output_unit, '(T25,A)') "Optimization with Broyden's method"
                   SELECT CASE (scf_control%outer_scf%broyden_type)
-                  CASE (broyden_type_1)   
-                     WRITE (output_unit, '(T25,A)') "   variant: 1st method" 
-                  CASE (broyden_type_1_explicit)   
-                     WRITE (output_unit, '(T25,A)') "   variant: 1st method with explicit initial Jacobian" 
-                  CASE (broyden_type_2)   
-                     WRITE (output_unit, '(T25,A)') "   variant: 2nd method" 
-                  CASE (broyden_type_2_explicit)   
-                     WRITE (output_unit, '(T25,A)') "   variant: 2nd method with explicit initial Jacobian"
+                     CASE (broyden_type_1)   
+                        WRITE (output_unit, '(A)') "                  variant : 1st method" 
+                     CASE (broyden_type_1_explicit)   
+                        WRITE (output_unit, '(A)') "                  variant : 1st method with explicit initial Jacobian" 
+                     CASE (broyden_type_1_ls)
+                        WRITE (output_unit, '(A)') "                  variant : 1st method with backtracking line search" 
+                     CASE (broyden_type_1_explicit_ls)
+                        WRITE (output_unit, '(A)') &
+                           "                  variant : 1st method with explicit initial Jacobian"
+                        WRITE (output_unit, '(A)') &
+                           "                            and backtracking line search" 
+                     CASE (broyden_type_2)   
+                        WRITE (output_unit, '(A)') "                  variant : 2nd method" 
+                     CASE (broyden_type_2_explicit)   
+                        WRITE (output_unit, '(A)') "                  variant : 2nd method with explicit initial Jacobian"
+                     CASE (broyden_type_2_ls)
+                        WRITE (output_unit, '(A)') "                  variant : 2nd method with backtracking line search" 
+                     CASE (broyden_type_2_explicit_ls)
+                        WRITE (output_unit, '(A)') &
+                           "                  variant : 2nd method with explicit initial Jacobian"
+                        WRITE (output_unit, '(A)') &
+                           "                            and backtracking line search"  
                   END SELECT
                   WRITE (output_unit, '(T25,A,I4,A)') &
                      "The Jacobian is restarted every ", scf_control%outer_scf%jacobian_freq(2), " energy evaluation"
@@ -805,7 +824,13 @@ CONTAINS
                   WRITE (output_unit, '(T25,A,I4,A)') &
                      "The Jacobian is restarted every ", scf_control%outer_scf%jacobian_freq(2), " energy evaluation"
                   WRITE (output_unit, '(T25,A,I4,A)') &
-                     " or if the number of SCF iterations exceeds ", scf_control%outer_scf%jacobian_freq(1)                     
+                     " or if the number of SCF iterations exceeds ", scf_control%outer_scf%jacobian_freq(1)
+               CASE (outer_scf_optimizer_newton_ls)
+                  WRITE (output_unit, '(T25,A)') "Optimization with Newton's method using backtracking line search"
+                  WRITE (output_unit, '(T25,A,I4,A)') &
+                     "The Jacobian is restarted every ", scf_control%outer_scf%jacobian_freq(2), " energy evaluation"
+                  WRITE (output_unit, '(T25,A,I4,A)') &
+                     " or if the number of SCF iterations exceeds ", scf_control%outer_scf%jacobian_freq(1)                              
                CASE (outer_scf_optimizer_secant)
                   WRITE (output_unit, '(T25,A)') "Optimization with the secant method"                  
                CASE DEFAULT
