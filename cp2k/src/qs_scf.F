@@ -170,6 +170,7 @@ MODULE qs_scf
 
    CHARACTER(len=*), PARAMETER, PRIVATE :: moduleN = 'qs_scf'
    LOGICAL, PRIVATE                     :: reuse_precond = .FALSE.
+   LOGICAL, PRIVATE                     :: used_history = .FALSE.
 
    PUBLIC :: scf, scf_env_cleanup, scf_env_do_scf, cdft_scf
 
@@ -239,20 +240,18 @@ CONTAINS
          ! Add the converged outer_scf SCF gradient(s)/variable(s) to history
          IF (scf_control%outer_scf%have_scf) THEN
             ihistory = scf_env%outer_scf%iter_count
-            print *, 'Get gradient_history'
             CALL get_qs_env(qs_env, gradient_history=gradient_history, &
                             variable_history=variable_history)
-            print *, 'ASSOCIATED gradient_history', ASSOCIATED(gradient_history), ASSOCIATED(variable_history)
             ! We only store the latest two values
             gradient_history(:, 1) = gradient_history(:, 2)
             gradient_history(:, 2) = scf_env%outer_scf%gradient(:, ihistory)
             variable_history(:, 1) = variable_history(:, 2)
             variable_history(:, 2) = scf_env%outer_scf%variables(:, ihistory)
-            print *, 'gradient_history', gradient_history
-            print *, 'variable_history', variable_history
+            ! Reset flag
+            IF (used_history) used_history = .FALSE.
             ! Update a counter and check if the Jacobian should be deallocated
-            scf_control%outer_scf%ijacobian = scf_control%outer_scf%ijacobian+1
             IF (ASSOCIATED(scf_env%outer_scf%inv_jacobian)) THEN
+               scf_control%outer_scf%ijacobian = scf_control%outer_scf%ijacobian+1
                IF (scf_control%outer_scf%ijacobian .GE. scf_control%outer_scf%jacobian_freq(2)) &
                   scf_env%outer_scf%deallocate_jacobian = .TRUE.
             END IF
@@ -1172,7 +1171,8 @@ CONTAINS
                                                             output_unit, pwork, lp, ihistory, &
                                                             outer_scf_ihistory
       LOGICAL                                            :: converged, should_stop, &
-                                                            should_build, explicit_jacobian
+                                                            should_build, explicit_jacobian, &
+                                                            use_md_history
       REAL(KIND=dp)                                      :: dh, inv_error
       REAL(KIND=dp), ALLOCATABLE, DIMENSION(:)           :: coeff, step_multiplier
       REAL(KIND=dp), ALLOCATABLE, DIMENSION(:, :)        :: jacobian
@@ -1207,6 +1207,7 @@ CONTAINS
                       para_env=para_env, energy=energy_qs)
       explicit_jacobian = .FALSE.
       should_build = .FALSE.
+      use_md_history = .FALSE.
       iter_count = scf_env%outer_scf%iter_count
       SELECT CASE (scf_control%outer_scf%optimizer)
       CASE DEFAULT
@@ -1227,25 +1228,25 @@ CONTAINS
       IF (scf_control%outer_scf%build_jacobian) THEN
          ! Check if an old Jacobian can be reused avoiding a rebuild
          IF (ASSOCIATED(scf_env%outer_scf%inv_jacobian)) THEN
-            print *, 'ijacobian', scf_control%outer_scf%ijacobian
-            print *, 'iter_count', iter_count, scf_control%outer_scf%jacobian_freq(1), (MODULO(iter_count, scf_control%outer_scf%jacobian_freq(1)) == 0)
             ! Rebuild if number of previous energy evaluations exceeds limit
-            IF (scf_control%outer_scf%ijacobian .GE. scf_control%outer_scf%jacobian_freq(2)) THEN
+            IF (scf_control%outer_scf%ijacobian .GE. scf_control%outer_scf%jacobian_freq(2) &
+                .AND. .NOT. used_history) THEN
                should_build = .TRUE.
                ! Zero the corresponding counter
                scf_control%outer_scf%ijacobian = 0
-            ! Rebuild if number of previous SCF iterations exceeds limit   
+            ! Rebuild if number of previous SCF iterations exceeds limit (on this energy eval)
             ELSE IF (MODULO(iter_count, scf_control%outer_scf%jacobian_freq(1)) == 0) THEN
                should_build = .TRUE.
             END IF
+            IF (should_build) DEALLOCATE(scf_env%outer_scf%inv_jacobian)
          ELSE
             should_build = .TRUE.
+            ! Zero the counter
+            scf_control%outer_scf%ijacobian = 0
          END IF
-         !print *, 'should_build', should_build, scf_control%outer_scf%broyden_update
       END IF
-      !print *, 'should_build midpos', should_build, scf_control%outer_scf%broyden_update
       IF (should_build) THEN
-        ! print *, 'Entered should_build', explicit_jacobian
+         scf_env%outer_scf%deallocate_jacobian = .FALSE.
          ! Actually need to (re)build the Jacobian
          IF (explicit_jacobian) THEN
             ! Build Jacobian with finite differences
@@ -1350,7 +1351,6 @@ CONTAINS
             DO i = 1, nvar
                jacobian(i, :) = coeff(0)*scf_env%outer_scf%gradient(i, iter_count)
             END DO
-            print *, 'Initial jacobian', para_env%mepos, jacobian
             ! Print some info
             IF (output_unit > 0) THEN
                WRITE (output_unit, FMT="(/,A)") &
@@ -1393,7 +1393,6 @@ CONTAINS
                   ! Update (iter_count + 1) element of gradient and print constraint info
                   scf_env%outer_scf%iter_count = scf_env%outer_scf%iter_count+1
                   CALL outer_loop_gradient(qs_env, scf_env)
-                  print *, 'JacobianInfo', para_env%mepos, coeff(iwork), scf_env%outer_scf%gradient(:, iter_count+1)
                   CALL qs_scf_cdft_info(output_unit, scf_control, scf_env, cdft_control, &
                                         energy_qs, cdft_control%total_steps, &
                                         should_stop=.FALSE., outer_loop_converged=.FALSE., cdft_loop=.FALSE.)
@@ -1424,7 +1423,6 @@ CONTAINS
                ALLOCATE (scf_env%outer_scf%inv_jacobian(nvar, nvar))
             inv_jacobian => scf_env%outer_scf%inv_jacobian
             CALL invert_matrix(jacobian, inv_jacobian, inv_error)
-            print *, 'inv_jacobian and jacobian', para_env%mepos, inv_jacobian, jacobian, inv_error
             scf_control%outer_scf%broyden_update = .FALSE.
             ! Release temporary storage
             DO ispin = 1, nspins
@@ -1439,25 +1437,36 @@ CONTAINS
             ! Build a strictly diagonal Jacobian from history and invert it
             CALL get_qs_env(qs_env, outer_scf_ihistory=outer_scf_ihistory)
             ihistory = scf_env%outer_scf%iter_count
-            IF (outer_scf_ihistory .GE. 3) THEN
+            IF (outer_scf_ihistory .GE. 3 .AND. .NOT. used_history) THEN
                ! First, lets try using the history from previous energy evaluations
                CALL get_qs_env(qs_env, gradient_history=gradient_history, &
-                               variable_history=variable_history)
+                variable_history=variable_history)
                nvar = SIZE(scf_env%outer_scf%variables, 1)
-               ALLOCATE (jacobian(nvar, nvar))
+               use_md_history = .TRUE.
+               ! Check that none of the history values are identical in which case we should try something different
                DO i = 1, nvar
-                  jacobian(i, i) = (gradient_history(i, 2)-gradient_history(i, 1))/&
-                                   (variable_history(i, 2)-variable_history(i, 1))
+                  IF (ABS(variable_history(i,2)-variable_history(i,1)) .LT. 1.0E-12_dp) &
+                     use_md_history = .FALSE.
                END DO
-               IF (.NOT. ASSOCIATED(scf_env%outer_scf%inv_jacobian)) &
-                  ALLOCATE (scf_env%outer_scf%inv_jacobian(nvar, nvar))
-               inv_jacobian => scf_env%outer_scf%inv_jacobian
-               CALL invert_matrix(jacobian, inv_jacobian, inv_error)
-               DEALLOCATE(jacobian)
-               ! Mark that an inverse Jacobian was just built and the next outer_loop_optimize should not perform
-               ! a Broyden update of it 
-               scf_control%outer_scf%broyden_update = .FALSE.
-            ELSE IF (ihistory .GE. 2) THEN
+               IF (use_md_history) THEN
+                  ALLOCATE (jacobian(nvar, nvar))
+                  DO i = 1, nvar
+                     jacobian(i, i) = (gradient_history(i, 2)-gradient_history(i, 1))/&
+                                      (variable_history(i, 2)-variable_history(i, 1))
+                  END DO
+                  IF (.NOT. ASSOCIATED(scf_env%outer_scf%inv_jacobian)) &
+                     ALLOCATE (scf_env%outer_scf%inv_jacobian(nvar, nvar))
+                  inv_jacobian => scf_env%outer_scf%inv_jacobian
+                  CALL invert_matrix(jacobian, inv_jacobian, inv_error)
+                  DEALLOCATE(jacobian)
+                  ! Mark that an inverse Jacobian was just built and the next outer_loop_optimize should not perform
+                  ! a Broyden update of it 
+                  scf_control%outer_scf%broyden_update = .FALSE.
+                  ! Mark that the MD history has been used and should not be reused anymore on this energy evaluation
+                  used_history = .TRUE.
+               END IF
+            END IF
+            IF (ihistory .GE. 2 .AND. .NOT. ASSOCIATED(scf_env%outer_scf%inv_jacobian)) THEN
                ! Next, try history from current SCF procedure
                nvar = SIZE(scf_env%outer_scf%variables, 1)
                IF (SIZE(scf_env%outer_scf%gradient, 2) .LT. 3) &
@@ -1480,7 +1489,6 @@ CONTAINS
             END IF
          END IF
       END IF
-      !print *, 'should_build on exit', should_build, scf_control%outer_scf%broyden_update
       CALL timestop(handle)
 
    END SUBROUTINE qs_calculate_inverse_jacobian
@@ -1615,10 +1623,10 @@ CONTAINS
          DO i = 1, max_linesearch
             IF (output_unit > 0) THEN
                WRITE (output_unit, FMT="(A)") " "
-               WRITE (output_unit, FMT="(A)") "#####################################"
+               WRITE (output_unit, FMT="(A)") " #####################################"
                WRITE (output_unit, '(A,I10,A)') &
-                  "###  Line search step: ", i, " ###"
-               WRITE (output_unit, FMT="(A)") "#####################################"
+                  " ###  Line search step: ", i, " ###"
+               WRITE (output_unit, FMT="(A)") " #####################################"
             END IF
             inv_jacobian => scf_env%outer_scf%inv_jacobian
             ! Newton update of CDFT variables with a step size of alpha

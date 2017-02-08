@@ -1,0 +1,25 @@
+# runs are executed in the same order as in this file
+# the second field tells which test should be run in order to compare with the last available output
+# see regtest/TEST_FILES
+# 
+HeH-noconstraint.inp                                   1      1e-13             -2.92909797857414
+# These tests use different optimizers for the CDFT constraint 
+HeH-cdft-secant.inp                                   11      1e-08             -2.347855079633957
+# Newton: test different finite different schemes
+HeH-cdft-newton-fd1.inp                               11      1e-08             -2.347860618246561
+HeH-cdft-newton-fd1backward.inp                       11      4e-07             -2.348108397717414
+HeH-cdft-newton-fd2.inp                               11      1e-08             -2.347862860730659
+HeH-cdft-newton-fd1central.inp                        11      1e-08             -2.347869910173860
+# Newton: use backtracking line search
+HeH-cdft-newton-ls-fd2backward.inp                    11      1e-08             -2.347858503510876
+# Broyden optimizers
+HeH-cdft-broyden-bt1.inp                              11      1e-08             -2.347855079633957
+HeH-cdft-broyden-bt2.inp                              11      1e-08             -2.585688019225945
+HeH-cdft-broyden-bt1explicit.inp                      11      1e-08             -2.347875139811451
+# MD test cases
+HeH-cdft-md-newton-1-1.inp                            11      1e-08             -2.355043088384736
+HeH-cdft-md-broyden-5-1.inp                           11      1e-08             -2.355042993224456
+HeH-cdft-md-broyden-5-5.inp                           11      1e-08             -2.355042993523207
+# Mixed CDFT: serial mode MD 
+HeH-mixed-cdft-md-newton-1-1.inp                      11      1e-08             -2.349445365878291
+#EOF

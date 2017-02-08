@@ -860,8 +860,8 @@ CONTAINS
 
 ! **************************************************************************************************
 !> \brief Transfer CDFT weight/gradient between force_evals  
-!> \param force_env ...
-!> \param calculate_forces ...
+!> \param force_env the force_env that holds the two CDFT sub_force_envs
+!> \param calculate_forces if forces should be computed
 !> \par History
 !>       01.2017  created [Nico Holmberg]
 ! **************************************************************************************************
@@ -912,6 +912,7 @@ CONTAINS
          dft_control_source%qs_control%becke_control%external_control = .FALSE.
          dft_control_source%qs_control%becke_control%need_pot = .TRUE.
          dft_control_source%qs_control%becke_control%transfer_pot = .TRUE.
+         mixed_cdft%sim_step = mixed_cdft%sim_step+1
       ELSE
          ! Transfer the constraint from the first force_eval to the second
          CALL get_qs_env(qs_env_source, dft_control=dft_control_source, &

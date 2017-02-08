@@ -4341,7 +4341,7 @@ CONTAINS
                           description="Parameters needed to set up a CDFT calculation with OT."// &
                           " Constraint is converged in a separate external SCF loop with settings"// &
                           " read from the OUTER_SCF section. Supported constraints: Gaussian Hirshfeld (partial)"// &
-                          " Becke.", n_keywords=7, n_subsections=2, &
+                          " Becke.", n_keywords=8, n_subsections=2, &
                           repeats=.FALSE., citations=(/Holmberg2017/))
 
       NULLIFY (subsection, keyword)
@@ -4406,6 +4406,13 @@ CONTAINS
       CALL keyword_create(keyword, name="PURGE_OFFSET", &
                           description="See PURGE_HISTORY.", &
                           usage="PURGE_OFFSET {int} ", default_i_val=1)
+      CALL section_add_keyword(section, keyword)
+      CALL keyword_release(keyword)
+
+      CALL keyword_create(keyword, name="COUNTER", &
+                          description="A counter to track the total number of energy evaluations. Needed by"//&
+                                      " some optimizers to print information. Useful for restarts.", &
+                          usage="COUNTER {int} ", default_i_val=0)
       CALL section_add_keyword(section, keyword)
       CALL keyword_release(keyword)
 
