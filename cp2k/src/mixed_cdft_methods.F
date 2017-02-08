@@ -348,9 +348,9 @@ CONTAINS
 
 ! **************************************************************************************************
 !> \brief Driver routine to handle the build of CDFT weight/gradient in parallel and serial modes
-!> \param force_env ...
-!> \param calculate_forces ...
-!> \param iforce_eval ...
+!> \param force_env the force_env that holds the CDFT states
+!> \param calculate_forces if forces should be calculated
+!> \param iforce_eval index of the currently active CDFT state (serial mode only)
 !> \par History
 !>       01.2017  created [Nico Holmberg]
 ! **************************************************************************************************
@@ -380,8 +380,8 @@ CONTAINS
 
 ! **************************************************************************************************
 !> \brief Build CDFT weight and gradient on 2N processors and copy it to two N processor subgroups
-!> \param force_env ...
-!> \param calculate_forces ...
+!> \param force_env the force_env that holds the CDFT states
+!> \param calculate_forces if forces should be calculted
 !> \par History
 !>       01.2016  created [Nico Holmberg]
 ! **************************************************************************************************
@@ -863,7 +863,7 @@ CONTAINS
 !> \brief Transfer CDFT weight/gradient between force_evals
 !> \param force_env the force_env that holds the two CDFT sub_force_envs
 !> \param calculate_forces if forces should be computed
-!> \param iforce_eval ...
+!> \param iforce_eval index of the currently active CDFT state
 !> \par History
 !>       01.2017  created [Nico Holmberg]
 ! **************************************************************************************************

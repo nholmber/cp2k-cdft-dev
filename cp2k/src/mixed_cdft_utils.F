@@ -121,11 +121,11 @@ CONTAINS
 
 ! **************************************************************************************************
 !> \brief Parse settings for mixed cdft calculation and check their consistency
-!> \param force_env ...
-!> \param mixed_env ...
-!> \param mixed_cdft ...
-!> \param settings ...
-!> \param natom ...
+!> \param force_env the force_env that holds the CDFT mixed_env
+!> \param mixed_env the mixed_env that holds the CDFT states
+!> \param mixed_cdft control section for mixed CDFT
+!> \param settings container for settings related to the mixed CDFT calculation
+!> \param natom the total number of atoms
 !> \par History
 !>       01.2017  created [Nico Holmberg]
 ! **************************************************************************************************
@@ -354,9 +354,9 @@ CONTAINS
 
 ! **************************************************************************************************
 !> \brief Transfer settings to mixed_cdft
-!> \param force_env ...
-!> \param mixed_cdft ...
-!> \param settings ...
+!> \param force_env the force_env that holds the CDFT states
+!> \param mixed_cdft the control section for mixed CDFT calculations
+!> \param settings container for settings related to the mixed CDFT calculation
 !> \par History
 !>       01.2017  created [Nico Holmberg]
 ! **************************************************************************************************
@@ -447,11 +447,11 @@ CONTAINS
 
 ! **************************************************************************************************
 !> \brief Initialize all the structures needed for a mixed CDFT calculation
-!> \param force_env ...
-!> \param force_env_qs ...
-!> \param mixed_env ...
-!> \param mixed_cdft ...
-!> \param settings ...
+!> \param force_env the force_env that holds the CDFT mixed_env
+!> \param force_env_qs the force_env that holds the qs_env, which is CDFT state specific
+!> \param mixed_env the mixed_env that holds the CDFT states
+!> \param mixed_cdft the control section for mixed CDFT calculations
+!> \param settings container for settings related to the mixed CDFT calculation
 !> \par History
 !>       01.2017 created [Nico Holmberg]
 ! **************************************************************************************************
@@ -1091,11 +1091,11 @@ CONTAINS
 !> \brief Determine confinement bounds along confinement dir (hardcoded to be z)
 !>        and determine the number of nonzero entries
 !>        Optionally zero entries below a given threshold
-!> \param fun ...
-!> \param th ...
-!> \param just_zero ...
-!> \param bounds ...
-!> \param work ...
+!> \param fun input 3D potential (real space)
+!> \param th threshold for screening values
+!> \param just_zero determines if fun should only be zeroed without returning bounds/work
+!> \param bounds the confinement bounds: fun is nonzero only between these values along 3rd dimension
+!> \param work an estimate of the total number of grid points where fun is nonzero
 ! **************************************************************************************************
    SUBROUTINE hfun_zero(fun, th, just_zero, bounds, work)
       REAL(KIND=dp), DIMENSION(:, :, :), INTENT(INOUT)   :: fun
