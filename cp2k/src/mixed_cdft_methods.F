@@ -17,21 +17,17 @@ MODULE mixed_cdft_methods
    USE cp_blacs_env,                    ONLY: cp_blacs_env_type
    USE cp_control_types,                ONLY: dft_control_type
    USE cp_dbcsr_diag,                   ONLY: cp_dbcsr_syevd
-   USE cp_dbcsr_operations,             ONLY: copy_dbcsr_to_fm,&
-                                              copy_fm_to_dbcsr_bc,&
-                                              cp_dbcsr_sm_fm_multiply
+   USE cp_dbcsr_operations,             ONLY: cp_dbcsr_sm_fm_multiply
    USE cp_fm_basic_linalg,              ONLY: cp_fm_invert,&
                                               cp_fm_transpose
    USE cp_fm_struct,                    ONLY: cp_fm_struct_create,&
                                               cp_fm_struct_release,&
                                               cp_fm_struct_type
-   USE cp_fm_types,                     ONLY: cp_fm_copy_general,&
-                                              cp_fm_create,&
+   USE cp_fm_types,                     ONLY: cp_fm_create,&
                                               cp_fm_get_info,&
                                               cp_fm_p_type,&
                                               cp_fm_release,&
                                               cp_fm_set_all,&
-                                              cp_fm_to_fm,&
                                               cp_fm_type
    USE cp_gemm_interface,               ONLY: cp_gemm
    USE cp_log_handling,                 ONLY: cp_get_default_logger,&
@@ -43,9 +39,13 @@ MODULE mixed_cdft_methods
    USE cp_subsys_types,                 ONLY: cp_subsys_get,&
                                               cp_subsys_type
    USE cp_units,                        ONLY: cp_unit_from_cp2k
-   USE dbcsr_api,                       ONLY: &
-        dbcsr_add, dbcsr_create, dbcsr_desymmetrize, dbcsr_get_info, dbcsr_init_p, dbcsr_p_type, &
-        dbcsr_release, dbcsr_release_p, dbcsr_scale, dbcsr_type
+   USE dbcsr_api,                       ONLY: dbcsr_add,&
+                                              dbcsr_create,&
+                                              dbcsr_p_type,&
+                                              dbcsr_release,&
+                                              dbcsr_release_p,&
+                                              dbcsr_scale,&
+                                              dbcsr_type
    USE force_env_types,                 ONLY: force_env_get,&
                                               force_env_type,&
                                               use_qmmm,&
@@ -57,10 +57,10 @@ MODULE mixed_cdft_methods
                                               becke_cutoff_global,&
                                               do_spin_density,&
                                               mix_linear_combination
-   USE input_section_types,             ONLY: section_vals_get_subs_vals,&
+   USE input_section_types,             ONLY: section_vals_get,&
+                                              section_vals_get_subs_vals,&
                                               section_vals_type,&
-                                              section_vals_val_get,&
-                                              section_vals_get
+                                              section_vals_val_get
    USE kinds,                           ONLY: default_path_length,&
                                               dp,&
                                               int_8
@@ -81,8 +81,8 @@ MODULE mixed_cdft_methods
    USE mixed_cdft_utils,                ONLY: hfun_zero,&
                                               mixed_cdft_init_structures,&
                                               mixed_cdft_parse_settings,&
-                                              mixed_cdft_transfer_settings, &
-                                              mixed_cdft_redistribute_arrays
+                                              mixed_cdft_redistribute_arrays,&
+                                              mixed_cdft_transfer_settings
    USE mixed_environment_types,         ONLY: get_mixed_env,&
                                               mixed_environment_type,&
                                               set_mixed_env
@@ -90,8 +90,7 @@ MODULE mixed_cdft_methods
    USE particle_types,                  ONLY: particle_type
    USE pw_env_types,                    ONLY: pw_env_get,&
                                               pw_env_type
-   USE pw_methods,                      ONLY: pw_scale, &
-                                              pw_transfer
+   USE pw_methods,                      ONLY: pw_scale
    USE pw_pool_types,                   ONLY: pw_pool_create_pw,&
                                               pw_pool_give_back_pw,&
                                               pw_pool_type
@@ -149,7 +148,7 @@ CONTAINS
 
       INTEGER                                            :: et_freq, handle, iforce_eval, iounit, &
                                                             mixing_type, nforce_eval
-      LOGICAL                                            :: is_parallel, is_qmmm, explicit
+      LOGICAL                                            :: explicit, is_parallel, is_qmmm
       TYPE(cp_logger_type), POINTER                      :: logger
       TYPE(cp_subsys_type), POINTER                      :: subsys_mix
       TYPE(force_env_type), POINTER                      :: force_env_qs
@@ -348,22 +347,24 @@ CONTAINS
    END SUBROUTINE mixed_cdft_init
 
 ! **************************************************************************************************
-!> \brief Driver routine to handle the build of CDFT weight/gradient in parallel and serial modes  
+!> \brief Driver routine to handle the build of CDFT weight/gradient in parallel and serial modes
 !> \param force_env ...
 !> \param calculate_forces ...
+!> \param iforce_eval ...
 !> \par History
 !>       01.2017  created [Nico Holmberg]
 ! **************************************************************************************************
    SUBROUTINE mixed_cdft_build_weight(force_env, calculate_forces, iforce_eval)
       TYPE(force_env_type), POINTER                      :: force_env
       LOGICAL, INTENT(IN)                                :: calculate_forces
-      INTEGER, OPTIONAL, INTENT(IN)                      :: iforce_eval
+      INTEGER, INTENT(IN), OPTIONAL                      :: iforce_eval
 
       CHARACTER(len=*), PARAMETER :: routineN = 'mixed_cdft_build_weight', &
          routineP = moduleN//':'//routineN
+
       TYPE(mixed_cdft_type), POINTER                     :: mixed_cdft
-      
-      NULLIFY(mixed_cdft)
+
+      NULLIFY (mixed_cdft)
       CPASSERT(ASSOCIATED(force_env))
       CALL get_mixed_env(force_env%mixed_env, cdft_control=mixed_cdft)
       CPASSERT(ASSOCIATED(mixed_cdft))
@@ -438,7 +439,7 @@ CONTAINS
                          particles=particles_mix)
       DO iforce_eval = 1, nforce_eval
          IF (.NOT. ASSOCIATED(force_env%sub_force_env(iforce_eval)%force_env)) CYCLE
-         SELECT CASE (force_env%sub_force_env(iforce_eval)%force_env%in_use)
+         SELECT CASE (force_env%sub_force_env (iforce_eval)%force_env%in_use)
          CASE (use_qs_force)
             force_env_qs => force_env%sub_force_env(iforce_eval)%force_env
          CASE (use_qmmm)
@@ -859,9 +860,10 @@ CONTAINS
    END SUBROUTINE mixed_cdft_build_weight_parallel
 
 ! **************************************************************************************************
-!> \brief Transfer CDFT weight/gradient between force_evals  
+!> \brief Transfer CDFT weight/gradient between force_evals
 !> \param force_env the force_env that holds the two CDFT sub_force_envs
 !> \param calculate_forces if forces should be computed
+!> \param iforce_eval ...
 !> \par History
 !>       01.2017  created [Nico Holmberg]
 ! **************************************************************************************************
@@ -872,24 +874,24 @@ CONTAINS
 
       CHARACTER(len=*), PARAMETER :: routineN = 'mixed_cdft_transfer_weight', &
          routineP = moduleN//':'//routineN
-      
-      INTEGER                                            :: handle, i, bounds_of(8)
+
+      INTEGER                                            :: bounds_of(8), handle
       TYPE(dft_control_type), POINTER                    :: dft_control_source, dft_control_target
-      TYPE(force_env_type), POINTER                      :: force_env_qs_source, &
-                                                            force_env_qs_target
-      TYPE(mixed_environment_type), POINTER              :: mixed_env
+      TYPE(force_env_type), POINTER                      :: force_env_qs_source, force_env_qs_target
       TYPE(mixed_cdft_type), POINTER                     :: mixed_cdft
+      TYPE(mixed_environment_type), POINTER              :: mixed_env
       TYPE(pw_env_type), POINTER                         :: pw_env_source, pw_env_target
-      TYPE(pw_pool_type), POINTER                        :: auxbas_pw_pool_source, auxbas_pw_pool_target
+      TYPE(pw_pool_type), POINTER                        :: auxbas_pw_pool_source, &
+                                                            auxbas_pw_pool_target
       TYPE(qs_environment_type), POINTER                 :: qs_env_source, qs_env_target
-      
-      NULLIFY(mixed_cdft, dft_control_source, dft_control_target, force_env_qs_source, &
-             force_env_qs_target, pw_env_source, pw_env_target, auxbas_pw_pool_source, &
-             auxbas_pw_pool_target, qs_env_source, qs_env_target, mixed_env)
+
+      NULLIFY (mixed_cdft, dft_control_source, dft_control_target, force_env_qs_source, &
+               force_env_qs_target, pw_env_source, pw_env_target, auxbas_pw_pool_source, &
+               auxbas_pw_pool_target, qs_env_source, qs_env_target, mixed_env)
       mixed_env => force_env%mixed_env
       CALL get_mixed_env(mixed_env, cdft_control=mixed_cdft)
       CALL timeset(routineN, handle)
-      SELECT CASE (force_env%sub_force_env(1)%force_env%in_use)
+      SELECT CASE (force_env%sub_force_env (1)%force_env%in_use)
       CASE (use_qs_force, use_qmmm)
          force_env_qs_source => force_env%sub_force_env(1)%force_env
          force_env_qs_target => force_env%sub_force_env(2)%force_env
@@ -925,33 +927,33 @@ CONTAINS
          CALL pw_pool_create_pw(auxbas_pw_pool_target, dft_control_target%qs_control%becke_control%becke_pot%pw, &
                                 use_data=REALDATA3D, in_space=REALSPACE)
          ! We have ensured that the grids are consistent => no danger in using explicit copy
-         dft_control_target%qs_control%becke_control%becke_pot%pw%cr3d(:,:,:) =&
+         dft_control_target%qs_control%becke_control%becke_pot%pw%cr3d(:, :, :) = &
             dft_control_source%qs_control%becke_control%becke_pot%pw%cr3d
          CALL pw_pool_give_back_pw(auxbas_pw_pool_source, dft_control_source%qs_control%becke_control%becke_pot%pw)
          ! Cavity
          IF (dft_control_source%qs_control%becke_control%cavity_confine) THEN
             CALL pw_pool_create_pw(auxbas_pw_pool_target, dft_control_target%qs_control%becke_control%cavity%pw, &
                                    use_data=REALDATA3D, in_space=REALSPACE)
-            dft_control_target%qs_control%becke_control%cavity%pw%cr3d(:,:,:) =&
+            dft_control_target%qs_control%becke_control%cavity%pw%cr3d(:, :, :) = &
                dft_control_source%qs_control%becke_control%cavity%pw%cr3d
             CALL pw_pool_give_back_pw(auxbas_pw_pool_source, dft_control_source%qs_control%becke_control%cavity%pw)
          END IF
          ! Gradients
          IF (calculate_forces) THEN
-            bounds_of = (/ LBOUND(dft_control_source%qs_control%becke_control%gradients, 1), &
-                           UBOUND(dft_control_source%qs_control%becke_control%gradients, 1), &
-                           LBOUND(dft_control_source%qs_control%becke_control%gradients, 2), &
-                           UBOUND(dft_control_source%qs_control%becke_control%gradients, 2), &
-                           LBOUND(dft_control_source%qs_control%becke_control%gradients, 3), &
-                           UBOUND(dft_control_source%qs_control%becke_control%gradients, 3), &
-                           LBOUND(dft_control_source%qs_control%becke_control%gradients, 4), &
-                           UBOUND(dft_control_source%qs_control%becke_control%gradients, 4) /)
-            ALLOCATE (dft_control_target%qs_control%becke_control%&
+            bounds_of = (/LBOUND(dft_control_source%qs_control%becke_control%gradients, 1), &
+                          UBOUND(dft_control_source%qs_control%becke_control%gradients, 1), &
+                          LBOUND(dft_control_source%qs_control%becke_control%gradients, 2), &
+                          UBOUND(dft_control_source%qs_control%becke_control%gradients, 2), &
+                          LBOUND(dft_control_source%qs_control%becke_control%gradients, 3), &
+                          UBOUND(dft_control_source%qs_control%becke_control%gradients, 3), &
+                          LBOUND(dft_control_source%qs_control%becke_control%gradients, 4), &
+                          UBOUND(dft_control_source%qs_control%becke_control%gradients, 4)/)
+            ALLOCATE (dft_control_target%qs_control%becke_control% &
                       gradients(bounds_of(1):bounds_of(2), bounds_of(3):bounds_of(4), &
                                 bounds_of(5):bounds_of(6), bounds_of(7):bounds_of(8)))
-            dft_control_target%qs_control%becke_control%gradients =&
+            dft_control_target%qs_control%becke_control%gradients = &
                dft_control_source%qs_control%becke_control%gradients
-            DEALLOCATE(dft_control_source%qs_control%becke_control%gradients)
+            DEALLOCATE (dft_control_source%qs_control%becke_control%gradients)
          END IF
          ! Set some flags so the weight is not rebuilt during SCF
          dft_control_target%qs_control%becke_control%external_control = .FALSE.
@@ -988,8 +990,9 @@ CONTAINS
          routineP = moduleN//':'//routineN
 
       CHARACTER(LEN=default_path_length)                 :: file_name
-      INTEGER :: handle, iforce_eval, iounit, ispin, j, k, my_id, nao, ncol_local, ncol_overlap, &
-         ncol_wmat, nforce_eval, nmo, nrow_local, nrow_overlap, nrow_wmat, nspins
+      INTEGER                                            :: handle, iforce_eval, iounit, ispin, j, &
+                                                            k, my_id, nao, ncol_local, &
+                                                            nforce_eval, nmo, nrow_local, nspins
       INTEGER, ALLOCATABLE, DIMENSION(:)                 :: ncol_mo, nrow_mo
       LOGICAL                                            :: exist, natom_mismatch
       REAL(KIND=dp)                                      :: coupling_wfn, energy_a, energy_b, &
@@ -1003,15 +1006,13 @@ CONTAINS
       TYPE(cp_blacs_env_type), POINTER                   :: blacs_env
       TYPE(cp_fm_p_type), DIMENSION(:), POINTER          :: rest_MO
       TYPE(cp_fm_p_type), DIMENSION(:, :), POINTER       :: mixed_mo_coeff
-      TYPE(cp_fm_struct_type), POINTER                   :: fm_struct_mo, &
-                                                            mo_mo_fmstruct
+      TYPE(cp_fm_struct_type), POINTER                   :: fm_struct_mo, mo_mo_fmstruct
       TYPE(cp_fm_type), POINTER                          :: inverse_mat, mo_overlap, mo_tmp, SMO, &
                                                             Tinverse, tmp2
       TYPE(cp_logger_type), POINTER                      :: logger
       TYPE(cp_subsys_type), POINTER                      :: subsys_mix
       TYPE(dbcsr_p_type), DIMENSION(:, :), POINTER       :: density_matrix
-      TYPE(dbcsr_type)                                   :: e_vectors, mixed_wmat_a, &
-                                                            mixed_wmat_b
+      TYPE(dbcsr_type)                                   :: e_vectors, mixed_wmat_a, mixed_wmat_b
       TYPE(dbcsr_type), POINTER                          :: mixed_matrix_s
       TYPE(dft_control_type), POINTER                    :: dft_control
       TYPE(mixed_cdft_type), POINTER                     :: mixed_cdft
@@ -1040,7 +1041,7 @@ CONTAINS
       iounit = cp_print_key_unit_nr(logger, print_section, '', extension='.mixedLog')
       CALL get_mixed_env(mixed_env, cdft_control=mixed_cdft)
       CPASSERT(ASSOCIATED(mixed_cdft))
-      ! Move needed arrays from individual CDFT states to the mixed CDFT env 
+      ! Move needed arrays from individual CDFT states to the mixed CDFT env
       CALL mixed_cdft_redistribute_arrays(force_env, mixed_wmat_a, mixed_wmat_b, &
                                           mixed_matrix_s, mixed_mo_coeff, density_matrix)
       ! Begin coupling calculation

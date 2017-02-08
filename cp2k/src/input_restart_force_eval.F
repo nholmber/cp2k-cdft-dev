@@ -8,7 +8,7 @@ MODULE input_restart_force_eval
    USE atomic_kind_types,               ONLY: get_atomic_kind
    USE cell_types,                      ONLY: cell_type,&
                                               real_to_scaled
-   USE cp_control_types,                ONLY: dft_control_type                                           
+   USE cp_control_types,                ONLY: dft_control_type
    USE cp_files,                        ONLY: close_file,&
                                               open_file
    USE cp_linked_list_val,              ONLY: cp_sll_val_create,&
@@ -144,7 +144,7 @@ CONTAINS
          IF (ASSOCIATED(force_env%qs_env)) THEN
             CALL get_qs_env(force_env%qs_env, dft_control=dft_control)
             IF (dft_control%qs_control%becke_restraint) THEN
-               ALLOCATE(work(SIZE(dft_control%qs_control%becke_control%strength)))
+               ALLOCATE (work(SIZE(dft_control%qs_control%becke_control%strength)))
                work = dft_control%qs_control%becke_control%strength
                dft_section => section_vals_get_subs_vals3(force_env_sections, "DFT", &
                                                           i_rep_section=i_force_eval(iforce_eval))

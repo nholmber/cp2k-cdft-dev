@@ -20,16 +20,16 @@ MODULE mixed_cdft_utils
                                               dft_control_type
    USE cp_dbcsr_operations,             ONLY: copy_dbcsr_to_fm,&
                                               copy_fm_to_dbcsr_bc
+   USE cp_files,                        ONLY: open_file
    USE cp_fm_struct,                    ONLY: cp_fm_struct_create,&
                                               cp_fm_struct_release,&
-                                              cp_fm_struct_type                                              
+                                              cp_fm_struct_type
    USE cp_fm_types,                     ONLY: cp_fm_copy_general,&
                                               cp_fm_create,&
                                               cp_fm_get_info,&
                                               cp_fm_p_type,&
                                               cp_fm_release,&
                                               cp_fm_to_fm
-   USE cp_files,                        ONLY: open_file
    USE cp_log_handling,                 ONLY: cp_get_default_logger,&
                                               cp_logger_create,&
                                               cp_logger_set,&
@@ -42,10 +42,14 @@ MODULE mixed_cdft_utils
                                               cp_subsys_type
    USE cube_utils,                      ONLY: init_cube_info,&
                                               return_cube_max_iradius
-   USE dbcsr_api,                       ONLY: &
-        dbcsr_create, dbcsr_copy, dbcsr_desymmetrize, dbcsr_get_info, dbcsr_init_p, dbcsr_p_type, &
-        dbcsr_release, dbcsr_release_p, dbcsr_type
    USE d3_poly,                         ONLY: init_d3_poly_module
+   USE dbcsr_api,                       ONLY: dbcsr_desymmetrize,&
+                                              dbcsr_get_info,&
+                                              dbcsr_init_p,&
+                                              dbcsr_p_type,&
+                                              dbcsr_release,&
+                                              dbcsr_release_p,&
+                                              dbcsr_type
    USE force_env_types,                 ONLY: force_env_get,&
                                               force_env_type,&
                                               multiple_fe_list
@@ -54,20 +58,20 @@ MODULE mixed_cdft_utils
    USE hirshfeld_types,                 ONLY: create_hirshfeld_type,&
                                               release_hirshfeld_type,&
                                               set_hirshfeld_info
-   USE input_constants,                 ONLY: becke_cutoff_element,&
+   USE input_constants,                 ONLY: becke_cavity_conf,&
+                                              becke_cutoff_element,&
+                                              becke_dynamic_conf,&
+                                              becke_mixed_conf,&
+                                              becke_none_conf,&
+                                              becke_static_conf,&
                                               cdft_density_constraint,&
-                                              shape_function_gaussian, &
-                                              becke_none_conf, &
-                                              becke_cavity_conf, &
-                                              becke_static_conf, &
-                                              becke_dynamic_conf, &
-                                              becke_mixed_conf
+                                              shape_function_gaussian
    USE input_section_types,             ONLY: section_vals_duplicate,&
                                               section_vals_get_subs_vals,&
                                               section_vals_release,&
-                                              section_vals_type, &
+                                              section_vals_type,&
                                               section_vals_val_get
-   USE kinds,                           ONLY: default_path_length, &
+   USE kinds,                           ONLY: default_path_length,&
                                               dp
    USE message_passing,                 ONLY: mp_irecv,&
                                               mp_isend,&
@@ -76,8 +80,8 @@ MODULE mixed_cdft_utils
                                               mp_waitall
    USE mixed_cdft_types,                ONLY: mixed_cdft_settings_type,&
                                               mixed_cdft_type
-   USE mixed_environment_types,         ONLY: mixed_environment_type, &
-                                              get_mixed_env
+   USE mixed_environment_types,         ONLY: get_mixed_env,&
+                                              mixed_environment_type
    USE pw_env_methods,                  ONLY: pw_env_create
    USE pw_env_types,                    ONLY: pw_env_get,&
                                               pw_env_type
@@ -118,11 +122,9 @@ CONTAINS
 ! **************************************************************************************************
 !> \brief Parse settings for mixed cdft calculation and check their consistency
 !> \param force_env ...
-!> \param force_env_qs ...
 !> \param mixed_env ...
 !> \param mixed_cdft ...
 !> \param settings ...
-!> \param nforce_eval ...
 !> \param natom ...
 !> \par History
 !>       01.2017  created [Nico Holmberg]
@@ -138,8 +140,7 @@ CONTAINS
       CHARACTER(len=*), PARAMETER :: routineN = 'mixed_cdft_parse_settings', &
          routineP = moduleN//':'//routineN
 
-      INTEGER                                            :: i, iforce_eval, nkinds, &
-                                                            nforce_eval
+      INTEGER                                            :: i, iforce_eval, nforce_eval, nkinds
       LOGICAL                                            :: is_match
       TYPE(atomic_kind_type), DIMENSION(:), POINTER      :: atomic_kind_set
       TYPE(dft_control_type), POINTER                    :: dft_control
@@ -218,7 +219,7 @@ CONTAINS
             ! Only GAPW and serial calculation needs to keep a copy of these arrays for constraint integration
             IF (.NOT. dft_control%qs_control%gapw) THEN
                IF (mixed_cdft%is_parallel .OR. &
-                  (.NOT. mixed_cdft%is_parallel .AND. iforce_eval /= 1)) THEN
+                   (.NOT. mixed_cdft%is_parallel .AND. iforce_eval /= 1)) THEN
                   DEALLOCATE (dft_control%qs_control%becke_control%atoms)
                   DEALLOCATE (dft_control%qs_control%becke_control%coeff)
                END IF
@@ -332,18 +333,18 @@ CONTAINS
       IF (.NOT. is_match) &
          CPABORT("Mismatch detected in the &BECKE_RESTRAINT&CONFINE_BOUNDS settings of the two force_evals.")
       ! Some CDFT features are currently disabled for mixed calculations: check that these features were not requested
-      SELECT CASE (settings%si(1, 1))
-         CASE (becke_cavity_conf, becke_none_conf)
-            ! Do nothing
-         CASE (becke_static_conf, becke_dynamic_conf, becke_mixed_conf)
-            IF (.NOT. mixed_cdft%is_parallel) &
-               CALL cp_abort(__LOCATION__, "Serial mode mixed CDFT calculation supports only confinement types"// &
-                             "NONE and CAVITY.")
-            IF (settings%si(9,1) /= 3) &
-               CPABORT("Only z-direction allowed for static/dynamic confinement with mixed CDFT")
-         CASE DEFAULT
-            CPABORT("Unknown confinement method.")
-         END SELECT
+      SELECT CASE (settings%si (1, 1))
+      CASE (becke_cavity_conf, becke_none_conf)
+         ! Do nothing
+      CASE (becke_static_conf, becke_dynamic_conf, becke_mixed_conf)
+         IF (.NOT. mixed_cdft%is_parallel) &
+            CALL cp_abort(__LOCATION__, "Serial mode mixed CDFT calculation supports only confinement types"// &
+                          "NONE and CAVITY.")
+         IF (settings%si(9, 1) /= 3) &
+            CPABORT("Only z-direction allowed for static/dynamic confinement with mixed CDFT")
+      CASE DEFAULT
+         CPABORT("Unknown confinement method.")
+      END SELECT
       IF (settings%si(11, 1) == 1) &
          CPABORT("Calculation of atomic Becke charges not supported with mixed CDFT")
       IF (mixed_cdft%dlb .AND. .NOT. settings%si(5, 1) == 1) &
@@ -433,7 +434,7 @@ CONTAINS
             mixed_cdft%becke_control%radii = settings%radii(1:nkinds, 1)
          END IF
       ELSE
-         SELECT CASE (settings%si(1, 1))
+         SELECT CASE (settings%si (1, 1))
          CASE (becke_cavity_conf, becke_none_conf)
             ! Do nothing
          CASE DEFAULT
@@ -464,8 +465,8 @@ CONTAINS
          routineP = moduleN//':'//routineN
 
       CHARACTER(len=default_path_length)                 :: c_val, input_file_path, output_file_path
-      INTEGER                                            :: i, imap, iounit, j, n_force_eval, ncpu, &
-                                                            ntargets, offset, req(3), unit_nr, lp
+      INTEGER                                            :: i, imap, iounit, j, lp, n_force_eval, &
+                                                            ncpu, ntargets, offset, req(3), unit_nr
       INTEGER, ALLOCATABLE, DIMENSION(:, :)              :: bounds
       INTEGER, DIMENSION(2, 3)                           :: bo, bo_mixed
       INTEGER, DIMENSION(3)                              :: higher_grid_layout
@@ -766,7 +767,7 @@ CONTAINS
          END IF
       ELSE
          ! Create a logger to redirect output of the second CDFT state to a different file than the first state
-         ! even when the states are treated in serial (the initial print of QS data [basis set etc] for the 
+         ! even when the states are treated in serial (the initial print of QS data [basis set etc] for the
          ! second state unfortunately goes to the first log file)
          CALL force_env_get(force_env, root_section=root_section)
          IF (force_env%para_env%mepos == force_env%para_env%source) THEN
@@ -856,8 +857,8 @@ CONTAINS
 
 ! **************************************************************************************************
 !> \brief Redistribute arrays needed for an ET coupling calculation from individual CDFT states to
-!>        the mixed CDFT env, that is, move the arrays to the correct blacs context. For parallel 
-!>        simulations, the array processor distributions also change from N to 2N processors. 
+!>        the mixed CDFT env, that is, move the arrays to the correct blacs context. For parallel
+!>        simulations, the array processor distributions also change from N to 2N processors.
 !> \param force_env the force_env that holds the CDFT states
 !> \param mixed_wmat_a matrix representation of the weight function of state A
 !> \param mixed_wmat_b matrix representation of the weight function of state B
@@ -870,21 +871,20 @@ CONTAINS
    SUBROUTINE mixed_cdft_redistribute_arrays(force_env, mixed_wmat_a, mixed_wmat_b, &
                                              mixed_matrix_s, mixed_mo_coeff, density_matrix)
       TYPE(force_env_type), POINTER                      :: force_env
-      TYPE(dbcsr_type)                                   :: mixed_wmat_a, &
-                                                            mixed_wmat_b
+      TYPE(dbcsr_type)                                   :: mixed_wmat_a, mixed_wmat_b
       TYPE(dbcsr_type), POINTER                          :: mixed_matrix_s
       TYPE(cp_fm_p_type), DIMENSION(:, :), POINTER       :: mixed_mo_coeff
       TYPE(dbcsr_p_type), DIMENSION(:, :), POINTER       :: density_matrix
 
-      CHARACTER(len=*), PARAMETER :: routineN = 'mixed_cdft_redistrubute_arrays', &
+      CHARACTER(len=*), PARAMETER :: routineN = 'mixed_cdft_redistribute_arrays', &
          routineP = moduleN//':'//routineN
 
       INTEGER                                            :: iforce_eval, ispin, ncol_overlap, &
-                                                            ncol_wmat, nforce_eval, nrow_overlap,&
+                                                            ncol_wmat, nforce_eval, nrow_overlap, &
                                                             nrow_wmat, nspins
       INTEGER, ALLOCATABLE, DIMENSION(:)                 :: ncol_mo, nrow_mo
       TYPE(cp_blacs_env_type), POINTER                   :: blacs_env
-      TYPE(cp_fm_p_type), DIMENSION(:), POINTER          :: mixed_wmat_tmp, rest_MO, wmat_tmp
+      TYPE(cp_fm_p_type), DIMENSION(:), POINTER          :: mixed_wmat_tmp, wmat_tmp
       TYPE(cp_fm_p_type), DIMENSION(:, :), POINTER       :: matrix_p_tmp, mixed_matrix_p_tmp, &
                                                             mo_coeff_tmp
       TYPE(cp_fm_p_type), POINTER                        :: matrix_s_tmp, mixed_matrix_s_tmp
@@ -1007,7 +1007,7 @@ CONTAINS
                                context=mixed_cdft%blacs_env, para_env=force_env%para_env)
       ! Redistribute arrays with copy_general (this is not optimal for dbcsr matrices but...)
       ! We use this method for the serial case (mixed_cdft%is_parallel = .FALSE.) as well to move the arrays to the
-      ! correct blacs_env, which is impossible using a simple copy of the arrays 
+      ! correct blacs_env, which is impossible using a simple copy of the arrays
       ALLOCATE (mixed_wmat_tmp(2), mixed_matrix_s_tmp)
       IF (mixed_cdft%calculate_metric) &
          ALLOCATE (mixed_matrix_p_tmp(2, nspins))

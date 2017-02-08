@@ -791,12 +791,10 @@ CONTAINS
       TYPE(cp_result_type), POINTER                      :: loc_results, results_mix
       TYPE(cp_subsys_p_type), DIMENSION(:), POINTER      :: subsystems
       TYPE(cp_subsys_type), POINTER                      :: subsys_mix
-      TYPE(dft_control_type), POINTER                    :: dft_control
       TYPE(mixed_energy_type), POINTER                   :: mixed_energy
       TYPE(mixed_force_type), DIMENSION(:), POINTER      :: global_forces
       TYPE(particle_list_p_type), DIMENSION(:), POINTER  :: particles
       TYPE(particle_list_type), POINTER                  :: particles_mix
-      TYPE(qs_environment_type), POINTER                 :: qs_env
       TYPE(section_vals_type), POINTER                   :: force_env_section, gen_section, &
                                                             mapping_section, mixed_section, &
                                                             root_section
@@ -815,7 +813,7 @@ CONTAINS
                          particles=particles_mix, &
                          virial=virial_mix, &
                          results=results_mix)
-      NULLIFY (map_index, glob_natoms, global_forces, qs_env, dft_control)
+      NULLIFY (map_index, glob_natoms, global_forces)
 
       nforce_eval = SIZE(force_env%sub_force_env)
       mixed_section => section_vals_get_subs_vals(force_env_section, "MIXED")
@@ -1076,7 +1074,7 @@ CONTAINS
 !> \param calculate_forces ...
 !> \param particles ...
 !> \param energies ...
-!> \param global_natoms ...
+!> \param glob_natoms ...
 !> \param virials ...
 !> \param results ...
 !> \par History
@@ -1146,7 +1144,7 @@ CONTAINS
 
          ! Get Mapping index array
          natom = SIZE(particles(iforce_eval)%list%els)
-         ! Serial mode need to deallocate first 
+         ! Serial mode need to deallocate first
          IF (ASSOCIATED(map_index)) &
             DEALLOCATE (map_index)
          CALL get_subsys_map_index(mapping_section, natom, iforce_eval, nforce_eval, &
@@ -1220,11 +1218,11 @@ CONTAINS
          routineP = moduleN//':'//routineN
 
       INTEGER                                            :: iforce_eval, nforce_eval
-      TYPE(qs_environment_type), POINTER                 :: qs_env
       TYPE(dft_control_type), POINTER                    :: dft_control
+      TYPE(qs_environment_type), POINTER                 :: qs_env
 
       CPASSERT(ASSOCIATED(force_env))
-      NULLIFY(qs_env, dft_control)
+      NULLIFY (qs_env, dft_control)
       IF (force_env%mixed_env%do_mixed_cdft) THEN
          nforce_eval = SIZE(force_env%sub_force_env)
          ! Transfer cdft strengths for writing restart

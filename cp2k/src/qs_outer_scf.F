@@ -15,20 +15,19 @@ MODULE qs_outer_scf
                                               ddapc_restraint_type,&
                                               dft_control_type,&
                                               s2_restraint_type
-   USE cp_log_handling,                 ONLY: cp_to_string                                              
+   USE cp_log_handling,                 ONLY: cp_to_string
    USE input_constants,                 ONLY: &
+        broyden_type_1, broyden_type_1_explicit, broyden_type_1_explicit_ls, broyden_type_1_ls, &
+        broyden_type_2, broyden_type_2_explicit, broyden_type_2_explicit_ls, broyden_type_2_ls, &
         cdft2ot, cdft_combined_constraint, cdft_density_constraint, cdft_magnetization_constraint, &
         do_ddapc_constraint, do_s2_constraint, ot2cdft, outer_scf_basis_center_opt, &
         outer_scf_becke_constraint, outer_scf_cdft_constraint, outer_scf_ddapc_constraint, &
         outer_scf_none, outer_scf_optimizer_bisect, outer_scf_optimizer_broyden, &
-        outer_scf_optimizer_diis, outer_scf_optimizer_newton, outer_scf_optimizer_none, &
-        outer_scf_optimizer_sd, outer_scf_s2_constraint, outer_scf_optimizer_secant, &
-        broyden_type_1, broyden_type_1_explicit, broyden_type_2, broyden_type_2_explicit, &
-        outer_scf_optimizer_newton_ls, broyden_type_1_ls, broyden_type_1_explicit_ls, &
-        broyden_type_2_ls, broyden_type_2_explicit_ls
+        outer_scf_optimizer_diis, outer_scf_optimizer_newton, outer_scf_optimizer_newton_ls, &
+        outer_scf_optimizer_none, outer_scf_optimizer_sd, outer_scf_optimizer_secant, &
+        outer_scf_s2_constraint
    USE kinds,                           ONLY: dp
-   USE mathlib,                         ONLY: diamat_all,&
-                                              invert_matrix
+   USE mathlib,                         ONLY: diamat_all
    USE qs_basis_gradient,               ONLY: qs_basis_center_gradient,&
                                               qs_update_basis_center_pos,&
                                               return_basis_center_gradient_norm
@@ -207,9 +206,9 @@ CONTAINS
 
       INTEGER                                            :: handle, i, ibuf, ihigh, ihistory, ilow, &
                                                             j, jbuf, nb, nvar, optimizer_type
-      REAL(KIND=dp)                                      :: interval, inv_error, scale, tmp
+      REAL(KIND=dp)                                      :: interval, scale, tmp
       REAL(KIND=dp), ALLOCATABLE, DIMENSION(:)           :: ev
-      REAL(KIND=dp), ALLOCATABLE, DIMENSION(:, :)        :: a, b, f, jacobian, x
+      REAL(KIND=dp), ALLOCATABLE, DIMENSION(:, :)        :: a, b, f, x
       REAL(KIND=dp), DIMENSION(:, :), POINTER            :: inv_jacobian
 
       CALL timeset(routineN, handle)
@@ -336,7 +335,7 @@ CONTAINS
                   ! Perform a Broyden update of the inverse Jacobian J^(-1)
                   IF (SIZE(scf_env%outer_scf%gradient, 2) .LT. 3) &
                      CALL cp_abort(__LOCATION__, &
-                                   "Keyword EXTRAPOLATION_ORDER in section OUTER_SCF "//&
+                                   "Keyword EXTRAPOLATION_ORDER in section OUTER_SCF "// &
                                    "must be greater than or equal to 3 for Broyden optimizers.")
                   nvar = SIZE(scf_env%outer_scf%gradient, 1)
                   ALLOCATE (f(nvar, 1), x(nvar, 1))
@@ -574,6 +573,7 @@ CONTAINS
 
       CHARACTER(len=*), PARAMETER :: routineN = 'outer_loop_switch', &
          routineP = moduleN//':'//routineN
+
       INTEGER                                            :: nvariables
 
       SELECT CASE (dir)
@@ -582,7 +582,7 @@ CONTAINS
          ! Switch data in scf_control: first save values that might have changed
          cdft_control%constraint_control%broyden_update = scf_control%outer_scf%broyden_update
          cdft_control%constraint_control%newton_step = scf_control%outer_scf%newton_step
-         cdft_control%constraint_control%ijacobian = scf_control%outer_scf%ijacobian 
+         cdft_control%constraint_control%ijacobian = scf_control%outer_scf%ijacobian
          ! Now switch
          scf_control%outer_scf%have_scf = cdft_control%ot_control%have_scf
          scf_control%outer_scf%max_scf = cdft_control%ot_control%max_scf
@@ -610,7 +610,7 @@ CONTAINS
          IF (ASSOCIATED(scf_env%outer_scf%inv_jacobian)) THEN
             nvariables = SIZE(scf_env%outer_scf%inv_jacobian, 1)
             IF (.NOT. ASSOCIATED(cdft_control%constraint%inv_jacobian)) &
-               ALLOCATE(cdft_control%constraint%inv_jacobian(nvariables, nvariables))
+               ALLOCATE (cdft_control%constraint%inv_jacobian(nvariables, nvariables))
             cdft_control%constraint%inv_jacobian = scf_env%outer_scf%inv_jacobian
          END IF
          ! Now switch
@@ -633,7 +633,7 @@ CONTAINS
          ! OT SCF does not need Jacobian
          scf_env%outer_scf%deallocate_jacobian = .TRUE.
          IF (ASSOCIATED(scf_env%outer_scf%inv_jacobian)) &
-            DEALLOCATE(scf_env%outer_scf%inv_jacobian)
+            DEALLOCATE (scf_env%outer_scf%inv_jacobian)
       CASE (ot2cdft)
          ! OT -> constraint
          scf_control%outer_scf%have_scf = cdft_control%constraint_control%have_scf
@@ -672,8 +672,8 @@ CONTAINS
          scf_env%outer_scf%deallocate_jacobian = cdft_control%constraint%deallocate_jacobian
          IF (ASSOCIATED(cdft_control%constraint%inv_jacobian)) THEN
             IF (ASSOCIATED(scf_env%outer_scf%inv_jacobian)) &
-               DEALLOCATE(scf_env%outer_scf%inv_jacobian)
-            ALLOCATE(scf_env%outer_scf%inv_jacobian(nvariables, nvariables))
+               DEALLOCATE (scf_env%outer_scf%inv_jacobian)
+            ALLOCATE (scf_env%outer_scf%inv_jacobian(nvariables, nvariables))
             scf_env%outer_scf%inv_jacobian = cdft_control%constraint%inv_jacobian
          END IF
       CASE DEFAULT
@@ -696,8 +696,7 @@ CONTAINS
          routineP = moduleN//':'//routineN
 
       INTEGER                                            :: handle, outer_scf_ihistory
-      REAL(kind=dp), DIMENSION(:, :), POINTER            :: outer_scf_history, &
-                                                            gradient_history, &
+      REAL(kind=dp), DIMENSION(:, :), POINTER            :: gradient_history, outer_scf_history, &
                                                             variable_history
 
       CALL timeset(routineN, handle)
@@ -709,7 +708,7 @@ CONTAINS
       CPASSERT(SIZE(outer_scf_history, 2) > 0)
       outer_scf_ihistory = 0
       outer_scf_history = 0.0_dp
-      gradient_history  = 0.0_dp
+      gradient_history = 0.0_dp
       variable_history = 0.0_dp
       CALL set_qs_env(qs_env, outer_scf_ihistory=outer_scf_ihistory)
 

@@ -30,7 +30,9 @@ MODULE input_cp2k_dft
                                               cp_unit_to_cp2k
    USE input_constants,                 ONLY: &
         atomic_guess, becke_cavity_conf, becke_cutoff_element, becke_cutoff_global, &
-        becke_dynamic_conf, becke_mixed_conf, becke_none_conf, becke_static_conf, casci_canonical, &
+        becke_dynamic_conf, becke_mixed_conf, becke_none_conf, becke_static_conf, broyden_type_1, &
+        broyden_type_1_explicit, broyden_type_1_explicit_ls, broyden_type_1_ls, broyden_type_2, &
+        broyden_type_2_explicit, broyden_type_2_explicit_ls, broyden_type_2_ls, casci_canonical, &
         cdft_combined_acceptor, cdft_combined_all, cdft_combined_constraint, cdft_combined_donor, &
         cdft_density_constraint, cdft_magnetization_constraint, cholesky_dbcsr, cholesky_inverse, &
         cholesky_off, cholesky_reduce, cholesky_restore, constant_env, core_guess, custom_env, &
@@ -70,13 +72,14 @@ MODULE input_cp2k_dft
         ot_precond_solver_update, outer_scf_basis_center_opt, outer_scf_becke_constraint, &
         outer_scf_cdft_constraint, outer_scf_ddapc_constraint, outer_scf_hirshfeld_constraint, &
         outer_scf_none, outer_scf_optimizer_bisect, outer_scf_optimizer_broyden, &
-        outer_scf_optimizer_diis, outer_scf_optimizer_newton, outer_scf_optimizer_newton_ls, outer_scf_optimizer_none, &
-        outer_scf_optimizer_sd, outer_scf_optimizer_secant, outer_scf_s2_constraint, plus_u_lowdin, plus_u_mulliken, &
-        plus_u_mulliken_charges, pw_interp, radius_covalent, radius_default, radius_single, &
-        radius_user, radius_vdw, ramp_env, random_guess, real_time_propagation, ref_charge_atomic, &
-        ref_charge_mulliken, rel_dkh, rel_none, rel_pot_erfc, rel_pot_full, rel_sczora_mp, &
-        rel_trans_atom, rel_trans_full, rel_trans_molecule, rel_zora, rel_zora_full, rel_zora_mp, &
-        restart_guess, rsdft_model, sccs_andreussi, sccs_derivative_cd3, sccs_derivative_cd5, &
+        outer_scf_optimizer_diis, outer_scf_optimizer_newton, outer_scf_optimizer_newton_ls, &
+        outer_scf_optimizer_none, outer_scf_optimizer_sd, outer_scf_optimizer_secant, &
+        outer_scf_s2_constraint, plus_u_lowdin, plus_u_mulliken, plus_u_mulliken_charges, &
+        pw_interp, radius_covalent, radius_default, radius_single, radius_user, radius_vdw, &
+        ramp_env, random_guess, real_time_propagation, ref_charge_atomic, ref_charge_mulliken, &
+        rel_dkh, rel_none, rel_pot_erfc, rel_pot_full, rel_sczora_mp, rel_trans_atom, &
+        rel_trans_full, rel_trans_molecule, rel_zora, rel_zora_full, rel_zora_mp, restart_guess, &
+        rsdft_model, sccs_andreussi, sccs_derivative_cd3, sccs_derivative_cd5, &
         sccs_derivative_cd7, sccs_derivative_fft, sccs_fattebert_gygi, shape_function_density, &
         shape_function_gaussian, sic_ad, sic_eo, sic_list_all, sic_list_unpaired, sic_mauri_spz, &
         sic_mauri_us, sic_none, slater, smear_energy_window, smear_fermi_dirac, smear_list, &
@@ -88,9 +91,7 @@ MODULE input_cp2k_dft
         wfi_ps_method_nr, wfi_use_guess_method_nr, wfi_use_prev_p_method_nr, &
         wfi_use_prev_rho_r_method_nr, wfi_use_prev_wf_method_nr, xas_1s_type, xas_2p_type, &
         xas_2s_type, xas_dip_len, xas_dip_vel, xas_dscf, xas_none, xas_tp_fh, xas_tp_flex, &
-        xas_tp_hh, xas_tp_xfh, xas_tp_xhh, xes_tp_val, broyden_type_1, broyden_type_1_explicit, &
-        broyden_type_2, broyden_type_2_explicit, broyden_type_1_ls, broyden_type_1_explicit_ls, &
-        broyden_type_2_explicit_ls, broyden_type_2_ls
+        xas_tp_hh, xas_tp_xfh, xas_tp_xhh, xes_tp_val
    USE input_cp2k_almo,                 ONLY: create_almo_scf_section
    USE input_cp2k_distribution,         ONLY: create_distribution_section
    USE input_cp2k_kpoints,              ONLY: create_kpoints_section
@@ -4410,8 +4411,8 @@ CONTAINS
       CALL keyword_release(keyword)
 
       CALL keyword_create(keyword, name="COUNTER", &
-                          description="A counter to track the total number of energy evaluations. Needed by"//&
-                                      " some optimizers to print information. Useful for restarts.", &
+                          description="A counter to track the total number of energy evaluations. Needed by"// &
+                          " some optimizers to print information. Useful for restarts.", &
                           usage="COUNTER {int} ", default_i_val=0)
       CALL section_add_keyword(section, keyword)
       CALL keyword_release(keyword)
@@ -5391,12 +5392,12 @@ CONTAINS
                                         "Bisection of the gradient, useful for difficult one dimensional cases", &
                                         "Broyden's method. Variant defined in BROYDEN_TYPE.", &
                                         "Newton's method. Only compatible with CDFT constraints", &
-                                        "Secant method. Only for one dimensional cases. See Broyden for "//&
+                                        "Secant method. Only for one dimensional cases. See Broyden for "// &
                                         "multidimensional cases.", &
-                                        "Newton's method with backtracking line search to find the optimal step size. "//&
-                                        "Only compatible with CDFT constraints. Starts from the regular Newton solution "//&
-                                        "and successively reduces the step size until the L2 norm of the CDFT gradient "//&
-                                        "decreases. Potentially very expensive because each iteration performs a full "//&
+                                        "Newton's method with backtracking line search to find the optimal step size. "// &
+                                        "Only compatible with CDFT constraints. Starts from the regular Newton solution "// &
+                                        "and successively reduces the step size until the L2 norm of the CDFT gradient "// &
+                                        "decreases. Potentially very expensive because each iteration performs a full "// &
                                         " SCF calculation."), &
                           enum_i_vals=(/outer_scf_optimizer_sd, outer_scf_optimizer_diis, outer_scf_optimizer_none, &
                                         outer_scf_optimizer_bisect, outer_scf_optimizer_broyden, &
@@ -5411,17 +5412,17 @@ CONTAINS
                           default_i_val=broyden_type_1, &
                           enum_c_vals=s2a("BT1", "BT1_EXPLICIT", "BT2", "BT2_EXPLICIT", &
                                           "BT1_LS", "BT1_EXPLICIT_LS", "BT2_LS", "BT2_EXPLICIT_LS"), &
-                          enum_desc=s2a("Broyden's first method, also known as the good method. The initial Jacobian"//&
-                                        " is built from MD history if available. Otherwise switches to SD for one"//&
+                          enum_desc=s2a("Broyden's first method, also known as the good method. The initial Jacobian"// &
+                                        " is built from MD history if available. Otherwise switches to SD for one"// &
                                         " SCF iteration until a Jacobian can be built from the SCF history.", &
-                                        "Same as BT1, but computes the explicit Jacobian with finite differences. "//&
+                                        "Same as BT1, but computes the explicit Jacobian with finite differences. "// &
                                         "Requires a CDFT SCF procedure to be active.", &
                                         "Same as BT1, but uses Broyden's second method, also known as the bad method", &
-                                        "Same as BT1_EXPLICIT, but using Broyden's second method.",&
-                                        "Same as BT1, but uses backtracking line search for optimizing the step size "//&
+                                        "Same as BT1_EXPLICIT, but using Broyden's second method.", &
+                                        "Same as BT1, but uses backtracking line search for optimizing the step size "// &
                                         "(see optimizer NEWTON_LS).", &
-                                        "Same as BT1_EXPLICIT, but uses backtracking line search for optimizing the step size ",&
-                                        "Same as BT2, but uses backtracking line search for optimizing the step size ",&
+                                        "Same as BT1_EXPLICIT, but uses backtracking line search for optimizing the step size ", &
+                                        "Same as BT2, but uses backtracking line search for optimizing the step size ", &
                                         "Same as BT2_EXPLICIT, but uses backtracking line search for optimizing the step size "), &
                           enum_i_vals=(/broyden_type_1, broyden_type_1_explicit, broyden_type_2, &
                                         broyden_type_2_explicit, broyden_type_1_ls, broyden_type_1_explicit_ls, &
@@ -5431,7 +5432,7 @@ CONTAINS
 
       CALL keyword_create(keyword, name="JACOBIAN_TYPE", &
                           description="Finite difference method used to calculate the inverse Jacobian "// &
-                                       "needed by some optimizers. Compatible only with CDFT constraints.", &
+                          "needed by some optimizers. Compatible only with CDFT constraints.", &
                           usage="JACOBIAN_TYPE FD1", &
                           default_i_val=jacobian_fd1, &
                           enum_c_vals=s2a("FD1", "FD1_BACKWARD", "FD2", "FD2_BACKWARD", "FD1_CENTRAL"), &
@@ -5452,11 +5453,11 @@ CONTAINS
       CALL keyword_release(keyword)
 
       CALL keyword_create(keyword, name="JACOBIAN_FREQ", &
-                          description="Defines parameters that control how often the explicit Jacobian is built, "//&
-                                      "which is needed by some optimizers. Expects two values. The first value "//&
-                                      "determines how many consecutive CDFT SCF iterations should skip a rebuild,"//&
-                                      " whereas the latter how many MD steps. The values can be zero (meaning never "//&
-                                      " rebuild) or positive. Both values cannot be zero.", &
+                          description="Defines parameters that control how often the explicit Jacobian is built, "// &
+                          "which is needed by some optimizers. Expects two values. The first value "// &
+                          "determines how many consecutive CDFT SCF iterations should skip a rebuild,"// &
+                          " whereas the latter how many MD steps. The values can be zero (meaning never "// &
+                          " rebuild) or positive. Both values cannot be zero.", &
                           usage="JACOBIAN_FREQ 1 1", n_var=2, &
                           default_i_vals=(/1, 1/), type_of_var=integer_t)
       CALL section_add_keyword(section, keyword)

@@ -93,8 +93,7 @@ CONTAINS
 
       INTEGER                                            :: handle, n_ao_aux_fit, nhistory, &
                                                             nvariables
-      REAL(KIND=dp), DIMENSION(:, :), POINTER            :: outer_scf_history, &
-                                                            gradient_history, &
+      REAL(KIND=dp), DIMENSION(:, :), POINTER            :: gradient_history, outer_scf_history, &
                                                             variable_history
       TYPE(atomic_kind_type), DIMENSION(:), POINTER      :: atomic_kind_set
       TYPE(cell_type), POINTER                           :: cell

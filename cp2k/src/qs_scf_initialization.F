@@ -308,11 +308,10 @@ CONTAINS
 
       INTEGER                                            :: nhistory, nvariables
       LOGICAL                                            :: do_kpoints
-      REAL(KIND=dp), DIMENSION(:, :), POINTER            :: outer_scf_history, &
-                                                            gradient_history, &
+      REAL(KIND=dp), DIMENSION(:, :), POINTER            :: gradient_history, outer_scf_history, &
                                                             variable_history
-      
-      NULLIFY(outer_scf_history, gradient_history, variable_history)                                                            
+
+      NULLIFY (outer_scf_history, gradient_history, variable_history)
       CALL get_qs_env(qs_env=qs_env, do_kpoints=do_kpoints)
       ! Check only one constraint section is active
       IF (dft_control%qs_control%becke_restraint .AND. &

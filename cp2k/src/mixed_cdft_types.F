@@ -14,8 +14,8 @@ MODULE mixed_cdft_types
                                               cp_blacs_env_type
    USE cp_control_types,                ONLY: becke_control_release,&
                                               becke_restraint_type
-   USE cp_log_handling,                 ONLY: cp_logger_type,&
-                                              cp_logger_release                                              
+   USE cp_log_handling,                 ONLY: cp_logger_release,&
+                                              cp_logger_type
    USE kinds,                           ONLY: dp
    USE pw_env_types,                    ONLY: pw_env_release,&
                                               pw_env_type

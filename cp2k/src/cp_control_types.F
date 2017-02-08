@@ -1096,7 +1096,7 @@ CONTAINS
       NULLIFY (cdft_control%constraint%energy)
       NULLIFY (cdft_control%constraint%count)
       NULLIFY (cdft_control%constraint%inv_jacobian)
-      cdft_control%constraint%deallocate_jacobian = .TRUE. 
+      cdft_control%constraint%deallocate_jacobian = .TRUE.
    END SUBROUTINE cdft_control_create
 
 ! *****************************************************************************
@@ -1141,7 +1141,7 @@ CONTAINS
          IF (ASSOCIATED(cdft_control%constraint%energy)) &
             DEALLOCATE (cdft_control%constraint%energy)
          IF (ASSOCIATED(cdft_control%constraint%inv_jacobian)) &
-            DEALLOCATE (cdft_control%constraint%inv_jacobian)            
+            DEALLOCATE (cdft_control%constraint%inv_jacobian)
          DEALLOCATE (cdft_control)
       END IF
    END SUBROUTINE cdft_control_release

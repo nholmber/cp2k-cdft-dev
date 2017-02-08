@@ -1941,8 +1941,8 @@ CONTAINS
       CHARACTER(len=*), PARAMETER :: routineN = 'read_cdft_control_section', &
          routineP = moduleN//':'//routineN
 
+      INTEGER, DIMENSION(:), POINTER                     :: tmplist
       LOGICAL                                            :: exists
-      INTEGER, POINTER, DIMENSION(:)                     :: tmplist
       TYPE(section_vals_type), POINTER                   :: hirshfeld_constraint_section, &
                                                             outer_scf_section
 
@@ -1963,7 +1963,7 @@ CONTAINS
          CALL section_vals_val_get(cdft_control_section, "PURGE_OFFSET", &
                                    i_val=qs_control%cdft_control%purge_offset)
          CALL section_vals_val_get(cdft_control_section, "COUNTER", &
-                                   i_val=qs_control%cdft_control%ienergy)         
+                                   i_val=qs_control%cdft_control%ienergy)
          outer_scf_section => section_vals_get_subs_vals(cdft_control_section, "OUTER_SCF")
          CALL section_vals_val_get(outer_scf_section, "_SECTION_PARAMETERS_", &
                                    l_val=qs_control%cdft_control%constraint_control%have_scf)

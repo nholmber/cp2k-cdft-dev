@@ -260,7 +260,7 @@ MODULE qs_environment_types
       TYPE(cp_ddapc_ewald_type), POINTER                    :: cp_ddapc_ewald
       REAL(KIND=dp), DIMENSION(:, :), POINTER               :: outer_scf_history
       INTEGER                                               :: outer_scf_ihistory
-      REAL(KIND=dp), DIMENSION(:, :), POINTER               :: gradient_history,&
+      REAL(KIND=dp), DIMENSION(:, :), POINTER               :: gradient_history, &
                                                                variable_history
       TYPE(hfx_type), DIMENSION(:, :), POINTER              :: x_data
       TYPE(et_coupling_type), POINTER                       :: et_coupling
@@ -458,6 +458,8 @@ CONTAINS
 !> \param forces_up_to_date ...
 !> \param mscfg_env ...
 !> \param almo_scf_env ...
+!> \param gradient_history ...
+!> \param variable_history ...
 !> \date    23.01.2002
 !> \author  MK
 !> \version 1.0
@@ -583,9 +585,7 @@ CONTAINS
       TYPE(virial_type), OPTIONAL, POINTER               :: virial
       TYPE(cp_ddapc_type), OPTIONAL, POINTER             :: cp_ddapc_env
       TYPE(cp_ddapc_ewald_type), OPTIONAL, POINTER       :: cp_ddapc_ewald
-      REAL(KIND=dp), DIMENSION(:, :), OPTIONAL, POINTER  :: outer_scf_history, &
-                                                            gradient_history, &
-                                                            variable_history
+      REAL(KIND=dp), DIMENSION(:, :), OPTIONAL, POINTER  :: outer_scf_history
       INTEGER, INTENT(out), OPTIONAL                     :: outer_scf_ihistory
       TYPE(hfx_type), DIMENSION(:, :), OPTIONAL, POINTER :: x_data
       TYPE(et_coupling_type), OPTIONAL, POINTER          :: et_coupling
@@ -618,6 +618,7 @@ CONTAINS
       TYPE(molecular_scf_guess_env_type), OPTIONAL, &
          POINTER                                         :: mscfg_env
       TYPE(almo_scf_env_type), OPTIONAL, POINTER         :: almo_scf_env
+      REAL(KIND=dp), DIMENSION(:, :), OPTIONAL, POINTER  :: gradient_history, variable_history
 
       CHARACTER(len=*), PARAMETER :: routineN = 'get_qs_env', routineP = moduleN//':'//routineN
 
@@ -974,6 +975,8 @@ CONTAINS
 !> \param kpoints ...
 !> \param WannierCentres ...
 !> \param almo_scf_env ...
+!> \param gradient_history ...
+!> \param variable_history ...
 !> \date    23.01.2002
 !> \author  MK
 !> \version 1.0
@@ -1034,9 +1037,7 @@ CONTAINS
       TYPE(xas_environment_type), OPTIONAL, POINTER      :: xas_env
       TYPE(cp_ddapc_type), OPTIONAL, POINTER             :: cp_ddapc_env
       TYPE(cp_ddapc_ewald_type), OPTIONAL, POINTER       :: cp_ddapc_ewald
-      REAL(KIND=dp), DIMENSION(:, :), OPTIONAL, POINTER  :: outer_scf_history, &
-                                                            gradient_history, &
-                                                            variable_history
+      REAL(KIND=dp), DIMENSION(:, :), OPTIONAL, POINTER  :: outer_scf_history
       INTEGER, INTENT(IN), OPTIONAL                      :: outer_scf_ihistory
       TYPE(hfx_type), DIMENSION(:, :), OPTIONAL, POINTER :: x_data
       TYPE(et_coupling_type), OPTIONAL, POINTER          :: et_coupling
@@ -1059,6 +1060,7 @@ CONTAINS
       TYPE(wannier_centres_type), DIMENSION(:), &
          OPTIONAL, POINTER                               :: WannierCentres
       TYPE(almo_scf_env_type), OPTIONAL, POINTER         :: almo_scf_env
+      REAL(KIND=dp), DIMENSION(:, :), OPTIONAL, POINTER  :: gradient_history, variable_history
 
       CHARACTER(len=*), PARAMETER :: routineN = 'set_qs_env', routineP = moduleN//':'//routineN
 
@@ -1324,9 +1326,9 @@ CONTAINS
                qs_env%outer_scf_ihistory = 0
             ENDIF
             IF (ASSOCIATED(qs_env%gradient_history)) &
-               DEALLOCATE(qs_env%gradient_history)
+               DEALLOCATE (qs_env%gradient_history)
             IF (ASSOCIATED(qs_env%variable_history)) &
-               DEALLOCATE(qs_env%variable_history)               
+               DEALLOCATE (qs_env%variable_history)
             IF (ASSOCIATED(qs_env%oce)) CALL deallocate_oce_set(qs_env%oce)
             IF (ASSOCIATED(qs_env%local_rho_set)) THEN
                CALL local_rho_set_release(qs_env%local_rho_set)
