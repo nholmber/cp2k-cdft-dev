@@ -30,7 +30,9 @@ MODULE input_cp2k_dft
                                               cp_unit_to_cp2k
    USE input_constants,                 ONLY: &
         atomic_guess, becke_cavity_conf, becke_cutoff_element, becke_cutoff_global, &
-        becke_dynamic_conf, becke_mixed_conf, becke_none_conf, becke_static_conf, casci_canonical, &
+        becke_dynamic_conf, becke_mixed_conf, becke_none_conf, becke_static_conf, broyden_type_1, &
+        broyden_type_1_explicit, broyden_type_1_explicit_ls, broyden_type_1_ls, broyden_type_2, &
+        broyden_type_2_explicit, broyden_type_2_explicit_ls, broyden_type_2_ls, casci_canonical, &
         cdft_combined_acceptor, cdft_combined_all, cdft_combined_constraint, cdft_combined_donor, &
         cdft_density_constraint, cdft_magnetization_constraint, cholesky_dbcsr, cholesky_inverse, &
         cholesky_off, cholesky_reduce, cholesky_restore, core_guess, diag_block_davidson, &
@@ -69,8 +71,8 @@ MODULE input_cp2k_dft
         ot_precond_solver_inv_chol, ot_precond_solver_update, outer_scf_basis_center_opt, &
         outer_scf_becke_constraint, outer_scf_cdft_constraint, outer_scf_ddapc_constraint, &
         outer_scf_hirshfeld_constraint, outer_scf_none, outer_scf_optimizer_bisect, &
-        outer_scf_optimizer_broyden, outer_scf_optimizer_diis, outer_scf_optimizer_newton, &
-        outer_scf_optimizer_none, outer_scf_optimizer_sd, outer_scf_s2_constraint, plus_u_lowdin, &
+        outer_scf_optimizer_broyden, outer_scf_optimizer_diis, outer_scf_optimizer_newton, outer_scf_optimizer_newton_ls, &
+        outer_scf_optimizer_none, outer_scf_optimizer_sd, outer_scf_optimizer_secant, outer_scf_s2_constraint, plus_u_lowdin, &
         plus_u_mulliken, plus_u_mulliken_charges, pw_interp, radius_covalent, radius_default, &
         radius_single, radius_user, radius_vdw, random_guess, real_time_propagation, &
         ref_charge_atomic, ref_charge_mulliken, rel_dkh, rel_none, rel_pot_erfc, rel_pot_full, &
@@ -4340,7 +4342,7 @@ CONTAINS
                           description="Parameters needed to set up a CDFT calculation with OT."// &
                           " Constraint is converged in a separate external SCF loop with settings"// &
                           " read from the OUTER_SCF section. Supported constraints: Gaussian Hirshfeld (partial)"// &
-                          " Becke.", n_keywords=7, n_subsections=2, &
+                          " Becke.", n_keywords=8, n_subsections=2, &
                           repeats=.FALSE., citations=(/Holmberg2017/))
 
       NULLIFY (subsection, keyword)
@@ -4405,6 +4407,13 @@ CONTAINS
       CALL keyword_create(keyword, name="PURGE_OFFSET", &
                           description="See PURGE_HISTORY.", &
                           usage="PURGE_OFFSET {int} ", default_i_val=1)
+      CALL section_add_keyword(section, keyword)
+      CALL keyword_release(keyword)
+
+      CALL keyword_create(keyword, name="COUNTER", &
+                          description="A counter to track the total number of energy evaluations. Needed by"// &
+                          " some optimizers to print information. Useful for restarts.", &
+                          usage="COUNTER {int} ", default_i_val=0)
       CALL section_add_keyword(section, keyword)
       CALL keyword_release(keyword)
 
@@ -5339,7 +5348,7 @@ CONTAINS
       CPASSERT(.NOT. ASSOCIATED(section))
       CALL section_create(section, "OUTER_SCF", &
                           description="parameters controlling the outer SCF loop", &
-                          n_keywords=11, n_subsections=0, repeats=.FALSE.)
+                          n_keywords=13, n_subsections=0, repeats=.FALSE.)
 
       NULLIFY (keyword)
 
@@ -5359,12 +5368,12 @@ CONTAINS
                                         "Enforce a constraint on the S2, requires the corresponding section", &
                                         "Enforce a constraint on the Becke weight population, "// &
                                         "requires the corresponding section", &
+                                        "Optimize positions of basis functions, if atom types FLOATING_BASIS_CENTER "// &
+                                        " are defined", &
                                         "Enforce a constraint on a generic CDFT weight population, "// &
                                         "requires the corresponding section"// &
                                         " which determines the type of weight used "// &
                                         "(currently only Gaussian Hirshfeld supported)", &
-                                        "Optimize positions of basis functions, if atom types FLOATING_BASIS_CENTER "// &
-                                        " are defined", &
                                         "Do nothing in the outer loop, useful for resetting the inner loop,"), &
                           enum_i_vals=(/outer_scf_ddapc_constraint, outer_scf_s2_constraint, &
                                         outer_scf_becke_constraint, outer_scf_basis_center_opt, &
@@ -5376,22 +5385,54 @@ CONTAINS
                           description="Method used to bring the outer loop to a stationary point", &
                           usage="OPTIMIZER SD", &
                           default_i_val=outer_scf_optimizer_none, &
-                          enum_c_vals=s2a("SD", "DIIS", "NONE", "BISECT", "BROYDEN", "NEWTON"), &
+                          enum_c_vals=s2a("SD", "DIIS", "NONE", "BISECT", "BROYDEN", "NEWTON", "SECANT", "NEWTON_LS"), &
                           enum_desc=s2a("Takes steps in the direction of the gradient, multiplied by step_size", &
                                         "Uses a Direct Inversion in the Iterative Subspace method", &
                                         "Do nothing, useful only with the none type", &
                                         "Bisection of the gradient, useful for difficult one dimensional cases", &
                                         "Broyden's method. Variant defined in BROYDEN_TYPE.", &
-                                        "Newton's method."), &
+                                        "Newton's method. Only compatible with CDFT constraints", &
+                                        "Secant method. Only for one dimensional cases. See Broyden for "// &
+                                        "multidimensional cases.", &
+                                        "Newton's method with backtracking line search to find the optimal step size. "// &
+                                        "Only compatible with CDFT constraints. Starts from the regular Newton solution "// &
+                                        "and successively reduces the step size until the L2 norm of the CDFT gradient "// &
+                                        "decreases. Potentially very expensive because each iteration performs a full "// &
+                                        " SCF calculation."), &
                           enum_i_vals=(/outer_scf_optimizer_sd, outer_scf_optimizer_diis, outer_scf_optimizer_none, &
                                         outer_scf_optimizer_bisect, outer_scf_optimizer_broyden, &
-                                        outer_scf_optimizer_newton/))
+                                        outer_scf_optimizer_newton, outer_scf_optimizer_secant, &
+                                        outer_scf_optimizer_newton_ls/))
+      CALL section_add_keyword(section, keyword)
+      CALL keyword_release(keyword)
+
+      CALL keyword_create(keyword, name="BROYDEN_TYPE", &
+                          description="Specifies the Broyden optimizer variant to use.", &
+                          usage="BROYDEN_TYPE BT1", &
+                          default_i_val=broyden_type_1, &
+                          enum_c_vals=s2a("BT1", "BT1_EXPLICIT", "BT2", "BT2_EXPLICIT", &
+                                          "BT1_LS", "BT1_EXPLICIT_LS", "BT2_LS", "BT2_EXPLICIT_LS"), &
+                          enum_desc=s2a("Broyden's first method, also known as the good method. The initial Jacobian"// &
+                                        " is built from MD history if available. Otherwise switches to SD for one"// &
+                                        " SCF iteration until a Jacobian can be built from the SCF history.", &
+                                        "Same as BT1, but computes the explicit Jacobian with finite differences. "// &
+                                        "Requires a CDFT SCF procedure to be active.", &
+                                        "Same as BT1, but uses Broyden's second method, also known as the bad method", &
+                                        "Same as BT1_EXPLICIT, but using Broyden's second method.", &
+                                        "Same as BT1, but uses backtracking line search for optimizing the step size "// &
+                                        "(see optimizer NEWTON_LS).", &
+                                        "Same as BT1_EXPLICIT, but uses backtracking line search for optimizing the step size ", &
+                                        "Same as BT2, but uses backtracking line search for optimizing the step size ", &
+                                        "Same as BT2_EXPLICIT, but uses backtracking line search for optimizing the step size "), &
+                          enum_i_vals=(/broyden_type_1, broyden_type_1_explicit, broyden_type_2, &
+                                        broyden_type_2_explicit, broyden_type_1_ls, broyden_type_1_explicit_ls, &
+                                        broyden_type_2_ls, broyden_type_2_explicit_ls/))
       CALL section_add_keyword(section, keyword)
       CALL keyword_release(keyword)
 
       CALL keyword_create(keyword, name="JACOBIAN_TYPE", &
                           description="Finite difference method used to calculate the inverse Jacobian "// &
-                          "needed by some optimizers.", &
+                          "needed by some optimizers. Compatible only with CDFT constraints.", &
                           usage="JACOBIAN_TYPE FD1", &
                           default_i_val=jacobian_fd1, &
                           enum_c_vals=s2a("FD1", "FD1_BACKWARD", "FD2", "FD2_BACKWARD", "FD1_CENTRAL"), &
@@ -5408,6 +5449,17 @@ CONTAINS
       CALL keyword_create(keyword, name="JACOBIAN_STEP", &
                           description="Step size to use in the calculation of the inverse Jacobian with finite differences.", &
                           usage="JACOBIAN_STEP 1.0E-4 ", default_r_val=1.0E-4_dp)
+      CALL section_add_keyword(section, keyword)
+      CALL keyword_release(keyword)
+
+      CALL keyword_create(keyword, name="JACOBIAN_FREQ", &
+                          description="Defines parameters that control how often the explicit Jacobian is built, "// &
+                          "which is needed by some optimizers. Expects two values. The first value "// &
+                          "determines how many consecutive CDFT SCF iterations should skip a rebuild,"// &
+                          " whereas the latter how many MD steps. The values can be zero (meaning never "// &
+                          " rebuild) or positive. Both values cannot be zero.", &
+                          usage="JACOBIAN_FREQ 1 1", n_var=2, &
+                          default_i_vals=(/1, 1/), type_of_var=integer_t)
       CALL section_add_keyword(section, keyword)
       CALL keyword_release(keyword)
 
