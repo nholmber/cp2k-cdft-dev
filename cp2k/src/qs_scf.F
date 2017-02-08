@@ -522,6 +522,9 @@ CONTAINS
 
          IF (exit_outer_loop) EXIT scf_outer_loop
 
+         ! Check if the inverse Jacobian needs to be calculated
+         CALL qs_calculate_inverse_jacobian(qs_env)
+         !
          CALL outer_loop_optimize(scf_env, scf_control)
          CALL outer_loop_update_qs_env(qs_env, scf_env)
          CALL qs_ks_did_change(ks_env, potential_changed=.TRUE.)
