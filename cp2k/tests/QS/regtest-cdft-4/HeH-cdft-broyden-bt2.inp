@@ -8,7 +8,7 @@
 
 @SET BECKE_ACTIVE         TRUE
 @SET BECKE_FRAGMENT       FALSE
-@SET MAX_SCF              5
+@SET MAX_SCF              4
 ! He+ H
 @SET BECKE_TARGET_1       0.0
 @SET BECKE_STR_1          0.0
