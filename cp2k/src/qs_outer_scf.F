@@ -645,6 +645,7 @@ CONTAINS
          scf_control%outer_scf%diis_buffer_length = cdft_control%constraint_control%diis_buffer_length
          scf_control%outer_scf%bisect_trust_count = cdft_control%constraint_control%bisect_trust_count
          scf_control%outer_scf%jacobian_type = cdft_control%constraint_control%jacobian_type
+         scf_control%outer_scf%jacobian_step = cdft_control%constraint_control%jacobian_step
          scf_control%outer_scf%jacobian_freq = cdft_control%constraint_control%jacobian_freq
          scf_control%outer_scf%ijacobian = cdft_control%constraint_control%ijacobian
          scf_control%outer_scf%build_jacobian = cdft_control%constraint_control%build_jacobian
