@@ -194,7 +194,8 @@ CONTAINS
             ELSE IF (mixed_env%ngroups == 1) THEN
                is_parallel = .FALSE.
             ELSE
-               CPABORT("The number of processor groups (&NGROUPS) must be 1 or 2 for a mixed CDFT calculation.")
+               CALL cp_abort(__LOCATION__, "The number of processor groups (&NGROUPS)"// &
+                             " must be 1 or 2 for a mixed CDFT calculation.")
             END IF
             mapping_section => section_vals_get_subs_vals(mixed_section, "MAPPING")
             CALL section_vals_get(mapping_section, explicit=explicit)

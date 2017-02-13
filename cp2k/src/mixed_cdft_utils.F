@@ -211,7 +211,8 @@ CONTAINS
             settings%rs_dims(:, iforce_eval) = auxbas_pw_pool%pw_grid%para%rs_dims
             IF (auxbas_pw_pool%pw_grid%grid_span == HALFSPACE) settings%odd(iforce_eval) = 1
             IF (dft_control%qs_control%becke_control%natoms .GT. SIZE(settings%atoms, 1)) &
-               CPABORT("More Becke constraint atoms than defined in mixed section. Use default values for MIXED\MAPPING.")
+               CALL cp_abort(__LOCATION__, "More Becke constraint atoms than defined in mixed section."// &
+                             " Use default values for MIXED\MAPPING.")
             settings%atoms(1:dft_control%qs_control%becke_control%natoms, iforce_eval) = &
                dft_control%qs_control%becke_control%atoms
             settings%coeffs(1:dft_control%qs_control%becke_control%natoms, iforce_eval) = &
@@ -317,7 +318,8 @@ CONTAINS
          IF (settings%coeffs(i, 1) /= settings%coeffs(i, 2)) is_match = .FALSE.
          IF (settings%atoms(i, 1) /= 0) settings%nbecke = settings%nbecke+1
       END DO
-      IF (.NOT. is_match) CPABORT("Mismatch detected in the &BECKE_RESTRAINT settings of the two force_evals.")
+      IF (.NOT. is_match) &
+         CPABORT("Mismatch detected in the &BECKE_RESTRAINT settings of the two force_evals.")
       CALL mp_sum(settings%si, force_env%para_env%group)
       CALL mp_sum(settings%sr, force_env%para_env%group)
       CALL mp_sum(settings%confine_bounds, force_env%para_env%group)
@@ -327,11 +329,13 @@ CONTAINS
       DO i = 1, SIZE(settings%sr, 1)
          IF (settings%sr(i, 1) /= settings%sr(i, 2)) is_match = .FALSE.
       END DO
-      IF (.NOT. is_match) CPABORT("Mismatch detected in the &BECKE_RESTRAINT settings of the two force_evals.")
+      IF (.NOT. is_match) &
+         CPABORT("Mismatch detected in the &BECKE_RESTRAINT settings of the two force_evals.")
       is_match = is_match .AND. (settings%confine_bounds(1, 1) == settings%confine_bounds(1, 2))
       is_match = is_match .AND. (settings%confine_bounds(2, 1) == settings%confine_bounds(2, 2))
       IF (.NOT. is_match) &
-         CPABORT("Mismatch detected in the &BECKE_RESTRAINT&CONFINE_BOUNDS settings of the two force_evals.")
+         CALL cp_abort(__LOCATION__, "Mismatch detected in the &BECKE_RESTRAINT&CONFINE_BOUNDS"// &
+                       " settings of the two force_evals.")
       ! Some CDFT features are currently disabled for mixed calculations: check that these features were not requested
       SELECT CASE (settings%si (1, 1))
       CASE (becke_cavity_conf, becke_none_conf)
@@ -417,7 +421,8 @@ CONTAINS
                IF (settings%cutoffs(i, 1) /= 0.0_dp) nkinds = nkinds+1
             END DO
             IF (.NOT. is_match) &
-               CPABORT("Mismatch detected in the &BECKE_RESTRAINT&ELEMENT_CUTOFF settings of the two force_evals.")
+               CALL cp_abort(__LOCATION__, "Mismatch detected in the &BECKE_RESTRAINT"// &
+                             "&ELEMENT_CUTOFF settings of the two force_evals.")
             ALLOCATE (mixed_cdft%becke_control%cutoffs_tmp(nkinds))
             mixed_cdft%becke_control%cutoffs_tmp = settings%cutoffs(1:nkinds, 1)
          END IF
@@ -429,7 +434,8 @@ CONTAINS
                IF (settings%radii(i, 1) /= 0.0_dp) nkinds = nkinds+1
             END DO
             IF (.NOT. is_match) &
-               CPABORT("Mismatch detected in the &BECKE_RESTRAINT&ATOMIC_RADII settings of the two force_evals.")
+               CALL cp_abort(__LOCATION__, "Mismatch detected in the &BECKE_RESTRAINT"// &
+                             "&ATOMIC_RADII settings of the two force_evals.")
             ALLOCATE (mixed_cdft%becke_control%radii(nkinds))
             mixed_cdft%becke_control%radii = settings%radii(1:nkinds, 1)
          END IF

@@ -1076,7 +1076,7 @@ CONTAINS
                END DO
             END IF
          END IF
-         ! Forces are not needed/serial mode mixed CDFT calculation is not active => time to deallocate Becke
+         ! Forces are not needed/serial mode if mixed CDFT calculation is not active => time to deallocate Becke
          IF (.NOT. (dft_control%qs_control%becke_control%save_pot .OR. &
                     dft_control%qs_control%becke_control%transfer_pot)) THEN
             CALL get_qs_env(qs_env, pw_env=pw_env)
@@ -1518,6 +1518,7 @@ CONTAINS
       REAL(KIND=dp)                                      :: alpha
       REAL(KIND=dp), DIMENSION(:), POINTER               :: energy
       REAL(KIND=dp), DIMENSION(:, :), POINTER            :: gradient, inv_jacobian
+      REAL(KIND=dp), EXTERNAL                            :: dnrm2
       TYPE(cdft_control_type), POINTER                   :: cdft_control
       TYPE(cp_logger_type), POINTER                      :: logger, tmp_logger
       TYPE(cp_para_env_type), POINTER                    :: para_env
@@ -1649,8 +1650,8 @@ CONTAINS
             scf_env%outer_scf%iter_count = scf_env%outer_scf%iter_count-1
             ! Check if the L2 norm of the gradient decreased
             inv_jacobian => scf_env%outer_scf%inv_jacobian
-            IF (NORM2(scf_env%outer_scf%gradient(:, iter_count+1)) .LT. &
-                NORM2(scf_env%outer_scf%gradient(:, iter_count))) THEN
+            IF (dnrm2(nvar, scf_env%outer_scf%gradient(:, iter_count+1), 1) .LT. &
+                dnrm2(nvar, scf_env%outer_scf%gradient(:, iter_count), 1)) THEN
                ! Optimal step size found
                should_exit = .TRUE.
             ELSE
