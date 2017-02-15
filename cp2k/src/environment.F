@@ -526,7 +526,7 @@ CONTAINS
       CALL section_vals_val_get(global_section, "BLACS_REPEATABLE", l_val=globenv%blacs_repeatable)
       CALL section_vals_val_get(global_section, "PREFERRED_DIAG_LIBRARY", i_val=i_diag)
       CALL section_vals_val_get(global_section, "ELPA_KERNEL", i_val=globenv%k_elpa)
-      CALL section_vals_val_get(global_section, "ELPA_QR", i_val=globenv%elpa_qr)
+      CALL section_vals_val_get(global_section, "ELPA_QR", l_val=globenv%elpa_qr)
       CALL section_vals_val_get(global_section, "PREFERRED_FFT_LIBRARY", i_val=i_fft)
 
       CALL section_vals_val_get(global_section, "PRINT_LEVEL", i_val=print_level)
