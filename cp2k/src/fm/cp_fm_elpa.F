@@ -39,8 +39,10 @@ MODULE cp_fm_elpa
    PUBLIC :: get_elpa_kernel_names
    PUBLIC :: get_elpa_kernel_descriptions
    PUBLIC :: set_elpa_kernel
+   PUBLIC :: set_elpa_qr
 
    INTEGER, SAVE :: elpa_kernel = -1 ! auto
+   LOGICAL, SAVE :: elpa_qr = .FALSE.
 
 CONTAINS
 
@@ -174,6 +176,27 @@ $: "#endif"
    END SUBROUTINE set_elpa_kernel
 
 ! **************************************************************************************************
+!> \brief Sets a flag that determines if ELPA should try to use QR during diagonalization
+!>        If flag = .TRUE., the QR step is performed only if the size of the matrix that is
+!>        diagonalized is an integer multiple of the matrix block size 
+!> \param flag the logical flag
+! **************************************************************************************************
+   SUBROUTINE set_elpa_qr(flag)
+      LOGICAL, INTENT(IN)                                :: flag
+
+#if defined(__ELPA)
+#if (__ELPA==201112) || (__ELPA==201308) || (__ELPA==201311)
+      elpa_qr = .FALSE.
+#elif (__ELPA==201406) || (__ELPA==201502) || (__ELPA==201505) || (__ELPA==201511) || (__ELPA==201605) || (__ELPA==201611)
+      elpa_qr = flag
+#else
+   Error: Unknown ELPA version, please specifiy library release date via __ELPA=YYYYMM
+#endif
+#endif
+
+   END SUBROUTINE set_elpa_qr
+
+! **************************************************************************************************
 !> \brief ...
 !> \param matrix ...
 !> \param eigenvectors ...
@@ -192,7 +215,7 @@ $: "#endif"
                                                   mypcol, myprow, n, &
                                                   n_rows, n_cols, &
                                                   nblk, neig
-      LOGICAL                                  :: success
+      LOGICAL                                  :: success, use_qr
       REAL(KIND=dp), DIMENSION(:), POINTER     :: eval
       REAL(KIND=dp), DIMENSION(:, :), POINTER  :: m, v
       TYPE(cp_blacs_env_type), POINTER         :: context
@@ -225,6 +248,8 @@ $: "#endif"
                             nrow_block=nblk)
 
       neig = SIZE(eigenvalues, 1)
+      ! Decide if ELPA should use QR
+      use_qr = elpa_qr .AND. MOD(n,nblk).EQ.0
 
       ! ELPA will fail in 'solve_tridi', with no useful error message
       IF (n_cols == 0) &
@@ -247,12 +272,12 @@ $: "#endif"
       IF (elpa_kernel == -1) THEN ! auto
          success = solve_evp_real_2stage(n, neig, m, n_rows, eval, v, n_rows, nblk, &
                                          comm_row, comm_col, group, &
-                                         useQR=.FALSE.)
+                                         useQR=use_qr)
       ELSE
          success = solve_evp_real_2stage(n, neig, m, n_rows, eval, v, n_rows, nblk, &
                                          comm_row, comm_col, group, &
                                          THIS_REAL_ELPA_KERNEL_API=elpa_kernel, &
-                                         useQR=.FALSE.)
+                                         useQR=use_qr)
       END IF
 
 !---------------------------------------------------------------------------------------------------
@@ -260,12 +285,12 @@ $: "#endif"
       IF (elpa_kernel == -1) THEN ! auto
          success = solve_evp_real_2stage(n, neig, m, n_rows, eval, v, n_rows, nblk, n_cols, &
                                          comm_row, comm_col, group, &
-                                         useQR=.FALSE.)
+                                         useQR=use_qr)
       ELSE
          success = solve_evp_real_2stage(n, neig, m, n_rows, eval, v, n_rows, nblk, n_cols, &
                                          comm_row, comm_col, group, &
                                          THIS_REAL_ELPA_KERNEL_API=elpa_kernel, &
-                                         useQR=.FALSE.)
+                                         useQR=use_qr)
       END IF
 
 !---------------------------------------------------------------------------------------------------
@@ -273,12 +298,12 @@ $: "#endif"
       IF (elpa_kernel == -1) THEN ! auto
          success = elpa_solve_evp_real_2stage_double(n, neig, m, n_rows, eval, v, n_rows, nblk, n_cols, &
                                                      comm_row, comm_col, group, &
-                                                     useQR=.FALSE.)
+                                                     useQR=use_qr)
       ELSE
          success = elpa_solve_evp_real_2stage_double(n, neig, m, n_rows, eval, v, n_rows, nblk, n_cols, &
                                                      comm_row, comm_col, group, &
                                                      THIS_REAL_ELPA_KERNEL_API=elpa_kernel, &
-                                                     useQR=.FALSE.)
+                                                     useQR=use_qr)
       END IF
 
 !---------------------------------------------------------------------------------------------------

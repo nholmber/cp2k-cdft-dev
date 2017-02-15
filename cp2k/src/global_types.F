@@ -79,6 +79,7 @@ MODULE global_types
       INTEGER :: run_type_id !! index to define the run_tupe
       INTEGER :: blacs_grid_layout !! will store the user preference for the blacs grid
       INTEGER :: k_elpa !! optimized kernel for the ELPA diagonalization library
+      LOGICAL :: elpa_qr !! allow ELPA to use QR during diagonalization
       LOGICAL :: blacs_repeatable !! will store the user preference for the repeatability of blacs collectives
       REAL(KIND=dp) :: cp2k_start_time, cp2k_target_time
       INTEGER :: handle
@@ -104,6 +105,7 @@ CONTAINS
       globenv%run_type_id = 0
       globenv%diag_library = "SL"
       globenv%k_elpa = 1
+      globenv%elpa_qr = .FALSE.
       globenv%default_fft_library = "FFTSG"
       globenv%fftw_wisdom_file_name = "/etc/fftw/wisdom"
       globenv%prog_name_id = 0

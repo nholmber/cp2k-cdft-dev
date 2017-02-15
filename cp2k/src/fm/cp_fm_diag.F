@@ -27,7 +27,8 @@ MODULE cp_fm_diag
                                               cp_fm_upper_to_full
    USE cp_fm_cholesky,                  ONLY: cp_fm_cholesky_decompose
    USE cp_fm_elpa,                      ONLY: cp_fm_diag_elpa,&
-                                              set_elpa_kernel
+                                              set_elpa_kernel,&
+                                              set_elpa_qr
    USE cp_fm_struct,                    ONLY: cp_fm_struct_create,&
                                               cp_fm_struct_release,&
                                               cp_fm_struct_type
@@ -86,13 +87,16 @@ CONTAINS
 !>         It should change library to Scalapack if others are not available
 !> \param diag_lib diag_library flag from GLOBAL section in input
 !> \param switched ...
-!> \param k_elpa ...
+!> \param k_elpa integer that determines which ELPA kernel to use for diagonalization
+!> \param elpa_qr logical that determines if ELPA should try to use QR to accelerate the
+!>                diagonalization procedure of suitably sized matrices
 !> \author  MI 11.2013
 ! **************************************************************************************************
-   SUBROUTINE diag_init(diag_lib, switched, k_elpa)
+   SUBROUTINE diag_init(diag_lib, switched, k_elpa, elpa_qr)
       CHARACTER(LEN=*), INTENT(IN)                       :: diag_lib
       LOGICAL, INTENT(INOUT)                             :: switched
       INTEGER, INTENT(IN)                                :: k_elpa
+      LOGICAL, INTENT(IN)                                :: elpa_qr
 
       CHARACTER(len=*), PARAMETER :: routineN = 'diag_init', routineP = moduleN//':'//routineN
 
@@ -129,6 +133,7 @@ CONTAINS
       END IF
 
       CALL set_elpa_kernel(k_elpa)
+      CALL set_elpa_qr(elpa_qr)
 
       ! Check that one of the diagonalization type is set
       IF (diag_type < 1) THEN

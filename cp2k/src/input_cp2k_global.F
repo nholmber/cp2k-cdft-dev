@@ -14,6 +14,7 @@
 MODULE input_cp2k_global
    USE bibliography,                    ONLY: Ceriotti2014,&
                                               Frigo2005,&
+                                              Marek2014,&
                                               Schonherr2014
    USE cp_blacs_env,                    ONLY: BLACS_GRID_COL,&
                                               BLACS_GRID_ROW,&
@@ -81,7 +82,7 @@ CONTAINS
       CALL section_create(section, name="GLOBAL", &
                           description="Section with general information regarding which kind "// &
                           "of simulation to perform an parameters for the whole PROGRAM", &
-                          n_keywords=7, n_subsections=0, repeats=.FALSE.)
+                          n_keywords=8, n_subsections=0, repeats=.FALSE.)
 
       NULLIFY (keyword)
       CALL keyword_create(keyword, name="BLACS_GRID", &
@@ -109,7 +110,8 @@ CONTAINS
          default_i_val=do_diag_sl, &
          enum_i_vals=(/do_diag_sl, do_diag_sl2, do_diag_elpa/), &
          enum_c_vals=s2a("SL", "SL2", "ELPA"), &
-         enum_desc=s2a("Standard scalapack: syevd", "Scalapack 2.0: syevr", "ELPA"))
+         enum_desc=s2a("Standard scalapack: syevd", "Scalapack 2.0: syevr", "ELPA"), &
+         citations=(/Marek2014/))
       CALL section_add_keyword(section, keyword)
       CALL keyword_release(keyword)
 
@@ -120,6 +122,17 @@ CONTAINS
          enum_i_vals=(/(i, i=1, get_elpa_number_kernels())/), &
          enum_c_vals=get_elpa_kernel_names(), &
          enum_desc=get_elpa_kernel_descriptions())
+      CALL section_add_keyword(section, keyword)
+      CALL keyword_release(keyword)
+
+      CALL keyword_create(keyword, name="ELPA_QR", &
+                          description="For ELPA, enable a blocked QR step when reducing the input matrix "// &
+                          "to banded form in preparation for the actual diagonalization step. "// &
+                          "See implementation paper for more details. "// &
+                          "If true, QR is activated only when the size of the diagonalized matrix"// &
+                          "is an integer multiple of the matrix block size", &
+                          usage="ELPA_QR", &
+                          default_l_val=.FALSE., lone_keyword_l_val=.TRUE.)
       CALL section_add_keyword(section, keyword)
       CALL keyword_release(keyword)
 
