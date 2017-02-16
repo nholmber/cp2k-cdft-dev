@@ -1,9 +1,10 @@
+<img src="https://github.com/nholmber/cp2k-cdft-dev/web/logo/cp2k_cdft_logo_800_cropped.png" title="CP2K CDFT Development Branch" style="max-width: 50%;">
 # CP2K CDFT development branch 
 This repository contains the constrained density functional theory (CDFT) development branch for [**CP2K**](https://www.cp2k.org/ "CP2K Project"). CP2K is a freely available quantum chemistry package to perform atomistic simulations of solid state, liquid, molecular, periodic, material, crystal, and biological systems. 
 
 The theoretical basis, features, and usage of the CDFT/CP2K implementation will in the future be documented at the [Wiki](https://github.com/nholmber/cp2k-cdft-dev/wiki). In the meanwhile, please refer to the publication: 
 
-Holmberg, Nico; Laasonen, Kari, *Efficient Constrained Density Functional Theory Implementation for Simulation of Condensed Phase Electron Transfer Reactions*, J. Chem. Theory Comput., Article ASAP (2016), doi: [10.1021/acs.jctc.6b01085](https://dx.doi.org/10.1021/acs.jctc.6b01085 "Online Version of Publication").
+Holmberg, Nico; Laasonen, Kari, *Efficient Constrained Density Functional Theory Implementation for Simulation of Condensed Phase Electron Transfer Reactions*, J. Chem. Theory Comput., 13 (2016), pp 587--601, doi: [10.1021/acs.jctc.6b01085](https://dx.doi.org/10.1021/acs.jctc.6b01085 "Online Version of Publication").
 
 
 ## Available branches
@@ -20,7 +21,6 @@ Holmberg, Nico; Laasonen, Kari, *Efficient Constrained Density Functional Theory
 	* might not compile, incomplete implementation of new features, code not cleaned 
 	* features under development:
 		- combined charge + spin constraints
-		- allow the user to choose between serial and parallel mode of calculating mixed CDFT state  
 		- refactoring of Becke constraint type under CDFT control type  
 
 4. `legacy`: deprecated stable build
