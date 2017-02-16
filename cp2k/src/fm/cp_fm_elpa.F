@@ -177,21 +177,25 @@ $: "#endif"
 
 ! **************************************************************************************************
 !> \brief Sets a flag that determines if ELPA should try to use QR during diagonalization
-!>        If flag = .TRUE., the QR step is performed only if the size of the matrix that is
-!>        diagonalized is an integer multiple of the matrix block size 
+!>        If flag = .TRUE., the QR step is performed only if the size of the input matrix is
+!>        suitable. Check cp_fm_diag_elpa for further details.  
 !> \param flag the logical flag
 ! **************************************************************************************************
    SUBROUTINE set_elpa_qr(flag)
       LOGICAL, INTENT(IN)                                :: flag
 
 #if defined(__ELPA)
-#if (__ELPA==201112) || (__ELPA==201308) || (__ELPA==201311)
+#if (__ELPA==201112) || (__ELPA==201308) || (__ELPA==201311) || (__ELPA==201406)
+      MARK_USED(flag)
       elpa_qr = .FALSE.
-#elif (__ELPA==201406) || (__ELPA==201502) || (__ELPA==201505) || (__ELPA==201511) || (__ELPA==201605) || (__ELPA==201611)
+#elif (__ELPA==201502) || (__ELPA==201505) || (__ELPA==201511) || (__ELPA==201605) || (__ELPA==201611)
       elpa_qr = flag
 #else
-   Error: Unknown ELPA version, please specifiy library release date via __ELPA=YYYYMM
+   Error: Unknown ELPA version, please specify library release date via __ELPA=YYYYMM
 #endif
+#else
+      MARK_USED(flag)
+      elpa_qr = .FALSE.
 #endif
 
    END SUBROUTINE set_elpa_qr
@@ -248,9 +252,24 @@ $: "#endif"
                             nrow_block=nblk)
 
       neig = SIZE(eigenvalues, 1)
-      ! Decide if ELPA should use QR
+      ! Decide if matrix is suitable for ELPA to use QR
+      ! The definition of what is considered a suitable matrix depends on the ELPA version
+      ! The relevant ELPA file to check is src/elpa2.F90 (src/elpa2_template.X90 in git version)
+      !, test/Fortran/test_real2_qr.F90
+      ! Note that the names of these files might change in different ELPA versions
+#if (__ELPA==201112) || (__ELPA==201308) || (__ELPA==201311) || (__ELPA==201406)
+      use_qr = .FALSE.
+#elif (__ELPA==201505) || (__ELPA==201511)
+      ! Matrix order must be an integer multiple of the block size
       use_qr = elpa_qr .AND. MOD(n,nblk).EQ.0
-
+#elif (__ELPA==201605) || (__ELPA==201611)
+      ! Matrix order must be even
+      use_qr = elpa_qr .AND. MOD(n,2).EQ.0 
+      ! Matrix order and block size must be greater than or equal to 64
+      use_qr = use_qr .AND. n.GE. 64 .AND. nblk .GE. 64 
+#else
+   Error: Unknown ELPA version, please specifiy library release date via __ELPA=YYYYMM
+#endif
       ! ELPA will fail in 'solve_tridi', with no useful error message
       IF (n_cols == 0) &
          CPABORT("ELPA [pre-fail]: Problem contains processor column with zero width.")

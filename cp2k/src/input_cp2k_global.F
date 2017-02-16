@@ -79,11 +79,19 @@ CONTAINS
 
       NULLIFY (print_key)
       CPASSERT(.NOT. ASSOCIATED(section))
+#if defined(__ELPA)
+#if (__ELPA==201505) || (__ELPA==201511) || (__ELPA==201605) || (__ELPA==201611)
       CALL section_create(section, name="GLOBAL", &
                           description="Section with general information regarding which kind "// &
                           "of simulation to perform an parameters for the whole PROGRAM", &
                           n_keywords=8, n_subsections=0, repeats=.FALSE.)
-
+#endif
+#else
+      CALL section_create(section, name="GLOBAL", &
+                          description="Section with general information regarding which kind "// &
+                          "of simulation to perform an parameters for the whole PROGRAM", &
+                          n_keywords=7, n_subsections=0, repeats=.FALSE.)
+#endif
       NULLIFY (keyword)
       CALL keyword_create(keyword, name="BLACS_GRID", &
                           description="how to distribute the processors on the 2d grid needed "// &
@@ -124,18 +132,32 @@ CONTAINS
          enum_desc=get_elpa_kernel_descriptions())
       CALL section_add_keyword(section, keyword)
       CALL keyword_release(keyword)
-
+#if defined(__ELPA)
+#if (__ELPA==201505) || (__ELPA==201511)
       CALL keyword_create(keyword, name="ELPA_QR", &
                           description="For ELPA, enable a blocked QR step when reducing the input matrix "// &
                           "to banded form in preparation for the actual diagonalization step. "// &
                           "See implementation paper for more details. "// &
                           "If true, QR is activated only when the size of the diagonalized matrix"// &
-                          "is an integer multiple of the matrix block size", &
+                          "is an integer multiple of the matrix block size. Might accelerate the "// &
+                          "diagonalization of suitable matrices.", &
                           usage="ELPA_QR", &
                           default_l_val=.FALSE., lone_keyword_l_val=.TRUE.)
       CALL section_add_keyword(section, keyword)
       CALL keyword_release(keyword)
-
+#elif (__ELPA==201605) || (__ELPA==201611)
+      CALL keyword_create(keyword, name="ELPA_QR", &
+                          description="For ELPA, enable a blocked QR step when reducing the input matrix "// &
+                          "to banded form in preparation for the actual diagonalization step. "// &
+                          "See implementation paper for more details. "// &
+                          "If true, QR is activated only when the size of the diagonalized matrix"// &
+                          "is even. Might accelerate the diagonalization of suitable matrices.", &
+                          usage="ELPA_QR", &
+                          default_l_val=.FALSE., lone_keyword_l_val=.TRUE.)
+      CALL section_add_keyword(section, keyword)
+      CALL keyword_release(keyword)
+#endif
+#endif
       CALL keyword_create( &
          keyword, name="PREFERRED_FFT_LIBRARY", &
          description="Specifies the FFT library which should be preferred. "// &
