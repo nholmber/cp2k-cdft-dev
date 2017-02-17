@@ -384,13 +384,6 @@ CONTAINS
       IF (iw > 0) CALL write_physcon(iw)
       CALL cp_print_key_finished_output(iw, logger, root_section, &
                                         "GLOBAL%PRINT/PHYSCON")
-#if defined(__ELPA)
-      iw = cp_print_key_unit_nr(logger, root_section, "GLOBAL%PRINT_ELPA", &
-                                extension=".Log")
-      IF (iw > 0) globenv%elpa_print = .TRUE.
-      CALL cp_print_key_finished_output(iw, logger, root_section, &
-                                        "GLOBAL%PRINT_ELPA")
-#endif
 
    END SUBROUTINE cp2k_read
 
@@ -529,6 +522,7 @@ CONTAINS
 
       NULLIFY (dft_section, global_section, i_force_eval)
 
+      logger => cp_get_default_logger()
       global_section => section_vals_get_subs_vals(root_section, "GLOBAL")
       CALL section_vals_val_get(global_section, "BLACS_GRID", i_val=globenv%blacs_grid_layout)
       CALL section_vals_val_get(global_section, "BLACS_REPEATABLE", l_val=globenv%blacs_repeatable)
@@ -538,6 +532,9 @@ CONTAINS
 #if (__ELPA==201505) || (__ELPA==201511) || (__ELPA==201605) || (__ELPA==201611)
       CALL section_vals_val_get(global_section, "ELPA_QR", l_val=globenv%elpa_qr)
 #endif
+      unit_nr = cp_print_key_unit_nr(logger, global_section, "PRINT_ELPA", extension=".Log")
+      IF (unit_nr > 0) globenv%elpa_print = .TRUE.
+      CALL cp_print_key_finished_output(unit_nr, logger, global_section, "PRINT_ELPA")      
 #endif
       CALL section_vals_val_get(global_section, "PREFERRED_FFT_LIBRARY", i_val=i_fft)
 
@@ -565,7 +562,6 @@ CONTAINS
       do_echo_all_hosts = do_echo_all_hosts .OR. report_maxloc
       force_env_sections => section_vals_get_subs_vals(root_section, "FORCE_EVAL")
       CALL section_vals_get(force_env_sections, n_repetition=nforce_eval)
-      logger => cp_get_default_logger()
       output_unit = cp_print_key_unit_nr(logger, global_section, "PROGRAM_RUN_INFO", &
                                          extension=".log")
 

@@ -299,11 +299,11 @@ $: "#endif"
       ! Print some information
       IF (io_unit > 0 .AND. elpa_should_print) THEN
          WRITE(io_unit, '(/,A)') "ELPA| Dimensions of input matrix for diagonalization"
-         WRITE(io_unit, '(/,A,I8)') "ELPA| Matrix order: ", n
-         WRITE(io_unit, '(/,A,I8)') "ELPA| Matrix block size: ", nblk
-         WRITE(io_unit, '(/,A,L8)') "ELPA| QR step requested: ", elpa_qr
+         WRITE(io_unit, '(A,I8)') "ELPA| Matrix order             : ", n
+         WRITE(io_unit, '(A,I8)') "ELPA| Matrix block size        : ", nblk
+         WRITE(io_unit, '(A,L8)') "ELPA| QR step requested        : ", elpa_qr
          IF (elpa_qr) THEN
-            WRITE(io_unit, '(/,A,L8)') "ELPA| Matrix is suitable for QR: ", use_qr
+            WRITE(io_unit, '(A,L8)') "ELPA| Matrix is suitable for QR: ", use_qr
          END IF
       END IF
       ! ELPA will fail in 'solve_tridi', with no useful error message
