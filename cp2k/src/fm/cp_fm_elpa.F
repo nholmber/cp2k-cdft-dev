@@ -40,6 +40,7 @@ MODULE cp_fm_elpa
    PUBLIC :: get_elpa_kernel_descriptions
    PUBLIC :: set_elpa_kernel
    PUBLIC :: set_elpa_qr
+   PUBLIC :: set_elpa_print
 
    INTEGER, SAVE :: elpa_kernel = -1 ! auto
    LOGICAL, SAVE :: elpa_qr = .FALSE.
@@ -242,6 +243,7 @@ $: "#endif"
       REAL(KIND=dp), DIMENSION(:, :), POINTER  :: m, v
       TYPE(cp_blacs_env_type), POINTER         :: context
       TYPE(cp_logger_type), POINTER            :: logger
+#endif
 
       CALL timeset(routineN, handle)
 #if defined(__ELPA)
