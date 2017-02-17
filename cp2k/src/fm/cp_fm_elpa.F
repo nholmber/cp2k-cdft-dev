@@ -12,6 +12,9 @@ MODULE cp_fm_elpa
    USE cp_fm_basic_linalg,              ONLY: cp_fm_upper_to_full
    USE cp_fm_struct,                    ONLY: cp_fm_struct_get
    USE cp_fm_types,                     ONLY: cp_fm_type
+   USE cp_log_handling,                 ONLY: cp_get_default_logger, &
+                                              cp_logger_get_default_io_unit, &
+                                              cp_logger_type   
    USE kinds,                           ONLY: default_string_length,&
                                               dp
    USE message_passing,                 ONLY: mp_comm_free,&
