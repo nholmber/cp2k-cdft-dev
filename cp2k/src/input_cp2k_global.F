@@ -160,6 +160,8 @@ CONTAINS
       CALL cp_print_key_section_create(print_key, "PRINT_ELPA", &
                                        description="Controls the printing of ELPA diagonalization information.", &
                                        filename="__STD_OUT__")
+      CALL section_add_subsection(section, print_key)
+      CALL section_release(print_key)      
 #endif
       CALL keyword_create( &
          keyword, name="PREFERRED_FFT_LIBRARY", &
