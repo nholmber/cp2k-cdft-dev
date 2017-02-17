@@ -14,6 +14,7 @@
 ! **************************************************************************************************
 MODULE environment
    USE bibliography,                    ONLY: Frigo2005,&
+                                              Marek2014,&
                                               cite_reference
    USE cp2k_info,                       ONLY: &
         compile_arch, compile_date, compile_host, compile_revision, cp2k_flags, cp2k_home, &
@@ -383,6 +384,13 @@ CONTAINS
       IF (iw > 0) CALL write_physcon(iw)
       CALL cp_print_key_finished_output(iw, logger, root_section, &
                                         "GLOBAL%PRINT/PHYSCON")
+#if defined(__ELPA)
+      iw = cp_print_key_unit_nr(logger, root_section, "GLOBAL%PRINT_ELPA", &
+                                extension=".Log")
+      IF (iw > 0) globenv%elpa_print = .TRUE.
+      CALL cp_print_key_finished_output(iw, logger, root_section, &
+                                        "GLOBAL%PRINT_ELPA")
+#endif
 
    END SUBROUTINE cp2k_read
 
@@ -584,6 +592,7 @@ CONTAINS
          globenv%diag_library = "SL2"
       CASE (do_diag_elpa)
          globenv%diag_library = "ELPA"
+         CALL cite_reference(Marek2014)
       CASE DEFAULT
          CPABORT("Unknown DIAG type")
       END SELECT
@@ -965,7 +974,7 @@ CONTAINS
       switched = .FALSE.
 
       CALL diag_init(diag_lib=TRIM(globenv%diag_library), switched=switched, k_elpa=globenv%k_elpa, &
-                     elpa_qr=globenv%elpa_qr)
+                     elpa_qr=globenv%elpa_qr, elpa_print=globenv%elpa_print)
 
       IF (switched) THEN
 

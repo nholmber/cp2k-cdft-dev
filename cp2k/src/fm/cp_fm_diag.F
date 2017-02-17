@@ -28,7 +28,8 @@ MODULE cp_fm_diag
    USE cp_fm_cholesky,                  ONLY: cp_fm_cholesky_decompose
    USE cp_fm_elpa,                      ONLY: cp_fm_diag_elpa,&
                                               set_elpa_kernel,&
-                                              set_elpa_qr
+                                              set_elpa_qr,&
+                                              set_elpa_print
    USE cp_fm_struct,                    ONLY: cp_fm_struct_create,&
                                               cp_fm_struct_release,&
                                               cp_fm_struct_type
@@ -90,13 +91,15 @@ CONTAINS
 !> \param k_elpa integer that determines which ELPA kernel to use for diagonalization
 !> \param elpa_qr logical that determines if ELPA should try to use QR to accelerate the
 !>                diagonalization procedure of suitably sized matrices
+!> \param elpa_print logical that determines if information about the ELPA diagonalization should
+!>                   be printed
 !> \author  MI 11.2013
 ! **************************************************************************************************
-   SUBROUTINE diag_init(diag_lib, switched, k_elpa, elpa_qr)
+   SUBROUTINE diag_init(diag_lib, switched, k_elpa, elpa_qr, elpa_print)
       CHARACTER(LEN=*), INTENT(IN)                       :: diag_lib
       LOGICAL, INTENT(INOUT)                             :: switched
       INTEGER, INTENT(IN)                                :: k_elpa
-      LOGICAL, INTENT(IN)                                :: elpa_qr
+      LOGICAL, INTENT(IN)                                :: elpa_qr, elpa_print
 
       CHARACTER(len=*), PARAMETER :: routineN = 'diag_init', routineP = moduleN//':'//routineN
 
@@ -134,6 +137,7 @@ CONTAINS
 
       CALL set_elpa_kernel(k_elpa)
       CALL set_elpa_qr(elpa_qr)
+      CALL set_elpa_print(elpa_print)
 
       ! Check that one of the diagonalization type is set
       IF (diag_type < 1) THEN

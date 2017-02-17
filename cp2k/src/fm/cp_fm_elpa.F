@@ -43,6 +43,7 @@ MODULE cp_fm_elpa
 
    INTEGER, SAVE :: elpa_kernel = -1 ! auto
    LOGICAL, SAVE :: elpa_qr = .FALSE.
+   LOGICAL, SAVE :: elpa_should_print = .FALSE.
 
 CONTAINS
 
@@ -201,6 +202,23 @@ $: "#endif"
    END SUBROUTINE set_elpa_qr
 
 ! **************************************************************************************************
+!> \brief Sets a flag that determines if additional information about the ELPA diagonalization
+!>        should be printed
+!> \param flag the logical flag
+! **************************************************************************************************
+   SUBROUTINE set_elpa_print(flag)
+      LOGICAL, INTENT(IN)                                :: flag
+
+#if defined(__ELPA)
+      elpa_should_print = flag
+#else
+      MARK_USED(flag)
+      elpa_should_print = .FALSE.
+#endif
+
+   END SUBROUTINE set_elpa_print
+
+! **************************************************************************************************
 !> \brief ...
 !> \param matrix ...
 !> \param eigenvectors ...
@@ -218,16 +236,19 @@ $: "#endif"
       INTEGER                                  :: comm_col, comm_row, group, &
                                                   mypcol, myprow, n, &
                                                   n_rows, n_cols, &
-                                                  nblk, neig
+                                                  nblk, neig, io_unit
       LOGICAL                                  :: success, use_qr
       REAL(KIND=dp), DIMENSION(:), POINTER     :: eval
       REAL(KIND=dp), DIMENSION(:, :), POINTER  :: m, v
       TYPE(cp_blacs_env_type), POINTER         :: context
-#endif
+      TYPE(cp_logger_type), POINTER            :: logger
 
       CALL timeset(routineN, handle)
 #if defined(__ELPA)
-
+      NULLIFY(logger)
+      logger => cp_get_default_logger()
+      io_unit = cp_logger_get_default_io_unit(logger)
+      
       n = matrix%matrix_struct%nrow_global
       m => matrix%local_data
       context => matrix%matrix_struct%context
@@ -270,6 +291,16 @@ $: "#endif"
 #else
    Error: Unknown ELPA version, please specifiy library release date via __ELPA=YYYYMM
 #endif
+      ! Print some information
+      IF (io_unit > 0 .AND. elpa_should_print) THEN
+         WRITE(io_unit, '(/,A)') "ELPA| Dimensions of input matrix for diagonalization"
+         WRITE(io_unit, '(/,A,I8)') "ELPA| Matrix order: ", n
+         WRITE(io_unit, '(/,A,I8)') "ELPA| Matrix block size: ", nblk
+         WRITE(io_unit, '(/,A,L8)') "ELPA| QR step requested: ", elpa_qr
+         IF (elpa_qr) THEN
+            WRITE(io_unit, '(/,A,L8)') "ELPA| Matrix is suitable for QR: ", use_qr
+         END IF
+      END IF
       ! ELPA will fail in 'solve_tridi', with no useful error message
       IF (n_cols == 0) &
          CPABORT("ELPA [pre-fail]: Problem contains processor column with zero width.")
