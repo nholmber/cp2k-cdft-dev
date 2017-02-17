@@ -534,7 +534,7 @@ CONTAINS
 #endif
       unit_nr = cp_print_key_unit_nr(logger, global_section, "PRINT_ELPA", extension=".Log")
       IF (unit_nr > 0) globenv%elpa_print = .TRUE.
-      CALL cp_print_key_finished_output(unit_nr, logger, global_section, "PRINT_ELPA")      
+      CALL cp_print_key_finished_output(unit_nr, logger, global_section, "PRINT_ELPA")
 #endif
       CALL section_vals_val_get(global_section, "PREFERRED_FFT_LIBRARY", i_val=i_fft)
 
