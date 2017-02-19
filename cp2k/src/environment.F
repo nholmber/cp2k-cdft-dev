@@ -528,14 +528,10 @@ CONTAINS
       CALL section_vals_val_get(global_section, "BLACS_REPEATABLE", l_val=globenv%blacs_repeatable)
       CALL section_vals_val_get(global_section, "PREFERRED_DIAG_LIBRARY", i_val=i_diag)
       CALL section_vals_val_get(global_section, "ELPA_KERNEL", i_val=globenv%k_elpa)
-#if defined(__ELPA)
-#if (__ELPA==201505) || (__ELPA==201511) || (__ELPA==201605) || (__ELPA==201611)
       CALL section_vals_val_get(global_section, "ELPA_QR", l_val=globenv%elpa_qr)
-#endif
       unit_nr = cp_print_key_unit_nr(logger, global_section, "PRINT_ELPA", extension=".Log")
       IF (unit_nr > 0) globenv%elpa_print = .TRUE.
       CALL cp_print_key_finished_output(unit_nr, logger, global_section, "PRINT_ELPA")
-#endif
       CALL section_vals_val_get(global_section, "PREFERRED_FFT_LIBRARY", i_val=i_fft)
 
       CALL section_vals_val_get(global_section, "PRINT_LEVEL", i_val=print_level)

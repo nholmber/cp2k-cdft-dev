@@ -287,10 +287,10 @@ $: "#endif"
       use_qr = .FALSE.
 #elif (__ELPA==201505) || (__ELPA==201511)
       ! Matrix order must be an integer multiple of the block size
-      use_qr = elpa_qr .AND. MOD(n,nblk).EQ.0
+      use_qr = elpa_qr .AND. MOD(n, nblk).EQ.0
 #elif (__ELPA==201605) || (__ELPA==201611)
       ! Matrix order must be even
-      use_qr = elpa_qr .AND. MOD(n,2).EQ.0 
+      use_qr = elpa_qr .AND. MOD(n, 2).EQ.0 
       ! Matrix order and block size must be greater than or equal to 64
       use_qr = use_qr .AND. n.GE. 64 .AND. nblk .GE. 64 
 #else
@@ -304,6 +304,12 @@ $: "#endif"
          WRITE(io_unit, '(A,L8)') "ELPA| QR step requested        : ", elpa_qr
          IF (elpa_qr) THEN
             WRITE(io_unit, '(A,L8)') "ELPA| Matrix is suitable for QR: ", use_qr
+            IF (.NOT. use_qr) THEN
+#if (__ELPA==201505) || (__ELPA==201511)               
+               WRITE(io_unit, '(A)') "ELPA| Matrix order must be divisible by block size"
+#elif (__ELPA==201605) || (__ELPA==201611)
+               WRITE(io_unit, '(A)') "ELPA| Matrix order must be even"
+            END IF
          END IF
       END IF
       ! ELPA will fail in 'solve_tridi', with no useful error message
