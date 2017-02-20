@@ -309,6 +309,7 @@ $: "#endif"
                WRITE(io_unit, '(A)') "ELPA| Matrix order must be divisible by block size"
 #elif (__ELPA==201605) || (__ELPA==201611)
                WRITE(io_unit, '(A)') "ELPA| Matrix order must be even"
+#endif
             END IF
          END IF
       END IF
