@@ -21,7 +21,8 @@ MODULE cp_fm_elpa
    USE kinds,                           ONLY: default_string_length,&
                                               dp
    USE message_passing,                 ONLY: mp_comm_free,&
-                                              mp_comm_split_direct
+                                              mp_comm_split_direct, &
+                                              mp_bcast
 
 #include "../base/base_uses.f90"
 
@@ -255,10 +256,11 @@ $: "#endif"
       INTEGER                                  :: comm_col, comm_row, group, &
                                                   mypcol, myprow, n, &
                                                   n_rows, n_cols, &
-                                                  nblk, neig, io_unit
+                                                  nblk, neig, io_unit, i
       LOGICAL                                  :: success, use_qr, check_eigenvalues, &
                                                   success_noqr
-      REAL(KIND=dp), DIMENSION(:), POINTER     :: eval
+      REAL(KIND=dp)                            :: th
+      REAL(KIND=dp), DIMENSION(:), POINTER     :: eval, eval_noqr
       REAL(KIND=dp), DIMENSION(:, :), POINTER  :: m, v, m_noqr, v_noqr
       TYPE(cp_blacs_env_type), POINTER         :: context
       TYPE(cp_fm_type), POINTER                :: matrix_noqr, eigenvectors_noqr
@@ -268,7 +270,8 @@ $: "#endif"
       CALL timeset(routineN, handle)
 #if defined(__ELPA)
       NULLIFY(logger)
-      NULLIFY(m_noqr, v_noqr)
+      NULLIFY(m_noqr, v_noqr, eval_noqr)
+      th = 1.0E-14_dp
       logger => cp_get_default_logger()
       io_unit = cp_logger_get_default_io_unit(logger)
       
@@ -316,9 +319,10 @@ $: "#endif"
    Error: Unknown ELPA version, please specifiy library release date via __ELPA=YYYYMM
 #endif
       ! Check if eigenvalues should be verified
-      check_eigenvalues = .FALSE.
-      IF (use_qr .AND. elpa_qr_unsafe .AND. elpa_should_print) THEN
+      IF (use_qr .AND. elpa_qr_unsafe .AND. elpa_should_print) &
          check_eigenvalues = .TRUE.
+      CALL mp_bcast(check_eigenvalues, logger%para_env%source, logger%para_env%group)
+      IF (check_eigenvalues) THEN
          ALLOCATE(eval_noqr(n))
          CALL cp_fm_create(matrix=matrix_noqr, matrix_struct=matrix%matrix_struct)
          CALL cp_fm_to_fm(matrix, matrix_noqr)
@@ -330,7 +334,7 @@ $: "#endif"
 
       ! Print some information
       IF (io_unit > 0 .AND. elpa_should_print) THEN
-         WRITE(io_unit, '(/,A)') "ELPA| Dimensions of input matrix for diagonalization"
+         WRITE(io_unit, '(/,A)') "ELPA| Matrix diagonalization information"
          kernels = get_elpa_kernel_names()
          IF (elpa_kernel == -1) THEN
             kernel = TRIM(kernels(1))
@@ -339,17 +343,18 @@ $: "#endif"
             kernel = TRIM(kernels(elpa_kernel+1))
             kernel = ADJUSTR(kernel)
          END IF
-         WRITE(io_unit, '(A,A14)') "ELPA| Kernel                   : ", kernel
          WRITE(io_unit, '(A,I14)') "ELPA| Matrix order             : ", n
          WRITE(io_unit, '(A,I14)') "ELPA| Matrix block size        : ", nblk
+         WRITE(io_unit, '(A,A14)') "ELPA| Kernel                   : ", kernel
          WRITE(io_unit, '(A,L14)') "ELPA| QR step requested        : ", elpa_qr
          IF (elpa_qr) THEN
             WRITE(io_unit, '(A,L14)') "ELPA| Matrix is suitable for QR: ", use_qr
+            WRITE(io_unit, '(A,L14)') "ELPA| Use potentially unsafe QR: ", elpa_qr_unsafe
             IF (.NOT. use_qr) THEN
 #if (__ELPA==201505) || (__ELPA==201511)               
                WRITE(io_unit, '(A)') "ELPA| Matrix order is NOT divisible by block size"
 #elif (__ELPA==201605) || (__ELPA==201611)
-               IF (MOD(n, 2).NEQ.0 ) &
+               IF (MOD(n, 2).NE.0 ) &
                   WRITE(io_unit, '(A)') "ELPA| Matrix order is NOT even"
                IF (nblk .LT. 64 .AND. .NOT. elpa_qr_unsafe) &
                   WRITE(io_unit, '(A)') "ELPA| Matrix block size is NOT 64 or greater"
@@ -460,8 +465,8 @@ $: "#endif"
          IF (.NOT. success_noqr) &
             CPABORT("ELPA failed to diagonalize a matrix")
          DO i = 1, neig
-            IF (ABS(eval(i)-eval_noqr(i)).GT.1.0E-12_dp) &
-               CALL cp_abort(__LOCATION, &
+            IF (ABS(eval(i)-eval_noqr(i)).GT.th) &
+               CALL cp_abort(__LOCATION__, &
                              "Eigenvalues from ELPA_QR are wrong. Disable ELPA_QR_UNSAFE.")
          END DO
          DEALLOCATE(eval_noqr)
