@@ -362,7 +362,7 @@ $: "#endif"
 #endif
             ELSE
 #if (__ELPA==201605) || (__ELPA==201611)
-               IF (nblk .LT. 64 .AND. .NOT. elpa_qr_unsafe) &
+               IF (nblk .LT. 64 .AND. elpa_qr_unsafe) &
                   WRITE(io_unit, '(A,L14)') "ELPA| Matrix block size check was bypassed"
 #endif
             END IF
