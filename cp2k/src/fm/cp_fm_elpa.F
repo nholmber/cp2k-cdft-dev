@@ -306,9 +306,9 @@ $: "#endif"
             WRITE(io_unit, '(A,L8)') "ELPA| Matrix is suitable for QR: ", use_qr
             IF (.NOT. use_qr) THEN
 #if (__ELPA==201505) || (__ELPA==201511)               
-               WRITE(io_unit, '(A)') "ELPA| Matrix order must be divisible by block size"
+               WRITE(io_unit, '(A)') "ELPA| Matrix order is NOT divisible by block size"
 #elif (__ELPA==201605) || (__ELPA==201611)
-               WRITE(io_unit, '(A)') "ELPA| Matrix order must be even"
+               WRITE(io_unit, '(A)') "ELPA| Matrix order is NOT even"
 #endif
             END IF
          END IF
