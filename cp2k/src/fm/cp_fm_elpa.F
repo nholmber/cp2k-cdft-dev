@@ -348,8 +348,8 @@ $: "#endif"
          WRITE(io_unit, '(A,A14)') "ELPA| Kernel                   : ", kernel
          WRITE(io_unit, '(A,L14)') "ELPA| QR step requested        : ", elpa_qr
          IF (elpa_qr) THEN
-            WRITE(io_unit, '(A,L14)') "ELPA| Matrix is suitable for QR: ", use_qr
             WRITE(io_unit, '(A,L14)') "ELPA| Use potentially unsafe QR: ", elpa_qr_unsafe
+            WRITE(io_unit, '(A,L14)') "ELPA| Matrix is suitable for QR: ", use_qr
             IF (.NOT. use_qr) THEN
 #if (__ELPA==201505) || (__ELPA==201511)               
                WRITE(io_unit, '(A)') "ELPA| Matrix order is NOT divisible by block size"
@@ -358,6 +358,11 @@ $: "#endif"
                   WRITE(io_unit, '(A)') "ELPA| Matrix order is NOT even"
                IF (nblk .LT. 64 .AND. .NOT. elpa_qr_unsafe) &
                   WRITE(io_unit, '(A)') "ELPA| Matrix block size is NOT 64 or greater"
+#endif
+            ELSE
+#if (__ELPA==201605) || (__ELPA==201611)
+               IF (nblk .LT. 64 .AND. .NOT. elpa_qr_unsafe) &
+                  WRITE(io_unit, '(A,L14)') "ELPA| Matrix block size check was bypassed"
 #endif
             END IF
          END IF
