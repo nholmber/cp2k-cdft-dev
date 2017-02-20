@@ -256,7 +256,8 @@ $: "#endif"
                                                   mypcol, myprow, n, &
                                                   n_rows, n_cols, &
                                                   nblk, neig, io_unit
-      LOGICAL                                  :: success, use_qr, check_eigenvalues
+      LOGICAL                                  :: success, use_qr, check_eigenvalues, &
+                                                  success_noqr
       REAL(KIND=dp), DIMENSION(:), POINTER     :: eval
       REAL(KIND=dp), DIMENSION(:, :), POINTER  :: m, v, m_noqr, v_noqr
       TYPE(cp_blacs_env_type), POINTER         :: context
@@ -348,7 +349,10 @@ $: "#endif"
 #if (__ELPA==201505) || (__ELPA==201511)               
                WRITE(io_unit, '(A)') "ELPA| Matrix order is NOT divisible by block size"
 #elif (__ELPA==201605) || (__ELPA==201611)
-               WRITE(io_unit, '(A)') "ELPA| Matrix order is NOT even"
+               IF (MOD(n, 2).NEQ.0 ) &
+                  WRITE(io_unit, '(A)') "ELPA| Matrix order is NOT even"
+               IF (nblk .LT. 64 .AND. .NOT. elpa_qr_unsafe) &
+                  WRITE(io_unit, '(A)') "ELPA| Matrix block size is NOT 64 or greater"
 #endif
             END IF
          END IF
