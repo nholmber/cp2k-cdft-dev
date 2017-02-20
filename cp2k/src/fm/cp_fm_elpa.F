@@ -316,9 +316,9 @@ $: "#endif"
       IF (.NOT. elpa_qr_unsafe) &
          use_qr = use_qr .AND. n.GE. 64 .AND. nblk .GE. 64 
 #else
-   Error: Unknown ELPA version, please specifiy library release date via __ELPA=YYYYMM
+   Error: Unknown ELPA version, please specify library release date via __ELPA=YYYYMM
 #endif
-      ! Check if eigenvalues should be verified
+      ! Check if eigenvalues computed with ELPA_QR_UNSAFE should be verified
       IF (use_qr .AND. elpa_qr_unsafe .AND. elpa_should_print) &
          check_eigenvalues = .TRUE.
       CALL mp_bcast(check_eigenvalues, logger%para_env%source, logger%para_env%group)
@@ -384,22 +384,11 @@ $: "#endif"
          success = solve_evp_real_2stage(n, neig, m, n_rows, eval, v, n_rows, nblk, &
                                          comm_row, comm_col, group, &
                                          useQR=use_qr)
-         IF (check_eigenvalues) THEN
-            success_noqr = solve_evp_real_2stage(n, neig, m_noqr, n_rows, eval_noqr, v_noqr, n_rows, nblk, &
-                                                 comm_row, comm_col, group, &
-                                                 useQR=.FALSE.)
-         END IF
       ELSE
          success = solve_evp_real_2stage(n, neig, m, n_rows, eval, v, n_rows, nblk, &
                                          comm_row, comm_col, group, &
                                          THIS_REAL_ELPA_KERNEL_API=elpa_kernel, &
-                                         useQR=use_qr)
-         IF (check_eigenvalues) THEN
-            success_noqr = solve_evp_real_2stage(n, neig, m_noqr, n_rows, eval_noqr, v_noqr, n_rows, nblk, &
-                                                 comm_row, comm_col, group, &
-                                                 THIS_REAL_ELPA_KERNEL_API=elpa_kernel, &
-                                                 useQR=.FALSE.)
-         END IF         
+                                         useQR=use_qr)  
       END IF
 
 !---------------------------------------------------------------------------------------------------
