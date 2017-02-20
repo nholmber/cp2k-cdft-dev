@@ -138,6 +138,18 @@ CONTAINS
       CALL section_add_keyword(section, keyword)
       CALL keyword_release(keyword)
 
+      CALL keyword_create(keyword, name="ELPA_QR_UNSAFE", &
+                          description="For ELPA, disable block size limitations when used together with ELPA_QR. "// &
+                          "Keyword relevant only with ELPA versions 201605 or newer. Use keyword with caution, "// &
+                          "as it might result in wrong eigenvalues with some matrix orders/block sizes "// &
+                          "when the number of MPI processes is varied. If the print key PRINT_ELPA is "// &
+                          "active the validity of the eigenvalues is checked against values calculated without "// &
+                          "ELPA QR.", &
+                          usage="ELPA_QR", &
+                          default_l_val=.FALSE., lone_keyword_l_val=.TRUE.)
+      CALL section_add_keyword(section, keyword)
+      CALL keyword_release(keyword)
+
       CALL cp_print_key_section_create(print_key, "PRINT_ELPA", &
                                        description="Controls the printing of ELPA diagonalization information."// &
                                        "Useful for testing purposes, especially together with keyword ELPA_QR.", &

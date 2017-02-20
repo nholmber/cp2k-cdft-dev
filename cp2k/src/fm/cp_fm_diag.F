@@ -95,11 +95,11 @@ CONTAINS
 !>                   be printed
 !> \author  MI 11.2013
 ! **************************************************************************************************
-   SUBROUTINE diag_init(diag_lib, switched, k_elpa, elpa_qr, elpa_print)
+   SUBROUTINE diag_init(diag_lib, switched, k_elpa, elpa_qr, elpa_print, elpa_qr_unsafe)
       CHARACTER(LEN=*), INTENT(IN)                       :: diag_lib
       LOGICAL, INTENT(INOUT)                             :: switched
       INTEGER, INTENT(IN)                                :: k_elpa
-      LOGICAL, INTENT(IN)                                :: elpa_qr, elpa_print
+      LOGICAL, INTENT(IN)                                :: elpa_qr, elpa_print, elpa_qr_unsafe
 
       CHARACTER(len=*), PARAMETER :: routineN = 'diag_init', routineP = moduleN//':'//routineN
 
@@ -136,7 +136,7 @@ CONTAINS
       END IF
 
       CALL set_elpa_kernel(k_elpa)
-      CALL set_elpa_qr(elpa_qr)
+      CALL set_elpa_qr(elpa_qr, elpa_qr_unsafe)
       CALL set_elpa_print(elpa_print)
 
       ! Check that one of the diagonalization type is set

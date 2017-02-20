@@ -11,7 +11,10 @@ MODULE cp_fm_elpa
    USE cp_blacs_env,                    ONLY: cp_blacs_env_type
    USE cp_fm_basic_linalg,              ONLY: cp_fm_upper_to_full
    USE cp_fm_struct,                    ONLY: cp_fm_struct_get
-   USE cp_fm_types,                     ONLY: cp_fm_type
+   USE cp_fm_types,                     ONLY: cp_fm_type, &
+                                              cp_fm_to_fm, &
+                                              cp_fm_release, &
+                                              cp_fm_create
    USE cp_log_handling,                 ONLY: cp_get_default_logger, &
                                               cp_logger_get_default_io_unit, &
                                               cp_logger_type   
@@ -47,6 +50,7 @@ MODULE cp_fm_elpa
 
    INTEGER, SAVE :: elpa_kernel = -1 ! auto
    LOGICAL, SAVE :: elpa_qr = .FALSE.
+   LOGICAL, SAVE :: elpa_qr_unsafe = .FALSE.
    LOGICAL, SAVE :: elpa_should_print = .FALSE.
 
 CONTAINS
@@ -186,20 +190,28 @@ $: "#endif"
 !>        suitable. Check cp_fm_diag_elpa for further details.  
 !> \param flag the logical flag
 ! **************************************************************************************************
-   SUBROUTINE set_elpa_qr(flag)
-      LOGICAL, INTENT(IN)                                :: flag
+   SUBROUTINE set_elpa_qr(use_qr, use_qr_unsafe)
+      LOGICAL, INTENT(IN)                                :: use_qr, use_qr_unsafe
 
 #if defined(__ELPA)
 #if (__ELPA==201112) || (__ELPA==201308) || (__ELPA==201311) || (__ELPA==201406)
-      MARK_USED(flag)
+      MARK_USED(use_qr)
+      MARK_USED(use_qr_unsafe)
       elpa_qr = .FALSE.
-#elif (__ELPA==201502) || (__ELPA==201505) || (__ELPA==201511) || (__ELPA==201605) || (__ELPA==201611)
-      elpa_qr = flag
+      elpa_qr_unsafe = .FALSE.
+#elif (__ELPA==201502) || (__ELPA==201505) || (__ELPA==201511) 
+      MARK_USED(use_qr_unsafe)
+      elpa_qr = use_qr
+      elpa_qr_unsafe = .FALSE.
+#elif (__ELPA==201605) || (__ELPA==201611)
+      elpa_qr = use_qr
+      elpa_qr_unsafe = use_qr_unsafe
 #else
    Error: Unknown ELPA version, please specify library release date via __ELPA=YYYYMM
 #endif
 #else
-      MARK_USED(flag)
+      MARK_USED(use_qr)
+      MARK_USED(use_qr_unsafe)
       elpa_qr = .FALSE.
 #endif
 
@@ -237,20 +249,25 @@ $: "#endif"
 
       INTEGER                                  :: handle
 #if defined(__ELPA)
+      CHARACTER(len=14)                        :: kernel     
+      CHARACTER(len=default_string_length), &
+         DIMENSION(19)                         :: kernels
       INTEGER                                  :: comm_col, comm_row, group, &
                                                   mypcol, myprow, n, &
                                                   n_rows, n_cols, &
                                                   nblk, neig, io_unit
-      LOGICAL                                  :: success, use_qr
+      LOGICAL                                  :: success, use_qr, check_eigenvalues
       REAL(KIND=dp), DIMENSION(:), POINTER     :: eval
-      REAL(KIND=dp), DIMENSION(:, :), POINTER  :: m, v
+      REAL(KIND=dp), DIMENSION(:, :), POINTER  :: m, v, m_noqr, v_noqr
       TYPE(cp_blacs_env_type), POINTER         :: context
+      TYPE(cp_fm_type), POINTER                :: matrix_noqr, eigenvectors_noqr
       TYPE(cp_logger_type), POINTER            :: logger
 #endif
 
       CALL timeset(routineN, handle)
 #if defined(__ELPA)
       NULLIFY(logger)
+      NULLIFY(m_noqr, v_noqr)
       logger => cp_get_default_logger()
       io_unit = cp_logger_get_default_io_unit(logger)
       
@@ -292,18 +309,41 @@ $: "#endif"
       ! Matrix order must be even
       use_qr = elpa_qr .AND. MOD(n, 2).EQ.0 
       ! Matrix order and block size must be greater than or equal to 64
-      use_qr = use_qr .AND. n.GE. 64 .AND. nblk .GE. 64 
+      IF (.NOT. elpa_qr_unsafe) &
+         use_qr = use_qr .AND. n.GE. 64 .AND. nblk .GE. 64 
 #else
    Error: Unknown ELPA version, please specifiy library release date via __ELPA=YYYYMM
 #endif
+      ! Check if eigenvalues should be verified
+      check_eigenvalues = .FALSE.
+      IF (use_qr .AND. elpa_qr_unsafe .AND. elpa_should_print) THEN
+         check_eigenvalues = .TRUE.
+         ALLOCATE(eval_noqr(n))
+         CALL cp_fm_create(matrix=matrix_noqr, matrix_struct=matrix%matrix_struct)
+         CALL cp_fm_to_fm(matrix, matrix_noqr)
+         m_noqr => matrix_noqr%local_data
+         CALL cp_fm_create(matrix=eigenvectors_noqr, matrix_struct=eigenvectors%matrix_struct)
+         CALL cp_fm_upper_to_full(matrix_noqr, eigenvectors_noqr)
+         v_noqr => eigenvectors_noqr%local_data
+      END IF
+
       ! Print some information
       IF (io_unit > 0 .AND. elpa_should_print) THEN
          WRITE(io_unit, '(/,A)') "ELPA| Dimensions of input matrix for diagonalization"
-         WRITE(io_unit, '(A,I8)') "ELPA| Matrix order             : ", n
-         WRITE(io_unit, '(A,I8)') "ELPA| Matrix block size        : ", nblk
-         WRITE(io_unit, '(A,L8)') "ELPA| QR step requested        : ", elpa_qr
+         kernels = get_elpa_kernel_names()
+         IF (elpa_kernel == -1) THEN
+            kernel = TRIM(kernels(1))
+            kernel = ADJUSTR(kernel)
+         ELSE
+            kernel = TRIM(kernels(elpa_kernel+1))
+            kernel = ADJUSTR(kernel)
+         END IF
+         WRITE(io_unit, '(A,A14)') "ELPA| Kernel                   : ", kernel
+         WRITE(io_unit, '(A,I14)') "ELPA| Matrix order             : ", n
+         WRITE(io_unit, '(A,I14)') "ELPA| Matrix block size        : ", nblk
+         WRITE(io_unit, '(A,L14)') "ELPA| QR step requested        : ", elpa_qr
          IF (elpa_qr) THEN
-            WRITE(io_unit, '(A,L8)') "ELPA| Matrix is suitable for QR: ", use_qr
+            WRITE(io_unit, '(A,L14)') "ELPA| Matrix is suitable for QR: ", use_qr
             IF (.NOT. use_qr) THEN
 #if (__ELPA==201505) || (__ELPA==201511)               
                WRITE(io_unit, '(A)') "ELPA| Matrix order is NOT divisible by block size"
@@ -335,11 +375,22 @@ $: "#endif"
          success = solve_evp_real_2stage(n, neig, m, n_rows, eval, v, n_rows, nblk, &
                                          comm_row, comm_col, group, &
                                          useQR=use_qr)
+         IF (check_eigenvalues) THEN
+            success_noqr = solve_evp_real_2stage(n, neig, m_noqr, n_rows, eval_noqr, v_noqr, n_rows, nblk, &
+                                                 comm_row, comm_col, group, &
+                                                 useQR=.FALSE.)
+         END IF
       ELSE
          success = solve_evp_real_2stage(n, neig, m, n_rows, eval, v, n_rows, nblk, &
                                          comm_row, comm_col, group, &
                                          THIS_REAL_ELPA_KERNEL_API=elpa_kernel, &
                                          useQR=use_qr)
+         IF (check_eigenvalues) THEN
+            success_noqr = solve_evp_real_2stage(n, neig, m_noqr, n_rows, eval_noqr, v_noqr, n_rows, nblk, &
+                                                 comm_row, comm_col, group, &
+                                                 THIS_REAL_ELPA_KERNEL_API=elpa_kernel, &
+                                                 useQR=.FALSE.)
+         END IF         
       END IF
 
 !---------------------------------------------------------------------------------------------------
@@ -348,11 +399,22 @@ $: "#endif"
          success = solve_evp_real_2stage(n, neig, m, n_rows, eval, v, n_rows, nblk, n_cols, &
                                          comm_row, comm_col, group, &
                                          useQR=use_qr)
+         IF (check_eigenvalues) THEN
+            success_noqr = solve_evp_real_2stage(n, neig, m_noqr, n_rows, eval_noqr, v_noqr, n_rows, nblk, n_cols, &
+                                                 comm_row, comm_col, group, &
+                                                 useQR=.FALSE.)
+         END IF
       ELSE
          success = solve_evp_real_2stage(n, neig, m, n_rows, eval, v, n_rows, nblk, n_cols, &
                                          comm_row, comm_col, group, &
                                          THIS_REAL_ELPA_KERNEL_API=elpa_kernel, &
                                          useQR=use_qr)
+         IF (check_eigenvalues) THEN
+            success_noqr = solve_evp_real_2stage(n, neig, m_noqr, n_rows, eval_noqr, v_noqr, n_rows, nblk, n_cols, &
+                                                 comm_row, comm_col, group, &
+                                                 THIS_REAL_ELPA_KERNEL_API=elpa_kernel, &
+                                                 useQR=.FALSE.)
+         END IF         
       END IF
 
 !---------------------------------------------------------------------------------------------------
@@ -361,11 +423,22 @@ $: "#endif"
          success = elpa_solve_evp_real_2stage_double(n, neig, m, n_rows, eval, v, n_rows, nblk, n_cols, &
                                                      comm_row, comm_col, group, &
                                                      useQR=use_qr)
+         IF (check_eigenvalues) THEN
+            success_noqr = elpa_solve_evp_real_2stage_double(n, neig, m_noqr, n_rows, eval_noqr, v_noqr, n_rows, nblk, n_cols, &
+                                                             comm_row, comm_col, group, &
+                                                             useQR=.FALSE.)
+         END IF
       ELSE
          success = elpa_solve_evp_real_2stage_double(n, neig, m, n_rows, eval, v, n_rows, nblk, n_cols, &
                                                      comm_row, comm_col, group, &
                                                      THIS_REAL_ELPA_KERNEL_API=elpa_kernel, &
                                                      useQR=use_qr)
+         IF (check_eigenvalues) THEN
+            success_noqr = elpa_solve_evp_real_2stage_double(n, neig, m_noqr, n_rows, eval_noqr, v_noqr, n_rows, nblk, n_cols, &
+                                                             comm_row, comm_col, group, &
+                                                             THIS_REAL_ELPA_KERNEL_API=elpa_kernel, &
+                                                             useQR=.FALSE.)
+         END IF         
       END IF
 
 !---------------------------------------------------------------------------------------------------
@@ -378,6 +451,20 @@ $: "#endif"
          CPABORT("ELPA failed to diagonalize a matrix")
 
       eigenvalues(1:neig) = eval(1:neig)
+
+      IF (check_eigenvalues) THEN
+         IF (.NOT. success_noqr) &
+            CPABORT("ELPA failed to diagonalize a matrix")
+         DO i = 1, neig
+            IF (ABS(eval(i)-eval_noqr(i)).GT.1.0E-12_dp) &
+               CALL cp_abort(__LOCATION, &
+                             "Eigenvalues from ELPA_QR are wrong. Disable ELPA_QR_UNSAFE.")
+         END DO
+         DEALLOCATE(eval_noqr)
+         NULLIFY(m_noqr, eval_noqr)
+         CALL cp_fm_release(matrix_noqr)
+         CALL cp_fm_release(eigenvectors_noqr) 
+      END IF
 
       DEALLOCATE (eval)
 

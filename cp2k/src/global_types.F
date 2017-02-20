@@ -81,6 +81,7 @@ MODULE global_types
       INTEGER :: k_elpa !! optimized kernel for the ELPA diagonalization library
       LOGICAL :: elpa_qr !! allow ELPA to use QR during diagonalization
       LOGICAL :: elpa_print !! if additional information about ELPA diagonalization should be printed
+      LOGICAL :: elpa_qr_unsafe !! enable potentially unsafe ELPA options
       LOGICAL :: blacs_repeatable !! will store the user preference for the repeatability of blacs collectives
       REAL(KIND=dp) :: cp2k_start_time, cp2k_target_time
       INTEGER :: handle

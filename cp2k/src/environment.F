@@ -529,6 +529,7 @@ CONTAINS
       CALL section_vals_val_get(global_section, "PREFERRED_DIAG_LIBRARY", i_val=i_diag)
       CALL section_vals_val_get(global_section, "ELPA_KERNEL", i_val=globenv%k_elpa)
       CALL section_vals_val_get(global_section, "ELPA_QR", l_val=globenv%elpa_qr)
+      CALL section_vals_val_get(global_section, "ELPA_QR_UNSAFE", l_val=globenv%elpa_qr_unsafe)
       unit_nr = cp_print_key_unit_nr(logger, global_section, "PRINT_ELPA", extension=".Log")
       IF (unit_nr > 0) globenv%elpa_print = .TRUE.
       CALL cp_print_key_finished_output(unit_nr, logger, global_section, "PRINT_ELPA")
@@ -966,7 +967,8 @@ CONTAINS
       switched = .FALSE.
 
       CALL diag_init(diag_lib=TRIM(globenv%diag_library), switched=switched, k_elpa=globenv%k_elpa, &
-                     elpa_qr=globenv%elpa_qr, elpa_print=globenv%elpa_print)
+                     elpa_qr=globenv%elpa_qr, elpa_print=globenv%elpa_print, &
+                     elpa_qr_unsafe=globenv%elpa_qr_unsafe)
 
       IF (switched) THEN
 
