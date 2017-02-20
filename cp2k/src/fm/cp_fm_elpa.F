@@ -272,6 +272,7 @@ $: "#endif"
       NULLIFY(logger)
       NULLIFY(m_noqr, v_noqr, eval_noqr)
       th = 1.0E-14_dp
+      check_eigenvalues = .FALSE.
       logger => cp_get_default_logger()
       io_unit = cp_logger_get_default_io_unit(logger)
       
