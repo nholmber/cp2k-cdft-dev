@@ -186,10 +186,12 @@ $: "#endif"
    END SUBROUTINE set_elpa_kernel
 
 ! **************************************************************************************************
-!> \brief Sets a flag that determines if ELPA should try to use QR during diagonalization
-!>        If flag = .TRUE., the QR step is performed only if the size of the input matrix is
-!>        suitable. Check cp_fm_diag_elpa for further details.  
-!> \param flag the logical flag
+!> \brief Sets flags that determines if ELPA should try to use QR during diagonalization
+!>        If use_qr = .TRUE., the QR step is performed only if the size of the input matrix is
+!>        suitable. Check cp_fm_diag_elpa for further details.
+!> \param use_qr the logical flag
+!> \param use_qr_unsafe logical which determines if block size checks should be bypassed for some
+!>                      ELPA versions, potentially leading to incorrect eigenvalues
 ! **************************************************************************************************
    SUBROUTINE set_elpa_qr(use_qr, use_qr_unsafe)
       LOGICAL, INTENT(IN)                                :: use_qr, use_qr_unsafe
@@ -325,6 +327,7 @@ $: "#endif"
          check_eigenvalues = .TRUE.
       CALL mp_bcast(check_eigenvalues, logger%para_env%source, logger%para_env%group)
       IF (check_eigenvalues) THEN
+         ! Allocate and initialize needed tempories to compute eigenvalues without ELPA QR
          ALLOCATE(eval_noqr(n))
          CALL cp_fm_create(matrix=matrix_noqr, matrix_struct=matrix%matrix_struct)
          CALL cp_fm_to_fm(matrix, matrix_noqr)
