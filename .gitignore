@@ -10,3 +10,4 @@ cp2k/tools/manual/*.jar
 cp2k/tools/manual/*.vim
 cp2k/tools/manual/CP2K_INPUT/
 cp2k/tools/prettify/formatting/__pycache__/
+cp2k/tools/prettify/formatting/*pyc

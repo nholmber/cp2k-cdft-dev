@@ -1,9 +1,10 @@
+<img src="https://raw.githubusercontent.com/nholmber/cp2k-cdft-dev/master/web/logo/cp2k_cdft_logo_400_cropped.png" title="CP2K CDFT Development Branch">
 # CP2K CDFT development branch 
 This repository contains the constrained density functional theory (CDFT) development branch for [**CP2K**](https://www.cp2k.org/ "CP2K Project"). CP2K is a freely available quantum chemistry package to perform atomistic simulations of solid state, liquid, molecular, periodic, material, crystal, and biological systems. 
 
 The theoretical basis, features, and usage of the CDFT/CP2K implementation will in the future be documented at the [Wiki](https://github.com/nholmber/cp2k-cdft-dev/wiki). In the meanwhile, please refer to the publication: 
 
-Holmberg, Nico; Laasonen, Kari, *Efficient Constrained Density Functional Theory Implementation for Simulation of Condensed Phase Electron Transfer Reactions*, J. Chem. Theory Comput., Article ASAP (2016), doi: [10.1021/acs.jctc.6b01085](https://dx.doi.org/10.1021/acs.jctc.6b01085 "Online Version of Publication").
+Holmberg, Nico; Laasonen, Kari, *Efficient Constrained Density Functional Theory Implementation for Simulation of Condensed Phase Electron Transfer Reactions*, J. Chem. Theory Comput., 13 (2016), pp 587-601, doi: [10.1021/acs.jctc.6b01085](https://dx.doi.org/10.1021/acs.jctc.6b01085 "Online Version of Publication").
 
 
 ## Available branches
@@ -20,7 +21,6 @@ Holmberg, Nico; Laasonen, Kari, *Efficient Constrained Density Functional Theory
 	* might not compile, incomplete implementation of new features, code not cleaned 
 	* features under development:
 		- combined charge + spin constraints
-		- allow the user to choose between serial and parallel mode of calculating mixed CDFT state  
 		- refactoring of Becke constraint type under CDFT control type  
 
 4. `legacy`: deprecated stable build
@@ -34,12 +34,12 @@ Holmberg, Nico; Laasonen, Kari, *Efficient Constrained Density Functional Theory
 1. Latest stable version (from official repos)
 	* Download the trunk version (use either `svn` or `git`)
 		- `svn checkout http://svn.code.sf.net/p/cp2k/code/trunk dir_name`
-		- `git clone -b master --single-branch https://github.com/cp2k/cp2k master`
+		- `git clone -b master --single-branch https://github.com/cp2k/cp2k dir_name`
 	* Follow the installation instructions in the file [`INSTALL`](cp2k/INSTALL), also available at the official [CP2K project page](https://www.cp2k.org/howto:compile) 
 
 2. Other versions
 	* Clone the branch in a directory of your choice  
-	  `git clone -b branch_name --single-branch https://github.com/nholmber/cp2k-cdft-dev branch_name`
+	  `git clone -b branch_name --single-branch https://github.com/nholmber/cp2k-cdft-dev dir_name`
 	* Continue as above
 
 ## Running a CDFT calculation
@@ -48,5 +48,5 @@ An official tutorial is in preparation and will be added to the [Wiki](https://g
 
 ## Bugs, ideas and contributing
 
-The implemented CDFT features in the `main` branch have been tested, but some unforseen bugs might still be present. If you encounter problems please open a new issue in the [issue tracker](https://github.com/nholmber/cp2k-cdft-dev/issues) and include a minimal input file for reproducing the bug. New development ideas and contributions are also welcomed.
+The implemented CDFT features in the `main` branch have been tested, but some unforseen bugs might still be present. If you encounter problems please open a new issue in the [issue tracker](https://github.com/nholmber/cp2k-cdft-dev/issues) and include a minimal input file for reproducing the bug. Please report only issues related to the CDFT module. For other bugs, please report them using the [SVN issue tracker](https://sourceforge.net/p/cp2k/bugs/?source=navbar) or the [Google group mailing list](https://groups.google.com/forum/#!forum/cp2k). New development ideas and contributions are also welcomed.
 
