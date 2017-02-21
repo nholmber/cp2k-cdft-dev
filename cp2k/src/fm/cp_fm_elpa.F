@@ -308,7 +308,7 @@ $: "#endif"
       ! Note that the names of these files might change in different ELPA versions
 #if (__ELPA==201112) || (__ELPA==201308) || (__ELPA==201311) || (__ELPA==201406)
       use_qr = .FALSE.
-#elif (__ELPA==201505) || (__ELPA==201511)
+#elif (__ELPA==201502) || (__ELPA==201505) || (__ELPA==201511)
       ! Matrix order must be an integer multiple of the block size
       use_qr = elpa_qr .AND. MOD(n, nblk).EQ.0
 #elif (__ELPA==201605) || (__ELPA==201611)
@@ -353,7 +353,7 @@ $: "#endif"
             WRITE(io_unit, '(A,L14)') "ELPA| Use potentially unsafe QR: ", elpa_qr_unsafe
             WRITE(io_unit, '(A,L14)') "ELPA| Matrix is suitable for QR: ", use_qr
             IF (.NOT. use_qr) THEN
-#if (__ELPA==201505) || (__ELPA==201511)               
+#if (__ELPA==201502) || (__ELPA==201505) || (__ELPA==201511)               
                WRITE(io_unit, '(A)') "ELPA| Matrix order is NOT divisible by block size"
 #elif (__ELPA==201605) || (__ELPA==201611)
                IF (MOD(n, 2).NE.0 ) &
