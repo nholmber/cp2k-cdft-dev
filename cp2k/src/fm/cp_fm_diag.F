@@ -93,6 +93,7 @@ CONTAINS
 !>                diagonalization procedure of suitably sized matrices
 !> \param elpa_print logical that determines if information about the ELPA diagonalization should
 !>                   be printed
+!> \param elpa_qr_unsafe ...
 !> \author  MI 11.2013
 ! **************************************************************************************************
    SUBROUTINE diag_init(diag_lib, switched, k_elpa, elpa_qr, elpa_print, elpa_qr_unsafe)

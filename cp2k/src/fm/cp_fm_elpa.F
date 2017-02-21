@@ -302,8 +302,9 @@ $: "#endif"
       neig = SIZE(eigenvalues, 1)
       ! Decide if matrix is suitable for ELPA to use QR
       ! The definition of what is considered a suitable matrix depends on the ELPA version
-      ! The relevant ELPA file to check is src/elpa2.F90 (src/elpa2_template.X90 in git version)
-      !, test/Fortran/test_real2_qr.F90
+      ! The relevant ELPA files to check are
+      !     - Proper matrix order:  src/elpa2.F90 (src/elpa2_template.X90 in git version)
+      !     - Proper block size:    test/Fortran/test_real2_qr.F90
       ! Note that the names of these files might change in different ELPA versions
 #if (__ELPA==201112) || (__ELPA==201308) || (__ELPA==201311) || (__ELPA==201406)
       use_qr = .FALSE.
@@ -447,7 +448,7 @@ $: "#endif"
 
 !---------------------------------------------------------------------------------------------------
 #else
-   Error: Unknown ELPA version, please specifiy library release date via __ELPA=YYYYMM
+   Error: Unknown ELPA version, please specify library release date via __ELPA=YYYYMM
 #endif
 !---------------------------------------------------------------------------------------------------
 
