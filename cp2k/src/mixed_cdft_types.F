@@ -92,14 +92,14 @@ MODULE mixed_cdft_types
                                                           more_work
       INTEGER, DIMENSION(:), POINTER                   :: bo, expected_work, &
                                                           prediction_error
-      INTEGER, DIMENSION(:, :), POINTER                 :: target_list
+      INTEGER, DIMENSION(:, :), POINTER                :: target_list
       LOGICAL                                          :: recv_work, send_work
       LOGICAL, DIMENSION(:), POINTER                   :: recv_work_repl
       REAL(KIND=dp)                                    :: load_scale, very_overloaded
       REAL(KIND=dp), POINTER, &
-         DIMENSION(:, :, :)                              :: cavity, weight
+         DIMENSION(:, :, :)                            :: cavity, weight
       REAL(KIND=dp), POINTER, &
-         DIMENSION(:, :, :, :)                            :: gradients
+         DIMENSION(:, :, :, :)                         :: gradients
       ! Should convert to TYPE(p_buffers), POINTER
       TYPE(buffers), DIMENSION(:), POINTER             :: sendbuff
       TYPE(p_buffers), DIMENSION(:), POINTER           :: recvbuff

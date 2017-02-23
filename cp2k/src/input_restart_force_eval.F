@@ -177,8 +177,10 @@ CONTAINS
                DO iforce_eval = 2, nforce_eval
                   dft_section => section_vals_get_subs_vals3(force_env_sections, "DFT", &
                                                              i_rep_section=i_force_eval(iforce_eval))
+                  ALLOCATE (work(SIZE(force_env%mixed_env%strength, 2)))
+                  work = force_env%mixed_env%strength(iforce_eval, :)
                   CALL section_vals_val_set(dft_section, "QS%BECKE_RESTRAINT%STRENGTH", &
-                                            r_val=force_env%mixed_env%strength(iforce_eval-1))
+                                            r_vals_ptr=work)
                   CALL section_vals_val_set(dft_section, "QS%CDFT%COUNTER", &
                                             i_val=force_env%mixed_env%cdft_control%sim_step)
                END DO

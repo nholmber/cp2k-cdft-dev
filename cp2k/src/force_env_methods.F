@@ -81,7 +81,11 @@ MODULE force_env_methods
                                               mix_minimum,&
                                               mix_restrained,&
                                               use_bazant_eip,&
-                                              use_lenosky_eip
+                                              use_lenosky_eip, &
+                                              cdft_combined_constraint, &
+                                              cdft_combined_all, &
+                                              cdft_combined_acceptor, &
+                                              cdft_combined_donor
    USE input_section_types,             ONLY: section_vals_get_subs_vals,&
                                               section_vals_retain,&
                                               section_vals_type,&
@@ -1217,7 +1221,7 @@ CONTAINS
       CHARACTER(len=*), PARAMETER :: routineN = 'mixed_cdft_post_energy_forces', &
          routineP = moduleN//':'//routineN
 
-      INTEGER                                            :: iforce_eval, nforce_eval
+      INTEGER                                            :: iforce_eval, nforce_eval, nvar
       TYPE(dft_control_type), POINTER                    :: dft_control
       TYPE(qs_environment_type), POINTER                 :: qs_env
 
@@ -1225,9 +1229,19 @@ CONTAINS
       NULLIFY (qs_env, dft_control)
       IF (force_env%mixed_env%do_mixed_cdft) THEN
          nforce_eval = SIZE(force_env%sub_force_env)
+         IF (force_env%mixed_env%cdft_control%constraint_type == cdft_combined_constraint) THEN
+            SELECT CASE (force_env%mixed_env%cdft_control%combined_type)
+            CASE (cdft_combined_donor, cdft_combined_acceptor)
+               nvar = 2
+            CASE (cdft_combined_all)
+               nvar = 1
+            END SELECT
+         ELSE
+            nvar = 1
+         END IF
          ! Transfer cdft strengths for writing restart
          IF (.NOT. ASSOCIATED(force_env%mixed_env%strength)) &
-            ALLOCATE (force_env%mixed_env%strength(2))
+            ALLOCATE (force_env%mixed_env%strength(2, nvar))
          force_env%mixed_env%strength = 0.0_dp
          DO iforce_eval = 1, nforce_eval
             IF (.NOT. ASSOCIATED(force_env%sub_force_env(iforce_eval)%force_env)) CYCLE
@@ -1239,7 +1253,7 @@ CONTAINS
             CALL get_qs_env(qs_env, dft_control=dft_control)
             IF (force_env%sub_force_env(iforce_eval)%force_env%para_env%mepos == &
                 force_env%sub_force_env(iforce_eval)%force_env%para_env%source) &
-               force_env%mixed_env%strength(iforce_eval) = dft_control%qs_control%cdft_control%strength(1)
+               force_env%mixed_env%strength(iforce_eval, :) = dft_control%qs_control%cdft_control%strength(:)
          END DO
          CALL mp_sum(force_env%mixed_env%strength, force_env%para_env%group)
          ! Mixed CDFT: calculate ET coupling

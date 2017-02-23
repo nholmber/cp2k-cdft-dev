@@ -65,7 +65,11 @@ MODULE mixed_cdft_utils
                                               becke_none_conf,&
                                               becke_static_conf,&
                                               cdft_density_constraint,&
-                                              shape_function_gaussian
+                                              shape_function_gaussian, &
+                                              cdft_combined_constraint, &
+                                              cdft_combined_all, &
+                                              cdft_combined_acceptor, &
+                                              cdft_combined_donor
    USE input_section_types,             ONLY: section_vals_duplicate,&
                                               section_vals_get_subs_vals,&
                                               section_vals_release,&
@@ -866,18 +870,18 @@ CONTAINS
 !>        the mixed CDFT env, that is, move the arrays to the correct blacs context. For parallel
 !>        simulations, the array processor distributions also change from N to 2N processors.
 !> \param force_env the force_env that holds the CDFT states
-!> \param mixed_wmat_a matrix representation of the weight function of state A
-!> \param mixed_wmat_b matrix representation of the weight function of state B
+!> \param w_matrix matrix container for the matrix representations of all weight functions that 
+!>                 define the two involved CDFT states
 !> \param mixed_matrix_s atomic orbital overlap matrix
 !> \param mixed_mo_coeff molecular orbitals coefficients for both states
 !> \param density_matrix density matrices for both states
 !> \par History
 !>       01.2017  created [Nico Holmberg]
 ! **************************************************************************************************
-   SUBROUTINE mixed_cdft_redistribute_arrays(force_env, mixed_wmat_a, mixed_wmat_b, &
-                                             mixed_matrix_s, mixed_mo_coeff, density_matrix)
+   SUBROUTINE mixed_cdft_redistribute_arrays(force_env, w_matrix, mixed_matrix_s, &
+                                             mixed_mo_coeff, density_matrix)
       TYPE(force_env_type), POINTER                      :: force_env
-      TYPE(dbcsr_type)                                   :: mixed_wmat_a, mixed_wmat_b
+      TYPE(dbcsr_p_type), DIMENSION(:, :), POINTER       :: w_matrix
       TYPE(dbcsr_type), POINTER                          :: mixed_matrix_s
       TYPE(cp_fm_p_type), DIMENSION(:, :), POINTER       :: mixed_mo_coeff
       TYPE(dbcsr_p_type), DIMENSION(:, :), POINTER       :: density_matrix
@@ -887,12 +891,11 @@ CONTAINS
 
       INTEGER                                            :: iforce_eval, ispin, ncol_overlap, &
                                                             ncol_wmat, nforce_eval, nrow_overlap, &
-                                                            nrow_wmat, nspins
+                                                            nrow_wmat, nspins, nvar, ivar
       INTEGER, ALLOCATABLE, DIMENSION(:)                 :: ncol_mo, nrow_mo
       TYPE(cp_blacs_env_type), POINTER                   :: blacs_env
-      TYPE(cp_fm_p_type), DIMENSION(:), POINTER          :: mixed_wmat_tmp, wmat_tmp
       TYPE(cp_fm_p_type), DIMENSION(:, :), POINTER       :: matrix_p_tmp, mixed_matrix_p_tmp, &
-                                                            mo_coeff_tmp
+                                                            mo_coeff_tmp, wmat_tmp, mixed_wmat_tmp
       TYPE(cp_fm_p_type), POINTER                        :: matrix_s_tmp, mixed_matrix_s_tmp
       TYPE(cp_fm_struct_type), POINTER                   :: fm_struct_mo, fm_struct_overlap, &
                                                             fm_struct_tmp, fm_struct_wmat
@@ -924,17 +927,30 @@ CONTAINS
          CALL get_qs_env(qs_env, dft_control=dft_control)
          nspins = dft_control%nspins
       END DO
+      ! Get number of weight functions per state
+      IF (mixed_cdft%constraint_type == cdft_combined_constraint) THEN
+         SELECT CASE (mixed_cdft%combined_type)
+         CASE (cdft_combined_all)
+            nvar = 1
+         CASE (cdft_combined_acceptor, cdft_combined_donor)
+            nvar = 2
+         END SELECT
+      ELSE
+         nvar = 1
+      END IF
       ALLOCATE (mixed_mo_coeff(2, nspins))
       CALL dbcsr_init_p(mixed_matrix_s)
       IF (mixed_cdft%calculate_metric) &
          ALLOCATE (density_matrix(2, nspins))
       ! Transfer data from sub_force_envs to temporaries
-      ALLOCATE (mo_coeff_tmp(2, nspins), wmat_tmp(2), matrix_s_tmp, nrow_mo(nspins), ncol_mo(nspins))
+      ALLOCATE (mo_coeff_tmp(2, nspins), wmat_tmp(2, nvar), matrix_s_tmp, nrow_mo(nspins), ncol_mo(nspins))
       IF (mixed_cdft%calculate_metric) ALLOCATE (matrix_p_tmp(2, nspins))
       NULLIFY (matrix_s_tmp%matrix)
       DO iforce_eval = 1, nforce_eval
          ! Temporary arrays need to be nulled on every process
-         NULLIFY (wmat_tmp(iforce_eval)%matrix)
+         DO ivar = 1, nvar
+            NULLIFY (wmat_tmp(iforce_eval, ivar)%matrix)
+         END DO
          DO ispin = 1, nspins
             NULLIFY (mo_coeff_tmp(iforce_eval, ispin)%matrix)
             IF (mixed_cdft%calculate_metric) &
@@ -952,7 +968,7 @@ CONTAINS
          ! Store dimensions of the transferred arrays
          CALL dbcsr_get_info(dft_control%qs_control%cdft_control%matrix_s%matrix, &
                              nfullrows_total=nrow_overlap, nfullcols_total=ncol_overlap)
-         CALL dbcsr_get_info(dft_control%qs_control%cdft_control%wmat%matrix, &
+         CALL dbcsr_get_info(dft_control%qs_control%cdft_control%wmat(1)%matrix, &
                              nfullrows_total=nrow_wmat, nfullcols_total=ncol_wmat)
          ! MO Coefficients
          DO ispin = 1, nspins
@@ -967,16 +983,19 @@ CONTAINS
             CALL cp_fm_release(dft_control%qs_control%cdft_control%mo_coeff(ispin)%matrix)
          END DO
          DEALLOCATE (dft_control%qs_control%cdft_control%mo_coeff)
-         ! Matrix representation of weight function (dbcsr -> fm)
+         ! Matrix representation(s) of the weight function(s) (dbcsr -> fm)
          CALL cp_fm_struct_create(fm_struct_tmp, nrow_global=nrow_wmat, ncol_global=ncol_wmat, context=blacs_env, &
                                   para_env=force_env%sub_force_env(iforce_eval)%force_env%para_env, &
                                   square_blocks=.TRUE.)
-         CALL cp_fm_create(wmat_tmp(iforce_eval)%matrix, fm_struct_tmp, name="fm_matrix")
+         DO ivar = 1, nvar
+            CALL cp_fm_create(wmat_tmp(iforce_eval, ivar)%matrix, fm_struct_tmp, name="w_matrix")
+            CALL dbcsr_desymmetrize(dft_control%qs_control%cdft_control%wmat(ivar)%matrix, desymm_tmp)
+            CALL copy_dbcsr_to_fm(desymm_tmp, wmat_tmp(iforce_eval, ivar)%matrix)
+            CALL dbcsr_release(desymm_tmp)
+            CALL dbcsr_release_p(dft_control%qs_control%cdft_control%wmat(ivar)%matrix)
+         END DO
+         DEALLOCATE (dft_control%qs_control%cdft_control%wmat)
          CALL cp_fm_struct_release(fm_struct_tmp)
-         CALL dbcsr_desymmetrize(dft_control%qs_control%cdft_control%wmat%matrix, desymm_tmp)
-         CALL copy_dbcsr_to_fm(desymm_tmp, wmat_tmp(iforce_eval)%matrix)
-         CALL dbcsr_release(desymm_tmp)
-         CALL dbcsr_release_p(dft_control%qs_control%cdft_control%wmat%matrix)
          ! Overlap matrix is the same for both sub_force_envs, so we just copy the first one (dbcsr -> fm)
          IF (iforce_eval == 1) THEN
             CALL cp_fm_struct_create(fm_struct_tmp, nrow_global=nrow_overlap, &
@@ -1014,7 +1033,7 @@ CONTAINS
       ! Redistribute arrays with copy_general (this is not optimal for dbcsr matrices but...)
       ! We use this method for the serial case (mixed_cdft%is_parallel = .FALSE.) as well to move the arrays to the
       ! correct blacs_env, which is impossible using a simple copy of the arrays
-      ALLOCATE (mixed_wmat_tmp(2), mixed_matrix_s_tmp)
+      ALLOCATE (mixed_wmat_tmp(2, nvar), mixed_matrix_s_tmp)
       IF (mixed_cdft%calculate_metric) &
          ALLOCATE (mixed_matrix_p_tmp(2, nspins))
       DO iforce_eval = 1, nforce_eval
@@ -1035,21 +1054,20 @@ CONTAINS
             CALL cp_fm_struct_release(fm_struct_mo)
          END DO
          ! Weight
-         NULLIFY (mixed_wmat_tmp(iforce_eval)%matrix)
-         CALL cp_fm_create(matrix=mixed_wmat_tmp(iforce_eval)%matrix, &
-                           matrix_struct=fm_struct_wmat, &
-                           name="WEIGHT_"//TRIM(ADJUSTL(cp_to_string(iforce_eval)))//"_MATRIX")
-         CALL cp_fm_copy_general(wmat_tmp(iforce_eval)%matrix, &
-                                 mixed_wmat_tmp(iforce_eval)%matrix, &
-                                 mixed_cdft%blacs_env%para_env)
-         CALL cp_fm_release(wmat_tmp(iforce_eval)%matrix)
-         ! (fm -> dbcsr)
-         IF (iforce_eval == 1) THEN
-            CALL copy_fm_to_dbcsr_bc(mixed_wmat_tmp(iforce_eval)%matrix, mixed_wmat_a)
-         ELSE
-            CALL copy_fm_to_dbcsr_bc(mixed_wmat_tmp(iforce_eval)%matrix, mixed_wmat_b)
-         END IF
-         CALL cp_fm_release(mixed_wmat_tmp(iforce_eval)%matrix)
+         DO ivar = 1, nvar
+            NULLIFY (mixed_wmat_tmp(iforce_eval, ivar)%matrix)
+            CALL cp_fm_create(matrix=mixed_wmat_tmp(iforce_eval, ivar)%matrix, &
+                              matrix_struct=fm_struct_wmat, &
+                              name="WEIGHT_"//TRIM(ADJUSTL(cp_to_string(iforce_eval)))//"_MATRIX")
+            CALL cp_fm_copy_general(wmat_tmp(iforce_eval, ivar)%matrix, &
+                                    mixed_wmat_tmp(iforce_eval, ivar)%matrix, &
+                                    mixed_cdft%blacs_env%para_env)
+            CALL cp_fm_release(wmat_tmp(iforce_eval, ivar)%matrix)
+            ! (fm -> dbcsr)
+            CALL copy_fm_to_dbcsr_bc(mixed_wmat_tmp(iforce_eval, ivar)%matrix, &
+                                     w_matrix(iforce_eval, ivar)%matrix)
+            CALL cp_fm_release(mixed_wmat_tmp(iforce_eval, ivar)%matrix)
+         END DO
          ! Density matrix (fm -> dbcsr)
          IF (mixed_cdft%calculate_metric) THEN
             DO ispin = 1, nspins

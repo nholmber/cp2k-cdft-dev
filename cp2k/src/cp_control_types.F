@@ -424,9 +424,9 @@ MODULE cp_control_types
                                               should_purge, calculate_metric
       TYPE(cp_fm_p_type), DIMENSION(:), &
          POINTER                           :: mo_coeff
-      TYPE(dbcsr_p_type)                   :: wmat, matrix_s
+      TYPE(dbcsr_p_type)                   :: matrix_s
       TYPE(dbcsr_p_type), DIMENSION(:), &
-         POINTER                           :: matrix_p
+         POINTER                           :: wmat, matrix_p
    END TYPE cdft_control_type
 
 ! **************************************************************************************************
@@ -1060,7 +1060,7 @@ CONTAINS
       cdft_control%ienergy = 0
       NULLIFY (cdft_control%hirshfeld_control)
       NULLIFY (cdft_control%weight%pw)
-      NULLIFY (cdft_control%wmat%matrix)
+      NULLIFY (cdft_control%wmat)
       NULLIFY (cdft_control%matrix_s%matrix)
       NULLIFY (cdft_control%mo_coeff)
       NULLIFY (cdft_control%matrix_p)

@@ -933,7 +933,8 @@ CONTAINS
 
       CHARACTER(len=*), PARAMETER :: routineN = 'cdft_scf', routineP = moduleN//':'//routineN
 
-      INTEGER                                            :: handle, iatom, ispin, output_unit
+      INTEGER                                            :: handle, iatom, ispin, output_unit, &
+                                                            ivar, nvar
       LOGICAL                                            :: cdft_loop_converged, converged, &
                                                             exit_cdft_loop, first_iteration
       TYPE(cdft_control_type), POINTER                   :: cdft_control
@@ -1043,14 +1044,36 @@ CONTAINS
          ! Store needed arrays for ET coupling calculation
          IF (cdft_control%do_et) THEN
             CALL get_qs_env(qs_env=qs_env, matrix_s=matrix_s)
-            CALL dbcsr_init_p(cdft_control%wmat%matrix)
-            CALL dbcsr_copy(cdft_control%wmat%matrix, matrix_s(1)%matrix, &
-                            name="ET_RESTRAINT_MATRIX")
-            CALL dbcsr_set(cdft_control%wmat%matrix, 0.0_dp)
-            CALL integrate_v_rspace(dft_control%qs_control%becke_control%becke_pot, &
-                                    hmat=cdft_control%wmat, qs_env=qs_env, &
-                                    calculate_forces=.FALSE., &
-                                    gapw=dft_control%qs_control%gapw)
+            IF (dft_control%qs_control%becke_control%constraint_type == cdft_combined_constraint) THEN
+               SELECT CASE (dft_control%qs_control%becke_control%combined_type)
+               CASE (cdft_combined_all)
+                  nvar = 1
+               CASE (cdft_combined_acceptor, cdft_combined_donor)
+                  nvar = 2
+               END SELECT
+            ELSE
+               nvar = 1
+            END IF
+            ! Matrix representation of weight function
+            ALLOCATE (cdft_control%wmat(nvar))
+            DO ivar = 1, nvar
+               CALL dbcsr_init_p(cdft_control%wmat(ivar)%matrix)
+               CALL dbcsr_copy(cdft_control%wmat(ivar)%matrix, matrix_s(1)%matrix, &
+                               name="ET_RESTRAINT_MATRIX")
+               CALL dbcsr_set(cdft_control%wmat(ivar)%matrix, 0.0_dp)
+               IF (ivar == 1) THEN
+                  CALL integrate_v_rspace(dft_control%qs_control%becke_control%becke_pot, &
+                                          hmat=cdft_control%wmat(ivar), qs_env=qs_env, &
+                                          calculate_forces=.FALSE., &
+                                          gapw=dft_control%qs_control%gapw)
+               ELSE
+                  CALL integrate_v_rspace(dft_control%qs_control%becke_control%combined_weight, &
+                                          hmat=cdft_control%wmat(ivar), qs_env=qs_env, &
+                                          calculate_forces=.FALSE., &
+                                          gapw=dft_control%qs_control%gapw)
+               END IF
+            END DO 
+            ! Overlap matrix
             CALL dbcsr_init_p(cdft_control%matrix_s%matrix)
             CALL dbcsr_copy(cdft_control%matrix_s%matrix, matrix_s(1)%matrix, &
                             name="OVERLAP")
@@ -1064,6 +1087,7 @@ CONTAINS
                CALL cp_fm_to_fm(qs_env%mos(ispin)%mo_set%mo_coeff, &
                                 cdft_control%mo_coeff(ispin)%matrix)
             END DO
+            ! Density matrix
             IF (cdft_control%calculate_metric) THEN
                CALL get_qs_env(qs_env, rho=rho)
                CALL qs_rho_get(rho, rho_ao=rho_ao)
