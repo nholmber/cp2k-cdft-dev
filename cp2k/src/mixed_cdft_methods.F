@@ -1407,7 +1407,6 @@ CONTAINS
             'Information at step (fs)            :', mixed_cdft%sim_step*mixed_cdft%sim_dt
          SELECT CASE (mixed_cdft%constraint_type)
          CASE (cdft_density_constraint, cdft_magnetization_constraint)
-          Strength of constraint A          :
             WRITE (iounit, '(T3,A,T60,(3X,F18.12))') 'Strength of constraint A            :', strength_a(1)
             WRITE (iounit, '(T3,A,T60,(3X,F18.12))') 'Strength of constraint B            :', strength_b(1)
             WRITE (iounit, '(T3,A,T60,(3X,F18.12))') 'Final value of constraint A         :', Waa(1)
