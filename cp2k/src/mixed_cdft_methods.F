@@ -1323,7 +1323,7 @@ CONTAINS
                CALL cp_gemm('T', 'N', nmo, nmo, nao, 1.0_dp, &
                             mixed_mo_coeff(istate, ispin)%matrix, &
                             mo_tmp, 0.0_dp, mo_overlap_wfn)
-               CALL cp_fm_invert(mo_overlap_wfn, inverse_mat, overlaps(j, ispin), eps_svd=mixed_cdft%eps_svd)
+               CALL cp_fm_invert(mo_overlap_wfn, inverse_mat, overlaps(istate, ispin), eps_svd=mixed_cdft%eps_svd)
             END DO
             CALL cp_fm_release(mo_overlap_wfn)
             CALL cp_fm_release(inverse_mat)
@@ -1404,9 +1404,10 @@ CONTAINS
          WRITE (iounit, '(/,T3,A,T66)') &
             '------------------------- CDFT coupling information -------------------------'
          WRITE (iounit, '(T3,A,T66,(3X,F12.2))') &
-            'Information at step (fs)          :', mixed_cdft%sim_step*mixed_cdft%sim_dt
+            'Information at step (fs)            :', mixed_cdft%sim_step*mixed_cdft%sim_dt
          SELECT CASE (mixed_cdft%constraint_type)
          CASE (cdft_density_constraint, cdft_magnetization_constraint)
+          Strength of constraint A          :
             WRITE (iounit, '(T3,A,T60,(3X,F18.12))') 'Strength of constraint A            :', strength_a(1)
             WRITE (iounit, '(T3,A,T60,(3X,F18.12))') 'Strength of constraint B            :', strength_b(1)
             WRITE (iounit, '(T3,A,T60,(3X,F18.12))') 'Final value of constraint A         :', Waa(1)
@@ -1421,8 +1422,8 @@ CONTAINS
             WRITE (iounit, '(T3,A,T60,(3X,F18.12))') 'Final value of constraint A (charge):', Waa(1)
             WRITE (iounit, '(T3,A,T60,(3X,F18.12))') 'Final value of constraint A (spin)  :', Waa(2)
          END SELECT            
-         WRITE (iounit, '(T3,A,T60,(3X,F18.12))') 'Overlap between states A and B    :', Sda
-         WRITE (iounit, '(T3,A,T60,(3X,F18.12))') 'Charge transfer energy (B-A) (Ha) :', (energy_b-energy_a)
+         WRITE (iounit, '(T3,A,T60,(3X,F18.12))') 'Overlap between states A and B      :', Sda
+         WRITE (iounit, '(T3,A,T60,(3X,F18.12))') 'Charge transfer energy (B-A) (Ha)   :', (energy_b-energy_a)
          WRITE (iounit, *)
          IF (ABS(W_mat(1, 2))*1.0E3_dp .GE. 0.1_dp) THEN
             WRITE (iounit, '(T3,A,T60,(3X,F18.12))') &
@@ -1444,10 +1445,10 @@ CONTAINS
             WRITE (iounit, *)
             IF (coupling_wfn*1.0E3_dp .GE. 0.1_dp) THEN
                WRITE (iounit, '(T3,A,T60,(3X,F18.12))') &
-                  'Diabatic coupling (wavefunction overlap method, mHartree):', coupling_wfn*1.0E3_dp
+                  'Diabatic coupling (wfn overlap method, mHartree):', coupling_wfn*1.0E3_dp
             ELSE
                WRITE (iounit, '(T3,A,T60,(3X,F18.12))') &
-                  'Diabatic coupling (wavefunction overlap method, microHartree):', coupling_wfn*1.0E6_dp
+                  'Diabatic coupling (wfn overlap method, microHartree):', coupling_wfn*1.0E6_dp
             END IF
          END IF
          WRITE (iounit, '(T3,A)') &
