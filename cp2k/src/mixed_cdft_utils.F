@@ -939,6 +939,7 @@ CONTAINS
          nvar = 1
       END IF
       ALLOCATE (mixed_mo_coeff(2, nspins))
+      ALLOCATE (w_matrix(2, nvar))
       CALL dbcsr_init_p(mixed_matrix_s)
       IF (mixed_cdft%calculate_metric) &
          ALLOCATE (density_matrix(2, nspins))
@@ -1056,6 +1057,8 @@ CONTAINS
          ! Weight
          DO ivar = 1, nvar
             NULLIFY (mixed_wmat_tmp(iforce_eval, ivar)%matrix)
+            NULLIFY (w_matrix(iforce_eval, ivar)%matrix)
+            CALL dbcsr_init_p(w_matrix(iforce_eval, ivar)%matrix)
             CALL cp_fm_create(matrix=mixed_wmat_tmp(iforce_eval, ivar)%matrix, &
                               matrix_struct=fm_struct_wmat, &
                               name="WEIGHT_"//TRIM(ADJUSTL(cp_to_string(iforce_eval)))//"_MATRIX")
@@ -1076,8 +1079,8 @@ CONTAINS
                CALL dbcsr_init_p(density_matrix(iforce_eval, ispin)%matrix)
                CALL cp_fm_create(matrix=mixed_matrix_p_tmp(iforce_eval, ispin)%matrix, &
                                  matrix_struct=fm_struct_overlap, &
-                                 name="DENSITY_"//TRIM(ADJUSTL(cp_to_string(iforce_eval)))//"_" &
-                                 //TRIM(ADJUSTL(cp_to_string(ispin)))//"_MATRIX")
+                                 name="DENSITY_"//TRIM(ADJUSTL(cp_to_string(iforce_eval)))//"_"//&
+                                       TRIM(ADJUSTL(cp_to_string(ispin)))//"_MATRIX")
                CALL cp_fm_copy_general(matrix_p_tmp(iforce_eval, ispin)%matrix, &
                                        mixed_matrix_p_tmp(iforce_eval, ispin)%matrix, &
                                        mixed_cdft%blacs_env%para_env)
