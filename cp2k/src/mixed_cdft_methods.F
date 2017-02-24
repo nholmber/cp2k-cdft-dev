@@ -1090,7 +1090,7 @@ CONTAINS
                            name="MO_OVERLAP_"//TRIM(ADJUSTL(cp_to_string(ispin)))//"_MATRIX")
          DO iweight = 1, nweight
             DO istate = 1, 2
-               NULLIFY (w_matrix_mo(istate, ivar)%matrix)
+               NULLIFY (w_matrix_mo(istate, iweight)%matrix)
                CALL cp_fm_create(matrix=w_matrix_mo(istate, iweight)%matrix, matrix_struct=mo_mo_fmstruct, &
                                  name="W_"//TRIM(ADJUSTL(cp_to_string(istate)))//"_"//&
                                        TRIM(ADJUSTL(cp_to_string(iweight)))//"_MATRIX")
