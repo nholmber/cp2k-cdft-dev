@@ -1390,6 +1390,9 @@ CONTAINS
          W_mat(1, 2) = (W_mat(1, 2) + W_mat(2, 1))/2.0_dp
          W_mat(2, 1) = W_mat(1, 2)
          IF (i==2) W_mat = old_W_mat
+         IF (force_env%para_env%mepos == force_env%para_env%source) THEN
+            print *, 'W_mat', ivar, W_mat(1, 1), W_mat(1, 2), W_mat(2, 1), W_mat(2, 2)
+         END IF
          !! Invert S via eigendecomposition and compute S^-(1/2)
          CALL diamat_all(S_mat, eigenv, .TRUE.)
          IF (eigenv(1) .LT. 1.0e-14_dp) eigenv(1) = 1.0e-14_dp ! Safeguard against division with 0 and negative numbers
