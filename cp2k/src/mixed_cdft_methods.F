@@ -1366,8 +1366,14 @@ CONTAINS
       S_mat(1, 2) = Sda
       W_mat(1, 1) = SUM(Wbb)
       W_mat(2, 2) = SUM(Waa)
-      W_mat(2, 1) = SUM(Wda)
-      W_mat(1, 2) = SUM(Wda)
+      W_mat(1, 2) = 0.0_dp
+      W_mat(2, 1) = 0.0_dp      
+      DO ivar = 1, nvar
+         W_mat(1, 2) = W_mat(1, 2) + strength_a(ivar)*Wda(ivar)
+         W_mat(2, 1) = W_mat(2, 1) + strength_b(ivar)*Wda(ivar)
+      END DO
+      W_mat(1, 2) = (W_mat(1, 2) + W_mat(2, 1))/2.0_dp
+      W_mat(2, 1) = W_mat(1, 2)
       ! Invert S via eigendecomposition and compute S^-(1/2)
       CALL diamat_all(S_mat, eigenv, .TRUE.)
       IF (eigenv(1) .LT. 1.0e-14_dp) eigenv(1) = 1.0e-14_dp ! Safeguard against division with 0 and negative numbers
@@ -1394,7 +1400,7 @@ CONTAINS
          sum_a(1) = sum_a(1) + strength_a(ivar)*Waa(ivar)
          sum_a(2) = sum_a(2) + strength_a(ivar)*Wda(ivar)             
       END DO
-      c(1) = (energy_b+sum_b(1))*Sda-sum_b(2) ! H_AB = F_B*S_AB + V_B * W_AB
+      c(1) = (energy_b+sum_b(1))*Sda-sum_b(2) ! H_AB = F_B*S_AB - V_B * W_AB
       c(2) = (energy_a+sum_a(1))*Sda-sum_a(2) ! H_BA = F_A*S_BA - V_A * W_BA
       W_mat(1, 2) = (c(1)+c(2))*0.5_dp ! H''(1,2) = 0.5*(H_AB+H_AB) = H''(2,1)
       W_mat(2, 1) = W_mat(1, 2)
