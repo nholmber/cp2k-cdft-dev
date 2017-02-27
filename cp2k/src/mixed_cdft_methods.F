@@ -1002,7 +1002,7 @@ CONTAINS
       INTEGER                                            :: handle, iforce_eval, iounit, ispin, j, &
                                                             k, my_id, nao, ncol_local, &
                                                             nforce_eval, nmo, nrow_local, nspins, &
-                                                            nvar, ivar, istate, jstate, nweight, iweight
+                                                            nvar, ivar, istate, jstate, nweight, iweight, i
       INTEGER, ALLOCATABLE, DIMENSION(:)                 :: ncol_mo, nrow_mo
       LOGICAL                                            :: exist, natom_mismatch
       REAL(KIND=dp)                                      :: coupling_wfn, energy_a, energy_b, &
