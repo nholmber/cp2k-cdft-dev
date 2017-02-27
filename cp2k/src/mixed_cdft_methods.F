@@ -1396,7 +1396,6 @@ CONTAINS
          W_mat = MATMUL(U, tmp_mat) ! W' = S^(-1/2) * W * S^(-1/2)
          CALL diamat_all(W_mat, eigenv, .TRUE.) ! Solve W'V' = AV'
          tmp_mat = MATMUL(U, W_mat) ! Reverse transformation V = S^(-1/2) V
-         tmp_mat = MATMUL(old_W_mat, tmp_mat)
          ! Construct final, orthogonal diabatic Hamiltonian matrix H
          W_mat(1, 1) = energy_b
          W_mat(2, 2) = energy_a
