@@ -1367,8 +1367,13 @@ CONTAINS
          S_mat(2, 2) = 1.0_dp
          S_mat(2, 1) = Sda
          S_mat(1, 2) = Sda
-         W_mat(1, 1) = SUM(Wbb)
-         W_mat(2, 2) = SUM(Waa)
+         IF (i == 2) THEN
+            W_mat(1, 1) = SUM(Wbb)
+            W_mat(2, 2) = SUM(Waa)
+         ELSE
+            W_mat(1, 1) = 0.0_dp
+            W_mat(2, 2) = 0.0_dp
+         END IF
          W_mat(1, 2) = 0.0_dp
          W_mat(2, 1) = 0.0_dp
          old_W_mat = W_mat
@@ -1377,6 +1382,10 @@ CONTAINS
          DO ivar = 1, nvar
             W_mat(1, 2) = W_mat(1, 2) + strength_a(ivar)*Wda(ivar)
             W_mat(2, 1) = W_mat(2, 1) + strength_b(ivar)*Wda(ivar)
+            IF (i == 1) THEN
+               W_mat(1, 1) = W_mat(1, 1) + strength_a(ivar)*Waa(ivar)
+               W_mat(2, 2) = W_mat(2, 2) + strength_b(ivar)*Wbb(ivar)
+            END IF
          END DO
          W_mat(1, 2) = (W_mat(1, 2) + W_mat(2, 1))/2.0_dp
          W_mat(2, 1) = W_mat(1, 2)
