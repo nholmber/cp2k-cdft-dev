@@ -466,9 +466,6 @@ CONTAINS
          eps_cavity = dft_control%qs_control%becke_control%eps_cavity
 
          IF (calc_pot) THEN
-
-            becke_const%pw%cr3d = 0.0_dp
-
             ! Setup atomic radii for adjusting cell boundaries
             IF (dft_control%qs_control%becke_control%adjust) THEN
                IF (.NOT. ASSOCIATED(dft_control%qs_control%becke_control%radii)) THEN
@@ -554,6 +551,7 @@ CONTAINS
             ENDDO
 
             IF (has_global_weight) THEN
+               becke_const%pw%cr3d = 0.0_dp
                bo = becke_const%pw%pw_grid%bounds_local
                np = becke_const%pw%pw_grid%npts
                dvol = becke_const%pw%pw_grid%dvol
