@@ -446,7 +446,7 @@ CONTAINS
             IF (dft_control%nspins == 1) &
                CALL cp_abort(__LOCATION__, &
                              "Becke atomic magnetization density constraint requires UKS calculation.")
-            IF (dft_control%qs_control%becke_control%in_memory) &
+            IF (dft_control%qs_control%becke_control%save_pot .AND. dft_control%qs_control%becke_control%in_memory) &
                CALL cp_abort(__LOCATION__, &
                              "No forces available for Becke atomic magnetization density constraint.")
 
