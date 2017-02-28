@@ -706,14 +706,15 @@ CONTAINS
             WRITE (output_unit, '(/,T3,A,T60)') &
                'Convergence information for atomic magnetization density constraint'
             WRITE (output_unit, '(/,T3,A,T60)') &                  
-               'Largest deviation from target values:', MAXVAL(ABS(dE-target_val))
+               'Largest absolute deviation from target values:', &
+               MAXVAL(ABS(cdft_control%value-cdft_control%target))
             WRITE (output_unit, '(A)') " "
             WRITE (output_unit, '(/,T3,A,A)') &
-              '#Atom  Element     Target value    Actual value    Strength'
-            DO iatom = 1, dft_control%qs_control%becke_control%natoms
-               jatom = dft_control%qs_control%becke_control%atoms(iatom)
+              '#Atom              Target value    Actual value    Strength'
+            DO iatom = 1, SIZE(cdft_control%atoms)
                WRITE (output_unit, "(i7,T23,F18.12,T45,F18.12,T67,F18.12)") &
-                  jatom, target_val(iatom), dE(iatom), strength(iatom)tom)
+                  iatom, cdft_control%target(iatom)(iatom), cdft_control%value(iatom), &
+                  cdft_control%strength(iatom)
             END DO
          END SELECT
          WRITE (output_unit, '(T3,A)') &
