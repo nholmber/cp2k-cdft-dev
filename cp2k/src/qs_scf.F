@@ -1109,7 +1109,7 @@ CONTAINS
             IF (dft_control%qs_control%becke_control%has_global_weight) &
                CALL pw_pool_give_back_pw(auxbas_pw_pool, &
                                          dft_control%qs_control%becke_control%becke_pot%pw)
-            IF (ASSOCIATED(dft_control%qs_control%becke_control%atomic_weight) THEN
+            IF (ASSOCIATED(dft_control%qs_control%becke_control%atomic_weight)) THEN
                DO iatom = 1, dft_control%qs_control%becke_control%natoms
                   CALL pw_pool_give_back_pw(auxbas_pw_pool, &
                                             dft_control%qs_control%becke_control%atomic_weight(iatom)%pw)
