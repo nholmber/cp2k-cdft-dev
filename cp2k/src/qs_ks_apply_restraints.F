@@ -144,7 +144,7 @@ CONTAINS
                CALL pw_scale(becke%becke_pot%pw, becke%becke_pot%pw%pw_grid%dvol)
             ELSE 
                DO iatom = 1, becke%natoms
-                  CALL pw_scale(becke%atomic_weight(iatom)%pw, becke%atomic_weight%pw%pw_grid%dvol)
+                  CALL pw_scale(becke%atomic_weight(iatom)%pw, becke%atomic_weight(iatom)%pw%pw_grid%dvol)
                END DO
             END IF
             IF (dft_control%qs_control%becke_control%constraint_type == cdft_combined_constraint) THEN
