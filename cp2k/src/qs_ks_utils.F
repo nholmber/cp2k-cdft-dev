@@ -51,7 +51,8 @@ MODULE qs_ks_utils
    USE input_constants,                 ONLY: &
         cdft_combined_acceptor, cdft_combined_all, cdft_combined_donor, &
         cdft_magnetization_constraint, do_ppl_grid, outer_scf_hirshfeld_constraint, sic_ad, &
-        sic_eo, sic_list_all, sic_list_unpaired, sic_mauri_spz, sic_mauri_us, sic_none
+        sic_eo, sic_list_all, sic_list_unpaired, sic_mauri_spz, sic_mauri_us, sic_none, cdft_atomic_magnetization_constraint, &
+        cdft_density_constraint, cdft_combined_constraint
    USE input_section_types,             ONLY: section_vals_get_subs_vals,&
                                               section_vals_type,&
                                               section_vals_val_get
@@ -1276,26 +1277,39 @@ CONTAINS
             END IF
             IF (dft_control%qs_control%becke_restraint) THEN
                nvar = SIZE(becke%strength)
-               DO ivar = 1, nvar
-                  IF (ivar == 2) THEN
-                     sign = 1.0_dp
-                     IF (ispin == 2) sign = -1.0_dp
-                     SELECT CASE (becke%combined_type)
-                     CASE (cdft_combined_all)
+               SELECT CASE (becke%constraint_type)
+               CASE (cdft_magnetization_constraint, cdft_density_constraint, cdft_combined_constraint)
+                  DO ivar = 1, nvar
+                     IF (ivar == 2) THEN
+                        sign = 1.0_dp
+                        IF (ispin == 2) sign = -1.0_dp
+                        SELECT CASE (becke%combined_type)
+                        CASE (cdft_combined_all)
+                           v_rspace_new(ispin)%pw%cr3d = v_rspace_new(ispin)%pw%cr3d &
+                                                         +sign*becke%becke_pot%pw%cr3d*becke%strength(ivar)
+                        CASE (cdft_combined_acceptor, cdft_combined_donor)
+                           v_rspace_new(ispin)%pw%cr3d = v_rspace_new(ispin)%pw%cr3d &
+                                                         +sign*becke%combined_weight%pw%cr3d*becke%strength(ivar)
+                        END SELECT
+                     ELSE
+                        sign = 1.0_dp
+                        IF (ispin == 2 .AND. becke%constraint_type == cdft_magnetization_constraint) &
+                           sign = -1.0_dp
                         v_rspace_new(ispin)%pw%cr3d = v_rspace_new(ispin)%pw%cr3d &
                                                       +sign*becke%becke_pot%pw%cr3d*becke%strength(ivar)
-                     CASE (cdft_combined_acceptor, cdft_combined_donor)
-                        v_rspace_new(ispin)%pw%cr3d = v_rspace_new(ispin)%pw%cr3d &
-                                                      +sign*becke%combined_weight%pw%cr3d*becke%strength(ivar)
-                     END SELECT
-                  ELSE
-                     sign = 1.0_dp
-                     IF (ispin == 2 .AND. becke%constraint_type == cdft_magnetization_constraint) &
+                     END IF
+                  END DO
+               CASE (cdft_atomic_magnetization_constraint)
+                  DO ivar = 1, nvar
+                     IF (ispin == 1) THEN
+                        sign = 1.0_dp
+                     ELSE
                         sign = -1.0_dp
+                     END IF
                      v_rspace_new(ispin)%pw%cr3d = v_rspace_new(ispin)%pw%cr3d &
-                                                   +sign*becke%becke_pot%pw%cr3d*becke%strength(ivar)
-                  END IF
-               END DO
+                                                   +sign*becke%atomic_weight(ivar)%pw%cr3d*becke%strength(ivar)
+                  END DO
+               END SELECT
             END IF
             IF (dft_control%qs_control%cdft) THEN
                IF (cdft_control%type == outer_scf_hirshfeld_constraint) &

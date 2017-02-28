@@ -27,7 +27,7 @@ MODULE qs_scf_output
         outer_scf_hirshfeld_constraint, outer_scf_optimizer_bisect, outer_scf_optimizer_broyden, &
         outer_scf_optimizer_diis, outer_scf_optimizer_newton, outer_scf_optimizer_newton_ls, &
         outer_scf_optimizer_sd, outer_scf_optimizer_secant, radius_covalent, radius_single, &
-        radius_user, radius_vdw
+        radius_user, radius_vdw, cdft_atomic_magnetization_constraint
    USE input_section_types,             ONLY: section_vals_get_subs_vals,&
                                               section_vals_type,&
                                               section_vals_val_get
@@ -647,6 +647,7 @@ CONTAINS
          routineP = moduleN//':'//routineN
 
       REAL(KIND=dp)                                      :: outer_loop_eps
+      INTEGER                                            :: iatom, jatom
 
       IF (cdft_loop) THEN
          outer_loop_eps = SQRT(MAXVAL(scf_env%outer_scf%gradient(:, scf_env%outer_scf%iter_count)**2))
@@ -701,6 +702,19 @@ CONTAINS
                'Strength of constraint (charge)   :', cdft_control%strength(1)
             WRITE (output_unit, '(T3,A,T54,(3X,F18.12))') &
                'Strength of constraint (spin)     :', cdft_control%strength(2)
+         CASE (cdft_atomic_magnetization_constraint)
+            WRITE (output_unit, '(/,T3,A,T60)') &
+               'Convergence information for atomic magnetization density constraint'
+            WRITE (output_unit, '(/,T3,A,T60)') &                  
+               'Largest deviation from target values:', MAXVAL(ABS(dE-target_val))
+            WRITE (output_unit, '(A)') " "
+            WRITE (output_unit, '(/,T3,A,A)') &
+              '#Atom  Element     Target value    Actual value    Strength'
+            DO iatom = 1, dft_control%qs_control%becke_control%natoms
+               jatom = dft_control%qs_control%becke_control%atoms(iatom)
+               WRITE (output_unit, "(i7,T23,F18.12,T45,F18.12,T67,F18.12)") &
+                  jatom, target_val(iatom), dE(iatom), strength(iatom)tom)
+            END DO
          END SELECT
          WRITE (output_unit, '(T3,A)') &
             '------------------------------------------------------------------------'

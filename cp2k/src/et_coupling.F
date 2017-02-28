@@ -46,7 +46,7 @@ MODULE et_coupling
    USE input_constants,                 ONLY: &
         becke_cutoff_element, becke_cutoff_global, cdft_combined_acceptor, cdft_combined_all, &
         cdft_combined_constraint, cdft_combined_donor, cdft_density_constraint, &
-        cdft_magnetization_constraint, ref_charge_atomic, ref_charge_mulliken
+        cdft_magnetization_constraint, ref_charge_atomic, ref_charge_mulliken, cdft_atomic_magnetization_constraint
    USE input_section_types,             ONLY: section_vals_get_subs_vals,&
                                               section_vals_type
    USE kahan_sum,                       ONLY: accurate_sum,&
@@ -328,18 +328,18 @@ CONTAINS
 !> \brief calculates a Becke contraint
 !> \param qs_env the qs_env where to build the constraint
 !> \param becke_const the Becke real space potential
-!> \param charge atomic Becke real space potentials defined on the constraint atoms
+!> \param atomic_weight atomic Becke real space potentials defined on the constraint atoms
 !> \param calc_pot if the potential needs to be recalculated or just integrated
 !> \param calculate_forces logical if potential has to be calculated or only_energy
 !> \par   History
 !>        Created 01.2007 [fschiff]
 !>        Extended functionality 12/15-12/16 [Nico Holmberg]
 ! **************************************************************************************************
-   SUBROUTINE becke_restraint(qs_env, becke_const, charge, calc_pot, calculate_forces)
+   SUBROUTINE becke_restraint(qs_env, becke_const, atomic_weight, calc_pot, calculate_forces)
 
       TYPE(qs_environment_type), POINTER                 :: qs_env
       TYPE(pw_p_type)                                    :: becke_const
-      TYPE(pw_p_type), DIMENSION(:), POINTER             :: charge
+      TYPE(pw_p_type), DIMENSION(:), POINTER             :: atomic_weight
       LOGICAL                                            :: calc_pot, calculate_forces
 
       CHARACTER(len=*), PARAMETER :: routineN = 'becke_restraint', &
@@ -352,11 +352,11 @@ CONTAINS
       INTEGER, ALLOCATABLE, DIMENSION(:)                 :: catom
       INTEGER, DIMENSION(2, 3)                           :: bo, bo_conf
       INTEGER, DIMENSION(:), POINTER                     :: atom_list, cores, stride
-      LOGICAL                                            :: build, in_memory, paw_atom, store_vectors
+      LOGICAL                                            :: build, in_memory, paw_atom, store_vectors, has_global_weight
       LOGICAL, ALLOCATABLE, DIMENSION(:)                 :: is_combined, is_constraint, skip_me
       REAL(kind=dp) :: alpha, chi, coef, dist1, dist2, dmyexp, dvol, dynamic_radius, eps_cavity, &
          ircov, jrcov, lb, my1, my1_homo, myexp, nelectron_frag, sign, sum_cell_f_all, &
-         sum_cell_f_combined, sum_cell_f_constr, tc, th, tmp_const, ub, uij, zeff
+         sum_cell_f_combined, sum_cell_f_constr, tc, th, tmp_const, ub, uij, zeff, nelectrons
       REAL(kind=dp), ALLOCATABLE, DIMENSION(:)           :: cell_functions, coefficients, dE, &
                                                             distances, ds_dR_i, ds_dR_j, &
                                                             gapw_offset, strength, target_val
@@ -419,6 +419,7 @@ CONTAINS
       CALL qs_rho_get(rho, rho_r=rho_r)
 
       IF (dft_control%qs_control%becke_restraint) THEN
+         has_global_weight = dft_control%qs_control%becke_control%has_global_weight
          SELECT CASE (dft_control%qs_control%becke_control%constraint_type)
          CASE (cdft_density_constraint)
             nvar = 1
@@ -440,6 +441,15 @@ CONTAINS
             CASE (cdft_combined_acceptor, cdft_combined_donor)
                ngrad = 2
             END SELECT
+         CASE (cdft_atomic_magnetization_constraint)
+            nvar = SIZE(dft_control%qs_control%becke_control%target)
+            IF (dft_control%nspins == 1) &
+               CALL cp_abort(__LOCATION__, &
+                             "Becke atomic magnetization density constraint requires UKS calculation.")
+            IF (dft_control%qs_control%becke_control%in_memory) &
+               CALL cp_abort(__LOCATION__, &
+                             "No forces available for Becke atomic magnetization density constraint.")
+
          END SELECT
          ALLOCATE (strength(nvar))
          ALLOCATE (target_val(nvar))
@@ -493,9 +503,9 @@ CONTAINS
             END IF
             cutoffs => dft_control%qs_control%becke_control%cutoffs
 
-            IF (dft_control%qs_control%becke_control%atomic_charges) THEN
+            IF (ASSOCIATED(atomic_weight)) THEN
                DO iatom = 1, dft_control%qs_control%becke_control%natoms
-                  charge(iatom)%pw%cr3d = 0.0_dp
+                  atomic_weight(iatom)%pw%cr3d = 0.0_dp
                END DO
             END IF
 
@@ -1097,15 +1107,17 @@ CONTAINS
                      IF (nskipped == dft_control%qs_control%becke_control%natoms) CYCLE
                      sum_cell_f_constr = 0.0_dp
                      sum_cell_f_combined = 0.0_dp
-                     DO ip = 1, dft_control%qs_control%becke_control%natoms
-                        sum_cell_f_constr = sum_cell_f_constr+cell_functions(catom(ip))* &
-                                            dft_control%qs_control%becke_control%coeff(ip)
-                        IF (ngrad == 2) THEN
-                           ! The coeff is implicitly 1.0
-                           IF (is_combined(catom(ip))) &
-                              sum_cell_f_combined = sum_cell_f_combined+cell_functions(catom(ip))
-                        END IF
-                     END DO
+                     IF (has_global_weight) THEN
+                        DO ip = 1, dft_control%qs_control%becke_control%natoms
+                           sum_cell_f_constr = sum_cell_f_constr+cell_functions(catom(ip))* &
+                                               dft_control%qs_control%becke_control%coeff(ip)
+                           IF (ngrad == 2) THEN
+                              ! The coeff is implicitly 1.0
+                              IF (is_combined(catom(ip))) &
+                                 sum_cell_f_combined = sum_cell_f_combined+cell_functions(catom(ip))
+                           END IF
+                        END DO
+                     END IF
 
                      sum_cell_f_all = 0.0_dp
                      DO ip = 1, natom
@@ -1126,16 +1138,23 @@ CONTAINS
                      END IF
                      ! Weight function at (k,j,i)
                      IF (ABS(sum_cell_f_all) .GT. 0.000001) THEN
-                        becke_const%pw%cr3d(k, j, i) = sum_cell_f_constr/sum_cell_f_all
-                        IF (dft_control%qs_control%becke_control%atomic_charges) THEN
+                        SELECT CASE (dft_control%qs_control%becke_control%constraint_type)
+                        CASE (cdft_density_constraint, cdft_combined_constraint, cdft_magnetization_constraint)
+                           becke_const%pw%cr3d(k, j, i) = sum_cell_f_constr/sum_cell_f_all
+                           IF (dft_control%qs_control%becke_control%atomic_charges) THEN
+                              DO iatom = 1, dft_control%qs_control%becke_control%natoms
+                                 atomic_weight(iatom)%pw%cr3d(k, j, i) = cell_functions(catom(iatom))/sum_cell_f_all
+                              END DO
+                           END IF
+                           IF (ngrad == 2) THEN
+                              dft_control%qs_control%becke_control%combined_weight%pw%cr3d(k, j, i) = sum_cell_f_combined/ &
+                                                                                                      sum_cell_f_all
+                           END IF
+                        CASE (cdft_atomic_magnetization_constraint)
                            DO iatom = 1, dft_control%qs_control%becke_control%natoms
-                              charge(iatom)%pw%cr3d(k, j, i) = cell_functions(catom(iatom))/sum_cell_f_all
+                              atomic_weight(iatom)%pw%cr3d(k, j, i) = cell_functions(catom(iatom))/sum_cell_f_all
                            END DO
-                        END IF
-                        IF (ngrad == 2) THEN
-                           dft_control%qs_control%becke_control%combined_weight%pw%cr3d(k, j, i) = sum_cell_f_combined/ &
-                                                                                                   sum_cell_f_all
-                        END IF
+                        END SELECT
                      END IF
                   END DO
                END DO
@@ -1175,78 +1194,95 @@ CONTAINS
             electronic_charge = 0.0_dp
          END IF
          ! Calculate value of constraint i.e. int ( rho(r) w(r) dr)
-         DO i = 1, dft_control%nspins
-            DO ivar = 1, nvar
-               ! With external control, we can use cavity_mat as a mask to kahan sum
-               IF (dft_control%qs_control%becke_control%external_control .AND. &
-                   dft_control%qs_control%becke_control%cavity_confine) THEN
-                  IF (ivar == 2) THEN
-                     sign = 1.0_dp
-                     IF (i == 2) sign = -1.0_dp
-                     SELECT CASE (dft_control%qs_control%becke_control%combined_type)
-                     CASE (cdft_combined_all)
-                        dE(ivar) = dE(ivar)+ &
-                                   sign*accurate_sum_arrays_product(becke_const%pw%cr3d, rho_r(i)%pw%cr3d, &
-                                                                    dft_control%qs_control%becke_control%cavity_mat, &
-                                                                    eps_cavity)*dvol
-                     CASE (cdft_combined_donor, cdft_combined_acceptor)
-                        ! Transfer spin constraint weight truncated real-3D matrix -> pw%cr3d
-                        IF (ASSOCIATED(dft_control%qs_control%becke_control%combined_mat)) THEN
-                           NULLIFY (pw_env, auxbas_pw_pool)
-                           CALL get_qs_env(qs_env, pw_env=pw_env)
-                           CALL pw_env_get(pw_env, auxbas_pw_pool=auxbas_pw_pool)
-                           CALL pw_pool_create_pw(auxbas_pw_pool, &
-                                                  dft_control%qs_control%becke_control%combined_weight%pw, &
-                                                  use_data=REALDATA3D, in_space=REALSPACE)
-                           dft_control%qs_control%becke_control%combined_weight%pw%cr3d = 0.0_dp
-                           CALL pw_set(dft_control%qs_control%becke_control%combined_weight%pw, &
-                                       dft_control%qs_control%becke_control%combined_mat)
-                           DEALLOCATE (dft_control%qs_control%becke_control%combined_mat)
-                        END IF
+         SELECT CASE (dft_control%qs_control%becke_control%constraint_type)
+         CASE (cdft_density_constraint, cdft_magnetization_constraint, cdft_combined_constraint)
+            DO i = 1, dft_control%nspins
+               DO ivar = 1, nvar
+                  ! With external control, we can use cavity_mat as a mask to kahan sum
+                  IF (dft_control%qs_control%becke_control%external_control .AND. &
+                      dft_control%qs_control%becke_control%cavity_confine) THEN
+                     IF (ivar == 2) THEN
+                        sign = 1.0_dp
+                        IF (i == 2) sign = -1.0_dp
+                        SELECT CASE (dft_control%qs_control%becke_control%combined_type)
+                        CASE (cdft_combined_all)
+                           dE(ivar) = dE(ivar)+ &
+                                      sign*accurate_sum_arrays_product(becke_const%pw%cr3d, rho_r(i)%pw%cr3d, &
+                                                                       dft_control%qs_control%becke_control%cavity_mat, &
+                                                                       eps_cavity)*dvol
+                        CASE (cdft_combined_donor, cdft_combined_acceptor)
+                           ! Transfer spin constraint weight truncated real-3D matrix -> pw%cr3d
+                           IF (ASSOCIATED(dft_control%qs_control%becke_control%combined_mat)) THEN
+                              NULLIFY (pw_env, auxbas_pw_pool)
+                              CALL get_qs_env(qs_env, pw_env=pw_env)
+                              CALL pw_env_get(pw_env, auxbas_pw_pool=auxbas_pw_pool)
+                              CALL pw_pool_create_pw(auxbas_pw_pool, &
+                                                     dft_control%qs_control%becke_control%combined_weight%pw, &
+                                                     use_data=REALDATA3D, in_space=REALSPACE)
+                              dft_control%qs_control%becke_control%combined_weight%pw%cr3d = 0.0_dp
+                              CALL pw_set(dft_control%qs_control%becke_control%combined_weight%pw, &
+                                          dft_control%qs_control%becke_control%combined_mat)
+                              DEALLOCATE (dft_control%qs_control%becke_control%combined_mat)
+                           END IF
+                           dE(ivar) = dE(ivar)+sign* &
+                                      accurate_sum_arrays_product(dft_control%qs_control%becke_control% &
+                                                                  combined_weight%pw%cr3d, &
+                                                                  rho_r(i)%pw%cr3d, &
+                                                                  dft_control%qs_control%becke_control%cavity_mat, &
+                                                                  eps_cavity)*dvol
+                        END SELECT
+                     ELSE
+                        sign = 1.0_dp
+                        ! Note the negative sign for beta spin if spin constraint is active
+                        IF (dft_control%qs_control%becke_control%constraint_type == &
+                            cdft_magnetization_constraint .AND. i == 2) sign = -1.0_dp
                         dE(ivar) = dE(ivar)+sign* &
-                                   accurate_sum_arrays_product(dft_control%qs_control%becke_control% &
-                                                               combined_weight%pw%cr3d, &
-                                                               rho_r(i)%pw%cr3d, &
+                                   accurate_sum_arrays_product(becke_const%pw%cr3d, rho_r(i)%pw%cr3d, &
                                                                dft_control%qs_control%becke_control%cavity_mat, &
                                                                eps_cavity)*dvol
-                     END SELECT
+                     END IF
                   ELSE
-                     sign = 1.0_dp
-                     ! Note the negative sign for beta spin if spin constraint is active
-                     IF (dft_control%qs_control%becke_control%constraint_type == &
-                         cdft_magnetization_constraint .AND. i == 2) sign = -1.0_dp
-                     dE(ivar) = dE(ivar)+sign* &
-                                accurate_sum_arrays_product(becke_const%pw%cr3d, rho_r(i)%pw%cr3d, &
-                                                            dft_control%qs_control%becke_control%cavity_mat, &
-                                                            eps_cavity)*dvol
-                  END IF
-               ELSE
-                  IF (ivar == 2) THEN
-                     sign = 1.0_dp
-                     IF (i == 2) sign = -1.0_dp
-                     SELECT CASE (dft_control%qs_control%becke_control%combined_type)
-                     CASE (cdft_combined_all)
+                     IF (ivar == 2) THEN
+                        sign = 1.0_dp
+                        IF (i == 2) sign = -1.0_dp
+                        SELECT CASE (dft_control%qs_control%becke_control%combined_type)
+                        CASE (cdft_combined_all)
+                           dE(ivar) = dE(ivar)+sign*accurate_sum(becke_const%pw%cr3d*rho_r(i)%pw%cr3d)*dvol
+                        CASE (cdft_combined_donor, cdft_combined_acceptor)
+                           dE(ivar) = dE(ivar)+sign* &
+                                      accurate_sum(dft_control%qs_control%becke_control%combined_weight%pw%cr3d* &
+                                                   rho_r(i)%pw%cr3d)*dvol
+                        END SELECT
+                     ELSE
+                        sign = 1.0_dp
+                        ! Note the negative sign for beta spin if spin constraint is active
+                        IF (dft_control%qs_control%becke_control%constraint_type == &
+                            cdft_magnetization_constraint .AND. i == 2) sign = -1.0_dp
                         dE(ivar) = dE(ivar)+sign*accurate_sum(becke_const%pw%cr3d*rho_r(i)%pw%cr3d)*dvol
-                     CASE (cdft_combined_donor, cdft_combined_acceptor)
-                        dE(ivar) = dE(ivar)+sign* &
-                                   accurate_sum(dft_control%qs_control%becke_control%combined_weight%pw%cr3d* &
-                                                rho_r(i)%pw%cr3d)*dvol
-                     END SELECT
-                  ELSE
-                     sign = 1.0_dp
-                     ! Note the negative sign for beta spin if spin constraint is active
-                     IF (dft_control%qs_control%becke_control%constraint_type == &
-                         cdft_magnetization_constraint .AND. i == 2) sign = -1.0_dp
-                     dE(ivar) = dE(ivar)+sign*accurate_sum(becke_const%pw%cr3d*rho_r(i)%pw%cr3d)*dvol
+                     END IF
                   END IF
+               END DO
+               IF (dft_control%qs_control%becke_control%atomic_charges) THEN
+                  DO iatom = 1, dft_control%qs_control%becke_control%natoms
+                     electronic_charge(iatom, i) = accurate_sum(atomic_weight(iatom)%pw%cr3d*rho_r(i)%pw%cr3d)*dvol
+                  END DO
                END IF
             END DO
-            IF (dft_control%qs_control%becke_control%atomic_charges) THEN
+         CASE (cdft_atomic_magnetization_constraint)
+            DO i = 1, dft_control%nspins
                DO iatom = 1, dft_control%qs_control%becke_control%natoms
-                  electronic_charge(iatom, i) = accurate_sum(charge(iatom)%pw%cr3d*rho_r(i)%pw%cr3d)*dvol
+                  IF (i==1) THEN
+                     sign = 1.0_dp
+                  ELSE
+                     sign = -1.0_dp
+                  END IF
+                  nelectrons = accurate_sum(atomic_weight(iatom)%pw%cr3d*rho_r(i)%pw%cr3d)*dvol
+                  dE(iatom) = dE(iatom) + sign*nelectrons
+                  IF (dft_control%qs_control%becke_control%atomic_charges) &
+                     electronic_charge(iatom, i) = nelectrons
                END DO
-            END IF
-         END DO
+            END DO
+         END SELECT)
          CALL get_qs_env(qs_env, energy=energy)
          CALL mp_sum(dE, para_env%group)
          IF (dft_control%qs_control%becke_control%atomic_charges) THEN
@@ -1271,6 +1307,9 @@ CONTAINS
             CASE (cdft_combined_constraint)
                CALL cp_abort(__LOCATION__, &
                              "Becke deformation density not yet compatible with combined charge+spin constraint.")
+            CASE (cdft_atomic_magnetization_constraint)
+               CALL cp_abort(__LOCATION__, &
+                             "Becke deformation density not yet compatible with atomic magnetization density constraint.")
             END SELECT
             IF (.NOT. dft_control%qs_control%becke_control%fragments_integrated) THEN
                ALLOCATE (dft_control%qs_control%becke_control%fragments(2))
@@ -1359,6 +1398,9 @@ CONTAINS
          END IF
          IF (dft_control%qs_control%gapw) THEN
             ! GAPW: add core charges (rho_hard - rho_soft)
+            IF (dft_control%qs_control%becke_control%constraint_type == cdft_atomic_magnetization_constraint) &
+               CALL cp_abort(__LOCATION__, &
+                             "Becke deformation density not yet compatible with GAPW.")
             IF (dft_control%nspins == 2 .AND. nvar == 2) THEN
                ALLOCATE (gapw_offset(dft_control%nspins+nvar))
             ELSE
@@ -1439,6 +1481,21 @@ CONTAINS
                   'Strength of constraint (charge)   :', strength(1)
                WRITE (iw, '(T3,A,T54,(3X,F18.12))') &
                   'Strength of constraint (spin)     :', strength(2)
+            CASE (cdft_atomic_magnetization_constraint)
+               WRITE (iw, '(/,T3,A,T60)') &
+                  'Convergence information for atomic magnetization density constraint'
+               WRITE (iw, '(/,T3,A,T60)') &                  
+                  'Largest deviation from target values:', MAXVAL(ABS(dE-target_val))
+               WRITE (iw, '(A)') " "
+               WRITE (iw, '(/,T3,A,A)') &
+                 '#Atom  Element     Target value    Actual value    Strength'
+               DO iatom = 1, dft_control%qs_control%becke_control%natoms
+                  jatom = dft_control%qs_control%becke_control%atoms(iatom)
+                  CALL get_atomic_kind(atomic_kind=particle_set(jatom)%atomic_kind, &
+                                       element_symbol=element_symbol)
+                  WRITE (iw, "(i7,T15,A2,T23,F18.12,T45,F18.12,T67,F18.12)") &
+                     jatom, element_symbol, target_val(iatom), dE(iatom), strength(iatom)
+               END DO
             END SELECT
             WRITE (iw, '(T3,A)') &
                '------------------------------------------------------------------------'
@@ -1606,6 +1663,9 @@ CONTAINS
             CASE (cdft_combined_acceptor, cdft_combined_donor)
                ngrad = 2
             END SELECT
+         CASE (cdft_atomic_magnetization_constraint)
+            CALL cp_abort(__LOCATION__, &
+                         "No forces available for Becke atomic magnetization density constraint.")
          END SELECT
          ALLOCATE (strength(nvar))
          strength(:) = dft_control%qs_control%becke_control%strength(:)

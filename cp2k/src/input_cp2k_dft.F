@@ -34,7 +34,7 @@ MODULE input_cp2k_dft
         broyden_type_1_explicit, broyden_type_1_explicit_ls, broyden_type_1_ls, broyden_type_2, &
         broyden_type_2_explicit, broyden_type_2_explicit_ls, broyden_type_2_ls, casci_canonical, &
         cdft_combined_acceptor, cdft_combined_all, cdft_combined_constraint, cdft_combined_donor, &
-        cdft_density_constraint, cdft_magnetization_constraint, cholesky_dbcsr, cholesky_inverse, &
+        cdft_density_constraint, cdft_magnetization_constraint, cdft_atomic_magnetization_constraint ,cholesky_dbcsr, cholesky_inverse, &
         cholesky_off, cholesky_reduce, cholesky_restore, core_guess, diag_block_davidson, &
         diag_block_krylov, diag_filter_matrix, diag_ot, diag_standard, dispersion_d3, &
         dispersion_uff, dmft_model, do_admm_aux_exch_func_bee, do_admm_aux_exch_func_default, &
@@ -4052,16 +4052,19 @@ CONTAINS
 
       CALL keyword_create(keyword, name="STRENGTH", &
                           description="Force constants of the constraints. "// &
-                          "Second value is for combined constraint and is optional.", &
-                          usage="STRENGTH {real} {real}", repeats=.FALSE., &
+                          "magnetization density constraint. The second optional value is for combined constraint. "// &
+                          "This behavior is overridden by an atomic magnetization constraint, which expects one"// &
+                          " one value per constraint atom.", &
                           type_of_var=real_t, n_var=-1, &
                           default_r_val=0.0_dp)
       CALL section_add_keyword(section, keyword)
       CALL keyword_release(keyword)
 
       CALL keyword_create(keyword, name="TARGET", &
-                          description="Target values of the constraints. "// &
-                          "Second value is for combined constraint and is optional.", &
+                          description="Target values of the constraints. First value is for charge/"// &
+                          "magnetization density constraint. The second optional value is for combined constraint. "// &
+                          "This behavior is overridden by an atomic magnetization constraint, which expects one"// &
+                          " one value per constraint atom.", &
                           usage="TARGET {real}", repeats=.FALSE., &
                           type_of_var=real_t, n_var=-1, &
                           default_r_val=0.0_dp)
@@ -4084,14 +4087,15 @@ CONTAINS
 
       CALL keyword_create(keyword, name="CONSTRAINT_TYPE", &
                           description="Specifies the type of constraint used.", &
-                          usage="CONSTRAINT_TYPE (TOTAL|MAGNETIZATION|COMBINED)", &
-                          enum_c_vals=s2a("TOTAL", "MAGNETIZATION", "COMBINED"), &
+                          usage="CONSTRAINT_TYPE (TOTAL|MAGNETIZATION|COMBINED|ATOMIC_SPIN)", &
+                          enum_c_vals=s2a("TOTAL", "MAGNETIZATION", "COMBINED", "ATOMIC_SPIN"), &
                           enum_i_vals=(/cdft_density_constraint, cdft_magnetization_constraint, &
-                                        cdft_combined_constraint/), &
+                                        cdft_combined_constraint, cdft_atomic_magnetization_constraint/), &
                           enum_desc=s2a("Constrain the total density (rho_alpha + rho_beta).", &
                                         "Constrain the magnetization density (rho_alpha - rho_beta).", &
                                         "Constrain both densities. The magnetization density constraint "// &
-                                        " is applied to atoms defined in COMBINED_TYPE."), &
+                                        " is applied to atoms defined in COMBINED_TYPE."// &
+                                        "Constrain the magnetization density individually on all constraint atoms."), &
                           default_i_val=cdft_density_constraint)
       CALL section_add_keyword(section, keyword)
       CALL keyword_release(keyword)

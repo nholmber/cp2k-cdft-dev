@@ -29,7 +29,7 @@ MODULE cp_control_utils
    USE input_constants,                 ONLY: &
         becke_cavity_conf, becke_cutoff_element, becke_cutoff_global, becke_dynamic_conf, &
         becke_mixed_conf, becke_none_conf, becke_static_conf, cdft_combined_constraint, &
-        cdft_density_constraint, cdft_magnetization_constraint, constant_env, custom_env, &
+        cdft_density_constraint, cdft_magnetization_constraint, cdft_atomic_magnetization_constraint, constant_env, custom_env, &
         do_admm_basis_projection, do_admm_blocked_projection, do_admm_blocking_purify_full, &
         do_admm_charge_constrained_projection, do_admm_exch_scaling_merlot, &
         do_admm_purify_mcweeny, do_admm_purify_mo_diag, do_admm_purify_mo_no_diag, &
@@ -1733,6 +1733,29 @@ CONTAINS
       CALL section_vals_val_get(becke_section, "CONSTRAINT_TYPE", &
                                 i_val=qs_control%becke_control%constraint_type)
 
+      CALL section_vals_val_get(becke_section, "ATOMS", &
+                                n_rep_val=n_rep)
+      jj = 0
+      DO k = 1, n_rep
+         CALL section_vals_val_get(becke_section, "ATOMS", i_rep_val=k, i_vals=tmplist)
+         DO j = 1, SIZE(tmplist)
+            jj = jj+1
+         END DO
+      END DO
+      IF (jj < 1) CPABORT("Need at least 1 atom to use Becke constraints.")
+
+      qs_control%becke_control%natoms = jj
+      IF (ASSOCIATED(qs_control%becke_control%atoms)) DEALLOCATE (qs_control%becke_control%atoms)
+      ALLOCATE (qs_control%becke_control%atoms(qs_control%becke_control%natoms))
+      jj = 0
+      DO k = 1, n_rep
+         CALL section_vals_val_get(becke_section, "ATOMS", i_rep_val=k, i_vals=tmplist)
+         DO j = 1, SIZE(tmplist)
+            jj = jj+1
+            qs_control%becke_control%atoms(jj) = tmplist(j)
+         END DO
+      END DO
+
       SELECT CASE (qs_control%becke_control%constraint_type)
       CASE (cdft_density_constraint, cdft_magnetization_constraint)
          nvar = 1
@@ -1740,6 +1763,9 @@ CONTAINS
          nvar = 2
          CALL section_vals_val_get(becke_section, "COMBINED_TYPE", &
                                    i_val=qs_control%becke_control%combined_type)
+      CASE (cdft_magnetization_constraint)
+         nvar = qs_control%becke_control%natoms
+         qs_control%becke_control%has_global_weight = .FALSE.
       END SELECT
       ! Need to deallocate first in case ET_COUPLING calculation (in qs_energy_utils)
       IF (ASSOCIATED(qs_control%becke_control%strength)) &
@@ -1753,10 +1779,20 @@ CONTAINS
       ALLOCATE (qs_control%becke_control%becke_order_p(nvar))
       ALLOCATE (qs_control%becke_control%target(nvar))
       CALL section_vals_val_get(becke_section, "STRENGTH", r_vals=rtmplist)
+      IF (SIZE(rtmplist) /= nvar) &
+         CALL cp_abort(__LOCATION__, &
+                       "The length of keyword STRENGTH is incorrect. "// &
+                       "Expected "//TRIM(ADJUSTL(cp_to_string(nvar)))// &
+                       "values, got"//TRIM(ADJUSTL(cp_to_string(SIZE(rtmplist)))))
       DO j = 1, nvar
          qs_control%becke_control%strength(j) = rtmplist(j)
       END DO
       CALL section_vals_val_get(becke_section, "TARGET", r_vals=rtmplist)
+      IF (SIZE(rtmplist) /= nvar) &
+         CALL cp_abort(__LOCATION__, &
+                       "The length of keyword STRENGTH is incorrect. "// &
+                       "Expected "//TRIM(ADJUSTL(cp_to_string(nvar)))// &
+                       "values, got"//TRIM(ADJUSTL(cp_to_string(SIZE(rtmplist)))))
       DO j = 1, nvar
          qs_control%becke_control%target(j) = rtmplist(j)
       END DO
@@ -1822,38 +1858,17 @@ CONTAINS
 
       CALL section_vals_val_get(becke_section, "IN_MEMORY", &
                                 l_val=qs_control%becke_control%in_memory)
-      CALL section_vals_val_get(becke_section, "ATOMS", &
-                                n_rep_val=n_rep)
-      jj = 0
-      DO k = 1, n_rep
-         CALL section_vals_val_get(becke_section, "ATOMS", i_rep_val=k, i_vals=tmplist)
-         DO j = 1, SIZE(tmplist)
-            jj = jj+1
-         END DO
-      END DO
-      IF (jj < 1) CPABORT("Need at least 1 atom to use Becke constraints.")
-
-      qs_control%becke_control%natoms = jj
-      IF (ASSOCIATED(qs_control%becke_control%atoms)) DEALLOCATE (qs_control%becke_control%atoms)
-      ALLOCATE (qs_control%becke_control%atoms(qs_control%becke_control%natoms))
-      jj = 0
-      DO k = 1, n_rep
-         CALL section_vals_val_get(becke_section, "ATOMS", i_rep_val=k, i_vals=tmplist)
-         DO j = 1, SIZE(tmplist)
-            jj = jj+1
-            qs_control%becke_control%atoms(jj) = tmplist(j)
-         END DO
-      END DO
 
       IF (ASSOCIATED(qs_control%becke_control%coeff)) &
          DEALLOCATE (qs_control%becke_control%coeff)
       ALLOCATE (qs_control%becke_control%coeff(qs_control%becke_control%natoms))
       qs_control%becke_control%coeff = 1.0_dp
 
-      IF (qs_control%becke_control%atomic_charges) THEN
-         IF (ASSOCIATED(qs_control%becke_control%charge)) &
-            DEALLOCATE (qs_control%becke_control%charge)
-         ALLOCATE (qs_control%becke_control%charge(qs_control%becke_control%natoms))
+      IF (qs_control%becke_control%atomic_charges .OR. &
+          qs_control%becke_control%constraint_type == cdft_atomic_magnetization_constraint) THEN
+         IF (ASSOCIATED(qs_control%becke_control%atomic_weight)) &
+            DEALLOCATE (qs_control%becke_control%atomic_weight)
+         ALLOCATE (qs_control%becke_control%atomic_weight(qs_control%becke_control%natoms))
       END IF
 
       IF (qs_control%becke_control%confine) THEN

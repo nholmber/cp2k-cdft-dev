@@ -554,14 +554,15 @@ CONTAINS
          IF (.NOT. dft_control%qs_control%becke_control%save_pot .AND. &
              .NOT. dft_control%qs_control%cdft) THEN
             CALL pw_env_get(pw_env, auxbas_pw_pool=auxbas_pw_pool)
-            CALL pw_pool_give_back_pw(auxbas_pw_pool, &
-                                      dft_control%qs_control%becke_control%becke_pot%pw)
-            IF (dft_control%qs_control%becke_control%atomic_charges) THEN
+            IF (dft_control%qs_control%becke_control%has_global_weight) &
+               CALL pw_pool_give_back_pw(auxbas_pw_pool, &
+                                         dft_control%qs_control%becke_control%becke_pot%pw)
+            IF (ASSOCIATED(dft_control%qs_control%becke_control%atomic_weight)) THEN
                DO iatom = 1, dft_control%qs_control%becke_control%natoms
                   CALL pw_pool_give_back_pw(auxbas_pw_pool, &
-                                            dft_control%qs_control%becke_control%charge(iatom)%pw)
+                                            dft_control%qs_control%becke_control%atomic_weight(iatom)%pw)
                END DO
-               DEALLOCATE (dft_control%qs_control%becke_control%charge)
+               DEALLOCATE (dft_control%qs_control%becke_control%atomic_weight)
             END IF
             IF (dft_control%qs_control%becke_control%cavity_confine) THEN
                IF (.NOT. ASSOCIATED(dft_control%qs_control%becke_control%cavity_mat)) THEN
@@ -1105,14 +1106,15 @@ CONTAINS
                     dft_control%qs_control%becke_control%transfer_pot)) THEN
             CALL get_qs_env(qs_env, pw_env=pw_env)
             CALL pw_env_get(pw_env, auxbas_pw_pool=auxbas_pw_pool)
-            CALL pw_pool_give_back_pw(auxbas_pw_pool, &
-                                      dft_control%qs_control%becke_control%becke_pot%pw)
-            IF (dft_control%qs_control%becke_control%atomic_charges) THEN
+            IF (dft_control%qs_control%becke_control%has_global_weight) &
+               CALL pw_pool_give_back_pw(auxbas_pw_pool, &
+                                         dft_control%qs_control%becke_control%becke_pot%pw)
+            IF (ASSOCIATED(dft_control%qs_control%becke_control%atomic_weight) THEN
                DO iatom = 1, dft_control%qs_control%becke_control%natoms
                   CALL pw_pool_give_back_pw(auxbas_pw_pool, &
-                                            dft_control%qs_control%becke_control%charge(iatom)%pw)
+                                            dft_control%qs_control%becke_control%atomic_weight(iatom)%pw)
                END DO
-               DEALLOCATE (dft_control%qs_control%becke_control%charge)
+               DEALLOCATE (dft_control%qs_control%becke_control%atomic_weight)
             END IF
             IF (dft_control%qs_control%becke_control%cavity_confine) THEN
                IF (.NOT. ASSOCIATED(dft_control%qs_control%becke_control%cavity_mat)) THEN

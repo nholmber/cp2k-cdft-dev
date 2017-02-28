@@ -685,6 +685,7 @@ MODULE input_constants
    INTEGER, PARAMETER, PUBLIC               :: cdft_density_constraint = 1, &
                                                cdft_magnetization_constraint = 2, &
                                                cdft_combined_constraint = 3, &
+                                               cdft_atomic_magnetization_constraint = 4, &
                                                cdft_combined_all = 10, &
                                                cdft_combined_donor = 11, &
                                                cdft_combined_acceptor = 12, &

@@ -26,7 +26,8 @@ MODULE qs_ks_apply_restraints
                                               cdft_combined_constraint,&
                                               cdft_combined_donor,&
                                               outer_scf_becke_constraint,&
-                                              outer_scf_hirshfeld_constraint
+                                              outer_scf_hirshfeld_constraint, &
+                                              cdft_atomic_magnetization_constraint
    USE kinds,                           ONLY: dp
    USE mulliken,                        ONLY: mulliken_restraint
    USE pw_methods,                      ONLY: pw_scale
@@ -76,6 +77,7 @@ CONTAINS
          routineP = moduleN//':'//routineN
 
       INTEGER                                            :: iatom
+      LOGICAL                                            :: has_global_weight
       REAL(KIND=dp)                                      :: inv_vol
       TYPE(dft_control_type), POINTER                    :: dft_control
 
@@ -87,18 +89,27 @@ CONTAINS
          CPASSERT(SIZE(matrix_s, 2) == 1)
          !***** Check if becke potential is needed to constrain charges *****
          becke => dft_control%qs_control%becke_control
+         has_global_weight = becke%has_global_weight
          IF (becke%need_pot) THEN
-            CALL pw_pool_create_pw(auxbas_pw_pool, becke%becke_pot%pw, &
-                                   use_data=REALDATA3D, in_space=REALSPACE)
-            IF (becke%atomic_charges) THEN
+            IF (has_global_weight) &
+               CALL pw_pool_create_pw(auxbas_pw_pool, becke%becke_pot%pw, &
+                                      use_data=REALDATA3D, in_space=REALSPACE)
+            IF (becke%atomic_charges .OR. &
+                becke%constraint_type == cdft_atomic_magnetization_constraint) THEN
                DO iatom = 1, becke%natoms
-                  CALL pw_pool_create_pw(auxbas_pw_pool, becke%charge(iatom)%pw, &
+                  CALL pw_pool_create_pw(auxbas_pw_pool, becke%atomic_weight(iatom)%pw, &
                                          use_data=REALDATA3D, in_space=REALSPACE)
                END DO
             END IF
-            CALL becke_restraint(qs_env, becke_const=becke%becke_pot, charge=becke%charge, &
+            CALL becke_restraint(qs_env, becke_const=becke%becke_pot, atomic_weight=becke%atomic_weight, &
                                  calc_pot=.TRUE., calculate_forces=calculate_forces)
-            CALL pw_scale(becke%becke_pot%pw, becke%becke_pot%pw%pw_grid%dvol)
+            IF (has_global_weight) THEN
+               CALL pw_scale(becke%becke_pot%pw, becke%becke_pot%pw%pw_grid%dvol)
+            ELSE 
+               DO iatom = 1, becke%natoms
+                  CALL pw_scale(becke%atomic_weight(iatom)%pw, becke%becke_pot%pw%pw_grid%dvol)
+               END DO
+            END IF
             IF (dft_control%qs_control%becke_control%constraint_type == cdft_combined_constraint) THEN
                SELECT CASE (dft_control%qs_control%becke_control%combined_type)
                CASE (cdft_combined_all)
@@ -110,7 +121,13 @@ CONTAINS
             becke%need_pot = .FALSE.
          ELSE
             inv_vol = 1.0_dp/becke%becke_pot%pw%pw_grid%dvol
-            CALL pw_scale(becke%becke_pot%pw, inv_vol)
+            IF (has_global_weight) THEN
+               CALL pw_scale(becke%becke_pot%pw, inv_vol)
+            ELSE 
+               DO iatom = 1, becke%natoms
+                  CALL pw_scale(becke%atomic_weight(iatom)%pw, becke%becke_pot%pw%pw_grid%dvol)
+               END DO
+            END IF   
             IF (dft_control%qs_control%becke_control%constraint_type == cdft_combined_constraint) THEN
                SELECT CASE (dft_control%qs_control%becke_control%combined_type)
                CASE (cdft_combined_all)
@@ -120,9 +137,15 @@ CONTAINS
                      CALL pw_scale(becke%combined_weight%pw, inv_vol)
                END SELECT
             END IF
-            CALL becke_restraint(qs_env, becke%becke_pot, charge=becke%charge, calc_pot=.FALSE., &
+            CALL becke_restraint(qs_env, becke%becke_pot, atomic_weight=becke%atomic_weight, calc_pot=.FALSE., &
                                  calculate_forces=calculate_forces)
-            CALL pw_scale(becke%becke_pot%pw, becke%becke_pot%pw%pw_grid%dvol)
+            IF (has_global_weight) THEN
+               CALL pw_scale(becke%becke_pot%pw, becke%becke_pot%pw%pw_grid%dvol)
+            ELSE 
+               DO iatom = 1, becke%natoms
+                  CALL pw_scale(becke%atomic_weight(iatom)%pw, becke%becke_pot%pw%pw_grid%dvol)
+               END DO
+            END IF
             IF (dft_control%qs_control%becke_control%constraint_type == cdft_combined_constraint) THEN
                SELECT CASE (dft_control%qs_control%becke_control%combined_type)
                CASE (cdft_combined_all)
@@ -137,6 +160,8 @@ CONTAINS
             ! Combined constraint not allowed
             IF (becke%constraint_type == cdft_combined_constraint) &
                CPABORT("Use MIXED_CDFT for ET coupling calculation with combined constraint.")
+            IF (becke%constraint_type == cdft_atomic_magnetization_constraint) &
+               CPABORT("Constraint type not supported for ET_COUPLING.")               
             IF (qs_env%et_coupling%keep_matrix) THEN
                IF (qs_env%et_coupling%first_run) THEN
                   NULLIFY (qs_env%et_coupling%rest_mat(1)%matrix)
