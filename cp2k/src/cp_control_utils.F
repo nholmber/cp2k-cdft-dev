@@ -1763,7 +1763,7 @@ CONTAINS
          nvar = 2
          CALL section_vals_val_get(becke_section, "COMBINED_TYPE", &
                                    i_val=qs_control%becke_control%combined_type)
-      CASE (cdft_magnetization_constraint)
+      CASE (cdft_atomic_magnetization_constraint)
          nvar = qs_control%becke_control%natoms
          qs_control%becke_control%has_global_weight = .FALSE.
       END SELECT
