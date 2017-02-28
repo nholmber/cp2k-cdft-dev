@@ -556,11 +556,11 @@ CONTAINS
                dr = becke_const%pw%pw_grid%dr
                np = becke_const%pw%pw_grid%npts
             ELSE
-               bo = atomic_weight%pw%pw_grid%bounds_local
-               np = atomic_weight%pw%pw_grid%npts
-               dvol = atomic_weight%pw%pw_grid%dvol
-               dr = atomic_weight%pw%pw_grid%dr
-               np = atomic_weight%pw%pw_grid%npts
+               bo = atomic_weight(1)%pw%pw_grid%bounds_local
+               np = atomic_weight(1)%pw%pw_grid%npts
+               dvol = atomic_weight(1)%pw%pw_grid%dvol
+               dr = atomic_weight(1)%pw%pw_grid%dr
+               np = atomic_weight(1)%pw%pw_grid%npts
             END IF
             shift = -REAL(MODULO(np, 2), dp)*dr/2.0_dp
 
@@ -1200,7 +1200,7 @@ CONTAINS
          IF (has_global_weight) THEN
             bo = becke_const%pw%pw_grid%bounds_local
          ELSE
-            bo = atomic_weight%pw%pw_grid%bounds_local
+            bo = atomic_weight(1)%pw%pw_grid%bounds_local
          END IF
          IF (dft_control%qs_control%becke_control%atomic_charges) THEN
             ALLOCATE (electronic_charge(dft_control%qs_control%becke_control%natoms, dft_control%nspins))
