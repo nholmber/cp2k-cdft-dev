@@ -4094,7 +4094,7 @@ CONTAINS
                           enum_desc=s2a("Constrain the total density (rho_alpha + rho_beta).", &
                                         "Constrain the magnetization density (rho_alpha - rho_beta).", &
                                         "Constrain both densities. The magnetization density constraint "// &
-                                        " is applied to atoms defined in COMBINED_TYPE."// &
+                                        " is applied to atoms defined in COMBINED_TYPE.", &
                                         "Constrain the magnetization density individually on all constraint atoms."), &
                           default_i_val=cdft_density_constraint)
       CALL section_add_keyword(section, keyword)
