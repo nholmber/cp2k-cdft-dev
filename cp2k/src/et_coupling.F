@@ -1282,7 +1282,7 @@ CONTAINS
                      electronic_charge(iatom, i) = nelectrons
                END DO
             END DO
-         END SELECT)
+         END SELECT
          CALL get_qs_env(qs_env, energy=energy)
          CALL mp_sum(dE, para_env%group)
          IF (dft_control%qs_control%becke_control%atomic_charges) THEN
@@ -1386,7 +1386,7 @@ CONTAINS
                             charges_fragment(dft_control%qs_control%becke_control%natoms))
                   DO iatom = 1, dft_control%qs_control%becke_control%natoms
                      dft_control%qs_control%becke_control%charges_fragment(iatom) = &
-                        accurate_sum(charge(iatom)%pw%cr3d*rho_frag%pw%cr3d)*dvol
+                        accurate_sum(atomic_weight(iatom)%pw%cr3d*rho_frag%pw%cr3d)*dvol
                   END DO
                   CALL mp_sum(dft_control%qs_control%becke_control%charges_fragment, para_env%group)
                END IF
