@@ -457,8 +457,12 @@ CONTAINS
          strength(:) = dft_control%qs_control%becke_control%strength(:)
          target_val(:) = dft_control%qs_control%becke_control%target(:)
          dE = 0.0_dp
-         IF ()
-         dvol = becke_const%pw%pw_grid%dvol
+         IF (has_global_weight) THEN
+            dvol = becke_const%pw%pw_grid%dvol
+         ELSE
+            dvol = atomic_weight(1)%pw%pw_grid%dvol
+         END IF
+
          eps_cavity = dft_control%qs_control%becke_control%eps_cavity
 
          IF (calc_pot) THEN
