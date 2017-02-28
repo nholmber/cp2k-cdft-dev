@@ -457,6 +457,7 @@ CONTAINS
          strength(:) = dft_control%qs_control%becke_control%strength(:)
          target_val(:) = dft_control%qs_control%becke_control%target(:)
          dE = 0.0_dp
+         IF ()
          dvol = becke_const%pw%pw_grid%dvol
          eps_cavity = dft_control%qs_control%becke_control%eps_cavity
 
@@ -548,11 +549,19 @@ CONTAINS
                   coefficients(catom(i)) = dft_control%qs_control%becke_control%coeff(i)
             ENDDO
 
-            bo = becke_const%pw%pw_grid%bounds_local
-            np = becke_const%pw%pw_grid%npts
-            dvol = becke_const%pw%pw_grid%dvol
-            dr = becke_const%pw%pw_grid%dr
-            np = becke_const%pw%pw_grid%npts
+            IF (has_global_weight) THEN
+               bo = becke_const%pw%pw_grid%bounds_local
+               np = becke_const%pw%pw_grid%npts
+               dvol = becke_const%pw%pw_grid%dvol
+               dr = becke_const%pw%pw_grid%dr
+               np = becke_const%pw%pw_grid%npts
+            ELSE
+               bo = atomic_weight%pw%pw_grid%bounds_local
+               np = atomic_weight%pw%pw_grid%npts
+               dvol = atomic_weight%pw%pw_grid%dvol
+               dr = atomic_weight%pw%pw_grid%dr
+               np = atomic_weight%pw%pw_grid%npts
+            END IF
             shift = -REAL(MODULO(np, 2), dp)*dr/2.0_dp
 
             ALLOCATE (cell_functions(natom))
@@ -1188,7 +1197,11 @@ CONTAINS
             END IF
             IF (ALLOCATED(is_combined)) DEALLOCATE (is_combined)
          END IF
-         bo = becke_const%pw%pw_grid%bounds_local
+         IF (has_global_weight) THEN
+            bo = becke_const%pw%pw_grid%bounds_local
+         ELSE
+            bo = atomic_weight%pw%pw_grid%bounds_local
+         END IF
          IF (dft_control%qs_control%becke_control%atomic_charges) THEN
             ALLOCATE (electronic_charge(dft_control%qs_control%becke_control%natoms, dft_control%nspins))
             electronic_charge = 0.0_dp

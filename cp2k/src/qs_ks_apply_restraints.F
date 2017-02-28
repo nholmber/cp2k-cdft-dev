@@ -107,7 +107,7 @@ CONTAINS
                CALL pw_scale(becke%becke_pot%pw, becke%becke_pot%pw%pw_grid%dvol)
             ELSE 
                DO iatom = 1, becke%natoms
-                  CALL pw_scale(becke%atomic_weight(iatom)%pw, becke%becke_pot%pw%pw_grid%dvol)
+                  CALL pw_scale(becke%atomic_weight(iatom)%pw, becke%atomic_weight(iatom)%pw%pw_grid%dvol)
                END DO
             END IF
             IF (dft_control%qs_control%becke_control%constraint_type == cdft_combined_constraint) THEN
@@ -120,12 +120,13 @@ CONTAINS
             END IF
             becke%need_pot = .FALSE.
          ELSE
-            inv_vol = 1.0_dp/becke%becke_pot%pw%pw_grid%dvol
             IF (has_global_weight) THEN
+               inv_vol = 1.0_dp/becke%becke_pot%pw%pw_grid%dvol
                CALL pw_scale(becke%becke_pot%pw, inv_vol)
             ELSE 
+               inv_vol = 1.0_dp/becke%atomic_weight(1)%pw%pw_grid%dvol
                DO iatom = 1, becke%natoms
-                  CALL pw_scale(becke%atomic_weight(iatom)%pw, becke%becke_pot%pw%pw_grid%dvol)
+                  CALL pw_scale(becke%atomic_weight(iatom)%pw, inv_vol)
                END DO
             END IF   
             IF (dft_control%qs_control%becke_control%constraint_type == cdft_combined_constraint) THEN
@@ -143,7 +144,7 @@ CONTAINS
                CALL pw_scale(becke%becke_pot%pw, becke%becke_pot%pw%pw_grid%dvol)
             ELSE 
                DO iatom = 1, becke%natoms
-                  CALL pw_scale(becke%atomic_weight(iatom)%pw, becke%becke_pot%pw%pw_grid%dvol)
+                  CALL pw_scale(becke%atomic_weight(iatom)%pw, becke%atomic_weight%pw%pw_grid%dvol)
                END DO
             END IF
             IF (dft_control%qs_control%becke_control%constraint_type == cdft_combined_constraint) THEN
