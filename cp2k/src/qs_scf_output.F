@@ -711,9 +711,9 @@ CONTAINS
             WRITE (output_unit, '(A)') " "
             WRITE (output_unit, '(/,T3,A,A)') &
               '#Atom              Target value    Actual value    Strength'
-            DO iatom = 1, SIZE(cdft_control%atoms)
+            DO iatom = 1, SIZE(cdft_control%target)
                WRITE (output_unit, "(i7,T23,F18.12,T45,F18.12,T67,F18.12)") &
-                  iatom, cdft_control%target(iatom)(iatom), cdft_control%value(iatom), &
+                  iatom, cdft_control%target(iatom), cdft_control%value(iatom), &
                   cdft_control%strength(iatom)
             END DO
          END SELECT
