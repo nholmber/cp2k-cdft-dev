@@ -236,7 +236,9 @@ MODULE cp_control_types
 !> \param cavity the Gaussian confinement cavity: the constraint is nonzero outside this cavity
 !> \param combined_weight the Becke real space potential for the spin constraint when using combined
 !>                        density+spin constraint
-!> \param atomic_weight atomic Becke real space potentials needed to calculate atomic Becke charges
+!> \param group_weight atom group specific Becke real space potentials needed to constrain
+!>                      the magnetization density of that group
+!> \param charge atomic Becke real space potentials needed to calculate atomic Becke charges
 !> \param fragments container for isolated fragment densities read from cube files
 !> \param need_pot logical which determines if the Becke potential needs to be built
 !> \param save_pot logical which determines if the Becke potential should be saved until forces
@@ -275,7 +277,7 @@ MODULE cp_control_types
 !> \param cavity_mat a compacted version of cavity
 !> \param combined_mat a compated version of combined_weight
 !> \param gradients atomic gradients of the weight function
-!> \param has_global_weight logical which determines if becke_pot is needed or atomic_weight
+!> \param has_global_weight logical which determines if becke_pot is needed or group_weight
 ! **************************************************************************************************
    TYPE becke_restraint_type
       CHARACTER(LEN=default_path_length)   :: fragment_a_fname, &
@@ -288,9 +290,10 @@ MODULE cp_control_types
       INTEGER                              :: confine_method, cavity_shape, cutoff_type, &
                                               constraint_type, combined_type
       INTEGER, POINTER, DIMENSION(:)       :: atoms
+      INTEGER, POINTER, DIMENSION(:, :)    :: atom_group
       TYPE(pw_p_type)                      :: becke_pot, cavity, combined_weight
       TYPE(pw_p_type), POINTER, &
-         DIMENSION(:)                      :: atomic_weight, fragments
+         DIMENSION(:)                      :: group_weight, fragments, charge
       LOGICAL                              :: need_pot, save_pot, in_memory, &
                                               adjust, atomic_charges, confine, &
                                               dynamic_confine, cavity_confine, &
@@ -934,8 +937,10 @@ CONTAINS
       NULLIFY (becke_control%target)
       NULLIFY (becke_control%becke_order_p)
       NULLIFY (becke_control%atoms)
+      NULLIFY (becke_control%atom_group)      
       NULLIFY (becke_control%coeff)
-      NULLIFY (becke_control%atomic_weight)
+      NULLIFY (becke_control%group_weight)
+      NULLIFY (becke_control%charge)
       NULLIFY (becke_control%aij)
       NULLIFY (becke_control%gradients)
       NULLIFY (becke_control%cavity_mat)
@@ -968,6 +973,8 @@ CONTAINS
       IF (becke_control%ref_count == 0) THEN
          IF (ASSOCIATED(becke_control%atoms)) &
             DEALLOCATE (becke_control%atoms)
+         IF (ASSOCIATED(becke_control%atom_group)) &
+            DEALLOCATE (becke_control%atom_group)            
          IF (ASSOCIATED(becke_control%cutoffs)) &
             DEALLOCATE (becke_control%cutoffs)
          IF (ASSOCIATED(becke_control%cutoffs_tmp)) &
@@ -982,8 +989,10 @@ CONTAINS
             DEALLOCATE (becke_control%fragments)
          IF (ASSOCIATED(becke_control%coeff)) &
             DEALLOCATE (becke_control%coeff)
-         IF (ASSOCIATED(becke_control%atomic_weight)) &
-            DEALLOCATE (becke_control%atomic_weight)
+         IF (ASSOCIATED(becke_control%group_weight)) &
+            DEALLOCATE (becke_control%group_weight)
+         IF (ASSOCIATED(becke_control%charge)) &
+            DEALLOCATE (becke_control%charge)            
          IF (ASSOCIATED(becke_control%aij)) &
             DEALLOCATE (becke_control%aij)
          IF (ASSOCIATED(becke_control%gradients)) &

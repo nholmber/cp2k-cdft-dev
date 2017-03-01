@@ -1768,7 +1768,7 @@ CONTAINS
             WRITE (iounit, '(/,T3,A,T66)') &
                '----------------------------- Becke atomic parameters -----------------------------'
             IF (mixed_cdft%becke_control%adjust) THEN
-               WRITE (iounit, '(/,T3,A,A)') &
+               WRITE (iounit, '(T3,A,A)') &
                   'Atom  Element   Coefficient', '     Cutoff (angstrom)    CDFT Radius (angstrom)'
                DO iatom = 1, natom
                   CALL get_atomic_kind(atomic_kind=particle_set(iatom)%atomic_kind, &
@@ -1786,7 +1786,7 @@ CONTAINS
                      ircov
                END DO
             ELSE
-               WRITE (iounit, '(/,T3,A,A)') &
+               WRITE (iounit, '(T3,A,A)') &
                   'Atom  Element   Coefficient', '     Cutoff (angstrom)'
                DO iatom = 1, natom
                   CALL get_atomic_kind(atomic_kind=particle_set(iatom)%atomic_kind, &
@@ -1801,7 +1801,7 @@ CONTAINS
                      cp_unit_from_cp2k(mixed_cdft%becke_control%cutoffs(iatom), "angstrom")
                END DO
             END IF
-            WRITE (iounit, '(/,T3,A)') &
+            WRITE (iounit, '(T3,A)') &
                '-----------------------------------------------------------------------------------'
          END IF
          CALL cp_print_key_finished_output(iounit, logger, force_env_section, &

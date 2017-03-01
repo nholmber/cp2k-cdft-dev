@@ -4064,7 +4064,7 @@ CONTAINS
                           description="Target values of the constraints. First value is for charge/"// &
                           "magnetization density constraint. The second optional value is for combined constraint. "// &
                           "This behavior is overridden by an atomic magnetization constraint, which expects one"// &
-                          " one value per constraint atom.", &
+                          " one value per constraint group.", &
                           usage="TARGET {real}", repeats=.FALSE., &
                           type_of_var=real_t, n_var=-1, &
                           default_r_val=0.0_dp)
@@ -4075,6 +4075,16 @@ CONTAINS
                           description="Specifies the list of atoms that are included in the constraint", &
                           usage="ATOMS {integer} {integer} .. {integer}", &
                           n_var=-1, type_of_var=integer_t)
+      CALL section_add_keyword(section, keyword)
+      CALL keyword_release(keyword)
+
+      CALL keyword_create(keyword, name="ATOM_GROUP", &
+                          description="Specifies the list of atoms that are included in a constraint group "// &
+                                      "for ATOMIC_SPIN constraint. Each repetition of keyword defines a new "// &
+                                      "group. Listed atoms must be a subset of the atoms defined with keyword ATOMS, "// &
+                                      "which may contain extra atoms e.g. for computing atomic charges." , &
+                          usage="ATOM_GROUP {integer} {integer} .. {integer}", repeats=.TRUE., &
+                          type_of_var=integer_t, n_var=-1)
       CALL section_add_keyword(section, keyword)
       CALL keyword_release(keyword)
 
@@ -4095,7 +4105,8 @@ CONTAINS
                                         "Constrain the magnetization density (rho_alpha - rho_beta).", &
                                         "Constrain both densities. The magnetization density constraint "// &
                                         " is applied to atoms defined in COMBINED_TYPE.", &
-                                        "Constrain the magnetization density individually on all constraint atoms."), &
+                                        "Constrain the magnetization density individually on specific atoms" // &
+                                        " or atom groups defined by the keyword ATOM_GROUP."), &
                           default_i_val=cdft_density_constraint)
       CALL section_add_keyword(section, keyword)
       CALL keyword_release(keyword)

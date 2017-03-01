@@ -647,7 +647,7 @@ CONTAINS
          routineP = moduleN//':'//routineN
 
       REAL(KIND=dp)                                      :: outer_loop_eps
-      INTEGER                                            :: iatom, jatom
+      INTEGER                                            :: igroup
 
       IF (cdft_loop) THEN
          outer_loop_eps = SQRT(MAXVAL(scf_env%outer_scf%gradient(:, scf_env%outer_scf%iter_count)**2))
@@ -703,18 +703,18 @@ CONTAINS
             WRITE (output_unit, '(T3,A,T54,(3X,F18.12))') &
                'Strength of constraint (spin)     :', cdft_control%strength(2)
          CASE (cdft_atomic_magnetization_constraint)
-            WRITE (output_unit, '(/,T3,A,T60)') &
-               'Convergence information for atomic magnetization density constraint'
-            WRITE (output_unit, '(/,T3,A,T60)') &                  
-               'Largest absolute deviation from target values:', &
-               MAXVAL(ABS(cdft_control%value-cdft_control%target))
-            WRITE (output_unit, '(A)') " "
-            WRITE (output_unit, '(/,T3,A,A)') &
-              '#Atom              Target value    Actual value    Strength'
-            DO iatom = 1, SIZE(cdft_control%target)
-               WRITE (output_unit, "(i7,T23,F18.12,T45,F18.12,T67,F18.12)") &
-                  iatom, cdft_control%target(iatom), cdft_control%value(iatom), &
-                  cdft_control%strength(iatom)
+            DO igroup = 1, SIZE(cdft_control%target)
+               IF (igroup > 1) WRITE (output_unit, '(T3,A)') ' '
+               WRITE (output_unit, '(T3,A,T54,(3X,I18))') &
+                  'Atomic group                       :', igroup
+               WRITE (output_unit, '(T3,A,T54,(3X,F18.12))') &
+                  'Target value of constraint         :', cdft_control%target(igroup)
+               WRITE (output_unit, '(T3,A,T54,(3X,F18.12))') &
+                  'Current value of constraint        :', cdft_control%value(igroup)
+               WRITE (output_unit, '(T3,A,T59,(3X,ES13.3))') &
+                  'Deviation from target              :', cdft_control%value(igroup)-cdft_control%target(igroup)
+               WRITE (output_unit, '(T3,A,T54,(3X,F18.12))') &
+                  'Strength of constraint             :', cdft_control%strength(igroup)
             END DO
          END SELECT
          WRITE (output_unit, '(T3,A)') &

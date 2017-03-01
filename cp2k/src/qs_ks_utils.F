@@ -1307,7 +1307,7 @@ CONTAINS
                         sign = -1.0_dp
                      END IF
                      v_rspace_new(ispin)%pw%cr3d = v_rspace_new(ispin)%pw%cr3d &
-                                                   +sign*becke%atomic_weight(ivar)%pw%cr3d*becke%strength(ivar)
+                                                   +sign*becke%group_weight(ivar)%pw%cr3d*becke%strength(ivar)
                   END DO
                END SELECT
             END IF

@@ -91,23 +91,32 @@ CONTAINS
          becke => dft_control%qs_control%becke_control
          has_global_weight = becke%has_global_weight
          IF (becke%need_pot) THEN
-            IF (has_global_weight) &
+            IF (has_global_weight) THEN
                CALL pw_pool_create_pw(auxbas_pw_pool, becke%becke_pot%pw, &
                                       use_data=REALDATA3D, in_space=REALSPACE)
-            IF (becke%atomic_charges .OR. &
-                becke%constraint_type == cdft_atomic_magnetization_constraint) THEN
-               DO iatom = 1, becke%natoms
-                  CALL pw_pool_create_pw(auxbas_pw_pool, becke%atomic_weight(iatom)%pw, &
+            ELSE
+               IF (.NOT. ASSOCIATED(becke%group_weight)) &
+                  ALLOCATE(becke%group_weight(SIZE(becke%atom_group, 2)))
+               DO iatom = 1, SIZE(becke%atom_group, 2)
+                  CALL pw_pool_create_pw(auxbas_pw_pool, becke%group_weight(iatom)%pw, &
                                          use_data=REALDATA3D, in_space=REALSPACE)
                END DO
             END IF
-            CALL becke_restraint(qs_env, becke_const=becke%becke_pot, atomic_weight=becke%atomic_weight, &
+            IF (becke%atomic_charges) THEN
+               IF (.NOT. ASSOCIATED(becke%charge)) &
+                  ALLOCATE(becke%charge(becke%natoms))
+               DO iatom = 1, becke%natoms
+                  CALL pw_pool_create_pw(auxbas_pw_pool, becke%charge(iatom)%pw, &
+                                         use_data=REALDATA3D, in_space=REALSPACE)
+               END DO
+            END IF
+            CALL becke_restraint(qs_env, becke_const=becke%becke_pot, charge=becke%charge, &
                                  calc_pot=.TRUE., calculate_forces=calculate_forces)
             IF (has_global_weight) THEN
                CALL pw_scale(becke%becke_pot%pw, becke%becke_pot%pw%pw_grid%dvol)
             ELSE 
-               DO iatom = 1, becke%natoms
-                  CALL pw_scale(becke%atomic_weight(iatom)%pw, becke%atomic_weight(iatom)%pw%pw_grid%dvol)
+               DO iatom = 1, SIZE(becke%group_weight)
+                  CALL pw_scale(becke%group_weight(iatom)%pw, becke%group_weight(iatom)%pw%pw_grid%dvol)
                END DO
             END IF
             IF (dft_control%qs_control%becke_control%constraint_type == cdft_combined_constraint) THEN
@@ -124,9 +133,9 @@ CONTAINS
                inv_vol = 1.0_dp/becke%becke_pot%pw%pw_grid%dvol
                CALL pw_scale(becke%becke_pot%pw, inv_vol)
             ELSE 
-               inv_vol = 1.0_dp/becke%atomic_weight(1)%pw%pw_grid%dvol
-               DO iatom = 1, becke%natoms
-                  CALL pw_scale(becke%atomic_weight(iatom)%pw, inv_vol)
+               inv_vol = 1.0_dp/becke%group_weight(1)%pw%pw_grid%dvol
+               DO iatom = 1, SIZE(becke%group_weight)
+                  CALL pw_scale(becke%group_weight(iatom)%pw, inv_vol)
                END DO
             END IF   
             IF (dft_control%qs_control%becke_control%constraint_type == cdft_combined_constraint) THEN
@@ -138,13 +147,13 @@ CONTAINS
                      CALL pw_scale(becke%combined_weight%pw, inv_vol)
                END SELECT
             END IF
-            CALL becke_restraint(qs_env, becke%becke_pot, atomic_weight=becke%atomic_weight, calc_pot=.FALSE., &
+            CALL becke_restraint(qs_env, becke%becke_pot, charge=becke%charge, calc_pot=.FALSE., &
                                  calculate_forces=calculate_forces)
             IF (has_global_weight) THEN
                CALL pw_scale(becke%becke_pot%pw, becke%becke_pot%pw%pw_grid%dvol)
             ELSE 
-               DO iatom = 1, becke%natoms
-                  CALL pw_scale(becke%atomic_weight(iatom)%pw, becke%atomic_weight(iatom)%pw%pw_grid%dvol)
+               DO iatom = 1, SIZE(becke%group_weight)
+                  CALL pw_scale(becke%group_weight(iatom)%pw, becke%group_weight(iatom)%pw%pw_grid%dvol)
                END DO
             END IF
             IF (dft_control%qs_control%becke_control%constraint_type == cdft_combined_constraint) THEN
