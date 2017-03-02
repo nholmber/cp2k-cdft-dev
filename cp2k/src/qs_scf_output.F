@@ -652,7 +652,7 @@ CONTAINS
       IF (cdft_loop) THEN
          outer_loop_eps = SQRT(MAXVAL(scf_env%outer_scf%gradient(:, scf_env%outer_scf%iter_count)**2))
          IF (output_unit > 0) WRITE (output_unit, '(/,T3,A,I4,A,E10.2,A,F22.10)') &
-            "CDFT SCF iter = ", scf_env%outer_scf%iter_count, &
+            "CDFT SCF iter =  ", scf_env%outer_scf%iter_count, &
             " RMS gradient = ", outer_loop_eps, " energy =", energy%total
          IF (outer_loop_converged) THEN
             IF (output_unit > 0) WRITE (output_unit, '(T3,A,I4,A,I4,A,/)') &

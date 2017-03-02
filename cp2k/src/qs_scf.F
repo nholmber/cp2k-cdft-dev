@@ -522,8 +522,6 @@ CONTAINS
 
          IF (exit_outer_loop) EXIT scf_outer_loop
 
-         ! Check if the inverse Jacobian needs to be calculated
-         CALL qs_calculate_inverse_jacobian(qs_env)
          !
          CALL outer_loop_optimize(scf_env, scf_control)
          CALL outer_loop_update_qs_env(qs_env, scf_env)
@@ -1211,7 +1209,7 @@ CONTAINS
       INTEGER                                            :: handle, i, ihistory, ispin, iter_count, &
                                                             iwork, j, lp, max_scf, nspins, nvar, &
                                                             nwork, outer_scf_ihistory, &
-                                                            output_unit, pwork
+                                                            output_unit, pwork, nsteps, twork, counter
       LOGICAL                                            :: converged, explicit_jacobian, &
                                                             should_build, should_stop, &
                                                             use_md_history
@@ -1329,6 +1327,7 @@ CONTAINS
             energy = scf_env%outer_scf%energy
             ALLOCATE (jacobian(nvar, nvar))
             jacobian = 0.0_dp
+            nsteps = cdft_control%total_steps
             ! Setup finite difference scheme
             SELECT CASE (scf_control%outer_scf%jacobian_type)
             CASE DEFAULT
@@ -1390,6 +1389,7 @@ CONTAINS
                step_multiplier(pwork) = 1.0_dp
                dh = 2.0_dp*scf_control%outer_scf%jacobian_step
             END SELECT
+            twork = pwork-nwork
             DO i = 1, nvar
                jacobian(i, :) = coeff(0)*scf_env%outer_scf%gradient(i, iter_count)
             END DO
@@ -1421,8 +1421,24 @@ CONTAINS
             ! Calculate the Jacobian by perturbing each Lagrangian and recalculating the energy self-consistently
             CALL cp_add_default_logger(tmp_logger)
             DO i = 1, nvar
+               IF (output_unit > 0) THEN
+                  WRITE (output_unit, FMT="(A)") " "
+                  WRITE (output_unit, FMT="(A)") " #####################################"
+                  WRITE (output_unit, '(A,I3,A,I3,A)') &
+                     " ###  Constraint        ", i, " of ", nvar, " ###"
+                  WRITE (output_unit, FMT="(A)") " #####################################"
+               END IF
+               counter = 0
                DO iwork = nwork, pwork
                   IF (iwork == 0) CYCLE
+                  counter = counter + 1
+                  IF (output_unit > 0) THEN
+                     WRITE (output_unit, FMT="(A)") " #####################################"
+                     WRITE (output_unit, '(A,I3,A,I3,A)') &
+                        " ###  Energy evaluation ", counter, " of ", twork , " ###"
+                     WRITE (output_unit, FMT="(A)") " #####################################"
+                  END IF
+                  scf_env%outer_scf%variables(:, iter_count+1) = scf_env%outer_scf%variables(:, iter_count)
                   scf_env%outer_scf%variables(i, iter_count+1) = scf_env%outer_scf%variables(i, iter_count)+ &
                                                                  step_multiplier(iwork)* &
                                                                  scf_control%outer_scf%jacobian_step
@@ -1444,9 +1460,10 @@ CONTAINS
                      jacobian(j, i) = jacobian(j, i)+coeff(iwork)*scf_env%outer_scf%gradient(j, iter_count+1)
                   END DO
                   ! Reset everything to last converged state
-                  scf_env%outer_scf%variables(i, iter_count+1) = 0.0_dp
+                  scf_env%outer_scf%variables(:, iter_count+1) = 0.0_dp
                   scf_env%outer_scf%gradient = gradient
                   scf_env%outer_scf%energy = energy
+                  cdft_control%total_steps = nsteps
                   DO ispin = 1, nspins
                      CALL deallocate_mo_set(mos(ispin)%mo_set)
                      CALL duplicate_mo_set(mos(ispin)%mo_set, mos_stashed(ispin)%mo_set)
@@ -1552,7 +1569,8 @@ CONTAINS
 
       CHARACTER(len=default_path_length)                 :: project_name
       INTEGER                                            :: handle, i, ispin, iter_count, lp, &
-                                                            max_scf, nspins, nvar, output_unit
+                                                            max_scf, nspins, nvar, output_unit, &
+                                                            nsteps
       LOGICAL                                            :: converged, do_linesearch, should_exit, &
                                                             should_stop
       REAL(KIND=dp)                                      :: alpha
@@ -1637,6 +1655,7 @@ CONTAINS
          END DO
          CALL qs_rho_get(rho, rho_ao_kp=rho_ao_kp)
          p_rmpv => rho_ao_kp(:, 1)
+         nsteps = cdft_control%total_steps
          ! Allocate work
          nvar = SIZE(scf_env%outer_scf%variables, 1)
          max_scf = scf_control%outer_scf%max_scf+1
@@ -1706,6 +1725,7 @@ CONTAINS
             scf_env%outer_scf%energy = energy
             ! If a suitable step size was found, do not reset the electronic structure so we can continue from it
             IF (should_exit) EXIT
+            cdft_control%total_steps = nsteps
             DO ispin = 1, nspins
                CALL deallocate_mo_set(mos(ispin)%mo_set)
                CALL duplicate_mo_set(mos(ispin)%mo_set, mos_stashed(ispin)%mo_set)
