@@ -76,8 +76,8 @@ CONTAINS
       CHARACTER(LEN=*), PARAMETER :: routineN = 'qs_ks_becke_restraint', &
          routineP = moduleN//':'//routineN
 
-      INTEGER                                            :: iatom
-      LOGICAL                                            :: has_global_weight
+      INTEGER                                            :: iatom, igroup
+      LOGICAL                                            :: has_global_weight, has_group_weight
       REAL(KIND=dp)                                      :: inv_vol
       TYPE(dft_control_type), POINTER                    :: dft_control
 
@@ -90,15 +90,15 @@ CONTAINS
          !***** Check if becke potential is needed to constrain charges *****
          becke => dft_control%qs_control%becke_control
          has_global_weight = becke%has_global_weight
+         has_group_weight = becke%has_group_weight
          IF (becke%need_pot) THEN
             IF (has_global_weight) THEN
                CALL pw_pool_create_pw(auxbas_pw_pool, becke%becke_pot%pw, &
                                       use_data=REALDATA3D, in_space=REALSPACE)
-            ELSE
-               IF (.NOT. ASSOCIATED(becke%group_weight)) &
-                  ALLOCATE(becke%group_weight(SIZE(becke%atom_group, 2)))
-               DO iatom = 1, SIZE(becke%atom_group, 2)
-                  CALL pw_pool_create_pw(auxbas_pw_pool, becke%group_weight(iatom)%pw, &
+            END IF
+            IF (has_group_weight) THEN
+               DO igroup, SIZE(becke%group)
+                  CALL pw_pool_create_pw(auxbas_pw_pool, becke%group(igroup)%weight%pw, &
                                          use_data=REALDATA3D, in_space=REALSPACE)
                END DO
             END IF
@@ -114,63 +114,39 @@ CONTAINS
                                  calc_pot=.TRUE., calculate_forces=calculate_forces)
             IF (has_global_weight) THEN
                CALL pw_scale(becke%becke_pot%pw, becke%becke_pot%pw%pw_grid%dvol)
-            ELSE 
-               DO iatom = 1, SIZE(becke%group_weight)
-                  CALL pw_scale(becke%group_weight(iatom)%pw, becke%group_weight(iatom)%pw%pw_grid%dvol)
-               END DO
             END IF
-            IF (dft_control%qs_control%becke_control%constraint_type == cdft_combined_constraint) THEN
-               SELECT CASE (dft_control%qs_control%becke_control%combined_type)
-               CASE (cdft_combined_all)
-                  ! Do nothing
-               CASE (cdft_combined_acceptor, cdft_combined_donor)
-                  CALL pw_scale(becke%combined_weight%pw, becke%becke_pot%pw%pw_grid%dvol)
-               END SELECT
+            IF (has_group_weight) THEN 
+               DO igroup = 1, SIZE(becke%group)
+                  CALL pw_scale(becke%group(igroup)%weight%pw, becke%group(igroup)%weight%pw%pw_grid%dvol)
+               END DO
             END IF
             becke%need_pot = .FALSE.
          ELSE
             IF (has_global_weight) THEN
                inv_vol = 1.0_dp/becke%becke_pot%pw%pw_grid%dvol
                CALL pw_scale(becke%becke_pot%pw, inv_vol)
-            ELSE 
-               inv_vol = 1.0_dp/becke%group_weight(1)%pw%pw_grid%dvol
-               DO iatom = 1, SIZE(becke%group_weight)
-                  CALL pw_scale(becke%group_weight(iatom)%pw, inv_vol)
+            END IF
+            IF (has_group_weight) THEN
+               DO igroup = 1, SIZE(becke%group)
+                  inv_vol = 1.0_dp/becke%group(igroup)%weight%pw%pw_grid%dvol
+                  CALL pw_scale(becke%group(igroup)%weight%pw, inv_vol)
                END DO
             END IF   
-            IF (dft_control%qs_control%becke_control%constraint_type == cdft_combined_constraint) THEN
-               SELECT CASE (dft_control%qs_control%becke_control%combined_type)
-               CASE (cdft_combined_all)
-                  ! Do nothing
-               CASE (cdft_combined_acceptor, cdft_combined_donor)
-                  IF (.NOT. ASSOCIATED(becke%combined_mat)) &
-                     CALL pw_scale(becke%combined_weight%pw, inv_vol)
-               END SELECT
-            END IF
             CALL becke_restraint(qs_env, becke%becke_pot, charge=becke%charge, calc_pot=.FALSE., &
                                  calculate_forces=calculate_forces)
             IF (has_global_weight) THEN
                CALL pw_scale(becke%becke_pot%pw, becke%becke_pot%pw%pw_grid%dvol)
-            ELSE 
-               DO iatom = 1, SIZE(becke%group_weight)
-                  CALL pw_scale(becke%group_weight(iatom)%pw, becke%group_weight(iatom)%pw%pw_grid%dvol)
-               END DO
             END IF
-            IF (dft_control%qs_control%becke_control%constraint_type == cdft_combined_constraint) THEN
-               SELECT CASE (dft_control%qs_control%becke_control%combined_type)
-               CASE (cdft_combined_all)
-                  ! Do nothing
-               CASE (cdft_combined_acceptor, cdft_combined_donor)
-                  CALL pw_scale(becke%combined_weight%pw, becke%becke_pot%pw%pw_grid%dvol)
-               END SELECT
+            IF (has_group_weight) THEN 
+               DO igroup = 1, SIZE(becke%group)
+                  CALL pw_scale(becke%group(igroup)%weight%pw, becke%group(igroup)%weight%pw%pw_grid%dvol)
+               END DO
             END IF
          END IF
 
          IF (dft_control%qs_control%et_coupling_calc) THEN
             ! Combined constraint not allowed
-            IF (becke%constraint_type == cdft_combined_constraint) &
-               CPABORT("Use MIXED_CDFT for ET coupling calculation with combined constraint.")
-            IF (becke%constraint_type == cdft_atomic_magnetization_constraint) &
+            IF (becke%constraint_type /= cdft_density_constraint) &
                CPABORT("Constraint type not supported for ET_COUPLING.")               
             IF (qs_env%et_coupling%keep_matrix) THEN
                IF (qs_env%et_coupling%first_run) THEN

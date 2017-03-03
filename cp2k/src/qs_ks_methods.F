@@ -689,12 +689,12 @@ CONTAINS
          IF (.NOT. becke%transfer_pot) THEN
             IF (dft_control%qs_control%becke_control%has_global_weight) THEN
                CALL pw_pool_give_back_pw(auxbas_pw_pool, becke%becke_pot%pw)
-            ELSE
-               DO iatom = 1, SIZE(dft_control%qs_control%becke_control%group_weight)
+            END IF
+            IF (dft_control%qs_control%becke_control%has_group_weight) THEN
+               DO iatom = 1, SIZE(dft_control%qs_control%becke_control%group)
                   CALL pw_pool_give_back_pw(auxbas_pw_pool, &
-                                            dft_control%qs_control%becke_control%group_weight(iatom)%pw)
+                                            dft_control%qs_control%becke_control%group(iatom)%weight%pw)
                END DO
-               DEALLOCATE(dft_control%qs_control%becke_control%group_weight)
             END IF
             IF (dft_control%qs_control%becke_control%atomic_charges) THEN
                DO iatom = 1, dft_control%qs_control%becke_control%natoms
@@ -712,15 +712,6 @@ CONTAINS
             END IF
             IF (ASSOCIATED(dft_control%qs_control%becke_control%charges_fragment)) &
                DEALLOCATE (dft_control%qs_control%becke_control%charges_fragment)
-            IF (dft_control%qs_control%becke_control%constraint_type == cdft_combined_constraint) THEN
-               SELECT CASE (dft_control%qs_control%becke_control%combined_type)
-               CASE (cdft_combined_all)
-                  ! Do nothing
-               CASE (cdft_combined_acceptor, cdft_combined_donor)
-                  CALL pw_pool_give_back_pw(auxbas_pw_pool, &
-                                            dft_control%qs_control%becke_control%combined_weight%pw)
-               END SELECT
-            END IF
             dft_control%qs_control%becke_control%save_pot = .FALSE.
             dft_control%qs_control%becke_control%need_pot = .TRUE.
             dft_control%qs_control%becke_control%external_control = .FALSE.

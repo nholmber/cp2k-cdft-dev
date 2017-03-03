@@ -374,12 +374,11 @@ CONTAINS
                   ALLOCATE (dft_control%qs_control%cdft_control%strength(nvariables))
                dft_control%qs_control%cdft_control%target = dft_control%qs_control%becke_control%target
                dft_control%qs_control%cdft_control%constraint_type = dft_control%qs_control%becke_control%constraint_type
-               dft_control%qs_control%cdft_control%combined_type = dft_control%qs_control%becke_control%combined_type
             END IF
             ! In case constraint and OT extrapolation orders are different, make sure to use former
             IF (scf_control%outer_scf%extrapolation_order /= &
                 dft_control%qs_control%cdft_control%constraint_control%extrapolation_order &
-                .OR. nvariables == 2) THEN
+                .OR. nvariables =/ 1) THEN
                DEALLOCATE (qs_env%outer_scf_history)
                DEALLOCATE (qs_env%gradient_history)
                DEALLOCATE (qs_env%variable_history)

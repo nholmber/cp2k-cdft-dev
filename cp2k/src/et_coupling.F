@@ -15,7 +15,8 @@ MODULE et_coupling
    USE cell_types,                      ONLY: cell_type,&
                                               pbc
    USE cp_control_types,                ONLY: cdft_control_type,&
-                                              dft_control_type
+                                              dft_control_type, &
+                                              becke_group_type
    USE cp_dbcsr_operations,             ONLY: cp_dbcsr_sm_fm_multiply
    USE cp_fm_basic_linalg,              ONLY: cp_fm_invert,&
                                               cp_fm_transpose
@@ -347,23 +348,24 @@ CONTAINS
 
       CHARACTER(len=2)                                   :: element_symbol
       INTEGER :: atom_a, bounds(2), dir, handle, i, iatom, iex, ikind, ind(3), ip, ithread, ivar, &
-         iw, j, jatom, k, katom, lb_index, natom, nelectron_total, ngrad, nkind, np(3), npme, &
+         iw, j, jatom, k, katom, lb_index, natom, nelectron_total, nkind, np(3), npme, &
          nskipped, nthread, numexp, nvar, tmp_index(2), ub_index, unit_nr, igroup
       INTEGER, ALLOCATABLE, DIMENSION(:)                 :: catom
       INTEGER, DIMENSION(2, 3)                           :: bo, bo_conf
       INTEGER, DIMENSION(:), POINTER                     :: atom_list, cores, stride
-      LOGICAL                                            :: build, in_memory, paw_atom, store_vectors, has_global_weight
-      LOGICAL, ALLOCATABLE, DIMENSION(:)                 :: is_combined, is_constraint, skip_me
+      LOGICAL                                            :: build, in_memory, paw_atom, store_vectors, &
+                                                            has_global_weight, has_group_weight
+      LOGICAL, ALLOCATABLE, DIMENSION(:)                 :: is_constraint, skip_me
       REAL(kind=dp) :: alpha, chi, coef, dist1, dist2, dmyexp, dvol, dynamic_radius, eps_cavity, &
          ircov, jrcov, lb, my1, my1_homo, myexp, nelectron_frag, sign, sum_cell_f_all, &
          sum_cell_f_combined, sum_cell_f_constr, tc, th, tmp_const, ub, uij, zeff, nelectrons
       REAL(kind=dp), ALLOCATABLE, DIMENSION(:)           :: cell_functions, coefficients, dE, &
                                                             distances, ds_dR_i, ds_dR_j, &
-                                                            gapw_offset, strength, target_val, &
+                                                            strength, target_val, &
                                                             sum_cell_f_group
       REAL(kind=dp), ALLOCATABLE, DIMENSION(:, :)        :: d_sum_const_dR, d_sum_Pm_dR, &
                                                             distance_vecs, dP_i_dRi, &
-                                                            electronic_charge, position_vecs, R12
+                                                            electronic_charge, position_vecs, R12, gapw_offset
       REAL(kind=dp), ALLOCATABLE, DIMENSION(:, :, :)     :: dP_i_dRj, pair_dist_vecs
       REAL(kind=dp), DIMENSION(3)                        :: cell_v, dist_vec, dmy_dR_i, dmy_dR_j, &
                                                             dr, dr1_r2, dr_i_dR, dr_ij_dR, &
@@ -375,6 +377,7 @@ CONTAINS
       TYPE(cell_type), POINTER                           :: cell
       TYPE(cp_logger_type), POINTER                      :: logger
       TYPE(cp_para_env_type), POINTER                    :: para_env
+      TYPE(becke_group_type), POINTER, DIMENSION(:)      :: group
       TYPE(dft_control_type), POINTER                    :: dft_control
       TYPE(hirshfeld_type), POINTER                      :: cavity_env
       TYPE(mpole_rho_atom), DIMENSION(:), POINTER        :: mp_rho
@@ -382,7 +385,8 @@ CONTAINS
       TYPE(particle_type), DIMENSION(:), POINTER         :: particle_set
       TYPE(pw_env_type), POINTER                         :: pw_env
       TYPE(pw_p_type)                                    :: rho_frag
-      TYPE(pw_p_type), DIMENSION(:), POINTER             :: rho_r, group_weight
+      TYPE(pw_p_type), POINTER                           :: group_weight
+      TYPE(pw_p_type), DIMENSION(:), POINTER             :: rho_r
       TYPE(pw_pool_type), POINTER                        :: auxbas_pw_pool
       TYPE(qs_energy_type), POINTER                      :: energy
       TYPE(qs_kind_type), DIMENSION(:), POINTER          :: qs_kind_set
@@ -397,7 +401,7 @@ CONTAINS
                dft_control, particle_set, rho_r, energy, rho, logger, &
                becke_restraint_section, qs_kind_set, gradients, particles, &
                subsys, pab, pw_env, rs_cavity, cavity_env, auxbas_pw_pool, &
-               atomic_kind_set, mp_rho, rho0_mpole)
+               atomic_kind_set, mp_rho, rho0_mpole, group_weight, group)
       CALL timeset(routineN, handle)
 
       CALL get_qs_env(qs_env, &
@@ -421,36 +425,19 @@ CONTAINS
 
       IF (dft_control%qs_control%becke_restraint) THEN
          has_global_weight = dft_control%qs_control%becke_control%has_global_weight
+         has_group_weight = dft_control%qs_control%becke_control%has_group_weight
+         nvar = SIZE(dft_control%qs_control%becke_control%target)
          SELECT CASE (dft_control%qs_control%becke_control%constraint_type)
          CASE (cdft_density_constraint)
-            nvar = 1
-            ngrad = 1
+            ! Do nothing
          CASE (cdft_magnetization_constraint)
-            nvar = 1
-            ngrad = 1
             IF (dft_control%nspins == 1) &
                CALL cp_abort(__LOCATION__, &
                              "Becke magnetization density constraint requires UKS calculation.")
          CASE (cdft_combined_constraint)
-            nvar = 2
             IF (dft_control%nspins == 1) &
                CALL cp_abort(__LOCATION__, &
                              "Becke combined charge+spin constraint requires UKS calculation.")
-            SELECT CASE (dft_control%qs_control%becke_control%combined_type)
-            CASE (cdft_combined_all)
-               ngrad = 1
-            CASE (cdft_combined_acceptor, cdft_combined_donor)
-               ngrad = 2
-            END SELECT
-         CASE (cdft_atomic_magnetization_constraint)
-            nvar = SIZE(dft_control%qs_control%becke_control%target)
-            IF (dft_control%nspins == 1) &
-               CALL cp_abort(__LOCATION__, &
-                             "Becke atomic magnetization density constraint requires UKS calculation.")
-            IF (dft_control%qs_control%becke_control%save_pot .AND. dft_control%qs_control%becke_control%in_memory) &
-               CALL cp_abort(__LOCATION__, &
-                             "No forces available for Becke atomic magnetization density constraint.")
-
          END SELECT
          ALLOCATE (strength(nvar))
          ALLOCATE (target_val(nvar))
@@ -460,10 +447,12 @@ CONTAINS
          dE = 0.0_dp
          IF (has_global_weight) THEN
             dvol = becke_const%pw%pw_grid%dvol
+         ELSE IF (has_group_weight) THEN
+            dvol = group(1)%weight%pw%pw_grid%dvol
          ELSE
-            group_weight => dft_control%qs_control%becke_control%group_weight
-            dvol = group_weight(1)%pw%pw_grid%dvol
+            CPABORT("No constraint seems to be active.")
          END IF
+         IF (has_group_weight) group => dft_control%qs_control%becke_control%group
 
          eps_cavity = dft_control%qs_control%becke_control%eps_cavity
 
@@ -537,9 +526,10 @@ CONTAINS
             IF (dft_control%qs_control%becke_control%save_pot) THEN
                in_memory = dft_control%qs_control%becke_control%in_memory
             END IF
-            IF (in_memory .OR. dft_control%qs_control%becke_control%first_iteration) &
+            IF (in_memory .OR. dft_control%qs_control%becke_control%first_iteration) THEN
                ALLOCATE (coefficients(natom))
-
+               coefficients = 0.0_dp 
+            END IF
             DO i = 1, dft_control%qs_control%becke_control%natoms
                catom(i) = dft_control%qs_control%becke_control%atoms(i)
                IF (dft_control%qs_control%becke_control%dynamic_confine .OR. &
@@ -559,16 +549,19 @@ CONTAINS
                dvol = becke_const%pw%pw_grid%dvol
                dr = becke_const%pw%pw_grid%dr
                np = becke_const%pw%pw_grid%npts
-            ELSE
-               DO igroup = 1, SIZE(group_weight)
-                  group_weight(igroup)%pw%cr3d = 0.0_dp
+            END IF
+            IF (has_group_weight) THEN
+               DO igroup = 1, SIZE(group)
+                  group(igroup)%weight%pw%cr3d = 0.0_dp
                END DO
-               bo = group_weight(1)%pw%pw_grid%bounds_local
-               np = group_weight(1)%pw%pw_grid%npts
-               dvol = group_weight(1)%pw%pw_grid%dvol
-               dr = group_weight(1)%pw%pw_grid%dr
-               np = group_weight(1)%pw%pw_grid%npts
-               ALLOCATE(sum_cell_f_group(SIZE(dft_control%qs_control%becke_control%atom_group, 2)))
+               ALLOCATE(sum_cell_f_group(SIZE(group)))
+               IF (.NOT. has_group_weight) THEN
+                  bo = group_weight(1)%pw%pw_grid%bounds_local
+                  np = group_weight(1)%pw%pw_grid%npts
+                  dvol = group_weight(1)%pw%pw_grid%dvol
+                  dr = group_weight(1)%pw%pw_grid%dr
+                  np = group_weight(1)%pw%pw_grid%npts
+               END IF
             END IF
             shift = -REAL(MODULO(np, 2), dp)*dr/2.0_dp
 
@@ -598,9 +591,10 @@ CONTAINS
                ALLOCATE (ds_dR_j(3))
                ALLOCATE (ds_dR_i(3))
                ALLOCATE (d_sum_Pm_dR(3, natom))
-               ALLOCATE (d_sum_const_dR(3*ngrad, natom))
                ALLOCATE (dP_i_dRj(3, natom, natom))
                ALLOCATE (dP_i_dRi(3, natom))
+               IF (has_global_weight) &
+                  ALLOCATE (d_sum_const_dR(3, natom))
                th = 1.0e-8_dp
             END IF
             !calculate distances from target atom (only implemented for a diatomic system)
@@ -706,13 +700,13 @@ CONTAINS
                   IF (.NOT. has_global_weight) THEN
                      WRITE (iw, '(/,T3,A,T60)') &
                         '----------------------------- Becke group definitions -----------------------------'
-                     DO igroup = 1, SIZE(dft_control%qs_control%becke_control%atom_group, 2)
+                     DO igroup = 1, SIZE(group)
                         IF (igroup > 1) WRITE (iw, '(T3,A)') ' '
                         WRITE (iw, '(T3,A,I4,A,I4))') &
-                           'Atomic group', igroup, ' of ', SIZE(dft_control%qs_control%becke_control%atom_group, 2)
+                           'Atomic group', igroup, ' of ', SIZE(group)
                         WRITE (iw, '(T13,A)') ' Atom  Element'
-                        DO ip = 1, SIZE(dft_control%qs_control%becke_control%atom_group, 1)
-                           iatom = dft_control%qs_control%becke_control%atom_group(ip, igroup)
+                        DO ip = 1, SIZE(group(igroup)%atoms)
+                           iatom = group(igroup)%atoms(ip)
                            CALL get_atomic_kind(atomic_kind=particle_set(iatom)%atomic_kind, &
                                                 element_symbol=element_symbol)
                            WRITE (iw, "(T11,i7,T25,A2)") &
@@ -868,11 +862,26 @@ CONTAINS
                   IF (bounds(2) .LT. bo(2, 3)) bo_conf(2, 3) = bounds(2)-1
                   IF (bounds(1) .GT. bo(1, 3)) bo_conf(1, 3) = bounds(1)+1
                END IF
-               ALLOCATE (dft_control%qs_control%becke_control%gradients(3*natom*ngrad, bo_conf(1, 1):bo_conf(2, 1), &
-                                                                        bo_conf(1, 2):bo_conf(2, 2), &
-                                                                        bo_conf(1, 3):bo_conf(2, 3)))
-               gradients => dft_control%qs_control%becke_control%gradients
-               gradients = 0.0_dp
+               IF (has_global_weight) THEN
+                  ALLOCATE (dft_control%qs_control%becke_control%gradients(3*natom, bo_conf(1, 1):bo_conf(2, 1), &
+                                                                           bo_conf(1, 2):bo_conf(2, 2), &
+                                                                           bo_conf(1, 3):bo_conf(2, 3)))
+                  gradients => dft_control%qs_control%becke_control%gradients
+                  gradients = 0.0_dp
+               IF (has_group_weight) THEN
+                  ALLOCATE(map_group(natom))
+                  map_group = -1
+                  DO igroup = 1, SIZE(group)
+                     ALLOCATE(group(igroup)%gradients(3*SIZE(group(igroup)%atoms), bo_conf(1, 1):bo_conf(2, 1), &
+                                                      bo_conf(1, 2):bo_conf(2, 2), &
+                                                      bo_conf(1, 3):bo_conf(2, 3)))
+                     group(igroup)%gradients = 0.0_dp
+                     ALLOCATE(group(igroup)%d_sum_const_dR(3,natom))
+                     group(igroup)%d_sum_const_dR = 0.0_dp
+                     DO ip = 1, SIZE(group(igroup)%atoms)
+                        map_group(group(igroup)%atoms(ip)) = igroup
+                  END DO
+               END IF
                ! If requested, store skipped grid points that were not handled by confinement
                IF (dft_control%qs_control%becke_control%should_skip .AND. .NOT. &
                    dft_control%qs_control%becke_control%cavity_confine) THEN
@@ -883,32 +892,32 @@ CONTAINS
                   dft_control%qs_control%becke_control%skip_list = .FALSE.
                END IF
             END IF
-            ! Combined weight: allocate storage for the spin weight function
-            IF (dft_control%qs_control%becke_control%constraint_type == cdft_combined_constraint) THEN
-               SELECT CASE (dft_control%qs_control%becke_control%combined_type)
-               CASE (cdft_combined_all)
-                  ! Pass. Charge and spin constraints share same weight
-               CASE (cdft_combined_acceptor, cdft_combined_donor)
-                  ALLOCATE (is_combined(natom))
-                  is_combined = .FALSE.
-                  NULLIFY (pw_env, auxbas_pw_pool)
-                  CALL get_qs_env(qs_env, pw_env=pw_env)
-                  CALL pw_env_get(pw_env, auxbas_rs_grid=rs_cavity, &
-                                  auxbas_pw_pool=auxbas_pw_pool)
-                  CALL pw_pool_create_pw(auxbas_pw_pool, dft_control%qs_control%becke_control%combined_weight%pw, &
-                                         use_data=REALDATA3D, in_space=REALSPACE)
-                  dft_control%qs_control%becke_control%combined_weight%pw%cr3d = 0.0_dp
-                  DO iatom = 1, dft_control%qs_control%becke_control%natoms
-                     IF (dft_control%qs_control%becke_control%combined_type == cdft_combined_acceptor .AND. &
-                         dft_control%qs_control%becke_control%coeff(iatom) == -1.0_dp) THEN
-                        is_combined(catom(iatom)) = .TRUE.
-                     ELSE IF (dft_control%qs_control%becke_control%combined_type == cdft_combined_donor .AND. &
-                              dft_control%qs_control%becke_control%coeff(iatom) == +1.0_dp) THEN
-                        is_combined(catom(iatom)) = .TRUE.
-                     END IF
-                  END DO
-               END SELECT
-            END IF
+            !! Combined weight: allocate storage for the spin weight function
+            !IF (dft_control%qs_control%becke_control%constraint_type == cdft_combined_constraint) THEN
+            !   SELECT CASE (dft_control%qs_control%becke_control%combined_type)
+            !   CASE (cdft_combined_all)
+            !      ! Pass. Charge and spin constraints share same weight
+            !   CASE (cdft_combined_acceptor, cdft_combined_donor)
+            !      ALLOCATE (is_combined(natom))
+            !      is_combined = .FALSE.
+            !      NULLIFY (pw_env, auxbas_pw_pool)
+            !      CALL get_qs_env(qs_env, pw_env=pw_env)
+            !      CALL pw_env_get(pw_env, auxbas_rs_grid=rs_cavity, &
+            !                      auxbas_pw_pool=auxbas_pw_pool)
+            !      CALL pw_pool_create_pw(auxbas_pw_pool, dft_control%qs_control%becke_control%combined_weight%pw, &
+            !                             use_data=REALDATA3D, in_space=REALSPACE)
+            !      dft_control%qs_control%becke_control%combined_weight%pw%cr3d = 0.0_dp
+            !      DO iatom = 1, dft_control%qs_control%becke_control%natoms
+            !         IF (dft_control%qs_control%becke_control%combined_type == cdft_combined_acceptor .AND. &
+            !             dft_control%qs_control%becke_control%coeff(iatom) == -1.0_dp) THEN
+            !            is_combined(catom(iatom)) = .TRUE.
+            !         ELSE IF (dft_control%qs_control%becke_control%combined_type == cdft_combined_donor .AND. &
+            !                  dft_control%qs_control%becke_control%coeff(iatom) == +1.0_dp) THEN
+            !            is_combined(catom(iatom)) = .TRUE.
+            !         END IF
+            !      END DO
+            !   END SELECT
+            !END IF
             ! Calculate weight and possibly the gradient
             DO k = bo(1, 1), bo(2, 1)
                DO j = bo(1, 2), bo(2, 2)
@@ -1082,42 +1091,70 @@ CONTAINS
                               END IF
                            END DO ! jatom
                            IF (in_memory) THEN
+                              ! Final value of dP_i_dRi
                               dP_i_dRi(:, iatom) = cell_functions(iatom)*dP_i_dRi(:, iatom)
+                              ! Update relevant sums with value 
                               d_sum_Pm_dR(:, iatom) = d_sum_Pm_dR(:, iatom)+dP_i_dRi(:, iatom)
-                              IF (is_constraint(iatom)) &
+                              IF (has_global_weight .AND. is_constraint(iatom)) &
                                  d_sum_const_dR(1:3, iatom) = d_sum_const_dR(1:3, iatom)+dP_i_dRi(:, iatom)* &
                                                               coefficients(iatom)
-                              IF (ngrad == 2) THEN
-                                 IF (is_combined(iatom)) d_sum_const_dR(4:6, iatom) = d_sum_const_dR(4:6, iatom) &
-                                                                                      +dP_i_dRi(:, iatom)
+                              IF (has_group_weight .AND. map_group(iatom) /= -1) THEN
+                                 DO ip = 1, SIZE(group(map_group(iatom))%atoms)
+                                    IF (iatom == group(map_group(iatom))%atoms(ip)) THEN
+                                       group(map_group(iatom))%d_sum_const_dR(1:3, ip) = &
+                                       group(map_group(iatom))%d_sum_const_dR(1:3, ip) + &
+                                       group(map_group(iatom))%coeff(ip)*dP_i_dRi(:, iatom)
+                                       EXIT
+                                    END IF 
+                                 END DO
                               END IF
                               DO jatom = 1, natom
                                  IF (jatom .NE. iatom) THEN
-                                    IF (jatom < iatom) THEN
-                                       IF (.NOT. skip_me(jatom)) THEN
-                                          dP_i_dRj(:, iatom, jatom) = cell_functions(iatom)*dP_i_dRj(:, iatom, jatom)
-                                          d_sum_Pm_dR(:, jatom) = d_sum_Pm_dR(:, jatom)+dP_i_dRj(:, iatom, jatom)
-                                          IF (is_constraint(iatom)) &
-                                             d_sum_const_dR(1:3, jatom) = d_sum_const_dR(1:3, jatom)+ &
-                                                                          dP_i_dRj(:, iatom, jatom)* &
-                                                                          coefficients(iatom)
-                                          IF (ngrad == 2) THEN
-                                             IF (is_combined(iatom)) d_sum_const_dR(4:6, jatom) = &
-                                                d_sum_const_dR(4:6, jatom) &
-                                                +dP_i_dRj(:, iatom, jatom)
-                                          END IF
-                                          CYCLE
-                                       END IF
-                                    END IF
+                                    !IF (jatom < iatom) THEN
+                                    !   IF (.NOT. skip_me(jatom)) THEN
+                                    !      ! Final value of dP_i_dRj
+                                    !      dP_i_dRj(:, iatom, jatom) = cell_functions(iatom)*dP_i_dRj(:, iatom, jatom)
+                                    !      ! Update where needed
+                                    !      d_sum_Pm_dR(:, jatom) = d_sum_Pm_dR(:, jatom)+dP_i_dRj(:, iatom, jatom)
+                                    !      IF (has_global_weight .AND. is_constraint(iatom)) &
+                                    !         d_sum_const_dR(1:3, jatom) = d_sum_const_dR(1:3, jatom)+ &
+                                    !                                      dP_i_dRj(:, iatom, jatom)* &
+                                    !                                      coefficients(iatom)
+                                    !      IF (has_group_weight .AND. map_group(jatom) /= -1) THEN
+                                    !         DO ip = 1, SIZE(group(map_group(jatom))%atoms)
+                                    !            IF (jatom == group(map_group(jatom))%atoms(ip)) THEN
+                                    !               group(map_group(jatom))%d_sum_const_dR(1:3, ip) = &
+                                    !               group(map_group(jatom))%d_sum_const_dR(1:3, ip) + &
+                                    !               group(map_group(jatom))%coeff(ip)*+dP_i_dRj(:, iatom, jatom)
+                                    !               EXIT
+                                    !            END IF 
+                                    !         END DO
+                                    !      END IF
+                                    !         IF (is_magnetization(iatom)) d_sum_const_dR(4:6, jatom) = &
+                                    !            d_sum_const_dR(4:6, jatom) &
+                                    !            +dP_i_dRj(:, iatom, jatom)
+                                    !      END IF
+                                    !      CYCLE
+                                    !   END IF
+                                    !END IF
+                                    ! Final value of dP_i_dRj
                                     dP_i_dRj(:, iatom, jatom) = cell_functions(iatom)*dP_i_dRj(:, iatom, jatom)
+                                    ! Update where needed
                                     d_sum_Pm_dR(:, jatom) = d_sum_Pm_dR(:, jatom)+dP_i_dRj(:, iatom, jatom)
-                                    IF (is_constraint(iatom)) &
+                                    IF (has_global_weight .AND. is_constraint(iatom)) &
                                        d_sum_const_dR(1:3, jatom) = d_sum_const_dR(1:3, jatom)+ &
                                                                     dP_i_dRj(:, iatom, jatom)* &
                                                                     coefficients(iatom)
-                                    IF (ngrad == 2) THEN
-                                       IF (is_combined(iatom)) d_sum_const_dR(4:6, jatom) = d_sum_const_dR(4:6, jatom) &
-                                                                                            +dP_i_dRj(:, iatom, jatom)
+
+                                    IF (has_group_weight .AND. map_group(iatom) /= -1) THEN
+                                       DO ip = 1, SIZE(group(map_group(iatom))%atoms)
+                                          IF (jatom == group(map_group(iatom))%atoms(ip)) THEN
+                                             group(map_group(iatom))%d_sum_const_dR(1:3, ip) = &
+                                             group(map_group(iatom))%d_sum_const_dR(1:3, ip) + &
+                                             group(map_group(iatom))%coeff(ip)*dP_i_dRj(:, iatom, jatom)
+                                             EXIT
+                                          END IF 
+                                       END DO
                                     END IF
                                  END IF
                               END DO
@@ -1143,24 +1180,17 @@ CONTAINS
                      IF (nskipped == dft_control%qs_control%becke_control%natoms) CYCLE
                      IF (has_global_weight) THEN
                         sum_cell_f_constr = 0.0_dp
-                        sum_cell_f_combined = 0.0_dp
                         DO ip = 1, dft_control%qs_control%becke_control%natoms
                            sum_cell_f_constr = sum_cell_f_constr+cell_functions(catom(ip))* &
                                                dft_control%qs_control%becke_control%coeff(ip)
-                           IF (ngrad == 2) THEN
-                              ! The coeff is implicitly 1.0
-                              IF (is_combined(catom(ip))) &
-                                 sum_cell_f_combined = sum_cell_f_combined+cell_functions(catom(ip))
-                           END IF
                         END DO
-                     ELSE
+                     END IF
+                     IF (has_group_weight) THEN
                         sum_cell_f_group = 0.0_dp
-                        DO igroup = 1, SIZE(dft_control%qs_control%becke_control%atom_group, 2)
-                           DO ip = 1, SIZE(dft_control%qs_control%becke_control%atom_group, 1)
-                              IF (dft_control%qs_control%becke_control%atom_group(ip, igroup) == -1) CYCLE
-                              sum_cell_f_group(igroup) = &
-                                 sum_cell_f_group(igroup) + &
-                                 cell_functions(dft_control%qs_control%becke_control%atom_group(ip, igroup))
+                        DO igroup = 1, SIZE(group)
+                           DO ip = 1, SIZE(group(igroup)%atoms)
+                              sum_cell_f_group(igroup) = sum_cell_f_group(igroup) + group(igroup)%coeff(ip) *&
+                                                         cell_functions(group(igroup)%atoms(ip))
                            END DO
                         END DO
                      END IF
@@ -1170,29 +1200,30 @@ CONTAINS
                      END DO
                      ! Gradients at (k,j,i)
                      IF (in_memory .AND. ABS(sum_cell_f_all) .GT. 0.0_dp) THEN
-                        DO iatom = 1, natom
-                           gradients(3*(iatom-1)+1:3*(iatom-1)+3, k, j, i) = &
-                              d_sum_const_dR(1:3, iatom)/sum_cell_f_all-sum_cell_f_constr* &
-                              d_sum_Pm_dR(1:3, iatom)/(sum_cell_f_all**2)
-                           IF (ngrad == 2) THEN
-                              gradients(3*(iatom-1)+1+natom:3*(iatom-1)+3+natom, k, j, i) = &
-                                 d_sum_const_dR(4:6, iatom)/sum_cell_f_all-sum_cell_f_constr* &
+                        IF (has_global_weight) THEN
+                           DO iatom = 1, natom
+                              gradients(3*(iatom-1)+1:3*(iatom-1)+3, k, j, i) = &
+                                 d_sum_const_dR(1:3, iatom)/sum_cell_f_all-sum_cell_f_constr* &
                                  d_sum_Pm_dR(1:3, iatom)/(sum_cell_f_all**2)
-                           END IF
+                           END DO
+                        END IF
+                        IF (has_group_weight) THEN
+                           DO igroup = 1, SIZE(group)
+                              DO iatom = 1, natom
+                                 group(igroup)%gradients(3*(iatom-1)+1:3*(iatom-1)+3, k, j, i) = &
+                                 group(igroup)%d_sum_const_dR(1:3, iatom)/sum_cell_f_all-sum_cell_f_group(igroup)* &
+                                 d_sum_Pm_dR(1:3, iatom)/(sum_cell_f_all**2)
+                           END DO
                         END DO
                      END IF
                      ! Weight function at (k,j,i)
                      IF (ABS(sum_cell_f_all) .GT. 0.000001) THEN
-                        SELECT CASE (dft_control%qs_control%becke_control%constraint_type)
-                        CASE (cdft_density_constraint, cdft_combined_constraint, cdft_magnetization_constraint)
+                        IF (has_global_weight) THEN
                            becke_const%pw%cr3d(k, j, i) = sum_cell_f_constr/sum_cell_f_all
-                           IF (ngrad == 2) THEN
-                              dft_control%qs_control%becke_control%combined_weight%pw%cr3d(k, j, i) = sum_cell_f_combined/ &
-                                                                                                      sum_cell_f_all
-                           END IF
-                        CASE (cdft_atomic_magnetization_constraint)
-                           DO igroup = 1, SIZE(dft_control%qs_control%becke_control%atom_group, 2)
-                              group_weight(igroup)%pw%cr3d(k, j, i) = sum_cell_f_group(igroup)/sum_cell_f_all
+                        END IF
+                        IF (has_group_weight) THEN
+                           DO igroup = 1, SIZE(group)
+                              group(igroup)%weight%pw%cr3d(k, j, i) = sum_cell_f_group(igroup)/sum_cell_f_all
                            END DO
                         END SELECT
                         IF (dft_control%qs_control%becke_control%atomic_charges) THEN
@@ -1231,110 +1262,129 @@ CONTAINS
                DEALLOCATE (distance_vecs)
                DEALLOCATE (position_vecs)
             END IF
-            IF (ALLOCATED(is_combined)) DEALLOCATE (is_combined)
+            IF (ALLOCATED(map_group)) DEALLOCATE (map_group)
             IF (ALLOCATED(sum_cell_f_group)) DEALLOCATE(sum_cell_f_group)
          END IF
          IF (has_global_weight) THEN
             bo = becke_const%pw%pw_grid%bounds_local
-         ELSE
-            bo = group_weight(1)%pw%pw_grid%bounds_local
+         ELSE IF (has_group_weight) THEN
+            bo = group(1)%weight%pw%pw_grid%bounds_local
          END IF
          IF (dft_control%qs_control%becke_control%atomic_charges) THEN
             ALLOCATE (electronic_charge(dft_control%qs_control%becke_control%natoms, dft_control%nspins))
             electronic_charge = 0.0_dp
          END IF
          ! Calculate value of constraint i.e. int ( rho(r) w(r) dr)
-         SELECT CASE (dft_control%qs_control%becke_control%constraint_type)
-         CASE (cdft_density_constraint, cdft_magnetization_constraint, cdft_combined_constraint)
-            DO i = 1, dft_control%nspins
-               DO ivar = 1, nvar
-                  ! With external control, we can use cavity_mat as a mask to kahan sum
-                  IF (dft_control%qs_control%becke_control%external_control .AND. &
-                      dft_control%qs_control%becke_control%cavity_confine) THEN
-                     IF (ivar == 2) THEN
-                        sign = 1.0_dp
-                        IF (i == 2) sign = -1.0_dp
-                        SELECT CASE (dft_control%qs_control%becke_control%combined_type)
-                        CASE (cdft_combined_all)
-                           dE(ivar) = dE(ivar)+ &
-                                      sign*accurate_sum_arrays_product(becke_const%pw%cr3d, rho_r(i)%pw%cr3d, &
-                                                                       dft_control%qs_control%becke_control%cavity_mat, &
-                                                                       eps_cavity)*dvol
-                        CASE (cdft_combined_donor, cdft_combined_acceptor)
-                           ! Transfer spin constraint weight truncated real-3D matrix -> pw%cr3d
-                           IF (ASSOCIATED(dft_control%qs_control%becke_control%combined_mat)) THEN
-                              NULLIFY (pw_env, auxbas_pw_pool)
-                              CALL get_qs_env(qs_env, pw_env=pw_env)
-                              CALL pw_env_get(pw_env, auxbas_pw_pool=auxbas_pw_pool)
-                              CALL pw_pool_create_pw(auxbas_pw_pool, &
-                                                     dft_control%qs_control%becke_control%combined_weight%pw, &
-                                                     use_data=REALDATA3D, in_space=REALSPACE)
-                              dft_control%qs_control%becke_control%combined_weight%pw%cr3d = 0.0_dp
-                              CALL pw_set(dft_control%qs_control%becke_control%combined_weight%pw, &
-                                          dft_control%qs_control%becke_control%combined_mat)
-                              DEALLOCATE (dft_control%qs_control%becke_control%combined_mat)
-                           END IF
-                           dE(ivar) = dE(ivar)+sign* &
-                                      accurate_sum_arrays_product(dft_control%qs_control%becke_control% &
-                                                                  combined_weight%pw%cr3d, &
-                                                                  rho_r(i)%pw%cr3d, &
-                                                                  dft_control%qs_control%becke_control%cavity_mat, &
-                                                                  eps_cavity)*dvol
-                        END SELECT
-                     ELSE
-                        sign = 1.0_dp
-                        ! Note the negative sign for beta spin if spin constraint is active
-                        IF (dft_control%qs_control%becke_control%constraint_type == &
-                            cdft_magnetization_constraint .AND. i == 2) sign = -1.0_dp
-                        dE(ivar) = dE(ivar)+sign* &
-                                   accurate_sum_arrays_product(becke_const%pw%cr3d, rho_r(i)%pw%cr3d, &
-                                                               dft_control%qs_control%becke_control%cavity_mat, &
-                                                               eps_cavity)*dvol
-                     END IF
-                  ELSE
-                     IF (ivar == 2) THEN
-                        sign = 1.0_dp
-                        IF (i == 2) sign = -1.0_dp
-                        SELECT CASE (dft_control%qs_control%becke_control%combined_type)
-                        CASE (cdft_combined_all)
-                           dE(ivar) = dE(ivar)+sign*accurate_sum(becke_const%pw%cr3d*rho_r(i)%pw%cr3d)*dvol
-                        CASE (cdft_combined_donor, cdft_combined_acceptor)
-                           dE(ivar) = dE(ivar)+sign* &
-                                      accurate_sum(dft_control%qs_control%becke_control%combined_weight%pw%cr3d* &
-                                                   rho_r(i)%pw%cr3d)*dvol
-                        END SELECT
-                     ELSE
-                        sign = 1.0_dp
-                        ! Note the negative sign for beta spin if spin constraint is active
-                        IF (dft_control%qs_control%becke_control%constraint_type == &
-                            cdft_magnetization_constraint .AND. i == 2) sign = -1.0_dp
-                        dE(ivar) = dE(ivar)+sign*accurate_sum(becke_const%pw%cr3d*rho_r(i)%pw%cr3d)*dvol
-                     END IF
-                  END IF
-               END DO
-               IF (dft_control%qs_control%becke_control%atomic_charges) THEN
-                  DO iatom = 1, dft_control%qs_control%becke_control%natoms
-                     electronic_charge(iatom, i) = accurate_sum(charge(iatom)%pw%cr3d*rho_r(i)%pw%cr3d)*dvol
-                  END DO
-               END IF
-            END DO
-         CASE (cdft_atomic_magnetization_constraint)
-            DO i = 1, dft_control%nspins
-               DO ivar = 1, nvar
-                  IF (i==1) THEN
+         DO i = 1, dft_control%nspins
+            IF (has_global_weight) THEN
+               ! With external control, we can use cavity_mat as a mask to kahan sum
+               IF (dft_control%qs_control%becke_control%external_control .AND. &
+                   dft_control%qs_control%becke_control%cavity_confine) THEN
+                  !IF (ivar == 2) THEN
+                  !   sign = 1.0_dp
+                  !   IF (i == 2) sign = -1.0_dp
+                  !   SELECT CASE (dft_control%qs_control%becke_control%combined_type)
+                  !   CASE (cdft_combined_all)
+                  !      dE(ivar) = dE(ivar)+ &
+                  !                 sign*accurate_sum_arrays_product(becke_const%pw%cr3d, rho_r(i)%pw%cr3d, &
+                  !                                                  dft_control%qs_control%becke_control%cavity_mat, &
+                  !                                                  eps_cavity)*dvol
+                  !   CASE (cdft_combined_donor, cdft_combined_acceptor)
+                  !      ! Transfer spin constraint weight truncated real-3D matrix -> pw%cr3d
+                  !      IF (ASSOCIATED(dft_control%qs_control%becke_control%combined_mat)) THEN
+                  !         NULLIFY (pw_env, auxbas_pw_pool)
+                  !         CALL get_qs_env(qs_env, pw_env=pw_env)
+                  !         CALL pw_env_get(pw_env, auxbas_pw_pool=auxbas_pw_pool)
+                  !         CALL pw_pool_create_pw(auxbas_pw_pool, &
+                  !                                dft_control%qs_control%becke_control%combined_weight%pw, &
+                  !                                use_data=REALDATA3D, in_space=REALSPACE)
+                  !         dft_control%qs_control%becke_control%combined_weight%pw%cr3d = 0.0_dp
+                  !         CALL pw_set(dft_control%qs_control%becke_control%combined_weight%pw, &
+                  !                     dft_control%qs_control%becke_control%combined_mat)
+                  !         DEALLOCATE (dft_control%qs_control%becke_control%combined_mat)
+                  !      END IF
+                  !      dE(ivar) = dE(ivar)+sign* &
+                  !                 accurate_sum_arrays_product(dft_control%qs_control%becke_control% &
+                  !                                             combined_weight%pw%cr3d, &
+                  !                                             rho_r(i)%pw%cr3d, &
+                  !                                             dft_control%qs_control%becke_control%cavity_mat, &
+                  !                                             eps_cavity)*dvol
+                  !   END SELECT
+                  !ELSE
                      sign = 1.0_dp
+                  !   ! Note the negative sign for beta spin if spin constraint is active
+                  !   IF (dft_control%qs_control%becke_control%constraint_type == &
+                  !       cdft_magnetization_constraint .AND. i == 2) sign = -1.0_dp
+                     dE(1) = dE(1)+sign* &
+                                accurate_sum_arrays_product(becke_const%pw%cr3d, rho_r(i)%pw%cr3d, &
+                                                            dft_control%qs_control%becke_control%cavity_mat, &
+                                                            eps_cavity)*dvol
+                  !END IF
+               ELSE
+                  !IF (ivar == 2) THEN
+                  !   sign = 1.0_dp
+                  !   IF (i == 2) sign = -1.0_dp
+                  !   SELECT CASE (dft_control%qs_control%becke_control%combined_type)
+                  !   CASE (cdft_combined_all)
+                  !      dE(ivar) = dE(ivar)+sign*accurate_sum(becke_const%pw%cr3d*rho_r(i)%pw%cr3d)*dvol
+                  !   CASE (cdft_combined_donor, cdft_combined_acceptor)
+                  !      dE(ivar) = dE(ivar)+sign* &
+                  !                 accurate_sum(dft_control%qs_control%becke_control%combined_weight%pw%cr3d* &
+                  !                              rho_r(i)%pw%cr3d)*dvol
+                  !   END SELECT
+                  !ELSE
+                     sign = 1.0_dp
+                     !! Note the negative sign for beta spin if spin constraint is active
+                     !IF (dft_control%qs_control%becke_control%constraint_type == &
+                     !    cdft_magnetization_constraint .AND. i == 2) sign = -1.0_dp
+                     dE(1) = dE(1)+sign*accurate_sum(becke_const%pw%cr3d*rho_r(i)%pw%cr3d)*dvol
+                  END IF
+               END IF
+            END IF
+            IF (has_group_weight) THEN
+               DO igroup = 1, SIZE(group)
+                  IF (has_global_weight) THEN
+                     ivar = igroup + 1
+                  ELSE
+                     ivar = igroup
+                  END IF
+                  IF (i == 1) THEN
+                     sign = 1.0_dp 
                   ELSE
                      sign = -1.0_dp
                   END IF
-                  dE(ivar) = dE(ivar) + sign*accurate_sum(group_weight(ivar)%pw%cr3d*rho_r(i)%pw%cr3d)*dvol
+                  IF (dft_control%qs_control%becke_control%external_control .AND. &
+                      dft_control%qs_control%becke_control%cavity_confine) THEN
+                     CALL cp_abort(__LOCATION__, &
+                                   "Magnetization constraint does not yet support parallel mixed calculations.")
+                  ELSE
+                     dE(ivar) = dE(ivar)+sign*accurate_sum(group(igroup)%weight%pw%cr3d*rho_r(i)%pw%cr3d)*dvol
+                  END IF
                END DO
-               IF (dft_control%qs_control%becke_control%atomic_charges) THEN
-                  DO iatom = 1, dft_control%qs_control%becke_control%natoms
-                     electronic_charge(iatom, i) = accurate_sum(charge(iatom)%pw%cr3d*rho_r(i)%pw%cr3d)*dvol
-                  END DO
-               END IF
-            END DO
-         END SELECT
+            END IF
+            IF (dft_control%qs_control%becke_control%atomic_charges) THEN
+               DO iatom = 1, dft_control%qs_control%becke_control%natoms
+                  electronic_charge(iatom, i) = accurate_sum(charge(iatom)%pw%cr3d*rho_r(i)%pw%cr3d)*dvol
+               END DO
+            END IF
+         END DO
+         !CASE (cdft_atomic_magnetization_constraint)
+         !   DO i = 1, dft_control%nspins
+         !      DO ivar = 1, nvar
+         !         IF (i==1) THEN
+         !            sign = 1.0_dp
+         !         ELSE
+         !            sign = -1.0_dp
+         !         END IF
+         !         dE(ivar) = dE(ivar) + sign*accurate_sum(group_weight(ivar)%pw%cr3d*rho_r(i)%pw%cr3d)*dvol
+         !      END DO
+         !      IF (dft_control%qs_control%becke_control%atomic_charges) THEN
+         !         DO iatom = 1, dft_control%qs_control%becke_control%natoms
+         !            electronic_charge(iatom, i) = accurate_sum(charge(iatom)%pw%cr3d*rho_r(i)%pw%cr3d)*dvol
+         !         END DO
+         !      END IF
+         !   END DO
+         !END SELECT
          CALL get_qs_env(qs_env, energy=energy)
          CALL mp_sum(dE, para_env%group)
          IF (dft_control%qs_control%becke_control%atomic_charges) THEN
@@ -1359,9 +1409,6 @@ CONTAINS
             CASE (cdft_combined_constraint)
                CALL cp_abort(__LOCATION__, &
                              "Becke deformation density not yet compatible with combined charge+spin constraint.")
-            CASE (cdft_atomic_magnetization_constraint)
-               CALL cp_abort(__LOCATION__, &
-                             "Becke deformation density not yet compatible with atomic magnetization density constraint.")
             END SELECT
             IF (.NOT. dft_control%qs_control%becke_control%fragments_integrated) THEN
                ALLOCATE (dft_control%qs_control%becke_control%fragments(2))
@@ -1453,42 +1500,58 @@ CONTAINS
             IF (dft_control%qs_control%becke_control%constraint_type == cdft_atomic_magnetization_constraint) &
                CALL cp_abort(__LOCATION__, &
                              "Becke deformation density not yet compatible with GAPW.")
-            IF (dft_control%nspins == 2 .AND. nvar == 2) THEN
-               ALLOCATE (gapw_offset(dft_control%nspins+nvar))
-            ELSE
-               ALLOCATE (gapw_offset(dft_control%nspins))
-            END IF
+            ALLOCATE (gapw_offset(nvar, dft_control%nspins))
             gapw_offset = 0.0_dp
             CALL get_qs_env(qs_env, rho0_mpole=rho0_mpole)
             CALL get_rho0_mpole(rho0_mpole, mp_rho=mp_rho)
-            DO iatom = 1, dft_control%qs_control%becke_control%natoms
-               jatom = dft_control%qs_control%becke_control%atoms(iatom)
-               CALL get_atomic_kind(particle_set(jatom)%atomic_kind, kind_number=ikind)
-               CALL get_qs_kind(qs_kind_set(ikind), paw_atom=paw_atom)
-               IF (paw_atom) THEN
-                  DO i = 1, dft_control%nspins
-                     gapw_offset(i) = gapw_offset(i)+ &
-                                      dft_control%qs_control%becke_control%coeff(iatom)*mp_rho(jatom)%q0(i)
-                     IF (nvar == 2 .AND. is_combined(jatom)) THEN
-                        sign = 1.0_dp
-                        IF (i == 2) sign = -1.0_dp
-                        gapw_offset(i+nvar) = gapw_offset(i+nvar)+sign*mp_rho(jatom)%q0(i)
-                     END IF
-                     IF (dft_control%qs_control%becke_control%atomic_charges) &
-                        electronic_charge(iatom, i) = electronic_charge(iatom, i)+mp_rho(jatom)%q0(i)
+            IF (has_global_weight) THEN
+               DO iatom = 1, dft_control%qs_control%becke_control%natoms
+                  jatom = dft_control%qs_control%becke_control%atoms(iatom)
+                  CALL get_atomic_kind(particle_set(jatom)%atomic_kind, kind_number=ikind)
+                  CALL get_qs_kind(qs_kind_set(ikind), paw_atom=paw_atom)
+                  IF (paw_atom) THEN
+                     DO i = 1, dft_control%nspins
+                        gapw_offset(1, i) = gapw_offset(1, i)+ &
+                                            dft_control%qs_control%becke_control%coeff(iatom)*mp_rho(jatom)%q0(i)
+                     END DO
+                  END IF
+               END DO 
+            END IF
+            IF (has_group_weight) THEN
+               DO i = 1, dft_control%nspins
+                  IF (i == 1) THEN
+                     sign = 1.0_dp
+                  ELSE
+                     sign = -1.0_dp
+                  END IF
+                  DO ivar = 2, nvar
+                     igroup = ivar - 1
+                     DO iatom = 1, SIZE(group(igroup)%atoms)
+                        jatom = group(igroup)%atoms(iatom)
+                        CALL get_atomic_kind(particle_set(jatom)%atomic_kind, kind_number=ikind)
+                        CALL get_qs_kind(qs_kind_set(ikind), paw_atom=paw_atom)
+                        IF (paw_atom) THEN
+                           gapw_offset(ivar, i) = gapw_offset(ivar, i) + sign*group(igroup)%coeff(iatom)*mp_rho(jatom)%q0(i)
+                        END IF
+                     END DO
                   END DO
-               END IF
-            END DO
+               END DO
+            END IF
+            IF (dft_control%qs_control%becke_control%atomic_charges) THEN
+               DO iatom = 1, dft_control%qs_control%becke_control%natoms
+                  jatom = dft_control%qs_control%becke_control%atoms(iatom)
+                  CALL get_atomic_kind(particle_set(jatom)%atomic_kind, kind_number=ikind)
+                  CALL get_qs_kind(qs_kind_set(ikind), paw_atom=paw_atom)
+                  IF (paw_atom) THEN
+                     DO i = 1, dft_control%nspins
+                        electronic_charge(iatom, i) = electronic_charge(iatom, i)+mp_rho(jatom)%q0(i)
+                     END DO
+                  END IF
+               END DO 
+            END IF
             DO i = 1, dft_control%nspins
                DO ivar = 1, nvar
-                  IF (dft_control%qs_control%becke_control%constraint_type == &
-                      cdft_magnetization_constraint .AND. i == 2) THEN
-                     dE(ivar) = dE(ivar)-gapw_offset(i)
-                  ELSE IF (ivar == 2) THEN
-                     dE(ivar) = dE(ivar)+gapw_offset(i+nvar)
-                  ELSE
-                     dE(ivar) = dE(ivar)+gapw_offset(i)
-                  END IF
+                  dE(ivar) = dE(ivar)+gapw_offset(ivar, i)
                END DO
             END DO
             DEALLOCATE (gapw_offset)
@@ -1506,48 +1569,36 @@ CONTAINS
          IF (iw > 0) THEN
             WRITE (iw, '(/,T3,A,T60)') &
                '--------------------- Becke constraint information ---------------------'
-            SELECT CASE (dft_control%qs_control%becke_control%constraint_type)
-            CASE (cdft_density_constraint, cdft_magnetization_constraint)
-               WRITE (iw, '(T3,A,T54,(3X,F18.12))') &
-                  'Target value of constraint         :', target_val(1)
-               WRITE (iw, '(T3,A,T54,(3X,F18.12))') &
-                  'Current value of constraint        :', dE(1)
-               WRITE (iw, '(T3,A,T59,(3X,ES13.3))') &
-                  'Deviation from target              :', dE(1)-target_val(1)
-               WRITE (iw, '(T3,A,T54,(3X,F18.12))') &
-                  'Strength of constraint             :', strength(1)
-            CASE (cdft_combined_constraint)
+            IF (has_global_weight) THEN
                WRITE (iw, '(T3,A,T54,(3X,F18.12))') &
                   'Target value of charge constraint :', target_val(1)
                WRITE (iw, '(T3,A,T54,(3X,F18.12))') &
-                  'Target value of spin constraint   :', target_val(2)
-               WRITE (iw, '(T3,A,T54,(3X,F18.12))') &
                   'Current value of charge constraint:', dE(1)
-               WRITE (iw, '(T3,A,T54,(3X,F18.12))') &
-                  'Current value of spin constraint  :', dE(2)
                WRITE (iw, '(T3,A,T59,(3X,ES13.3))') &
                   'Deviation from target (charge)    :', dE(1)-target_val(1)
-               WRITE (iw, '(T3,A,T59,(3X,ES13.3))') &
-                  'Deviation from target (spin)      :', dE(2)-target_val(2)
                WRITE (iw, '(T3,A,T54,(3X,F18.12))') &
                   'Strength of constraint (charge)   :', strength(1)
-               WRITE (iw, '(T3,A,T54,(3X,F18.12))') &
-                  'Strength of constraint (spin)     :', strength(2)
-            CASE (cdft_atomic_magnetization_constraint)
+            END IF
+            IF (has_group_weight) THEN
                DO igroup = 1, SIZE(dft_control%qs_control%becke_control%atom_group, 2)
+                  IF (has_global_weight) THEN
+                     ivar = igroup + 1
+                  ELSE
+                     ivar = igroup
+                  END IF
                   IF (igroup > 1) WRITE (iw, '(T3,A)') ' '
                   WRITE (iw, '(T3,A,T54,(3X,I18))') &
                      'Atomic group                       :', igroup
                   WRITE (iw, '(T3,A,T54,(3X,F18.12))') &
-                     'Target value of constraint         :', target_val(igroup)
+                     'Target value of spin constraint    :', target_val(ivar)
                   WRITE (iw, '(T3,A,T54,(3X,F18.12))') &
-                     'Current value of constraint        :', dE(igroup)
+                     'Current value of spin constraint   :', dE(ivar)
                   WRITE (iw, '(T3,A,T59,(3X,ES13.3))') &
-                     'Deviation from target              :', dE(igroup)-target_val(igroup)
+                     'Deviation from target (spin)       :', dE(ivar)-target_val(ivar)
                   WRITE (iw, '(T3,A,T54,(3X,F18.12))') &
-                     'Strength of constraint             :', strength(igroup)
+                     'Strength of constraint (spin)      :', strength(ivar)
                END DO
-            END SELECT
+            END IF
             WRITE (iw, '(T3,A)') &
                '------------------------------------------------------------------------'
             IF (dft_control%qs_control%becke_control%atomic_charges) THEN
@@ -1576,7 +1627,7 @@ CONTAINS
                   ELSE
                      WRITE (iw, '(T3,A,A)') &
                         '#Atom  Element   Coefficient', '     Core charge    Population (alpha, beta)'// &
-                        '    Net charge'
+                        '    Net charge      Spin population'
                      tc = 0.0_dp
                      DO iatom = 1, dft_control%qs_control%becke_control%natoms
                         jatom = dft_control%qs_control%becke_control%atoms(iatom)
@@ -1584,11 +1635,12 @@ CONTAINS
                                              element_symbol=element_symbol, &
                                              kind_number=ikind)
                         CALL get_qs_kind(qs_kind_set(ikind), zeff=zeff)
-                        WRITE (iw, "(i7,T15,A2,T23,F8.3,T39,F8.3,T53,F8.3,T63,F8.3,T81,F8.3)") &
+                        WRITE (iw, "(i7,T15,A2,T23,F8.3,T39,F8.3,T53,F8.3,T63,F8.3,T81,F8.3,T90,T8.3)") &
                            jatom, element_symbol, &
                            dft_control%qs_control%becke_control%coeff(iatom), &
                            zeff, electronic_charge(iatom, 1), electronic_charge(iatom, 2), &
-                           (zeff-electronic_charge(iatom, 1)-electronic_charge(iatom, 2))
+                           (zeff-electronic_charge(iatom, 1)-electronic_charge(iatom, 2)), &
+                           electronic_charge(iatom, 1)-electronic_charge(iatom, 2)
                         tc = tc+(zeff-electronic_charge(iatom, 1)-electronic_charge(iatom, 2))
                      END DO
                      WRITE (iw, '(/,T3,A,T81,F8.3,/)') "Total Charge: ", tc
@@ -1630,6 +1682,7 @@ CONTAINS
             END IF
          END IF
          DEALLOCATE (dE, strength, target_val)
+         NULLIFY(group)
 
          IF (dft_control%qs_control%becke_control%atomic_charges) &
             DEALLOCATE (electronic_charge)
@@ -1663,7 +1716,7 @@ CONTAINS
          natom, ngrad, np(3), nskipped, nvar, tmp_index(2), ub_index
       INTEGER, ALLOCATABLE, DIMENSION(:)                 :: atom_of_kind, catom, kind_of
       INTEGER, DIMENSION(2, 3)                           :: bo, bo_conf
-      LOGICAL, ALLOCATABLE, DIMENSION(:)                 :: is_combined, is_constraint
+      LOGICAL, ALLOCATABLE, DIMENSION(:)                 :: is_constraint
       REAL(kind=dp) :: dist1, dist2, dpolyn, dvol, eps_cavity, f_3, my1, my1_homo, polyn, sign, &
          sum_cell_f_combined, sum_cell_f_constr, sum_Pm, th, tmp_const
       REAL(kind=dp), ALLOCATABLE, DIMENSION(:)           :: coefficients, P_i, strength
@@ -1702,22 +1755,9 @@ CONTAINS
 
       th = 1.0e-8_dp
       IF (dft_control%qs_control%becke_restraint) THEN
-         SELECT CASE (dft_control%qs_control%becke_control%constraint_type)
-         CASE (cdft_density_constraint, cdft_magnetization_constraint)
-            nvar = 1
-            ngrad = 1
-         CASE (cdft_combined_constraint)
-            nvar = 2
-            SELECT CASE (dft_control%qs_control%becke_control%combined_type)
-            CASE (cdft_combined_all)
-               ngrad = 1
-            CASE (cdft_combined_acceptor, cdft_combined_donor)
-               ngrad = 2
-            END SELECT
-         CASE (cdft_atomic_magnetization_constraint)
-            CALL cp_abort(__LOCATION__, &
-                         "No forces available for Becke atomic magnetization density constraint.")
-         END SELECT
+         has_global_weight = dft_control%qs_control%becke_control%has_global_weight
+         has_group_weight = dft_control%qs_control%becke_control%has_group_weight
+         nvar = SIZE(dft_control%qs_control%becke_control%target)
          ALLOCATE (strength(nvar))
          strength(:) = dft_control%qs_control%becke_control%strength(:)
          cutoffs => dft_control%qs_control%becke_control%cutoffs
@@ -1728,14 +1768,28 @@ CONTAINS
          CALL get_atomic_kind_set(atomic_kind_set=atomic_kind_set, &
                                   atom_of_kind=atom_of_kind, &
                                   kind_of=kind_of)
-
-         bo = becke_const%pw%pw_grid%bounds_local
-         np = becke_const%pw%pw_grid%npts
-         dvol = becke_const%pw%pw_grid%dvol
-         dr = becke_const%pw%pw_grid%dr
-         np = becke_const%pw%pw_grid%npts
+         IF (has_group_weight) THEN
+            group => dft_control%qs_control%becke_control%group
+            DO igroup = 1, SIZE(group)
+               ALLOCATE(group(igroup)%integrated(3, natom))
+               group(igroup)%integrated = 0.0_dp
+            END DO
+         END IF
+         IF (has_global_weight) THEN
+            bo = becke_const%pw%pw_grid%bounds_local
+            np = becke_const%pw%pw_grid%npts
+            dvol = becke_const%pw%pw_grid%dvol
+            dr = becke_const%pw%pw_grid%dr
+            np = becke_const%pw%pw_grid%npts
+         ELSE IF (has_group_weight) THEN
+            bo = group_weight(1)%pw%pw_grid%bounds_local
+            np = group_weight(1)%pw%pw_grid%npts
+            dvol = group_weight(1)%pw%pw_grid%dvol
+            dr = group_weight(1)%pw%pw_grid%dr
+            np = group_weight(1)%pw%pw_grid%npts
+         END IF
          shift = -REAL(MODULO(np, 2), dp)*dr/2.0_dp
-         ALLOCATE (integrated(3*ngrad, natom))
+         ALLOCATE (integrated(3, natom))
 
          IF (dft_control%qs_control%becke_control%confine .OR. &
              dft_control%qs_control%becke_control%dynamic_confine) THEN
@@ -1791,26 +1845,31 @@ CONTAINS
                             dft_control%qs_control%becke_control%cavity_confine) THEN
                            IF (dft_control%qs_control%becke_control%skip_list(k, j, i)) CYCLE
                         END IF
-                        DO iatom = 1, natom
-                           DO ispin = 1, dft_control%nspins
-                              DO ivar = 1, nvar
-                                 sign = 1.0_dp
-                                 IF (ivar == 2) THEN
-                                    IF (ispin == 2) sign = -1.0_dp
-                                    integrated(1+3*(ngrad-1):3+3*(ngrad-1), iatom) = &
-                                       integrated(1+3*(ngrad-1):3+3*(ngrad-1), iatom)+sign* &
-                                       gradients(3*(iatom-1)+1+natom*(ngrad-1):3*(iatom-1)+3+natom*(ngrad-1), k, j, i)* &
-                                       rho_r(ispin)%pw%cr3d(k, j, i)*dvol
-                                 ELSE
-                                    IF (dft_control%qs_control%becke_control%constraint_type == &
-                                        cdft_magnetization_constraint .AND. ispin == 2) sign = -1.0_dp
-                                    integrated(1:3, iatom) = integrated(1:3, iatom)+sign* &
-                                                             gradients(3*(iatom-1)+1:3*(iatom-1)+3, k, j, i)* &
-                                                             rho_r(ispin)%pw%cr3d(k, j, i)*dvol
-                                 END IF
+                        IF (has_global_weight) THEN
+                           DO iatom = 1, natom
+                              DO ispin = 1, dft_control%nspins
+                                 integrated(:, iatom) = integrated(:, iatom)+ &
+                                    gradients(3*(iatom-1)+1:3*(iatom-1)+3, k, j, i)* &
+                                    rho_r(ispin)%pw%cr3d(k, j, i)*dvol
                               END DO
                            END DO
-                        END DO
+                        END IF
+                        IF (has_group_weight) THEN
+                           DO igroup = 1, SIZE(group)
+                              DO iatom = 1, natom
+                                 DO ispin = 1, dft_control%nspins
+                                    IF (ispin == 1) THEN
+                                       sign = 1.0_dp
+                                    ELSE
+                                       sign = -1.0_dp
+                                    END IF
+                                    group(igroup)%integrated(:, iatom) = group(igroup)%integrated(:, iatom) + sign*&
+                                       group(igroup)%gradients(3*(iatom-1)+1:3*(iatom-1)+3, k, j, i)* &
+                                       rho_r(ispin)%pw%cr3d(k, j, i)*dvol
+                                 END DO
+                              END DO
+                           END DO
+                        END IF
                      END DO
                   END DO
                END DO
@@ -1823,41 +1882,54 @@ CONTAINS
                             UBOUND(dft_control%qs_control%becke_control%cavity_mat, 3)
                         ! First check if this grid point should be skipped
                         IF (dft_control%qs_control%becke_control%cavity_mat(k, j, i) < eps_cavity) CYCLE
-                        DO iatom = 1, natom
-                           DO ispin = 1, dft_control%nspins
-                              DO ivar = 1, nvar
-                                 sign = 1.0_dp
-                                 IF (ivar == 2) THEN
-                                    IF (ispin == 2) sign = -1.0_dp
-                                    integrated(1+3*(ngrad-1):3+3*(ngrad-1), iatom) = &
-                                       integrated(1+3*(ngrad-1):3+3*(ngrad-1), iatom)+sign* &
-                                       gradients(3*(iatom-1)+1+natom*(ngrad-1):3*(iatom-1)+3+natom*(ngrad-1), k, j, i)* &
-                                       rho_r(ispin)%pw%cr3d(k, j, i)*dvol
-                                 ELSE
-                                    IF (dft_control%qs_control%becke_control%constraint_type == &
-                                        cdft_magnetization_constraint .AND. ispin == 2) sign = -1.0_dp
-                                    integrated(1:3, iatom) = integrated(1:3, iatom)+sign* &
-                                                             gradients(3*(iatom-1)+1:3*(iatom-1)+3, k, j, i)* &
-                                                             rho_r(ispin)%pw%cr3d(k, j, i)*dvol
-                                 END IF
+                        IF (has_global_weight) THEN
+                           DO iatom = 1, natom
+                              DO ispin = 1, dft_control%nspins
+                                 integrated(:, iatom) = integrated(:, iatom)+ &
+                                    gradients(3*(iatom-1)+1:3*(iatom-1)+3, k, j, i)* &
+                                    rho_r(ispin)%pw%cr3d(k, j, i)*dvol
                               END DO
                            END DO
-                        END DO
+                        END IF
+                        IF (has_group_weight) THEN
+                           DO igroup = 1, SIZE(group)
+                              DO iatom = 1, natom
+                                 DO ispin = 1, dft_control%nspins
+                                    IF (ispin == 1) THEN
+                                       sign = 1.0_dp
+                                    ELSE
+                                       sign = -1.0_dp
+                                    END IF
+                                    group(igroup)%integrated(:, iatom) = group(igroup)%integrated(:, iatom) + sign*&
+                                       group(igroup)%gradients(3*(iatom-1)+1:3*(iatom-1)+3, k, j, i)* &
+                                       rho_r(ispin)%pw%cr3d(k, j, i)*dvol
+                                 END DO
+                              END DO
+                           END DO
+                        END IF
                      END DO
                   END DO
                END DO
             END IF
             NULLIFY (gradients)
-            IF (.NOT. dft_control%qs_control%becke_control%transfer_pot) &
+            IF (.NOT. dft_control%qs_control%becke_control%transfer_pot .AND. &
+                has_global_weight) &
                DEALLOCATE (dft_control%qs_control%becke_control%gradients)
             IF (dft_control%qs_control%becke_control%should_skip .AND. .NOT. &
                 dft_control%qs_control%becke_control%cavity_confine) &
                DEALLOCATE (dft_control%qs_control%becke_control%skip_list)
+            IF (has_group_weight) THEN
+               DO igroup = 1, igroup
+                  DEALLOCATE(group(igroup)%gradients)
+               END DO
+            END IF
          ELSE
             ! Construct gradients and then integrate
             ALLOCATE (catom(dft_control%qs_control%becke_control%natoms))
             ALLOCATE (is_constraint(natom))
             ALLOCATE (coefficients(natom))
+            IF (has_group_weight) &
+               CPABORT("Use IN_MEMORY for magnetization constraints.")
 
             is_constraint = .FALSE.
             DO i = 1, dft_control%qs_control%becke_control%natoms
@@ -1865,24 +1937,6 @@ CONTAINS
                is_constraint(dft_control%qs_control%becke_control%atoms(i)) = .TRUE.
                coefficients(catom(i)) = dft_control%qs_control%becke_control%coeff(i)
             ENDDO
-            IF (dft_control%qs_control%becke_control%constraint_type == cdft_combined_constraint) THEN
-               SELECT CASE (dft_control%qs_control%becke_control%combined_type)
-               CASE (cdft_combined_all)
-                  ! Do nothing
-               CASE (cdft_combined_acceptor, cdft_combined_donor)
-                  ALLOCATE (is_combined(natom))
-                  is_combined = .FALSE.
-                  DO i = 1, dft_control%qs_control%becke_control%natoms
-                     IF (dft_control%qs_control%becke_control%combined_type == cdft_combined_acceptor .AND. &
-                         dft_control%qs_control%becke_control%coeff(i) == -1.0_dp) THEN
-                        is_combined(catom(i)) = .TRUE.
-                     ELSE IF (dft_control%qs_control%becke_control%combined_type == cdft_combined_donor .AND. &
-                              dft_control%qs_control%becke_control%coeff(i) == +1.0_dp) THEN
-                        is_combined(catom(i)) = .TRUE.
-                     END IF
-                  END DO
-               END SELECT
-            END IF
             !   calculate distances from target atom (only implemented for a diatomic system)
             DO i = 1, 3
                cell_v(i) = cell%hmat(i, i)
@@ -1892,7 +1946,7 @@ CONTAINS
             ALLOCATE (s_my_ij(natom, natom))
             ALLOCATE (ds_dR(3, natom, natom))
             ALLOCATE (P_i(natom))
-            ALLOCATE (dw_dR(3*ngrad, natom))
+            ALLOCATE (dw_dR(3, natom))
             ALLOCATE (d_sum_Pm_dR(3, natom))
             ALLOCATE (d_sum_const_dR(3*ngrad, natom))
             ALLOCATE (dP_i_dRj(3, natom, natom))
@@ -2010,10 +2064,10 @@ CONTAINS
                            IF (is_constraint(iatom)) &
                               d_sum_const_dR(1:3, iatom) = d_sum_const_dR(1:3, iatom)+dP_i_dRi(:, iatom)* &
                                                            coefficients(iatom)
-                           IF (ngrad == 2) THEN
-                              IF (is_combined(iatom)) &
-                                 d_sum_const_dR(4:6, iatom) = d_sum_const_dR(4:6, iatom)+dP_i_dRi(:, iatom)
-                           END IF
+                           !IF (ngrad == 2) THEN
+                           !   IF (is_combined(iatom)) &
+                           !      d_sum_const_dR(4:6, iatom) = d_sum_const_dR(4:6, iatom)+dP_i_dRi(:, iatom)
+                           !END IF
                            DO jatom = 1, natom
                               IF (iatom .NE. jatom) THEN
                                  d_sum_Pm_dR(:, jatom) = d_sum_Pm_dR(:, jatom)+dP_i_dRj(:, iatom, jatom)
@@ -2021,11 +2075,11 @@ CONTAINS
                                  IF (is_constraint(iatom)) &
                                     d_sum_const_dR(:, jatom) = d_sum_const_dR(:, jatom)+dP_i_dRj(:, iatom, jatom)* &
                                                                coefficients(iatom)
-                                 IF (ngrad == 2) THEN
-                                    IF (is_combined(iatom)) &
-                                       d_sum_const_dR(4:6, jatom) = d_sum_const_dR(4:6, jatom)+ &
-                                                                    dP_i_dRj(:, iatom, jatom)
-                                 END IF
+                                 !IF (ngrad == 2) THEN
+                                 !   IF (is_combined(iatom)) &
+                                 !      d_sum_const_dR(4:6, jatom) = d_sum_const_dR(4:6, jatom)+ &
+                                 !                                   dP_i_dRj(:, iatom, jatom)
+                                 !END IF
                               END IF
                            END DO
 
@@ -2045,45 +2099,39 @@ CONTAINS
                      END DO
 
                      sum_cell_f_constr = 0.0_dp
-                     sum_cell_f_combined = 0.0_dp
+                     !sum_cell_f_combined = 0.0_dp
                      DO ip = 1, dft_control%qs_control%becke_control%natoms
                         sum_cell_f_constr = sum_cell_f_constr+P_i(catom(ip))* &
                                             dft_control%qs_control%becke_control%coeff(ip)
-                        IF (ngrad == 2) THEN
-                           IF (is_combined(catom(ip))) &
-                              sum_cell_f_combined = sum_cell_f_combined+P_i(catom(ip))
-                        END IF
+                        !IF (ngrad == 2) THEN
+                        !   IF (is_combined(catom(ip))) &
+                        !      sum_cell_f_combined = sum_cell_f_combined+P_i(catom(ip))
+                        !END IF
                      END DO
 
                      DO iatom = 1, natom
                         IF (ABS(sum_Pm) .EQ. 0.0_dp) THEN
                            dw_dR(:, iatom) = 0.0_dp
                         ELSE
-                           dw_dR(1:3, iatom) = d_sum_const_dR(1:3, iatom)/sum_Pm- &
-                                               sum_cell_f_constr*d_sum_Pm_dR(1:3, iatom)/(sum_Pm**2)
-                           IF (ngrad == 2) THEN
-                              dw_dR(4:6, iatom) = d_sum_const_dR(4:6, iatom)/sum_Pm- &
-                                                  sum_cell_f_combined*d_sum_Pm_dR(1:3, iatom)/(sum_Pm**2)
-                           END IF
+                           dw_dR(:, iatom) = d_sum_const_dR(:, iatom)/sum_Pm- &
+                                             sum_cell_f_constr*d_sum_Pm_dR(:, iatom)/(sum_Pm**2)
+                           !IF (ngrad == 2) THEN
+                           !   dw_dR(4:6, iatom) = d_sum_const_dR(4:6, iatom)/sum_Pm- &
+                           !                       sum_cell_f_combined*d_sum_Pm_dR(1:3, iatom)/(sum_Pm**2)
+                           !END IF
                         END IF
                      END DO
 
                      DO iatom = 1, natom
                         DO ispin = 1, dft_control%nspins
-                           DO ivar = 1, nvar
-                              sign = 1.0_dp
-                              IF (ivar == 2) THEN
-                                 IF (ispin == 2) sign = -1.0_dp
-                                 integrated(1+3*(ngrad-1):3+3*(ngrad-1), iatom) = &
-                                    integrated(1+3*(ngrad-1):3+3*(ngrad-1), iatom)+ &
-                                    sign*dw_dR(1+3*(ngrad-1):3+3*(ngrad-1), iatom)*rho_r(ispin)%pw%cr3d(k, j, i)*dvol
-                              ELSE
-                                 IF (dft_control%qs_control%becke_control%constraint_type == &
-                                     cdft_magnetization_constraint .AND. ispin == 2) sign = -1.0_dp
-                                 integrated(1:3, iatom) = integrated(1:3, iatom)+ &
-                                                          sign*dw_dR(1:3, iatom)*rho_r(ispin)%pw%cr3d(k, j, i)*dvol
-                              END IF
-                           END DO ! ivar
+                           integrated(:, iatom) = integrated(:, iatom)+ dw_dR(:, iatom)*rho_r(ispin)%pw%cr3d(k, j, i)*dvol
+                           !   ELSE
+                           !      IF (dft_control%qs_control%becke_control%constraint_type == &
+                           !          cdft_magnetization_constraint .AND. ispin == 2) sign = -1.0_dp
+                           !      integrated(1:3, iatom) = integrated(1:3, iatom)+ &
+                           !                               sign*dw_dR(1:3, iatom)*rho_r(ispin)%pw%cr3d(k, j, i)*dvol
+                           !   END IF
+                           !END DO ! ivar
                         END DO ! ispin
                      END DO ! iatom
                   END DO ! i
@@ -2101,37 +2149,64 @@ CONTAINS
             DEALLOCATE (dP_i_dRi)
             DEALLOCATE (dP_i_dRj)
             DEALLOCATE (coefficients)
-            IF (ALLOCATED(is_combined)) DEALLOCATE (is_combined)
+            !IF (ALLOCATED(is_combined)) DEALLOCATE (is_combined)
          END IF ! Gradient integration
+         IF (has_global_weight) &
+            CALL mp_sum(integrated, para_env%group)
 
-         CALL mp_sum(integrated, para_env%group)
+         IF (has_group_weight) THEN
+            DO igroup = 1, SIZE(group)
+               CALL mp_sum(group(igroup)%integrated, para_env%group)
+            END DO
+         END IF
 
          ! Update force only on master process. Otherwise force due to constraint becomes multiplied
          ! by the number of processes when final force%rho_elec is constructed in qs_force
          ! by mp_summing [the final integrated(:,:) is distributed on all processors]
          IF (para_env%mepos == para_env%source) THEN
-            DO iatom = 1, natom
-               ikind = kind_of(iatom)
-               i = atom_of_kind(iatom)
-               IF (ngrad == 2) THEN
-                  ! With combined constraint donor/acceptor, gradient due to charge constraint is in integrated(1:3,:)
-                  ! and due to spin constraint in integrated(4:6,:)
-                  force(ikind)%rho_elec(:, i) = force(ikind)%rho_elec(:, i) &
-                                                +integrated(1:3, iatom)*strength(1)
-                  force(ikind)%rho_elec(:, i) = &
-                     force(ikind)%rho_elec(:, i)+ &
-                     integrated(4:6, iatom)*strength(2)
-               ELSE
-                  ! With combined constraint all, sum of gradients from both constraints are in integrated(1:3,:)
-                  force(ikind)%rho_elec(:, i) = force(ikind)%rho_elec(:, i) &
-                                                +integrated(1:3, iatom)*SUM(strength)
-               END IF
-            END DO
+            IF (has_global_weight) THEN
+               DO iatom = 1, natom
+                  ikind = kind_of(iatom)
+                  i = atom_of_kind(iatom)
+                  !IF (ngrad == 2) THEN
+                  !   ! With combined constraint donor/acceptor, gradient due to charge constraint is in integrated(1:3,:)
+                  !   ! and due to spin constraint in integrated(4:6,:)
+                  force(ikind)%rho_elec(:, i) = force(ikind)%rho_elec(:, i)+integrated(:, iatom)*strength(1)
+                  !   force(ikind)%rho_elec(:, i) = &
+                  !      force(ikind)%rho_elec(:, i)+ &
+                  !      integrated(4:6, iatom)*strength(2)
+                  !ELSE
+                  !   ! With combined constraint all, sum of gradients from both constraints are in integrated(1:3,:)
+                  !   force(ikind)%rho_elec(:, i) = force(ikind)%rho_elec(:, i) &
+                  !                                 +integrated(1:3, iatom)*SUM(strength)
+                  !END IF
+               END DO
+            END IF
+            IF (has_group_weight) THEN
+               DO igroup = 1, SIZE(group)
+                  IF (has_global_weight) THEN
+                     ivar = igroup + 1
+                  ELSE
+                     ivar = igroup
+                  END IF
+                  DO iatom = 1, natom
+                     ikind = kind_of(iatom)
+                     i = atom_of_kind(iatom)
+                     force(ikind)%rho_elec(:, i) = force(ikind)%rho_elec(:, i)+group(igroup)%integrated(:, iatom)*strength(ivar)
+                  END DO
+               END DO
+            END IF
          END IF
          DEALLOCATE (strength)
          DEALLOCATE (integrated)
          DEALLOCATE (atom_of_kind)
          DEALLOCATE (kind_of)
+         IF (has_group_weight) THEN
+            DO igroup = 1, SIZE(group)
+               DEALLOCATE(group(igroup)%integrated)
+            END DO
+         END IF
+         NULLIFY (group)
       END IF
 
       CALL timestop(handle)

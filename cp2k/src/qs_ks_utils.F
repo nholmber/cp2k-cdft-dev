@@ -1194,7 +1194,7 @@ CONTAINS
       CHARACTER(LEN=*), PARAMETER :: routineN = 'sum_up_and_integrate', &
          routineP = moduleN//':'//routineN
 
-      INTEGER                                            :: handle, ispin, ivar, nspins, nvar
+      INTEGER                                            :: handle, ispin, ivar, igroup, nspins, nvar
       LOGICAL                                            :: do_ppl, gapw, gapw_xc
       REAL(dp)                                           :: dvol, sign
       TYPE(dbcsr_p_type), DIMENSION(:), POINTER          :: ksmat, matrix_ks_aux_fit, &
@@ -1277,37 +1277,44 @@ CONTAINS
             END IF
             IF (dft_control%qs_control%becke_restraint) THEN
                nvar = SIZE(becke%strength)
-               SELECT CASE (becke%constraint_type)
-               CASE (cdft_magnetization_constraint, cdft_density_constraint, cdft_combined_constraint)
-                  DO ivar = 1, nvar
-                     IF (ivar == 2) THEN
-                        sign = 1.0_dp
-                        IF (ispin == 2) sign = -1.0_dp
-                        SELECT CASE (becke%combined_type)
-                        CASE (cdft_combined_all)
-                           v_rspace_new(ispin)%pw%cr3d = v_rspace_new(ispin)%pw%cr3d &
-                                                         +sign*becke%becke_pot%pw%cr3d*becke%strength(ivar)
-                        CASE (cdft_combined_acceptor, cdft_combined_donor)
-                           v_rspace_new(ispin)%pw%cr3d = v_rspace_new(ispin)%pw%cr3d &
-                                                         +sign*becke%combined_weight%pw%cr3d*becke%strength(ivar)
-                        END SELECT
+               IF (becke%has_global_weight) THEN
+               !SELECT CASE (becke%constraint_type)
+               !CASE (cdft_magnetization_constraint, cdft_density_constraint, cdft_combined_constraint)
+               !   DO ivar = 1, nvar
+               !      IF (ivar == 2) THEN
+               !         sign = 1.0_dp
+               !         IF (ispin == 2) sign = -1.0_dp
+               !         SELECT CASE (becke%combined_type)
+               !         CASE (cdft_combined_all)
+               !            v_rspace_new(ispin)%pw%cr3d = v_rspace_new(ispin)%pw%cr3d &
+               !                                          +sign*becke%becke_pot%pw%cr3d*becke%strength(ivar)
+               !         CASE (cdft_combined_acceptor, cdft_combined_donor)
+               !            v_rspace_new(ispin)%pw%cr3d = v_rspace_new(ispin)%pw%cr3d &
+               !                                          +sign*becke%combined_weight%pw%cr3d*becke%strength(ivar)
+               !         END SELECT
+               !      ELSE
+               !         sign = 1.0_dp
+               !         IF (ispin == 2 .AND. becke%constraint_type == cdft_magnetization_constraint) &
+               !            sign = -1.0_dp
+                  v_rspace_new(ispin)%pw%cr3d = v_rspace_new(ispin)%pw%cr3d &
+                                                +becke%becke_pot%pw%cr3d*becke%strength(1)
+               !      END IF
+               !   END DO
+               END IF
+               IF (becke%has_group_weight) THEN
+                  DO igroup = 1, SIZE(becke%group)
+                     IF (becke%has_global_weight) THEN
+                        ivar = igroup + 1
                      ELSE
-                        sign = 1.0_dp
-                        IF (ispin == 2 .AND. becke%constraint_type == cdft_magnetization_constraint) &
-                           sign = -1.0_dp
-                        v_rspace_new(ispin)%pw%cr3d = v_rspace_new(ispin)%pw%cr3d &
-                                                      +sign*becke%becke_pot%pw%cr3d*becke%strength(ivar)
+                        ivar = igroup
                      END IF
-                  END DO
-               CASE (cdft_atomic_magnetization_constraint)
-                  DO ivar = 1, nvar
                      IF (ispin == 1) THEN
                         sign = 1.0_dp
                      ELSE
                         sign = -1.0_dp
                      END IF
                      v_rspace_new(ispin)%pw%cr3d = v_rspace_new(ispin)%pw%cr3d &
-                                                   +sign*becke%group_weight(ivar)%pw%cr3d*becke%strength(ivar)
+                                                   +sign*becke%group(igroup)%weight%pw%cr3d*becke%strength(ivar)
                   END DO
                END SELECT
             END IF
