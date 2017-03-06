@@ -59,6 +59,7 @@ MODULE cp_control_utils
    USE kinds,                           ONLY: default_path_length,&
                                               default_string_length,&
                                               dp
+   USE memory_utilities,                ONLY: reallocate                                              
    USE util,                            ONLY: sort
    USE xc_derivatives,                  ONLY: xc_functionals_get_needs
    USE xc_input_constants,              ONLY: xc_deriv_collocate
@@ -1732,7 +1733,7 @@ CONTAINS
       REAL(KIND=dp), DIMENSION(:), POINTER               :: rtmplist
       TYPE(section_vals_type), POINTER                   :: group_section, tmp_section
 
-      NULLIFY (tmplist, rtmplist, checklist, group_section, tmp_section)
+      NULLIFY (tmplist, rtmplist, atomlist, dummylist, group_section, tmp_section)
 
       group_section => section_vals_get_subs_vals(becke_section, "ATOM_GROUP")
       CALL section_vals_get(group_section, n_repetition=nvar, explicit=exists)
@@ -1748,7 +1749,7 @@ CONTAINS
       tot_natoms = 0
       ! Parse all ATOM_GROUP sections
       DO k = 1, nvar
-         tmp_section => section_vals_get_subs_vals(group_section, "ATOM_GROUP", i_rep_section=k)
+         tmp_section => section_vals_get_subs_vals(becke_section, "ATOM_GROUP", i_rep_section=k)
          ! First determine how much storage is needed
          natoms = 0
          CALL section_vals_val_get(tmp_section, "ATOMS", n_rep_val=n_rep)
@@ -1758,13 +1759,11 @@ CONTAINS
                CPABORT("Each ATOM_GROUP must contain at least 1 atom.")
             natoms = natoms + SIZE(tmplist)
          END DO
-         IF (natoms > qs_control%becke_control%natoms) &
-            CALL cp_abort(__LOCATION__, &
-                          "More atoms defined with section(s) ATOM_GROUP than with keyword ATOMS.")
          ALLOCATE(qs_control%becke_control%group(k)%atoms(natoms))
          ALLOCATE(qs_control%becke_control%group(k)%coeff(natoms))
-         NULLIFY(qs_control%becke_control%group(k)%weight)
+         NULLIFY(qs_control%becke_control%group(k)%weight%pw)
          NULLIFY(qs_control%becke_control%group(k)%gradients)
+         NULLIFY(qs_control%becke_control%group(k)%integrated)
          tot_natoms = tot_natoms + natoms
          ! Now parse
          jj = 0
@@ -1800,13 +1799,13 @@ CONTAINS
             IF (.NOT. is_duplicate) THEN
                jj = jj + 1
                atomlist(jj) = qs_control%becke_control%group(k)%atoms(j)
-            END DO
+            END IF
          END DO
       END DO
       CALL reallocate(atomlist, 1, jj)
       CALL section_vals_val_get(becke_section, "ATOMIC_CHARGES", &
                                 l_val=qs_control%becke_control%atomic_charges)
-      ! Parse any dummy atoms (no weight function, just charges)
+      ! Parse any dummy atoms (no constraint, just charges)
       IF (qs_control%becke_control%atomic_charges) THEN
          group_section => section_vals_get_subs_vals(becke_section, "DUMMY_ATOMS")
          CALL section_vals_get(group_section, explicit=exists)
@@ -1817,7 +1816,7 @@ CONTAINS
             DO j = 1, n_rep
                CALL section_vals_val_get(group_section, "ATOMS", i_rep_val=j, i_vals=tmplist)
                IF (SIZE(tmplist) < 1) &
-                  CPABORT("DUMMY_GROUP must contain at least 1 atom.")
+                  CPABORT("DUMMY_ATOMS must contain at least 1 atom.")
                natoms = natoms + SIZE(tmplist)
             END DO
             ALLOCATE(dummylist(natoms))
@@ -1837,30 +1836,30 @@ CONTAINS
                      CPABORT("Duplicate atoms defined in section DUMMY_ATOMS.")
                END DO
             END DO
-         END DO
+            ! Check that a dummy atom is not included in any ATOM_GROUP
+            DO j = 1, SIZE(atomlist)
+               DO i = 1, SIZE(dummylist)
+                  IF (dummylist(i) == atomlist(j)) &
+                     CALL cp_abort(__LOCATION__, &
+                                   "Duplicate atoms defined in sections ATOM_GROUP and DUMMY_ATOMS.")
+               END DO
+            END DO
+         END IF
       END IF
       ! Join dummy atoms and constraint atoms into one list
-      ! No duplicates allowed
-      DO j = 1, SIZE(atomlist)
-         DO i = 1, SIZE(dummylist)
-            IF (dummylist(i) == atomlist(j)) &
-               CALL cp_abort(__LOCATION__, &
-                             "Duplicate atoms defined in sections ATOM_GROUP and DUMMY_ATOMS.")
-         END DO
-      END DO
       IF (ASSOCIATED(qs_control%becke_control%atoms)) &
          DEALLOCATE(qs_control%becke_control%atoms)
       IF (ASSOCIATED(qs_control%becke_control%is_constraint)) &
          DEALLOCATE(qs_control%becke_control%is_constraint)
-      IF (ALLOCATED(dummylist)) THEN
+      IF (ASSOCIATED(dummylist)) THEN
          qs_control%becke_control%natoms = SIZE(atomlist)+SIZE(dummylist)
       ELSE
          qs_control%becke_control%natoms = SIZE(atomlist)
       END IF
-      ALLOCATE(qs_control%becke_control%atoms(qs_control%becke_control%natoms)
-      ALLOCATE(qs_control%becke_control%is_constraint(qs_control%becke_control%natoms)
+      ALLOCATE(qs_control%becke_control%atoms(qs_control%becke_control%natoms))
+      ALLOCATE(qs_control%becke_control%is_constraint(qs_control%becke_control%natoms))
       qs_control%becke_control%atoms(1:SIZE(atomlist)) = atomlist
-      IF (ALLOCATED(dummylist)) THEN
+      IF (ASSOCIATED(dummylist)) THEN
          qs_control%becke_control%atoms(1+SIZE(atomlist):) = dummylist
          DEALLOCATE(dummylist)
       END IF

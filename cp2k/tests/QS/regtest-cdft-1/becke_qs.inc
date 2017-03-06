@@ -58,9 +58,11 @@
       ! Defaults to false      
       CAVITY_PRINT    TRUE
     @ENDIF
-    ATOMS           1..3
-    COEFF           1 1 1
-    CONSTRAINT_TYPE TOTAL
+    &ATOM_GROUP
+      ATOMS           1..3
+      COEFF           1 1 1
+      CHARGE_CONSTRAINT
+    &END ATOM_GROUP
     &PROGRAM_RUN_INFO ON
       &EACH
         QS_SCF 1

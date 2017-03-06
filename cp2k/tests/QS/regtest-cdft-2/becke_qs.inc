@@ -61,17 +61,20 @@
     @ENDIF
     @IF ( ${BECKE_FRAGMENT} == TRUE )
       ! Need absolute weight to use fragment densities
-      ATOMS           1
-      COEFF           1
+      &ATOM_GROUP
+        ATOMS           1
+        COEFF           1
+      &END ATOM_GROUP
       FRAGMENT_DENSITIES
       FRAGMENT_A_FILE_NAME He+-noconstraint-ELECTRON_DENSITY-1_0.cube
       FRAGMENT_B_FILE_NAME H-noconstraint-ELECTRON_DENSITY-1_0.cube
     @ENDIF
     @IF ( ${BECKE_FRAGMENT} == FALSE )
-      ATOMS           1..2
-      COEFF           1 -1
+      &ATOM_GROUP
+        ATOMS           1..2
+        COEFF           1 -1
+      &END ATOM_GROUP
     @ENDIF
-    CONSTRAINT_TYPE TOTAL    
     &PROGRAM_RUN_INFO ON
       &EACH
         QS_SCF 1

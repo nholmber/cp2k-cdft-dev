@@ -4302,7 +4302,7 @@ CONTAINS
                                       " is applied. Set to false to enable a magnetization density constraint "// &
                                       "(rho_alpha - rho_beta)" , &
                           usage="CHARGE_CONSTRAINT", &
-                          default_l_val=.FALSE., lone_keyword_l_val=.TRUE.)
+                          default_l_val=.TRUE., lone_keyword_l_val=.TRUE.)
       CALL section_add_keyword(group_section, keyword)
       CALL keyword_release(keyword)
 

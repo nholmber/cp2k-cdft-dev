@@ -373,8 +373,8 @@ CONTAINS
                IF (.NOT. ASSOCIATED(dft_control%qs_control%cdft_control%strength)) &
                   ALLOCATE (dft_control%qs_control%cdft_control%strength(nvariables))
                dft_control%qs_control%cdft_control%target = dft_control%qs_control%becke_control%target
-               IF (.NOT. ALLOCATED(dft_control%qs_control%cdft_control%is_charge_constraint))
-                  ALLOCATE(dft_control%qs_control%cdft_control%is_charge_constraint)
+               IF (.NOT. ALLOCATED(dft_control%qs_control%cdft_control%is_charge_constraint)) &
+                  ALLOCATE(dft_control%qs_control%cdft_control%is_charge_constraint(nvariables))
                DO ivar = 1, nvariables
                   dft_control%qs_control%cdft_control%is_charge_constraint(ivar) =&
                      dft_control%qs_control%becke_control%group(ivar)%is_charge_constraint
@@ -383,7 +383,7 @@ CONTAINS
             ! In case constraint and OT extrapolation orders are different, make sure to use former
             IF (scf_control%outer_scf%extrapolation_order /= &
                 dft_control%qs_control%cdft_control%constraint_control%extrapolation_order &
-                .OR. nvariables =/ 1) THEN
+                .OR. nvariables /= 1) THEN
                DEALLOCATE (qs_env%outer_scf_history)
                DEALLOCATE (qs_env%gradient_history)
                DEALLOCATE (qs_env%variable_history)

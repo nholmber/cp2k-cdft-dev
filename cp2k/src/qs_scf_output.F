@@ -680,10 +680,10 @@ CONTAINS
             WRITE (output_unit, '(T3,A,T54,(3X,I18))') &
                'Atomic group                       :', igroup
             IF (cdft_control%is_charge_constraint(igroup)) THEN
-               WRITE (output_unit, '(T3,A,T49,A)') 
+               WRITE (output_unit, '(T3,A,T50,A)') &
                   'Type of constraint                 :', ADJUSTR('Charge density constraint')
             ELSE
-               WRITE (output_unit, '(T3,A,T42,A)') 
+               WRITE (output_unit, '(T3,A,T43,A)') &
                   'Type of constraint                 :', ADJUSTR('Magnetization density constraint')   
             END IF             
             WRITE (output_unit, '(T3,A,T54,(3X,F18.12))') &
@@ -799,8 +799,8 @@ CONTAINS
          CASE (outer_scf_hirshfeld_constraint)
             WRITE (output_unit, '(A)') "  Type of constraint      : Hirshfeld"
          CASE (outer_scf_becke_constraint)
-            WRITE (output_unit, '(A)') "  Type of constraint      : Becke"
-            WRITE (output_unit, '(A,I8)') "  Number of constraints:", SIZE(dft_control%qs_control%becke_control)
+            WRITE (output_unit, '(A)') "  Type of constraint      :  Becke"
+            WRITE (output_unit, '(A,I8)') "  Number of constraints   :", SIZE(dft_control%qs_control%becke_control%group)
             WRITE (output_unit, '(A)') "  "
             SELECT CASE (dft_control%qs_control%becke_control%cutoff_type)
             CASE (becke_cutoff_global)

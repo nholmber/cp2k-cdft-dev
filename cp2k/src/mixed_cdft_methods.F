@@ -628,12 +628,12 @@ CONTAINS
       END IF
       ! In principle, we could reduce the memory footprint of becke_pot by only transfering the nonzero portion
       ! of the potential, but this would require a custom integrate_v_rspace
-      CALL pw_pool_create_pw(auxbas_pw_pool, dft_control%qs_control%becke_control%group(1)weight%pw, &
+      CALL pw_pool_create_pw(auxbas_pw_pool, dft_control%qs_control%becke_control%group(1)%weight%pw, &
                              use_data=REALDATA3D, in_space=REALSPACE)
-      dft_control%qs_control%becke_control%group(1)weight%pw%cr3d = 0.0_dp
+      dft_control%qs_control%becke_control%group(1)%weight%pw%cr3d = 0.0_dp
       ! Assemble the recved slices
       DO j = 1, SIZE(mixed_cdft%source_list)
-         dft_control%qs_control%becke_control%group(1)weight%pw%cr3d(recvbuffer(j)%imap(1):recvbuffer(j)%imap(2), &
+         dft_control%qs_control%becke_control%group(1)%weight%pw%cr3d(recvbuffer(j)%imap(1):recvbuffer(j)%imap(2), &
                                                                      recvbuffer(j)%imap(3):recvbuffer(j)%imap(4), &
                                                                      recvbuffer(j)%imap(5):recvbuffer(j)%imap(6)) = &
             recvbuffer(j)%r3
@@ -650,7 +650,7 @@ CONTAINS
                                UBOUND(mixed_cdft%dlb_control%recvbuff(j)%buffs(i)%weight, 2), &
                                LBOUND(mixed_cdft%dlb_control%recvbuff(j)%buffs(i)%weight, 3), &
                                UBOUND(mixed_cdft%dlb_control%recvbuff(j)%buffs(i)%weight, 3)/)
-                     dft_control%qs_control%becke_control%group(1)weight%pw%cr3d(INDEX(1):INDEX(2), &
+                     dft_control%qs_control%becke_control%group(1)%weight%pw%cr3d(INDEX(1):INDEX(2), &
                                                                                  INDEX(3):INDEX(4), &
                                                                                  INDEX(5):INDEX(6)) = &
                         mixed_cdft%dlb_control%recvbuff(j)%buffs(i)%weight
@@ -770,7 +770,7 @@ CONTAINS
                                 request=req_total(ind), &
                                 comm=force_env%para_env%group)
                ELSE
-                  CALL mp_isend(msgin=mixed_cdft%becke_control%gradients, dest=mixed_cdft%dest_list(j), &
+                  CALL mp_isend(msgin=mixed_cdft%becke_control%group(1)%gradients, dest=mixed_cdft%dest_list(j), &
                                 request=req_total(ind), comm=force_env%para_env%group)
                END IF
             END DO
@@ -782,14 +782,14 @@ CONTAINS
             END DO
             DEALLOCATE (mixed_cdft%sendbuff)
          ELSE
-            DEALLOCATE (mixed_cdft%becke_control%gradients)
+            DEALLOCATE (mixed_cdft%becke_control%group(1)%gradients)
          END IF
-         ALLOCATE (dft_control%qs_control%becke_control%gradients(3*natom, bo(1, 1):bo(2, 1), &
-                                                                  bo(1, 2):bo(2, 2), lb_min:ub_max))
+         ALLOCATE (dft_control%qs_control%becke_control%group(1)%gradients(3*natom, bo(1, 1):bo(2, 1), &
+                                                                           bo(1, 2):bo(2, 2), lb_min:ub_max))
          DO j = 1, SIZE(mixed_cdft%source_list)
-            dft_control%qs_control%becke_control%gradients(:, recvbuffer(j)%imap(1):recvbuffer(j)%imap(2), &
-                                                           recvbuffer(j)%imap(3):recvbuffer(j)%imap(4), &
-                                                           recvbuffer(j)%imap(5):recvbuffer(j)%imap(6)) = &
+            dft_control%qs_control%becke_control%group(1)%gradients(:, recvbuffer(j)%imap(1):recvbuffer(j)%imap(2), &
+                                                                    recvbuffer(j)%imap(3):recvbuffer(j)%imap(4), &
+                                                                    recvbuffer(j)%imap(5):recvbuffer(j)%imap(6)) = &
                recvbuffer(j)%r4
             DEALLOCATE (recvbuffer(j)%r4)
          END DO
@@ -804,9 +804,9 @@ CONTAINS
                                   UBOUND(mixed_cdft%dlb_control%recvbuff(j)%buffs(i)%gradients, 3), &
                                   LBOUND(mixed_cdft%dlb_control%recvbuff(j)%buffs(i)%gradients, 4), &
                                   UBOUND(mixed_cdft%dlb_control%recvbuff(j)%buffs(i)%gradients, 4)/)
-                        dft_control%qs_control%becke_control%gradients(:, INDEX(1):INDEX(2), &
-                                                                       INDEX(3):INDEX(4), &
-                                                                       INDEX(5):INDEX(6)) = &
+                        dft_control%qs_control%becke_control%group(1)%gradients(:, INDEX(1):INDEX(2), &
+                                                                                INDEX(3):INDEX(4), &
+                                                                                INDEX(5):INDEX(6)) = &
                            mixed_cdft%dlb_control%recvbuff(j)%buffs(i)%gradients
                         DEALLOCATE (mixed_cdft%dlb_control%recvbuff(j)%buffs(i)%gradients)
                      END DO
@@ -848,8 +848,8 @@ CONTAINS
          dft_control%qs_control%becke_control%confine_bounds_int(2) = ub_max
          dft_control%qs_control%becke_control%confine_bounds_int(1) = lb_min
       END IF
-      CALL pw_scale(dft_control%qs_control%becke_control%group(1)weight%pw, &
-                    dft_control%qs_control%becke_control%group(1)weight%pw%pw_grid%dvol)
+      CALL pw_scale(dft_control%qs_control%becke_control%group(1)%weight%pw, &
+                    dft_control%qs_control%becke_control%group(1)%weight%pw%pw_grid%dvol)
       ! Set flags for ET coupling calculation
       IF (mixed_env%do_mixed_et) THEN
          IF (MODULO(mixed_cdft%sim_step, mixed_env%et_freq) == 0) THEN
@@ -954,20 +954,22 @@ CONTAINS
          END IF
          ! Gradients
          IF (calculate_forces) THEN
-            bounds_of = (/LBOUND(dft_control_source%qs_control%becke_control%gradients, 1), &
-                          UBOUND(dft_control_source%qs_control%becke_control%gradients, 1), &
-                          LBOUND(dft_control_source%qs_control%becke_control%gradients, 2), &
-                          UBOUND(dft_control_source%qs_control%becke_control%gradients, 2), &
-                          LBOUND(dft_control_source%qs_control%becke_control%gradients, 3), &
-                          UBOUND(dft_control_source%qs_control%becke_control%gradients, 3), &
-                          LBOUND(dft_control_source%qs_control%becke_control%gradients, 4), &
-                          UBOUND(dft_control_source%qs_control%becke_control%gradients, 4)/)
-            ALLOCATE (dft_control_target%qs_control%becke_control% &
-                      gradients(bounds_of(1):bounds_of(2), bounds_of(3):bounds_of(4), &
-                                bounds_of(5):bounds_of(6), bounds_of(7):bounds_of(8)))
-            dft_control_target%qs_control%becke_control%gradients = &
-               dft_control_source%qs_control%becke_control%gradients
-            DEALLOCATE (dft_control_source%qs_control%becke_control%gradients)
+            DO igroup = 1, SIZE(dft_control_source%qs_control%becke_control%group)
+               bounds_of = (/LBOUND(dft_control_source%qs_control%becke_control%group(igroup)%gradients, 1), &
+                             UBOUND(dft_control_source%qs_control%becke_control%group(igroup)%gradients, 1), &
+                             LBOUND(dft_control_source%qs_control%becke_control%group(igroup)%gradients, 2), &
+                             UBOUND(dft_control_source%qs_control%becke_control%group(igroup)%gradients, 2), &
+                             LBOUND(dft_control_source%qs_control%becke_control%group(igroup)%gradients, 3), &
+                             UBOUND(dft_control_source%qs_control%becke_control%group(igroup)%gradients, 3), &
+                             LBOUND(dft_control_source%qs_control%becke_control%group(igroup)%gradients, 4), &
+                             UBOUND(dft_control_source%qs_control%becke_control%group(igroup)%gradients, 4)/)
+               ALLOCATE (dft_control_target%qs_control%becke_control%group(igroup)% &
+                         gradients(bounds_of(1):bounds_of(2), bounds_of(3):bounds_of(4), &
+                                   bounds_of(5):bounds_of(6), bounds_of(7):bounds_of(8)))
+               dft_control_target%qs_control%becke_control%group(igroup)%gradients = &
+                  dft_control_source%qs_control%becke_control%group(igroup)%gradients
+               DEALLOCATE (dft_control_source%qs_control%becke_control%group(igroup)%gradients)
+            END DO
          END IF
          ! Set some flags so the weight is not rebuilt during SCF
          dft_control_target%qs_control%becke_control%external_control = .FALSE.
@@ -1007,7 +1009,7 @@ CONTAINS
       INTEGER                                            :: handle, iforce_eval, iounit, ispin, j, &
                                                             k, my_id, nao, ncol_local, &
                                                             nforce_eval, nmo, nrow_local, nspins, &
-                                                            nvar, ivar, istate, jstate, nvar, ivar, i
+                                                            nvar, ivar, istate, jstate, i
       INTEGER, ALLOCATABLE, DIMENSION(:)                 :: ncol_mo, nrow_mo
       LOGICAL                                            :: exist, natom_mismatch
       REAL(KIND=dp)                                      :: coupling_wfn, energy_a, energy_b, &
@@ -1418,7 +1420,7 @@ CONTAINS
          DO ivar = 1, nvar
             IF (ivar > 1) &
                WRITE (iounit, '(A)') ''
-            WRITE (iounit, '(T3,A,T60,(3X,I18))') 'Atomic group                       :', igroup
+            WRITE (iounit, '(T3,A,T60,(3X,I18))') 'Atomic group                       :', ivar
             WRITE (iounit, '(T3,A,T60,(3X,F18.12))') 'Strength of constraint A            :', strength_a(ivar)
             WRITE (iounit, '(T3,A,T60,(3X,F18.12))') 'Strength of constraint B            :', strength_b(ivar)
             WRITE (iounit, '(T3,A,T60,(3X,F18.12))') 'Final value of constraint A         :', Waa(ivar)
@@ -1657,7 +1659,7 @@ CONTAINS
              mixed_cdft%first_iteration) &
             is_constraint(catom(i)) = .TRUE.
          IF (in_memory .OR. mixed_cdft%first_iteration) &
-            coefficients(catom(i)) = mixed_cdft%becke_control%coeff(i)
+            coefficients(catom(i)) = mixed_cdft%becke_control%group(1)%coeff(i)
       ENDDO
       CALL pw_env_get(pw_env=mixed_cdft%pw_env, auxbas_pw_pool=auxbas_pw_pool)
       bo = auxbas_pw_pool%pw_grid%bounds_local
@@ -1978,15 +1980,15 @@ CONTAINS
                mixed_cdft%sendbuff(i)%gradients = 0.0_dp
             END DO
          ELSE IF (mixed_cdft%is_pencil) THEN
-            ALLOCATE (mixed_cdft%becke_control%gradients(3*natom, bo(1, 1)+offset_dlb:bo(2, 1), &
-                                                         bo(1, 2):bo(2, 2), &
-                                                         bo_conf(1, 3):bo_conf(2, 3)))
-            mixed_cdft%becke_control%gradients = 0.0_dp
+            ALLOCATE (mixed_cdft%becke_control%group(1)%gradients(3*natom, bo(1, 1)+offset_dlb:bo(2, 1), &
+                                                                  bo(1, 2):bo(2, 2), &
+                                                                  bo_conf(1, 3):bo_conf(2, 3)))
+            mixed_cdft%becke_control%group(1)%gradients = 0.0_dp
          ELSE
-            ALLOCATE (mixed_cdft%becke_control%gradients(3*natom, bo(1, 1):bo(2, 1), &
-                                                         bo(1, 2)+offset_dlb:bo(2, 2), &
-                                                         bo_conf(1, 3):bo_conf(2, 3)))
-            mixed_cdft%becke_control%gradients = 0.0_dp
+            ALLOCATE (mixed_cdft%becke_control%group(1)%gradients(3*natom, bo(1, 1):bo(2, 1), &
+                                                                  bo(1, 2)+offset_dlb:bo(2, 2), &
+                                                                  bo_conf(1, 3):bo_conf(2, 3)))
+            mixed_cdft%becke_control%group(1)%gradients = 0.0_dp
          END IF
          IF (mixed_cdft%becke_control%should_skip .AND. .NOT. &
              mixed_cdft%becke_control%cavity_confine) THEN
@@ -3064,7 +3066,7 @@ CONTAINS
             IF (.NOT. mixed_cdft%is_special) THEN
                weight => mixed_cdft%weight
                cavity => mixed_cdft%cavity
-               gradients => mixed_cdft%becke_control%gradients
+               gradients => mixed_cdft%becke_control%group(1)%gradients
             ELSE
                my_special_work = SIZE(mixed_cdft%dest_list)
             END IF
@@ -3333,7 +3335,7 @@ CONTAINS
                      sum_cell_f_constr = 0.0_dp
                      DO ip = 1, mixed_cdft%becke_control%natoms
                         sum_cell_f_constr = sum_cell_f_constr+cell_functions(catom(ip))* &
-                                            mixed_cdft%becke_control%coeff(ip)
+                                            mixed_cdft%becke_control%group(1)%coeff(ip)
                      END DO
                      sum_cell_f_all = 0.0_dp
                      nwork = nwork+1

@@ -222,13 +222,16 @@ CONTAINS
             settings%atoms(1:dft_control%qs_control%becke_control%natoms, iforce_eval) = &
                dft_control%qs_control%becke_control%atoms
             settings%coeffs(1:dft_control%qs_control%becke_control%natoms, iforce_eval) = &
-               dft_control%qs_control%becke_control%coeff
+               dft_control%qs_control%becke_control%group(1)%coeff
             ! Only GAPW and serial calculation needs to keep a copy of these arrays for constraint integration
             IF (.NOT. dft_control%qs_control%gapw) THEN
                IF (mixed_cdft%is_parallel .OR. &
                    (.NOT. mixed_cdft%is_parallel .AND. iforce_eval /= 1)) THEN
                   DEALLOCATE (dft_control%qs_control%becke_control%atoms)
-                  DEALLOCATE (dft_control%qs_control%becke_control%coeff)
+                  DO i = 1, SIZE(dft_control%qs_control%becke_control%group)
+                     DEALLOCATE (dft_control%qs_control%becke_control%group(i)%coeff)
+                     DEALLOCATE (dft_control%qs_control%becke_control%group(i)%atoms)
+                  END DO
                END IF
             END IF
             settings%si(1, iforce_eval) = dft_control%qs_control%becke_control%confine_method
@@ -407,8 +410,10 @@ CONTAINS
          CALL becke_control_create(mixed_cdft%becke_control)
          ALLOCATE (mixed_cdft%becke_control%atoms(settings%nbecke))
          mixed_cdft%becke_control%atoms = settings%atoms(1:settings%nbecke, 1)
-         ALLOCATE (mixed_cdft%becke_control%coeff(settings%nbecke))
-         mixed_cdft%becke_control%coeff = settings%coeffs(1:settings%nbecke, 1)
+         ALLOCATE(mixed_cdft%becke_control%group(1))
+         mixed_cdft%becke_control%group(1)%atoms = mixed_cdft%becke_control%atoms
+         ALLOCATE (mixed_cdft%becke_control%group(1)%coeff(settings%nbecke))
+         mixed_cdft%becke_control%group(1)%coeff = settings%coeffs(1:settings%nbecke, 1)
          mixed_cdft%becke_control%natoms = settings%nbecke
          mixed_cdft%becke_control%confine_method = settings%si(1, 1)
          mixed_cdft%becke_control%cutoff_type = settings%si(2, 1)
@@ -947,7 +952,7 @@ CONTAINS
       IF (.NOT. ALLOCATED(mixed_cdft%is_charge_constraint)) THEN
          ALLOCATE(mixed_cdft%is_charge_constraint(nvar))
          DO ivar = 1, nvar
-            mixed_cdft%is_charge_constraint(ivar) = dft_control%qs_control%becke_control%group(igroup)%is_charge_constraint
+            mixed_cdft%is_charge_constraint(ivar) = dft_control%qs_control%becke_control%group(ivar)%is_charge_constraint
          END DO
       END IF
       ALLOCATE (mixed_mo_coeff(2, nspins))

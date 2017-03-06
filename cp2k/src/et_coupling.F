@@ -272,8 +272,8 @@ CONTAINS
       END IF
       IF (dft_control%qs_control%becke_restraint) THEN
          Waa = qs_env%et_coupling%order_p
-         Wbb = becke_control%becke_order_p(1)
-         strength = becke_control%strength(1)
+         Wbb = dft_control%qs_control%becke_control%becke_order_p(1)
+         strength = dft_control%qs_control%becke_control%strength(1)
       END IF
 
 !!   construct S and W   !!!
@@ -333,15 +333,13 @@ CONTAINS
 ! **************************************************************************************************
 !> \brief calculates a Becke contraint
 !> \param qs_env the qs_env where to build the constraint
-!> \param becke_const the Becke real space potential
-!> \param charge atomic Becke real space potentials defined on the constraint atoms
 !> \param calc_pot if the potential needs to be recalculated or just integrated
 !> \param calculate_forces logical if potential has to be calculated or only_energy
 !> \par   History
 !>        Created 01.2007 [fschiff]
 !>        Extended functionality 12/15-12/16 [Nico Holmberg]
 ! **************************************************************************************************
-   SUBROUTINE becke_restraint(qs_env, becke_const, charge, calc_pot, calculate_forces)
+   SUBROUTINE becke_restraint(qs_env, calc_pot, calculate_forces)
 
       TYPE(qs_environment_type), POINTER                 :: qs_env
       LOGICAL                                            :: calc_pot, calculate_forces
@@ -352,12 +350,11 @@ CONTAINS
       CHARACTER(len=2)                                   :: element_symbol
       INTEGER :: atom_a, bounds(2), dir, handle, i, iatom, iex, ikind, ind(3), ip, ithread, ivar, &
          iw, j, jatom, k, katom, lb_index, natom, nelectron_total, nkind, np(3), npme, &
-         nskipped, nthread, numexp, nvar, tmp_index(2), ub_index, unit_nr, igroup
+         nskipped, nthread, numexp, nvar, tmp_index(2), ub_index, unit_nr, igroup, jp
       INTEGER, ALLOCATABLE, DIMENSION(:)                 :: catom
       INTEGER, DIMENSION(2, 3)                           :: bo, bo_conf
       INTEGER, DIMENSION(:), POINTER                     :: atom_list, cores, stride
-      LOGICAL                                            :: build, in_memory, paw_atom, store_vectors, &
-                                                            has_global_weight, has_group_weight
+      LOGICAL                                            :: build, in_memory, paw_atom, store_vectors
       LOGICAL, ALLOCATABLE, DIMENSION(:)                 :: is_constraint, skip_me
       LOGICAL, ALLOCATABLE, DIMENSION(:, :)              :: atom_in_group
       REAL(kind=dp) :: alpha, chi, coef, dist1, dist2, dmyexp, dvol, dynamic_radius, eps_cavity, &
@@ -367,7 +364,7 @@ CONTAINS
                                                             distances, ds_dR_i, ds_dR_j, &
                                                             strength, target_val, &
                                                             sum_cell_f_group
-      REAL(kind=dp), ALLOCATABLE, DIMENSION(:, :)        :: d_sum_const_dR, d_sum_Pm_dR, &
+      REAL(kind=dp), ALLOCATABLE, DIMENSION(:, :)        :: d_sum_Pm_dR, &
                                                             distance_vecs, dP_i_dRi, &
                                                             electronic_charge, position_vecs, R12, gapw_offset
       REAL(kind=dp), ALLOCATABLE, DIMENSION(:, :, :)     :: dP_i_dRj, pair_dist_vecs
@@ -390,7 +387,6 @@ CONTAINS
       TYPE(particle_type), DIMENSION(:), POINTER         :: particle_set
       TYPE(pw_env_type), POINTER                         :: pw_env
       TYPE(pw_p_type)                                    :: rho_frag
-      TYPE(pw_p_type), POINTER                           :: group_weight
       TYPE(pw_p_type), DIMENSION(:), POINTER             :: rho_r, charge
       TYPE(pw_pool_type), POINTER                        :: auxbas_pw_pool
       TYPE(qs_energy_type), POINTER                      :: energy
@@ -406,7 +402,7 @@ CONTAINS
                dft_control, particle_set, rho_r, energy, rho, logger, &
                becke_restraint_section, qs_kind_set, gradients, particles, &
                subsys, pab, pw_env, rs_cavity, cavity_env, auxbas_pw_pool, &
-               atomic_kind_set, mp_rho, rho0_mpole, group_weight, group, charge)
+               atomic_kind_set, mp_rho, rho0_mpole, group, charge)
       CALL timeset(routineN, handle)
 
       CALL get_qs_env(qs_env, &
@@ -429,8 +425,8 @@ CONTAINS
       CALL qs_rho_get(rho, rho_r=rho_r)
 
       IF (dft_control%qs_control%becke_restraint) THEN
-         becke_control => becke_control
-         group => becke_control%group         
+         becke_control => dft_control%qs_control%becke_control
+         group => becke_control%group
          nvar = SIZE(becke_control%target)
          DO igroup = 1, SIZE(group)
             IF (.NOT. group(igroup)%is_charge_constraint .AND. dft_control%nspins == 1) &
@@ -526,20 +522,20 @@ CONTAINS
                    becke_control%save_pot .OR. &
                    becke_control%cavity_confine .OR. &
                    becke_control%should_skip .OR. &
-                   becke_control%first_iteration.) .AND.&
-                   becke_control%is_constraint(i)) THEN
+                   becke_control%first_iteration) .AND.&
+                   becke_control%is_constraint(i)) &
                   is_constraint(catom(i)) = .TRUE.
-            ENDDO
+            END DO
                
             DO igroup = 1, SIZE(group)
                group(igroup)%weight%pw%cr3d = 0.0_dp
             END DO
             ALLOCATE(sum_cell_f_group(SIZE(group)))
-            bo = group_weight(1)%pw%pw_grid%bounds_local
-            np = group_weight(1)%pw%pw_grid%npts
-            dvol = group_weight(1)%pw%pw_grid%dvol
-            dr = group_weight(1)%pw%pw_grid%dr
-            np = group_weight(1)%pw%pw_grid%npts
+            bo = group(1)%weight%pw%pw_grid%bounds_local
+            np = group(1)%weight%pw%pw_grid%npts
+            dvol = group(1)%weight%pw%pw_grid%dvol
+            dr = group(1)%weight%pw%pw_grid%dr
+            np = group(1)%weight%pw%pw_grid%npts
             shift = -REAL(MODULO(np, 2), dp)*dr/2.0_dp
 
             ALLOCATE (cell_functions(natom))
@@ -664,7 +660,7 @@ CONTAINS
                      '----------------------------- Becke group definitions -----------------------------'
                   DO igroup = 1, SIZE(group)
                      IF (igroup > 1) WRITE (iw, '(T3,A)') ' '
-                     WRITE (iw, '(T3,A,I4,A,I4))') &
+                     WRITE (iw, '(T3,A,I4,A,I4)') &
                         'Atomic group', igroup, ' of ', SIZE(group)
                      WRITE (iw, '(T13,A)') ' Atom  Element'
                      DO ip = 1, SIZE(group(igroup)%atoms)
@@ -895,7 +891,9 @@ CONTAINS
                      IF (store_vectors) distances = 0.0_dp
                      IF (in_memory) THEN
                         d_sum_Pm_dR = 0.0_dp
-                        d_sum_const_dR = 0.0_dp
+                        DO igroup = 1, SIZE(group)
+                           group(igroup)%d_sum_const_dR = 0.0_dp
+                        END DO
                         dP_i_dRi = 0.0_dp
                      END IF
                      ! Iterate over all atoms in the system
@@ -1052,15 +1050,14 @@ CONTAINS
                               IF (is_constraint(iatom)) THEN
                                  DO igroup = 1, SIZE(group)
                                     IF (.NOT. atom_in_group(igroup, iatom)) CYCLE
-                                       DO i = 1, SIZE(group(igroup)%atoms)
-                                          IF (iatom == group(igroup)%atoms(i)) THEN
-                                             ip = i
-                                             EXIT
-                                          END IF
-                                       END DO
-                                       group(igroup)%d_sum_const_dR(1:3, iatom) = group(igroup)%d_sum_const_dR(1:3, iatom) + &
-                                                                                  group(igroup)%coeff(ip)*dP_i_dRi(:, iatom)
+                                    DO jp = 1, SIZE(group(igroup)%atoms)
+                                       IF (iatom == group(igroup)%atoms(jp)) THEN
+                                          ip = jp
+                                          EXIT
+                                       END IF
                                     END DO
+                                    group(igroup)%d_sum_const_dR(1:3, iatom) = group(igroup)%d_sum_const_dR(1:3, iatom) + &
+                                                                               group(igroup)%coeff(ip)*dP_i_dRi(:, iatom)
                                  END DO
                               END IF
                               DO jatom = 1, natom
@@ -1099,9 +1096,9 @@ CONTAINS
                                     IF (is_constraint(iatom)) THEN
                                        DO igroup = 1, SIZE(group)
                                           IF (.NOT. atom_in_group(igroup, iatom)) CYCLE
-                                          DO i = 1, SIZE(group(igroup)%atoms)
-                                             IF (iatom == group(igroup)%atoms(i)) THEN
-                                                ip = i
+                                          DO jp = 1, SIZE(group(igroup)%atoms)
+                                             IF (iatom == group(igroup)%atoms(jp)) THEN
+                                                ip = jp
                                                 EXIT
                                              END IF
                                           END DO
@@ -1188,6 +1185,7 @@ CONTAINS
                DO igroup = 1, SIZE(group)
                   DEALLOCATE(group(igroup)%d_sum_const_dR)
                END DO
+               DEALLOCATE (atom_in_group)
                IF (store_vectors) THEN
                   DEALLOCATE (pair_dist_vecs)
                END IF
@@ -1204,7 +1202,6 @@ CONTAINS
                DEALLOCATE (distance_vecs)
                DEALLOCATE (position_vecs)
             END IF
-            DEALLOCATE (atom_in_group)
             DEALLOCATE (sum_cell_f_group)
          END IF ! calc_pot
          IF (becke_control%atomic_charges) THEN
@@ -1225,10 +1222,10 @@ CONTAINS
                   IF (igroup /= 1) &
                      CALL cp_abort(__LOCATION__, &
                                    "Multiple constraints not yet supported by parallel mixed calculations.")
-                  dE(ivar) = dE(ivar)+sign*accurate_sum_arrays_product(group(igroup%weight%pw%cr3d, rho_r(i)%pw%cr3d, &
-                                                                       becke_control%cavity_mat, eps_cavity)*dvol
+                  dE(igroup) = dE(igroup)+sign*accurate_sum_arrays_product(group(igroup)%weight%pw%cr3d, rho_r(i)%pw%cr3d, &
+                                                                           becke_control%cavity_mat, eps_cavity)*dvol
                ELSE
-                  dE(ivar) = dE(ivar)+sign*accurate_sum(group(igroup)%weight%pw%cr3d*rho_r(i)%pw%cr3d)*dvol
+                  dE(igroup) = dE(igroup)+sign*accurate_sum(group(igroup)%weight%pw%cr3d*rho_r(i)%pw%cr3d)*dvol
                END IF
             END DO
             IF (becke_control%atomic_charges) THEN
@@ -1255,7 +1252,7 @@ CONTAINS
             IF (SIZE(group) /= 1) &
                CALL cp_abort(__LOCATION__, &
                              "Becke deformation density not yet compatible with multiple constraints.")
-            IF (.NOT. group(igroup)%is_charge_constraint) &
+            IF (.NOT. group(1)%is_charge_constraint) &
                CALL cp_abort(__LOCATION__, &
                              "Becke deformation density not yet compatible with magnetization density constraints.")
             IF (.NOT. becke_control%fragments_integrated) THEN
@@ -1300,7 +1297,7 @@ CONTAINS
                                             accurate_sum_arrays_product(group(1)%weight%pw%cr3d, rho_frag%pw%cr3d, &
                                                                         becke_control%cavity_mat, eps_cavity)*dvol
                ELSE
-                  becke_control%target(1) = becke_control%target(1)+ accurate_sum(group(1)%pw%cr3d*rho_frag%pw%cr3d)*dvol
+                  becke_control%target(1) = becke_control%target(1)+ accurate_sum(group(1)%weight%pw%cr3d*rho_frag%pw%cr3d)*dvol
                END IF
                CALL mp_sum(becke_control%target, para_env%group)
                IF (debug_this_module) THEN
@@ -1312,7 +1309,7 @@ CONTAINS
                                                  log_filename=.FALSE.)
                   CALL get_qs_env(qs_env, subsys=subsys)
                   CALL qs_subsys_get(subsys, particles=particles)
-                  CALL cp_pw_to_cube(becke_const%pw, &
+                  CALL cp_pw_to_cube(becke_control%group(1)%weight%pw, &
                                      unit_nr, "BECKE_WEIGHT", particles=particles, &
                                      stride=stride)
                   unit_nr = cp_print_key_unit_nr(logger, becke_restraint_section, "PROGRAM_RUN_INFO", &
@@ -1403,7 +1400,7 @@ CONTAINS
             energy%becke = energy%becke+(dE(ivar)-target_val(ivar))*strength(ivar)
          END DO
 
-         IF (dft_control%qs_control%cdft) THEN
+         IF (dft_control%qs_control%cdft) &
             dft_control%qs_control%cdft_control%value(:) = dE(:)
 
          IF (iw > 0) THEN
@@ -1414,10 +1411,10 @@ CONTAINS
                WRITE (iw, '(T3,A,T54,(3X,I18))') &
                   'Atomic group                       :', igroup
                IF (group(igroup)%is_charge_constraint) THEN
-                  WRITE (iw, '(T3,A,T49,A)') 
+                  WRITE (iw, '(T3,A,T50,A)') &
                      'Type of constraint                 :', ADJUSTR('Charge density constraint')
                ELSE
-                  WRITE (iw, '(T3,A,T42,A)') 
+                  WRITE (iw, '(T3,A,T43,A)') &
                      'Type of constraint                 :', ADJUSTR('Magnetization density constraint')                  
                END IF
                WRITE (iw, '(T3,A,T54,(3X,F18.12))') &
@@ -1463,7 +1460,7 @@ CONTAINS
                                              element_symbol=element_symbol, &
                                              kind_number=ikind)
                         CALL get_qs_kind(qs_kind_set(ikind), zeff=zeff)
-                        WRITE (iw, "(i7,T15,A2,T23,L2,T39,F8.3,T53,F8.3,T63,F8.3,T81,F8.3,T90,T8.3)") &
+                        WRITE (iw, "(i7,T15,A2,T23,L2,T39,F8.3,T53,F8.3,T63,F8.3,T81,F8.3,T90,F8.3)") &
                            jatom, element_symbol, &
                            becke_control%is_constraint(iatom), &
                            zeff, electronic_charge(iatom, 1), electronic_charge(iatom, 2), &
@@ -1528,7 +1525,6 @@ CONTAINS
 ! **************************************************************************************************
 !> \brief calculates Becke constraint gradients
 !> \param qs_env the qs_env where to build the gradients
-!> \param becke_const the Becke real space potential
 !> \par   History
 !>        Created 01.2007 [fschiff]
 !>        Extended functionality 12/15-12/16 [Nico Holmberg]
@@ -1540,16 +1536,15 @@ CONTAINS
       CHARACTER(len=*), PARAMETER :: routineN = 'becke_force', routineP = moduleN//':'//routineN
 
       INTEGER :: dir, handle, i, iatom, ikind, ind(3), ip, ispin, ivar, j, jatom, k, lb_index, &
-         natom, ngrad, np(3), nskipped, nvar, tmp_index(2), ub_index
+         natom, ngrad, np(3), nskipped, nvar, tmp_index(2), ub_index, jp, igroup
       INTEGER, ALLOCATABLE, DIMENSION(:)                 :: atom_of_kind, catom, kind_of
       INTEGER, DIMENSION(2, 3)                           :: bo, bo_conf
       LOGICAL, ALLOCATABLE, DIMENSION(:)                 :: is_constraint
       LOGICAL, ALLOCATABLE, DIMENSION(:, :)              :: atom_in_group
       REAL(kind=dp) :: dist1, dist2, dpolyn, dvol, eps_cavity, f_3, my1, my1_homo, polyn, sign, &
-         sum_cell_f_combined, sum_cell_f_constr, sum_Pm, th, tmp_const
-      REAL(kind=dp), ALLOCATABLE, DIMENSION(:)           :: coefficients, P_i, strength
-      REAL(kind=dp), ALLOCATABLE, DIMENSION(:, :)        :: d_sum_const_dR, d_sum_Pm_dR, dP_i_dRi, &
-                                                            dw_dR, integrated, R12, s_my_ij
+         sum_Pm, th, tmp_const, dw_dR(3)
+      REAL(kind=dp), ALLOCATABLE, DIMENSION(:)           :: coefficients, P_i, strength, sum_cell_f_group
+      REAL(kind=dp), ALLOCATABLE, DIMENSION(:, :)        :: dP_i_dRi, R12, s_my_ij, d_sum_Pm_dR
       REAL(kind=dp), ALLOCATABLE, DIMENSION(:, :, :)     :: dP_i_dRj, ds_dR
       REAL(kind=dp), DIMENSION(3)                        :: cell_v, dist_vec_i, dist_vec_j, &
                                                             dmy_dR_i, dmy_dR_j, dr, dr1_r2, &
@@ -1602,11 +1597,11 @@ CONTAINS
             ALLOCATE(group(igroup)%integrated(3, natom))
             group(igroup)%integrated = 0.0_dp
          END DO
-         bo = group_weight(1)%pw%pw_grid%bounds_local
-         np = group_weight(1)%pw%pw_grid%npts
-         dvol = group_weight(1)%pw%pw_grid%dvol
-         dr = group_weight(1)%pw%pw_grid%dr
-         np = group_weight(1)%pw%pw_grid%npts
+         bo = group(1)%weight%pw%pw_grid%bounds_local
+         np = group(1)%weight%pw%pw_grid%npts
+         dvol = group(1)%weight%pw%pw_grid%dvol
+         dr = group(1)%weight%pw%pw_grid%dr
+         np = group(1)%weight%pw%pw_grid%npts
          shift = -REAL(MODULO(np, 2), dp)*dr/2.0_dp
 
          IF (becke_control%confine .OR. &
@@ -1704,7 +1699,7 @@ CONTAINS
                   END DO
                END DO
             END IF
-            IF (.NOT. becke_control%transfer_pot)
+            IF (.NOT. becke_control%transfer_pot) THEN
                DO igroup = 1, SIZE(group)
                   DEALLOCATE (group(igroup)%gradients)
                END DO
@@ -1773,7 +1768,9 @@ CONTAINS
                      END IF
                      nskipped = 0
                      d_sum_Pm_dR = 0.0_dp
-                     d_sum_const_dR = 0.0_dp
+                     DO igroup = 1, SIZE(group)
+                        group(igroup)%d_sum_const_dR = 0.0_dp
+                     END DO
                      P_i = 1.0_dp
                      dP_i_dRi = 0.0_dp
                      DO iatom = 1, natom
@@ -1854,15 +1851,14 @@ CONTAINS
                            IF (is_constraint(iatom)) THEN
                               DO igroup = 1, SIZE(group)
                                  IF (.NOT. atom_in_group(igroup, iatom)) CYCLE
-                                    DO i = 1, SIZE(group(igroup)%atoms)
-                                       IF (iatom == group(igroup)%atoms(i)) THEN
-                                          ip = i
-                                          EXIT
-                                       END IF
-                                    END DO
-                                    group(igroup)%d_sum_const_dR(1:3, iatom) = group(igroup)%d_sum_const_dR(1:3, iatom) + &
-                                                                               group(igroup)%coeff(ip)*dP_i_dRi(:, iatom)
+                                 DO jp = 1, SIZE(group(igroup)%atoms)
+                                    IF (iatom == group(igroup)%atoms(jp)) THEN
+                                       ip = jp
+                                       EXIT
+                                    END IF
                                  END DO
+                                 group(igroup)%d_sum_const_dR(1:3, iatom) = group(igroup)%d_sum_const_dR(1:3, iatom) + &
+                                                                            group(igroup)%coeff(ip)*dP_i_dRi(:, iatom)
                               END DO
                            END IF
                            DO jatom = 1, natom
@@ -1871,9 +1867,9 @@ CONTAINS
                                  IF (is_constraint(iatom)) THEN
                                     DO igroup = 1, SIZE(group)
                                        IF (.NOT. atom_in_group(igroup, iatom)) CYCLE
-                                       DO i = 1, SIZE(group(igroup)%atoms)
-                                          IF (iatom == group(igroup)%atoms(i)) THEN
-                                             ip = i
+                                       DO jp = 1, SIZE(group(igroup)%atoms)
+                                          IF (iatom == group(igroup)%atoms(jp)) THEN
+                                             ip = jp
                                              EXIT
                                           END IF
                                        END DO
@@ -1905,7 +1901,7 @@ CONTAINS
                      DO igroup = 1, SIZE(group)
                         DO ip = 1, SIZE(group(igroup)%atoms)
                            sum_cell_f_group(igroup) = sum_cell_f_group(igroup) + group(igroup)%coeff(ip) *&
-                                                      cell_functions(group(igroup)%atoms(ip))
+                                                      P_i(group(igroup)%atoms(ip))
                         END DO
                      END DO
                      IF (ABS(sum_Pm) > 0.0_dp) THEN
@@ -1939,11 +1935,7 @@ CONTAINS
             DEALLOCATE (dP_i_dRj)
             DEALLOCATE (atom_in_group)
             DO igroup = 1, SIZE(group)
-               ALLOCATE(group(igroup)%d_sum_const_dR(3,natom))
-               group(igroup)%d_sum_const_dR = 0.0_dp
-               DO ip = 1, SIZE(group(igroup)%atoms)
-                  atom_in_group(igroup, group(igroup)%atoms(ip)) = .TRUE.
-               END DO
+               DEALLOCATE(group(igroup)%d_sum_const_dR)
             END DO
          END IF ! Gradient integration
          DO igroup = 1, SIZE(group)
@@ -1962,7 +1954,6 @@ CONTAINS
             END DO
          END IF
          DEALLOCATE (strength)
-         DEALLOCATE (integrated)
          DEALLOCATE (atom_of_kind)
          DEALLOCATE (kind_of)
          DO igroup = 1, SIZE(group)

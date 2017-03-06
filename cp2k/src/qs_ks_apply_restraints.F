@@ -90,7 +90,7 @@ CONTAINS
          !***** Check if becke potential is needed to constrain charges *****
          becke => dft_control%qs_control%becke_control
          IF (becke%need_pot) THEN
-            DO igroup, SIZE(becke%group)
+            DO igroup = 1, SIZE(becke%group)
                CALL pw_pool_create_pw(auxbas_pw_pool, becke%group(igroup)%weight%pw, &
                                       use_data=REALDATA3D, in_space=REALSPACE)
             END DO
@@ -112,8 +112,7 @@ CONTAINS
                inv_vol = 1.0_dp/becke%group(igroup)%weight%pw%pw_grid%dvol
                CALL pw_scale(becke%group(igroup)%weight%pw, inv_vol)
             END DO
-            CALL becke_restraint(qs_env, becke%becke_pot, charge=becke%charge, calc_pot=.FALSE., &
-                                 calculate_forces=calculate_forces)
+            CALL becke_restraint(qs_env, calc_pot=.FALSE., calculate_forces=calculate_forces)
             DO igroup = 1, SIZE(becke%group)
                CALL pw_scale(becke%group(igroup)%weight%pw, becke%group(igroup)%weight%pw%pw_grid%dvol)
             END DO

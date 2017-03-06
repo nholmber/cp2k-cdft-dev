@@ -278,8 +278,10 @@ MODULE cp_control_types
       INTEGER, POINTER, DIMENSION(:)       :: atoms
       REAL(KIND=dp), POINTER, DIMENSION(:) :: coeff
       REAL(KIND=dp), POINTER, &
+         DIMENSION(:, :)                   :: integrated
+      REAL(KIND=dp), POINTER, &
          DIMENSION(:, :, :, :)             :: gradients
-      TYPE(pw_p_type), POINTER             :: weight
+      TYPE(pw_p_type)                      :: weight
       REAL(kind=dp), ALLOCATABLE, &
          DIMENSION(:, :)                   :: d_sum_const_dR
       LOGICAL                              :: is_charge_constraint
@@ -933,7 +935,6 @@ CONTAINS
       becke_control%cavity_shape = radius_single
       becke_control%external_control = .FALSE.
       becke_control%constraint_type = cdft_density_constraint
-      NULLIFY (becke_control%becke_pot%pw)
       NULLIFY (becke_control%cavity%pw)
       NULLIFY (becke_control%strength)
       NULLIFY (becke_control%target)
@@ -984,6 +985,8 @@ CONTAINS
                   DEALLOCATE(becke_control%group(i)%d_sum_const_dR)
                IF (ASSOCIATED(becke_control%group(i)%gradients)) &
                   DEALLOCATE(becke_control%group(i)%gradients)
+               IF (ASSOCIATED(becke_control%group(i)%integrated)) &
+                  DEALLOCATE(becke_control%group(i)%integrated)                  
             END DO                                                      
             DEALLOCATE (becke_control%group)
          END IF          
