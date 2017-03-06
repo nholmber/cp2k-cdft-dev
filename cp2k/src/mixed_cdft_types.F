@@ -130,6 +130,9 @@ MODULE mixed_cdft_types
 !> \param calculate_metric flag which determines if the coupling reliablity metric should be computed
 !> \param wnf_ovelap_method flag to enable the wavefunction overlap method for computing the coupling
 !> \param has_unit_metric flag to determine if the basis set has unit metric
+!> \param is_parallel flag which determine if the mixed CDFT calculation is parallel or serial mode
+!> \param is_charge_constraint list of logicals which determine if the constraint should be applied
+!>                             to the total charge density or the magnetization density
 !> \param eps_rho_rspace threshold to determine when the realspace density can be considered zero
 !> \param sim_dt timestep of the MD simulation
 !> \param eps_svd value that controls which matrix inversion method to use
@@ -156,6 +159,7 @@ MODULE mixed_cdft_types
                                                           wfn_overlap_method, &
                                                           has_unit_metric, &
                                                           is_parallel
+      LOGICAL, DIMENSION(:), ALLOCATABLE               :: is_charge_constraint                                                          
       REAL(KIND=dp)                                    :: eps_rho_rspace, sim_dt, &
                                                           eps_svd
       REAL(KIND=dp), POINTER, DIMENSION(:, :, :)       :: weight, cavity
@@ -266,6 +270,8 @@ CONTAINS
          DEALLOCATE (cdft_control%weight)
       IF (ASSOCIATED(cdft_control%cavity)) &
          DEALLOCATE (cdft_control%cavity)
+      IF (ALLOCATED(cdft_control%is_charge_constraint)) &
+         DEALLOCATE(cdft_control%is_charge_constraint)
       IF (ASSOCIATED(cdft_control%dlb_control)) &
          CALL mixed_cdft_dlb_release(cdft_control%dlb_control)
       IF (ASSOCIATED(cdft_control%sendbuff)) THEN

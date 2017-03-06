@@ -1727,120 +1727,146 @@ CONTAINS
 
       INTEGER                                            :: j, jj, k, n_rep, nvar, natoms, i, &
                                                             tot_natoms
-      INTEGER, DIMENSION(:), POINTER                     :: tmplist, checklist
-      LOGICAL                                            :: exists, found
+      INTEGER, DIMENSION(:), POINTER                     :: tmplist, atomlist, dummylist
+      LOGICAL                                            :: exists, found, is_duplicate
       REAL(KIND=dp), DIMENSION(:), POINTER               :: rtmplist
       TYPE(section_vals_type), POINTER                   :: group_section, tmp_section
 
       NULLIFY (tmplist, rtmplist, checklist, group_section, tmp_section)
-      CALL section_vals_val_get(becke_section, "CONSTRAINT_TYPE", &
-                                i_val=qs_control%becke_control%constraint_type)
 
-      CALL section_vals_val_get(becke_section, "ATOMS", &
-                                n_rep_val=n_rep)
-      jj = 0
-      DO k = 1, n_rep
-         CALL section_vals_val_get(becke_section, "ATOMS", i_rep_val=k, i_vals=tmplist)
-         DO j = 1, SIZE(tmplist)
-            jj = jj+1
+      group_section => section_vals_get_subs_vals(becke_section, "ATOM_GROUP")
+      CALL section_vals_get(group_section, n_repetition=nvar, explicit=exists)
+      IF (.NOT. exists) CPABORT("Section ATOM_GROUP is missing.")
+      IF (ASSOCIATED(qs_control%becke_control%group)) THEN
+         DO i = 1, SIZE(qs_control%becke_control%group)
+            DEALLOCATE(qs_control%becke_control%group(i)%atoms)
+            DEALLOCATE(qs_control%becke_control%group(i)%coeff)
+         END DO
+         DEALLOCATE(qs_control%becke_control%group)
+      END IF
+      ALLOCATE(qs_control%becke_control%group(nvar))
+      tot_natoms = 0
+      ! Parse all ATOM_GROUP sections
+      DO k = 1, nvar
+         tmp_section => section_vals_get_subs_vals(group_section, "ATOM_GROUP", i_rep_section=k)
+         ! First determine how much storage is needed
+         natoms = 0
+         CALL section_vals_val_get(tmp_section, "ATOMS", n_rep_val=n_rep)
+         DO j = 1, n_rep
+            CALL section_vals_val_get(tmp_section, "ATOMS", i_rep_val=j, i_vals=tmplist)
+            IF (SIZE(tmplist) < 1) &
+               CPABORT("Each ATOM_GROUP must contain at least 1 atom.")
+            natoms = natoms + SIZE(tmplist)
+         END DO
+         IF (natoms > qs_control%becke_control%natoms) &
+            CALL cp_abort(__LOCATION__, &
+                          "More atoms defined with section(s) ATOM_GROUP than with keyword ATOMS.")
+         ALLOCATE(qs_control%becke_control%group(k)%atoms(natoms))
+         ALLOCATE(qs_control%becke_control%group(k)%coeff(natoms))
+         NULLIFY(qs_control%becke_control%group(k)%weight)
+         NULLIFY(qs_control%becke_control%group(k)%gradients)
+         tot_natoms = tot_natoms + natoms
+         ! Now parse
+         jj = 0
+         DO j = 1, n_rep
+            CALL section_vals_val_get(tmp_section, "ATOMS", i_rep_val=j, i_vals=tmplist)
+            CALL section_vals_val_get(tmp_section, "COEFF", i_rep_val=j, r_vals=rtmplist)
+            CALL section_vals_val_get(tmp_section, "CHARGE_CONSTRAINT", &
+                                      l_val=qs_control%becke_control%group(k)%is_charge_constraint)            
+            IF (SIZE(tmplist) /= SIZE(rtmplist)) &
+               CPABORT("Length of keywords ATOMS and COEFF must match.")
+            DO i = 1, SIZE(tmplist)
+               jj = jj + 1
+               qs_control%becke_control%group(k)%atoms(jj) = tmplist(i)
+               IF (ABS(rtmplist(i)) /= 1.0_dp) &
+                  CPABORT("Keyword COEFF accepts only values +/-1.0")
+               qs_control%becke_control%group(k)%coeff(jj) = rtmplist(i)
+            END DO
          END DO
       END DO
-      IF (jj < 1) CPABORT("Need at least 1 atom to use Becke constraints.")
-
-      qs_control%becke_control%natoms = jj
-      IF (ASSOCIATED(qs_control%becke_control%atoms)) DEALLOCATE (qs_control%becke_control%atoms)
-      ALLOCATE (qs_control%becke_control%atoms(qs_control%becke_control%natoms))
+      ! Create a list containing all constraint atoms
+      ALLOCATE(atomlist(tot_natoms))
+      atomlist = -1
       jj = 0
-      DO k = 1, n_rep
-         CALL section_vals_val_get(becke_section, "ATOMS", i_rep_val=k, i_vals=tmplist)
-         DO j = 1, SIZE(tmplist)
-            jj = jj+1
-            qs_control%becke_control%atoms(jj) = tmplist(j)
+      DO k = 1, nvar
+         DO j = 1, SIZE(qs_control%becke_control%group(k)%atoms)
+            is_duplicate = .FALSE.
+            DO i = 1, jj+1
+               IF (qs_control%becke_control%group(k)%atoms(j) == atomlist(i)) THEN
+                  is_duplicate = .TRUE.
+                  EXIT
+               END IF
+            END DO
+            IF (.NOT. is_duplicate) THEN
+               jj = jj + 1
+               atomlist(jj) = qs_control%becke_control%group(k)%atoms(j)
+            END DO
          END DO
       END DO
-      SELECT CASE (qs_control%becke_control%constraint_type)
-      CASE (cdft_density_constraint)
-         nvar = 1
-         qs_control%becke_control%has_global_weight = .TRUE.         
-         qs_control%becke_control%has_group_weight = .FALSE.    
-      CASE (cdft_magnetization_constraint)
-         qs_control%becke_control%has_global_weight = .FALSE.         
-         qs_control%becke_control%has_group_weight = .TRUE. 
-      CASE (cdft_combined_constraint)
-         nvar = 1
-         qs_control%becke_control%has_global_weight = .TRUE.         
-         qs_control%becke_control%has_group_weight = .TRUE.   
-      END SELECT
-      IF (qs_control%becke_control%has_group_weight) THEN
-         group_section => section_vals_get_subs_vals(becke_section, "ATOM_GROUP")
-         CALL section_vals_get(group_section, n_repetition=nvar, explicit=exists)
-         IF (.NOT. exists) CPABORT("Section ATOM_GROUP is missing.")
-         ALLOCATE(qs_control%becke_control%group(nvar))
-         tot_natoms = 0
-         ! Parse all ATOM_GROUP sections
-         DO k = 1, nvar
-            tmp_section => section_vals_get_subs_vals(group_section, "ATOM_GROUP", i_rep_section=k)
-            ! First determine how much storage is needed
+      CALL reallocate(atomlist, 1, jj)
+      CALL section_vals_val_get(becke_section, "ATOMIC_CHARGES", &
+                                l_val=qs_control%becke_control%atomic_charges)
+      ! Parse any dummy atoms (no weight function, just charges)
+      IF (qs_control%becke_control%atomic_charges) THEN
+         group_section => section_vals_get_subs_vals(becke_section, "DUMMY_ATOMS")
+         CALL section_vals_get(group_section, explicit=exists)
+         IF (exists) THEN
+            ! First determine how many atoms there are
             natoms = 0
-            CALL section_vals_val_get(tmp_section, "ATOMS", n_rep_val=n_rep)
+            CALL section_vals_val_get(group_section, "ATOMS", n_rep_val=n_rep)
             DO j = 1, n_rep
-               CALL section_vals_val_get(tmp_section, "ATOMS", i_rep_val=j, i_vals=tmplist)
+               CALL section_vals_val_get(group_section, "ATOMS", i_rep_val=j, i_vals=tmplist)
                IF (SIZE(tmplist) < 1) &
-                  CPABORT("Each ATOM_GROUP must contain at least 1 atom.")
+                  CPABORT("DUMMY_GROUP must contain at least 1 atom.")
                natoms = natoms + SIZE(tmplist)
             END DO
-            IF (natoms > qs_control%becke_control%natoms) &
-               CALL cp_abort(__LOCATION__, &
-                             "More atoms defined with section(s) ATOM_GROUP than with keyword ATOMS.")
-            ALLOCATE(qs_control%becke_control%group(k)%atoms(natoms))
-            ALLOCATE(qs_control%becke_control%group(k)%coeff(natoms))
-            NULLIFY(qs_control%becke_control%group(k)%weight)
-            NULLIFY(qs_control%becke_control%group(k)%gradients)
-            tot_natoms = tot_natoms + natoms
+            ALLOCATE(dummylist(natoms))
             ! Now parse
             jj = 0
             DO j = 1, n_rep
-               CALL section_vals_val_get(tmp_section, "ATOMS", i_rep_val=j, i_vals=tmplist)
-               CALL section_vals_val_get(tmp_section, "COEFF", i_rep_val=j, r_vals=rtmplist)
-               IF (SIZE(tmplist) /= SIZE(rtmplist)) &
-                  CPABORT("Length of keywords ATOMS and COEFF must match.")
+               CALL section_vals_val_get(group_section, "ATOMS", i_rep_val=j, i_vals=tmplist)
                DO i = 1, SIZE(tmplist)
                   jj = jj + 1
-                  qs_control%becke_control%group(k)%atoms(jj) = tmplist(i)
-                  IF (ABS(rtmplist(i)) /= 1.0_dp) &
-                     CPABORT("Keyword COEFF accepts only values +/-1.0")
-                  qs_control%becke_control%group(k)%coeff(jj) = rtmplist(i)
+                  dummylist(jj) = tmplist(i)
+               END DO
+            END DO
+            ! Check for duplicates
+            DO j = 1, natoms
+               DO i = j+1, natoms
+                  IF (dummylist(i) == dummylist(j)) &
+                     CPABORT("Duplicate atoms defined in section DUMMY_ATOMS.")
                END DO
             END DO
          END DO
-         ! Check input consistency
-         ALLOCATE(checklist(tot_natoms))
-         jj = 0
-         DO k = 1, nvar
-            DO j = 1, SIZE(qs_control%becke_control%group(k)%atoms)
-               jj = jj +1
-               checklist(jj) = qs_control%becke_control%group(k)%atoms(j)
-            END DO
-         END DO
-         DO k = 1, tot_natoms
-            DO j = k+1, tot_natoms
-               IF (checklist(k) == checklist(j)) &
-                  CPABORT("Duplicate atoms defined in ATOM_GROUP section(s).")
-            END DO
-            ! Check that the index is included in ATOMS
-            found = .FALSE.
-            DO j = 1, qs_control%becke_control%natoms
-               IF (checklist(k) /= qs_control%becke_control%atoms(j)) CYCLE
-               found = .TRUE.
-               EXIT
-            END DO
-            IF (.NOT. found) &
-               CALL cp_abort(__LOCATION__, &
-                             "Atoms defined in section(s) ATOM_GROUP must be included in ATOMS.")
-         END DO
-         IF (qs_control%becke_control%constraint_type == cdft_combined_constraint) &
-            nvar = nvar + 1
       END IF
+      ! Join dummy atoms and constraint atoms into one list
+      ! No duplicates allowed
+      DO j = 1, SIZE(atomlist)
+         DO i = 1, SIZE(dummylist)
+            IF (dummylist(i) == atomlist(j)) &
+               CALL cp_abort(__LOCATION__, &
+                             "Duplicate atoms defined in sections ATOM_GROUP and DUMMY_ATOMS.")
+         END DO
+      END DO
+      IF (ASSOCIATED(qs_control%becke_control%atoms)) &
+         DEALLOCATE(qs_control%becke_control%atoms)
+      IF (ASSOCIATED(qs_control%becke_control%is_constraint)) &
+         DEALLOCATE(qs_control%becke_control%is_constraint)
+      IF (ALLOCATED(dummylist)) THEN
+         qs_control%becke_control%natoms = SIZE(atomlist)+SIZE(dummylist)
+      ELSE
+         qs_control%becke_control%natoms = SIZE(atomlist)
+      END IF
+      ALLOCATE(qs_control%becke_control%atoms(qs_control%becke_control%natoms)
+      ALLOCATE(qs_control%becke_control%is_constraint(qs_control%becke_control%natoms)
+      qs_control%becke_control%atoms(1:SIZE(atomlist)) = atomlist
+      IF (ALLOCATED(dummylist)) THEN
+         qs_control%becke_control%atoms(1+SIZE(atomlist):) = dummylist
+         DEALLOCATE(dummylist)
+      END IF
+      qs_control%becke_control%is_constraint = .FALSE.
+      qs_control%becke_control%is_constraint(1:SIZE(atomlist)) = .TRUE.
+      DEALLOCATE(atomlist)
       ! Need to deallocate first in case ET_COUPLING calculation (in qs_energy_utils)
       IF (ASSOCIATED(qs_control%becke_control%strength)) &
          DEALLOCATE (qs_control%becke_control%strength)
@@ -1887,8 +1913,6 @@ CONTAINS
          END DO
       END IF
 
-      CALL section_vals_val_get(becke_section, "ATOMIC_CHARGES", &
-                                l_val=qs_control%becke_control%atomic_charges)
       CALL section_vals_val_get(becke_section, "SHOULD_SKIP", &
                                 l_val=qs_control%becke_control%should_skip)
       CALL section_vals_val_get(becke_section, "CONFINE", &
@@ -1935,11 +1959,6 @@ CONTAINS
       CALL section_vals_val_get(becke_section, "IN_MEMORY", &
                                 l_val=qs_control%becke_control%in_memory)
 
-      IF (ASSOCIATED(qs_control%becke_control%coeff)) &
-         DEALLOCATE (qs_control%becke_control%coeff)
-      ALLOCATE (qs_control%becke_control%coeff(qs_control%becke_control%natoms))
-      qs_control%becke_control%coeff = 1.0_dp
-
       IF (qs_control%becke_control%atomic_charges) THEN
          IF (ASSOCIATED(qs_control%becke_control%charge)) &
             DEALLOCATE (qs_control%becke_control%charge)
@@ -1984,20 +2003,6 @@ CONTAINS
                                  radius_type=qs_control%becke_control%cavity_shape, &
                                  use_bohr=qs_control%becke_control%use_bohr)
       END IF
-
-      CALL section_vals_val_get(becke_section, "COEFF", n_rep_val=n_rep)
-      jj = 0
-      DO k = 1, n_rep
-         CALL section_vals_val_get(becke_section, "COEFF", i_rep_val=k, r_vals=rtmplist)
-         DO j = 1, SIZE(rtmplist)
-            jj = jj+1
-            IF (jj > qs_control%becke_control%natoms) &
-               CPABORT("Need the same number of coeff as there are atoms.")
-            qs_control%becke_control%coeff(jj) = rtmplist(j)
-         END DO
-      END DO
-      IF (jj < qs_control%becke_control%natoms .AND. jj .NE. 0) &
-         CPABORT("Need no or the same number of coeff as there are atoms.")
 
       IF (qs_control%becke_control%confine) THEN
          IF (qs_control%becke_control%confine_bounds(1) /= qs_control%becke_control%confine_bounds(2)) &
@@ -2108,7 +2113,8 @@ CONTAINS
                   CALL section_vals_get(hirshfeld_constraint_section, explicit=exists)
                   IF (exists) THEN
                      CALL read_hirshfeld_constraint_section(qs_control, hirshfeld_constraint_section)
-                     qs_control%cdft_control%constraint_type = qs_control%cdft_control%hirshfeld_control%constraint_type
+                     ALLOCATE(qs_control%cdft_control%is_charge_constraint(1))
+                     qs_control%cdft_control%is_charge_constraint(1) = .TRUE.
                   ELSE
                      CPABORT("HIRSHFELD_CONSTRAINT section is missing.")
                   END IF
@@ -2192,20 +2198,7 @@ CONTAINS
       IF (jj < qs_control%cdft_control%hirshfeld_control%natoms .AND. jj .NE. 0) &
          CPABORT("Need no or the same number of coeff as there are atoms.")
 
-      CALL section_vals_val_get(hirshfeld_constraint_section, "CONSTRAINT_TYPE", &
-                                i_val=qs_control%cdft_control%hirshfeld_control%constraint_type)
-      SELECT CASE (qs_control%cdft_control%hirshfeld_control%constraint_type)
-      CASE (cdft_density_constraint, cdft_magnetization_constraint)
-         nvar = 1
-      CASE (cdft_combined_constraint)
-         nvar = 1
-         CALL section_vals_val_get(hirshfeld_constraint_section, "COMBINED_TYPE", &
-                                   i_val=qs_control%cdft_control%hirshfeld_control%constraint_type)
-      END SELECT
-
-      IF (qs_control%cdft_control%hirshfeld_control%constraint_type /= cdft_density_constraint) &
-         CPABORT("Hirshfeld magnetization density/combined constraint NYI.")
-
+      nvar = 1
       ALLOCATE (qs_control%cdft_control%target(nvar))
       ALLOCATE (qs_control%cdft_control%strength(nvar))
       ALLOCATE (qs_control%cdft_control%value(nvar))

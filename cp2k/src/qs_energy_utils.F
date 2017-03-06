@@ -283,7 +283,7 @@ CONTAINS
          IF (dft_control%qs_control%becke_restraint) THEN
             CALL pw_env_get(pw_env, auxbas_pw_pool=auxbas_pw_pool)
             CALL pw_pool_give_back_pw(auxbas_pw_pool, &
-                                      dft_control%qs_control%becke_control%becke_pot%pw)
+                                      dft_control%qs_control%becke_control%group(1)%weight%pw)
             dft_control%qs_control%becke_control%need_pot = .TRUE.
          END IF
       END IF

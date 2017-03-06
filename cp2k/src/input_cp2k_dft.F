@@ -4051,78 +4051,19 @@ CONTAINS
                           citations=(/Becke1988b/))
 
       CALL keyword_create(keyword, name="STRENGTH", &
-                          description="Force constants of the constraints. "// &
-                          "magnetization density constraint. The second optional value is for combined constraint. "// &
-                          "This behavior is overridden by an atomic magnetization constraint, which expects one"// &
-                          " one value per constraint atom.", &
+                          description="Force constants of the constraints. Give one value per constraint group", &
                           type_of_var=real_t, n_var=-1, &
                           default_r_val=0.0_dp)
       CALL section_add_keyword(section, keyword)
       CALL keyword_release(keyword)
 
       CALL keyword_create(keyword, name="TARGET", &
-                          description="Target values of the constraints. First value is for charge/"// &
-                          "magnetization density constraint. The second optional value is for combined constraint. "// &
-                          "This behavior is overridden by an atomic magnetization constraint, which expects one"// &
-                          " one value per constraint group.", &
+                          description="Target values of the constraints. Give one value per constraint group.", &
                           usage="TARGET {real}", repeats=.FALSE., &
                           type_of_var=real_t, n_var=-1, &
                           default_r_val=0.0_dp)
       CALL section_add_keyword(section, keyword)
       CALL keyword_release(keyword)
-
-      CALL keyword_create(keyword, name="ATOMS", &
-                          description="Specifies the list of atoms that are included in the constraint", &
-                          usage="ATOMS {integer} {integer} .. {integer}", &
-                          n_var=-1, type_of_var=integer_t)
-      CALL section_add_keyword(section, keyword)
-      CALL keyword_release(keyword)
-
-      !CALL keyword_create(keyword, name="ATOM_GROUP", &
-      !                    description="Specifies the list of atoms that are included in a constraint group "// &
-      !                                "for ATOMIC_SPIN constraint. Each repetition of keyword defines a new "// &
-      !                                "group. Listed atoms must be a subset of the atoms defined with keyword ATOMS, "// &
-      !                                "which may contain extra atoms e.g. for computing atomic charges." , &
-      !                    usage="ATOM_GROUP {integer} {integer} .. {integer}", repeats=.TRUE., &
-      !                    type_of_var=integer_t, n_var=-1)
-      !CALL section_add_keyword(section, keyword)
-      !CALL keyword_release(keyword)
-
-      CALL keyword_create(keyword, name="COEFF", &
-                          description="Defines coefficients for atoms in the atom list (default is one).", &
-                          usage="COEFF 1.0 -1.0", repeats=.TRUE., &
-                          type_of_var=real_t, n_var=-1)
-      CALL section_add_keyword(section, keyword)
-      CALL keyword_release(keyword)
-
-      CALL keyword_create(keyword, name="CONSTRAINT_TYPE", &
-                          description="Specifies the type of constraint used.", &
-                          usage="CONSTRAINT_TYPE (TOTAL|MAGNETIZATION|COMBINED|ATOMIC_SPIN)", &
-                          enum_c_vals=s2a("TOTAL", "MAGNETIZATION", "COMBINED", "ATOMIC_SPIN"), &
-                          enum_i_vals=(/cdft_density_constraint, cdft_magnetization_constraint, &
-                                        cdft_combined_constraint, cdft_atomic_magnetization_constraint/), &
-                          enum_desc=s2a("Constrain the total density (rho_alpha + rho_beta).", &
-                                        "Constrain the magnetization density (rho_alpha - rho_beta).", &
-                                        "Constrain both densities. The magnetization density constraint "// &
-                                        " is applied to atoms defined in COMBINED_TYPE.", &
-                                        "Constrain the magnetization density individually on specific atoms" // &
-                                        " or atom groups defined by the keyword ATOM_GROUP."), &
-                          default_i_val=cdft_density_constraint)
-      CALL section_add_keyword(section, keyword)
-      CALL keyword_release(keyword)
-
-     ! CALL keyword_create(keyword, name="COMBINED_TYPE", &
-     !                     description="Specifies which atoms to apply the magnetization density constraint"// &
-     !                     "when using CONSTRAINT_TYPE COMBINED.", &
-     !                     usage="COMBINED_TYPE (ALL|ACCEPTOR|DONOR)", &
-     !                     enum_c_vals=s2a("TOTAL", "ACCEPTOR", "DONOR"), &
-     !                     enum_i_vals=(/cdft_combined_all, cdft_combined_acceptor, cdft_combined_donor/), &
-     !                     enum_desc=s2a("Use all atoms defined with keywords ATOMS and COEFF.", &
-     !                                   "Use all acceptor atoms i.e. atoms with a COEFF of -1.0.", &
-     !                                   "Use all donor atoms i.e. atoms with a COEFF of +1.0."), &
-     !                     default_i_val=cdft_combined_all)
-     ! CALL section_add_keyword(section, keyword)
-     ! CALL keyword_release(keyword)
 
       CALL keyword_create(keyword, name="ADJUST_SIZE", &
                           description="Adjust cell boundaries with covalent atomic"// &
@@ -4337,8 +4278,9 @@ CONTAINS
       CALL section_release(print_key)
 
       CALL section_create(group_section, "ATOM_GROUP", &
-                          description="Define atomic groups for use in magnetization density constraints.", &
-                          n_keywords=2, n_subsections=0, repeats=.TRUE.)
+                          description="Define a group of atoms for use in a Becke constraint. Each repetition of "// &
+                                      "this section creates a new constraint.", &
+                          n_keywords=3, n_subsections=0, repeats=.TRUE.)
 
       CALL keyword_create(keyword, name="ATOMS", &
                           description="Specifies the list of atoms that are included in the constraint group", &
@@ -4348,11 +4290,38 @@ CONTAINS
       CALL keyword_release(keyword)
 
       CALL keyword_create(keyword, name="COEFF", &
-                          description="Defines coefficients for atoms in the atom list. Accepts value +/-1.0.", &
+                          description="Defines coefficients for the atoms in the list of atoms. Accepts value +/-1.0.", &
                           usage="COEFF 1.0 -1.0", repeats=.TRUE., &
                           type_of_var=real_t, n_var=-1)
       CALL section_add_keyword(group_section, keyword)
       CALL keyword_release(keyword)
+
+      CALL keyword_create(keyword, name="CHARGE_CONSTRAINT", &
+                          description="Determines what type of constraint to apply. Default value (true) "// &
+                                      "implies that a total charge density constraint (rho_alpha + rho_beta) "// &
+                                      " is applied. Set to false to enable a magnetization density constraint "// &
+                                      "(rho_alpha - rho_beta)" , &
+                          usage="CHARGE_CONSTRAINT", &
+                          default_l_val=.FALSE., lone_keyword_l_val=.TRUE.)
+      CALL section_add_keyword(group_section, keyword)
+      CALL keyword_release(keyword)
+
+      CALL section_add_subsection(section, group_section)
+      CALL section_release(group_section)
+
+      CALL section_create(group_section, "DUMMY_ATOMS", &
+                         description="Define an extra group of atoms for which only atomic Becke charges "// &
+                                     "should be computed. The section cannot contain any constraint"// &
+                                     "atoms which should be included in section ATOM_GROUP.", &
+                         n_keywords=1, n_subsections=0, repeats=.TRUE.)
+
+      CALL keyword_create(keyword, name="ATOMS", &
+                          description="Specifies the list of atoms that are included in the DUMMY_ATOMS group", &
+                          usage="ATOMS {integer} {integer} .. {integer}", &
+                          n_var=-1, type_of_var=integer_t)
+      CALL section_add_keyword(group_section, keyword)
+      CALL keyword_release(keyword)
+
       CALL section_add_subsection(section, group_section)
       CALL section_release(group_section)
 
@@ -4508,33 +4477,6 @@ CONTAINS
                           type_of_var=real_t, n_var=-1)
       CALL section_add_keyword(section, keyword)
       CALL keyword_release(keyword)
-
-      CALL keyword_create(keyword, name="CONSTRAINT_TYPE", &
-                          description="Specifies the type of constraint used.", &
-                          usage="CONSTRAINT_TYPE (TOTAL|MAGNETIZATION|COMBINED)", &
-                          enum_c_vals=s2a("TOTAL", "MAGNETIZATION", "COMBINED"), &
-                          enum_i_vals=(/cdft_density_constraint, cdft_magnetization_constraint, &
-                                        cdft_combined_constraint/), &
-                          enum_desc=s2a("Constrain the total density (rho_alpha + rho_beta).", &
-                                        "Constrain the magnetization density (rho_alpha - rho_beta). NYI", &
-                                        "Constrain both densities. The magnetization density constraint is applied "// &
-                                        " to atoms defined in COMBINED_TYPE. NYI"), &
-                          default_i_val=cdft_density_constraint)
-      CALL section_add_keyword(section, keyword)
-      CALL keyword_release(keyword)
-
-      !CALL keyword_create(keyword, name="COMBINED_TYPE", &
-      !                    description="Specifies which atoms to apply the magnetization density constraint "// &
-      !                    "when using CONSTRAINT_TYPE COMBINED.", &
-      !                    usage="COMBINED_TYPE (ALL|ACCEPTOR|DONOR)", &
-      !                    enum_c_vals=s2a("TOTAL", "ACCEPTOR", "DONOR"), &
-      !                    enum_i_vals=(/cdft_combined_all, cdft_combined_acceptor, cdft_combined_donor/), &
-      !                    enum_desc=s2a("Use all atoms defined with keywords ATOMS and COEFF.", &
-      !                                  "Use all acceptor atoms i.e. atoms with a COEFF of -1.0.", &
-      !                                  "Use all donor atoms i.e. atoms with a COEFF of +1.0."), &
-      !                    default_i_val=cdft_combined_all)
-      !CALL section_add_keyword(section, keyword)
-      !CALL keyword_release(keyword)
 
       CALL keyword_create(keyword, name="SELF_CONSISTENT", &
                           description="Calculate charges from the Hirsheld-I (self_consistent) method."// &

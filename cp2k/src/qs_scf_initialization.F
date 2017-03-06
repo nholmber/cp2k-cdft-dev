@@ -306,7 +306,7 @@ CONTAINS
       CHARACTER(len=*), PARAMETER :: routineN = 'qs_scf_ensure_cdft_loop_vars', &
          routineP = moduleN//':'//routineN
 
-      INTEGER                                            :: nhistory, nvariables
+      INTEGER                                            :: nhistory, nvariables, ivar
       LOGICAL                                            :: do_kpoints
       REAL(KIND=dp), DIMENSION(:, :), POINTER            :: gradient_history, outer_scf_history, &
                                                             variable_history
@@ -373,7 +373,12 @@ CONTAINS
                IF (.NOT. ASSOCIATED(dft_control%qs_control%cdft_control%strength)) &
                   ALLOCATE (dft_control%qs_control%cdft_control%strength(nvariables))
                dft_control%qs_control%cdft_control%target = dft_control%qs_control%becke_control%target
-               dft_control%qs_control%cdft_control%constraint_type = dft_control%qs_control%becke_control%constraint_type
+               IF (.NOT. ALLOCATED(dft_control%qs_control%cdft_control%is_charge_constraint))
+                  ALLOCATE(dft_control%qs_control%cdft_control%is_charge_constraint)
+               DO ivar = 1, nvariables
+                  dft_control%qs_control%cdft_control%is_charge_constraint(ivar) =&
+                     dft_control%qs_control%becke_control%group(ivar)%is_charge_constraint
+               END DO
             END IF
             ! In case constraint and OT extrapolation orders are different, make sure to use former
             IF (scf_control%outer_scf%extrapolation_order /= &

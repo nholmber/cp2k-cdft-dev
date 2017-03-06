@@ -89,19 +89,11 @@ CONTAINS
          CPASSERT(SIZE(matrix_s, 2) == 1)
          !***** Check if becke potential is needed to constrain charges *****
          becke => dft_control%qs_control%becke_control
-         has_global_weight = becke%has_global_weight
-         has_group_weight = becke%has_group_weight
          IF (becke%need_pot) THEN
-            IF (has_global_weight) THEN
-               CALL pw_pool_create_pw(auxbas_pw_pool, becke%becke_pot%pw, &
+            DO igroup, SIZE(becke%group)
+               CALL pw_pool_create_pw(auxbas_pw_pool, becke%group(igroup)%weight%pw, &
                                       use_data=REALDATA3D, in_space=REALSPACE)
-            END IF
-            IF (has_group_weight) THEN
-               DO igroup, SIZE(becke%group)
-                  CALL pw_pool_create_pw(auxbas_pw_pool, becke%group(igroup)%weight%pw, &
-                                         use_data=REALDATA3D, in_space=REALSPACE)
-               END DO
-            END IF
+            END DO
             IF (becke%atomic_charges) THEN
                IF (.NOT. ASSOCIATED(becke%charge)) &
                   ALLOCATE(becke%charge(becke%natoms))
@@ -110,44 +102,28 @@ CONTAINS
                                          use_data=REALDATA3D, in_space=REALSPACE)
                END DO
             END IF
-            CALL becke_restraint(qs_env, becke_const=becke%becke_pot, charge=becke%charge, &
-                                 calc_pot=.TRUE., calculate_forces=calculate_forces)
-            IF (has_global_weight) THEN
-               CALL pw_scale(becke%becke_pot%pw, becke%becke_pot%pw%pw_grid%dvol)
-            END IF
-            IF (has_group_weight) THEN 
-               DO igroup = 1, SIZE(becke%group)
-                  CALL pw_scale(becke%group(igroup)%weight%pw, becke%group(igroup)%weight%pw%pw_grid%dvol)
-               END DO
-            END IF
+            CALL becke_restraint(qs_env, calc_pot=.TRUE., calculate_forces=calculate_forces)
+            DO igroup = 1, SIZE(becke%group)
+               CALL pw_scale(becke%group(igroup)%weight%pw, becke%group(igroup)%weight%pw%pw_grid%dvol)
+            END DO
             becke%need_pot = .FALSE.
          ELSE
-            IF (has_global_weight) THEN
-               inv_vol = 1.0_dp/becke%becke_pot%pw%pw_grid%dvol
-               CALL pw_scale(becke%becke_pot%pw, inv_vol)
-            END IF
-            IF (has_group_weight) THEN
-               DO igroup = 1, SIZE(becke%group)
-                  inv_vol = 1.0_dp/becke%group(igroup)%weight%pw%pw_grid%dvol
-                  CALL pw_scale(becke%group(igroup)%weight%pw, inv_vol)
-               END DO
-            END IF   
+            DO igroup = 1, SIZE(becke%group)
+               inv_vol = 1.0_dp/becke%group(igroup)%weight%pw%pw_grid%dvol
+               CALL pw_scale(becke%group(igroup)%weight%pw, inv_vol)
+            END DO
             CALL becke_restraint(qs_env, becke%becke_pot, charge=becke%charge, calc_pot=.FALSE., &
                                  calculate_forces=calculate_forces)
-            IF (has_global_weight) THEN
-               CALL pw_scale(becke%becke_pot%pw, becke%becke_pot%pw%pw_grid%dvol)
-            END IF
-            IF (has_group_weight) THEN 
-               DO igroup = 1, SIZE(becke%group)
-                  CALL pw_scale(becke%group(igroup)%weight%pw, becke%group(igroup)%weight%pw%pw_grid%dvol)
-               END DO
-            END IF
+            DO igroup = 1, SIZE(becke%group)
+               CALL pw_scale(becke%group(igroup)%weight%pw, becke%group(igroup)%weight%pw%pw_grid%dvol)
+            END DO
          END IF
 
          IF (dft_control%qs_control%et_coupling_calc) THEN
             ! Combined constraint not allowed
-            IF (becke%constraint_type /= cdft_density_constraint) &
-               CPABORT("Constraint type not supported for ET_COUPLING.")               
+            IF (SIZE(becke%group) /= 1) &
+               CALL cp_abort(__LOCATION__, &
+                            "Only one constraint allowed for ET_COUPLING, switch to MIXED_CDFT.")               
             IF (qs_env%et_coupling%keep_matrix) THEN
                IF (qs_env%et_coupling%first_run) THEN
                   NULLIFY (qs_env%et_coupling%rest_mat(1)%matrix)
@@ -155,7 +131,7 @@ CONTAINS
                   CALL dbcsr_copy(qs_env%et_coupling%rest_mat(1)%matrix, matrix_s(1, 1)%matrix, &
                                   name="ET_RESTRAINT_MATRIX_A")
                   CALL dbcsr_set(qs_env%et_coupling%rest_mat(1)%matrix, 0.0_dp)
-                  CALL integrate_v_rspace(becke%becke_pot, &
+                  CALL integrate_v_rspace(becke%group(1)%weight, &
                                           hmat=qs_env%et_coupling%rest_mat(1), &
                                           qs_env=qs_env, calculate_forces=.FALSE.)
                   qs_env%et_coupling%order_p = dft_control%qs_control%becke_control%becke_order_p(1)
@@ -167,7 +143,7 @@ CONTAINS
                   CALL dbcsr_copy(qs_env%et_coupling%rest_mat(2)%matrix, matrix_s(1, 1)%matrix, &
                                   name="ET_RESTRAINT_MATRIX_B")
                   CALL dbcsr_set(qs_env%et_coupling%rest_mat(2)%matrix, 0.0_dp)
-                  CALL integrate_v_rspace(becke%becke_pot, &
+                  CALL integrate_v_rspace(becke%group(1)%weight, &
                                           hmat=qs_env%et_coupling%rest_mat(2), &
                                           qs_env=qs_env, calculate_forces=.FALSE.)
 

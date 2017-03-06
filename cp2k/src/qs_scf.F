@@ -552,16 +552,10 @@ CONTAINS
          IF (.NOT. dft_control%qs_control%becke_control%save_pot .AND. &
              .NOT. dft_control%qs_control%cdft) THEN
             CALL pw_env_get(pw_env, auxbas_pw_pool=auxbas_pw_pool)
-            IF (dft_control%qs_control%becke_control%has_global_weight) THEN
+            DO iatom = 1, SIZE(dft_control%qs_control%becke_control%group)
                CALL pw_pool_give_back_pw(auxbas_pw_pool, &
-                                         dft_control%qs_control%becke_control%becke_pot%pw)
-            END IF
-            IF (dft_control%qs_control%becke_control%has_group_weight) THEN
-               DO iatom = 1, SIZE(dft_control%qs_control%becke_control%group)
-                  CALL pw_pool_give_back_pw(auxbas_pw_pool, &
-                                            dft_control%qs_control%becke_control%group(iatom)%weight%pw)
-               END DO
-            END IF
+                                         dft_control%qs_control%becke_control%group(iatom)%weight%pw)
+            END DO
             IF (dft_control%qs_control%becke_control%atomic_charges) THEN
                DO iatom = 1, dft_control%qs_control%becke_control%natoms
                   CALL pw_pool_give_back_pw(auxbas_pw_pool, &
@@ -1041,16 +1035,7 @@ CONTAINS
          ! Store needed arrays for ET coupling calculation
          IF (cdft_control%do_et) THEN
             CALL get_qs_env(qs_env=qs_env, matrix_s=matrix_s)
-            IF (dft_control%qs_control%becke_control%constraint_type == cdft_combined_constraint) THEN
-               SELECT CASE (dft_control%qs_control%becke_control%combined_type)
-               CASE (cdft_combined_all)
-                  nvar = 1
-               CASE (cdft_combined_acceptor, cdft_combined_donor)
-                  nvar = 2
-               END SELECT
-            ELSE
-               nvar = 1
-            END IF
+            nvar = SIZE(cdft_control%target)
             ! Matrix representation of weight function
             ALLOCATE (cdft_control%wmat(nvar))
             DO ivar = 1, nvar
@@ -1058,17 +1043,10 @@ CONTAINS
                CALL dbcsr_copy(cdft_control%wmat(ivar)%matrix, matrix_s(1)%matrix, &
                                name="ET_RESTRAINT_MATRIX")
                CALL dbcsr_set(cdft_control%wmat(ivar)%matrix, 0.0_dp)
-               IF (ivar == 1) THEN
-                  CALL integrate_v_rspace(dft_control%qs_control%becke_control%becke_pot, &
-                                          hmat=cdft_control%wmat(ivar), qs_env=qs_env, &
-                                          calculate_forces=.FALSE., &
-                                          gapw=dft_control%qs_control%gapw)
-               ELSE
-                  CALL integrate_v_rspace(dft_control%qs_control%becke_control%combined_weight, &
-                                          hmat=cdft_control%wmat(ivar), qs_env=qs_env, &
-                                          calculate_forces=.FALSE., &
-                                          gapw=dft_control%qs_control%gapw)
-               END IF
+               CALL integrate_v_rspace(dft_control%qs_control%becke_control%group(ivar)%weight, &
+                                       hmat=cdft_control%wmat(ivar), qs_env=qs_env, &
+                                       calculate_forces=.FALSE., &
+                                       gapw=dft_control%qs_control%gapw)
             END DO 
             ! Overlap matrix
             CALL dbcsr_init_p(cdft_control%matrix_s%matrix)
@@ -1102,16 +1080,10 @@ CONTAINS
                     dft_control%qs_control%becke_control%transfer_pot)) THEN
             CALL get_qs_env(qs_env, pw_env=pw_env)
             CALL pw_env_get(pw_env, auxbas_pw_pool=auxbas_pw_pool)
-            IF (dft_control%qs_control%becke_control%has_global_weight) THEN
+            DO iatom = 1, SIZE(dft_control%qs_control%becke_control%group)
                CALL pw_pool_give_back_pw(auxbas_pw_pool, &
-                                         dft_control%qs_control%becke_control%becke_pot%pw)
-            END IF
-            IF (dft_control%qs_control%becke_control%has_group_weight) THEN
-               DO iatom = 1, SIZE(dft_control%qs_control%becke_control%group)
-                  CALL pw_pool_give_back_pw(auxbas_pw_pool, &
-                                            dft_control%qs_control%becke_control%group(iatom)%weight%pw)
-               END DO
-            END IF
+                                         dft_control%qs_control%becke_control%group(iatom)%weight%pw)
+            END DO
             IF (dft_control%qs_control%becke_control%atomic_charges) THEN
                DO iatom = 1, dft_control%qs_control%becke_control%natoms
                   CALL pw_pool_give_back_pw(auxbas_pw_pool, &

@@ -230,12 +230,11 @@ MODULE cp_control_types
 !> \param constraint_type the constraint type to use
 !> \param cutoff_type the cutoff type to use for building the constraint
 !> \param atoms list of constraint atoms
-!> \param becke_pot the Becke real space potential
 !> \param cavity the Gaussian confinement cavity: the constraint is nonzero outside this cavity
 !> \param combined_weight the Becke real space potential for the spin constraint when using combined
 !>                        density+spin constraint
 !> \param group_weight atom group specific Becke real space potentials needed to constrain
-!>                      the magnetization density of that group
+!>                      the charge/magnetization density of that group
 !> \param charge atomic Becke real space potentials needed to calculate atomic Becke charges
 !> \param fragments container for isolated fragment densities read from cube files
 !> \param need_pot logical which determines if the Becke potential needs to be built
@@ -274,8 +273,6 @@ MODULE cp_control_types
 !> \param skip_list a list of grid points skipped my keyword should_skip
 !> \param cavity_mat a compacted version of cavity
 !> \param combined_mat a compated version of combined_weight
-!> \param gradients atomic gradients of the weight function
-!> \param has_global_weight logical which determines if becke_pot is needed or group_weight
 ! **************************************************************************************************
    TYPE becke_group_type
       INTEGER, POINTER, DIMENSION(:)       :: atoms
@@ -285,6 +282,7 @@ MODULE cp_control_types
       TYPE(pw_p_type), POINTER             :: weight
       REAL(kind=dp), ALLOCATABLE, &
          DIMENSION(:, :)                   :: d_sum_const_dR
+      LOGICAL                              :: is_charge_constraint
    END TYPE becke_group_type
 
    TYPE becke_restraint_type
@@ -298,7 +296,7 @@ MODULE cp_control_types
       INTEGER                              :: confine_method, cavity_shape, cutoff_type, &
                                               constraint_type
       INTEGER, POINTER, DIMENSION(:)       :: atoms
-      TYPE(pw_p_type)                      :: becke_pot, cavity
+      TYPE(pw_p_type)                      :: cavity
       TYPE(pw_p_type), POINTER, &
          DIMENSION(:)                      :: fragments, charge
       LOGICAL                              :: need_pot, save_pot, in_memory, &
@@ -307,9 +305,9 @@ MODULE cp_control_types
                                               should_skip, print_cavity, &
                                               external_control, first_iteration, &
                                               fragment_density, fragments_integrated, &
-                                              use_bohr, transfer_pot, has_global_weight, &
-                                              has_group_weight
-      REAL(KIND=dp), POINTER, DIMENSION(:) :: coeff, cutoffs, cutoffs_tmp, &
+                                              use_bohr, transfer_pot
+      LOGICAL, POINTER, DIMENSION(:)       :: is_constraint
+      REAL(KIND=dp), POINTER, DIMENSION(:) :: cutoffs, cutoffs_tmp, &
                                               charges_fragment, radii_tmp, &
                                               radii
       INTEGER                              :: confine_dir, confine_bounds_int(2)
@@ -323,8 +321,6 @@ MODULE cp_control_types
       LOGICAL, POINTER, DIMENSION(:, :, :) :: skip_list
       REAL(KIND=dp), POINTER, &
          DIMENSION(:, :, :)                :: cavity_mat
-      REAL(KIND=dp), POINTER, &
-         DIMENSION(:, :, :, :)             :: gradients
    END TYPE becke_restraint_type
 
 ! **************************************************************************************************
@@ -377,6 +373,8 @@ MODULE cp_control_types
 !> \param purge_history logical which determines if the wfn/constraint history can be purged
 !> \param should_purge logical which determines if purging should take place after this CDFT SCF loop
 !> \param calculate_metric logical which determines if the ET coupling reliablity metric is computed
+!> \param is_charge_constraint list of logicals which determine if the constraint should be applied
+!>                             to the total charge density or the magnetization density
 !> \param mo_coeff save the MO coeffs (for do_et)
 !> \param wmat matrix representation of the weight function (for do_et)
 !> \param matrix_s save the overlap matrix (for do_et)
@@ -431,6 +429,7 @@ MODULE cp_control_types
       LOGICAL                              :: need_pot, save_pot, do_et, &
                                               reuse_precond, purge_history, &
                                               should_purge, calculate_metric
+      LOGICAL, DIMENSION(:), ALLOCATABLE   :: is_charge_constraint
       TYPE(cp_fm_p_type), DIMENSION(:), &
          POINTER                           :: mo_coeff
       TYPE(dbcsr_p_type)                   :: matrix_s
@@ -910,7 +909,6 @@ CONTAINS
       becke_control%need_pot = .TRUE.
       becke_control%save_pot = .FALSE.
       becke_control%transfer_pot = .FALSE.
-      becke_control%has_global_weight = .TRUE.
       becke_control%adjust = .FALSE.
       becke_control%atomic_charges = .FALSE.
       becke_control%confine_method = becke_none_conf
@@ -941,11 +939,10 @@ CONTAINS
       NULLIFY (becke_control%target)
       NULLIFY (becke_control%becke_order_p)
       NULLIFY (becke_control%atoms)
-      NULLIFY (becke_control%coeff)
       NULLIFY (becke_control%group)
       NULLIFY (becke_control%charge)
       NULLIFY (becke_control%aij)
-      NULLIFY (becke_control%gradients)
+      NULLIFY (becke_control%is_constraint)
       NULLIFY (becke_control%cavity_mat)
       NULLIFY (becke_control%cavity_env)
       NULLIFY (becke_control%skip_list)
@@ -1002,14 +999,12 @@ CONTAINS
             DEALLOCATE (becke_control%charges_fragment)
          IF (ASSOCIATED(becke_control%fragments)) &
             DEALLOCATE (becke_control%fragments)
-         IF (ASSOCIATED(becke_control%coeff)) &
-            DEALLOCATE (becke_control%coeff)
          IF (ASSOCIATED(becke_control%charge)) &
             DEALLOCATE (becke_control%charge)            
          IF (ASSOCIATED(becke_control%aij)) &
             DEALLOCATE (becke_control%aij)
-         IF (ASSOCIATED(becke_control%gradients)) &
-            DEALLOCATE (becke_control%gradients)
+         IF (ASSOCIATED(becke_control%is_constraint)) &
+            DEALLOCATE (becke_control%is_constraint)
          IF (ASSOCIATED(becke_control%cavity_mat)) &
             DEALLOCATE (becke_control%cavity_mat)
          IF (ASSOCIATED(becke_control%skip_list)) &
@@ -1142,6 +1137,8 @@ CONTAINS
             DEALLOCATE (cdft_control%target)
          IF (ASSOCIATED(cdft_control%value)) &
             DEALLOCATE (cdft_control%value)
+         IF (ALLOCATED(cdft_control%is_charge_constraint)) &
+            DEALLOCATE(cdft_control%is_charge_constraint)
          cdft_control%type = outer_scf_none
          NULLIFY (cdft_control%weight%pw)
          IF (ASSOCIATED(cdft_control%hirshfeld_control)) THEN

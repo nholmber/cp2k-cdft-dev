@@ -687,15 +687,10 @@ CONTAINS
 
       IF (calculate_forces .AND. dft_control%qs_control%becke_restraint) THEN
          IF (.NOT. becke%transfer_pot) THEN
-            IF (dft_control%qs_control%becke_control%has_global_weight) THEN
-               CALL pw_pool_give_back_pw(auxbas_pw_pool, becke%becke_pot%pw)
-            END IF
-            IF (dft_control%qs_control%becke_control%has_group_weight) THEN
-               DO iatom = 1, SIZE(dft_control%qs_control%becke_control%group)
-                  CALL pw_pool_give_back_pw(auxbas_pw_pool, &
-                                            dft_control%qs_control%becke_control%group(iatom)%weight%pw)
-               END DO
-            END IF
+            DO iatom = 1, SIZE(dft_control%qs_control%becke_control%group)
+               CALL pw_pool_give_back_pw(auxbas_pw_pool, &
+                                         dft_control%qs_control%becke_control%group(iatom)%weight%pw)
+            END DO
             IF (dft_control%qs_control%becke_control%atomic_charges) THEN
                DO iatom = 1, dft_control%qs_control%becke_control%natoms
                   CALL pw_pool_give_back_pw(auxbas_pw_pool, &

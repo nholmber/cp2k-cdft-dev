@@ -675,53 +675,26 @@ CONTAINS
             WRITE (output_unit, '(/,T3,A,T60)') &
                '--------------------- Becke constraint information ---------------------'
          END SELECT
-         SELECT CASE (cdft_control%constraint_type)
-         CASE (cdft_density_constraint)
+         DO igroup = 1, SIZE(cdft_control%target)
+            IF (igroup > 1) WRITE (output_unit, '(T3,A)') ' '
+            WRITE (output_unit, '(T3,A,T54,(3X,I18))') &
+               'Atomic group                       :', igroup
+            IF (cdft_control%is_charge_constraint(igroup)) THEN
+               WRITE (output_unit, '(T3,A,T49,A)') 
+                  'Type of constraint                 :', ADJUSTR('Charge density constraint')
+            ELSE
+               WRITE (output_unit, '(T3,A,T42,A)') 
+                  'Type of constraint                 :', ADJUSTR('Magnetization density constraint')   
+            END IF             
             WRITE (output_unit, '(T3,A,T54,(3X,F18.12))') &
-               'Target value of charge constraint :', cdft_control%target(1)
+               'Target value of constraint         :', cdft_control%target(igroup)
             WRITE (output_unit, '(T3,A,T54,(3X,F18.12))') &
-               'Current value of charge constraint:', cdft_control%value(1)
+               'Current value of constraint        :', cdft_control%value(igroup)
             WRITE (output_unit, '(T3,A,T59,(3X,ES13.3))') &
-               'Deviation from target (charge)    :', cdft_control%value(1)-cdft_control%target(1)
+               'Deviation from target              :', cdft_control%value(igroup)-cdft_control%target(igroup)
             WRITE (output_unit, '(T3,A,T54,(3X,F18.12))') &
-               'Strength of constraint (charge)   :', cdft_control%strength(1)
-         CASE (cdft_combined_constraint)
-            WRITE (output_unit, '(T3,A,T54,(3X,F18.12))') &
-               'Target value of charge constraint :', cdft_control%target(1)
-            WRITE (output_unit, '(T3,A,T54,(3X,F18.12))') &
-               'Current value of charge constraint:', cdft_control%value(1)
-            WRITE (output_unit, '(T3,A,T59,(3X,ES13.3))') &
-               'Deviation from target (charge)    :', cdft_control%value(1)-cdft_control%target(1)
-            WRITE (output_unit, '(T3,A,T54,(3X,F18.12))') &
-               'Strength of constraint (charge)   :', cdft_control%strength(1)
-            DO igroup = 1, SIZE(cdft_control%target)
-               WRITE (output_unit, '(T3,A)') ' '
-               WRITE (output_unit, '(T3,A,T54,(3X,I18))') &
-                  'Atomic group                       :', igroup
-               WRITE (output_unit, '(T3,A,T54,(3X,F18.12))') &
-                  'Target value of spin constraint    :', cdft_control%target(igroup)
-               WRITE (output_unit, '(T3,A,T54,(3X,F18.12))') &
-                  'Current value of spin constraint   :', cdft_control%value(igroup)
-               WRITE (output_unit, '(T3,A,T59,(3X,ES13.3))') &
-                  'Deviation from target (spin)       :', cdft_control%value(igroup)-cdft_control%target(igroup)
-               WRITE (output_unit, '(T3,A,T54,(3X,F18.12))') &
-                  'Strength of constraint (spin)      :', cdft_control%strength(igroup)
-            END DO
-         CASE (cdft_atomic_magnetization_constraint)
-            DO igroup = 1, SIZE(cdft_control%target)
-               IF (igroup > 1) WRITE (output_unit, '(T3,A)') ' '
-               WRITE (output_unit, '(T3,A,T54,(3X,I18))') &
-                  'Atomic group                       :', igroup
-               WRITE (output_unit, '(T3,A,T54,(3X,F18.12))') &
-                  'Target value of spin constraint    :', cdft_control%target(igroup)
-               WRITE (output_unit, '(T3,A,T54,(3X,F18.12))') &
-                  'Current value of spin constraint   :', cdft_control%value(igroup)
-               WRITE (output_unit, '(T3,A,T59,(3X,ES13.3))') &
-                  'Deviation from target (spin)       :', cdft_control%value(igroup)-cdft_control%target(igroup)
-               WRITE (output_unit, '(T3,A,T54,(3X,F18.12))') &
-                  'Strength of constraint (spin)      :', cdft_control%strength(igroup)
-            END DO
-         END SELECT
+               'Strength of constraint             :', cdft_control%strength(igroup)
+         END DO
          WRITE (output_unit, '(T3,A)') &
             '------------------------------------------------------------------------'
       END IF
@@ -747,28 +720,8 @@ CONTAINS
       IF (output_unit > 0) THEN
          WRITE (output_unit, '(/,A)') &
             "  ---------------------------------- CDFT --------------------------------------"
-         SELECT CASE (cdft_control%constraint_type)
-         CASE (cdft_density_constraint)
-            WRITE (output_unit, '(A)') &
-               "  Optimizing a charge density constraint in an external SCF loop "
-         CASE (cdft_magnetization_constraint)
-            WRITE (output_unit, '(A)') &
-               "  Optimizing a magnetization density constraint in an external SCF loop "
-         CASE (cdft_combined_constraint)
-            WRITE (output_unit, '(A)') &
-               "  Optimizing a combined charge-spin constraint in an external SCF loop "
-            !SELECT CASE (cdft_control%combined_type)
-            !CASE (cdft_combined_all)
-            !   WRITE (output_unit, '(A)') &
-            !      "            the spin constraint is defined on all constraint atoms "
-            !CASE (cdft_combined_acceptor)
-            !   WRITE (output_unit, '(A)') &
-            !      "            the spin constraint is defined on acceptor constraint atoms "
-            !CASE (cdft_combined_donor)
-            !   WRITE (output_unit, '(A)') &
-            !      "            the spin constraint is defined on donor constraint atoms "
-            !END SELECT
-         END SELECT
+         WRITE (output_unit, '(A)') &
+            "  Optimizing a density constraint in an external SCF loop "
          WRITE (output_unit, '(A)') "  "
          SELECT CASE (cdft_control%constraint_control%optimizer)
          CASE (outer_scf_optimizer_sd)
@@ -847,6 +800,7 @@ CONTAINS
             WRITE (output_unit, '(A)') "  Type of constraint      : Hirshfeld"
          CASE (outer_scf_becke_constraint)
             WRITE (output_unit, '(A)') "  Type of constraint      : Becke"
+            WRITE (output_unit, '(A,I8)') "  Number of constraints:", SIZE(dft_control%qs_control%becke_control)
             WRITE (output_unit, '(A)') "  "
             SELECT CASE (dft_control%qs_control%becke_control%cutoff_type)
             CASE (becke_cutoff_global)
