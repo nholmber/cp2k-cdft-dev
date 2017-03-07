@@ -291,7 +291,7 @@ MODULE cp_control_types
          POINTER                           :: mulliken_restraint_control
       TYPE(ddapc_restraint_p_type), &
          DIMENSION(:), POINTER             :: ddapc_restraint_control
-      TYPE(becke_constraint_type), POINTER  :: becke_control
+      TYPE(becke_constraint_type), POINTER :: becke_control
       TYPE(cdft_control_type), POINTER     :: cdft_control
       TYPE(s2_restraint_type), POINTER     :: s2_restraint_control
       TYPE(dftb_control_type), POINTER     :: dftb_control

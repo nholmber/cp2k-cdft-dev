@@ -110,6 +110,8 @@ CONTAINS
       INTEGER                                            :: handle
       TYPE(dft_control_type), POINTER                    :: dft_control
 
+      CALL timeset(routineN, handle)
+      CALL get_qs_env(qs_env, dft_control=dft_control)
       IF (dft_control%qs_control%becke_constraint) THEN
          IF (calc_pot) THEN
             ! Initialize the Becke constraint environment
