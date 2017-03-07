@@ -801,7 +801,7 @@ CONTAINS
 
       CALL timestop(handle)
 
-   END SUBROUTINE becke_force
+   END SUBROUTINE becke_constraint_force
 
 ! **************************************************************************************************
 !> \brief Calculates the value of a Becke constraint by integrating the product of the Becke
