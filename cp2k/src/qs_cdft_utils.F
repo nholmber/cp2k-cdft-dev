@@ -88,7 +88,6 @@ CONTAINS
       REAL(kind=dp)                                      :: alpha, chi, coef, dynamic_radius, &
                                                             eps_cavity, ircov, jrcov, lb, &
                                                             tmp_const, ub, uij
-      REAL(kind=dp), ALLOCATABLE, DIMENSION(:, :)        :: position_vecs
       REAL(kind=dp), DIMENSION(3)                        :: cell_v, dist_vec, dr, r, r1, ra, shift
       REAL(KIND=dp), DIMENSION(:, :), POINTER            :: pab
       TYPE(atomic_kind_type), DIMENSION(:), POINTER      :: atomic_kind_set
@@ -374,7 +373,7 @@ CONTAINS
                   atom_a = atom_list(iatom)
                   pab(1, 1) = coef
                   IF (becke_control%vector_buffer%store_vectors) THEN
-                     ra(:) = position_vecs(:, atom_a)+cell_v(:)/2._dp
+                     ra(:) = becke_control%vector_buffer%position_vecs(:, atom_a)+cell_v(:)/2._dp
                   ELSE
                      ra(:) = pbc(particle_set(atom_a)%r, cell)
                   END IF
