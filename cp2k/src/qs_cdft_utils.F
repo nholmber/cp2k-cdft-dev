@@ -178,7 +178,7 @@ CONTAINS
       END DO
       IF (becke_control%atomic_charges) THEN
          DO iatom = 1, becke_control%natoms
-            becke%charge(iatom)%pw%cr3d = 0.0_dp
+            becke_control%charge(iatom)%pw%cr3d = 0.0_dp
          END DO
       END IF
       ! Setup static/dynamic confinement
