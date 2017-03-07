@@ -136,6 +136,22 @@ CONTAINS
       IF (becke_control%save_pot) THEN
          in_memory = becke_control%in_memory
       END IF
+      IF (becke_control%dynamic_confine .OR. &
+          becke_control%save_pot .OR. &
+          becke_control%cavity_confine .OR. &
+          becke_control%should_skip)  THEN
+         ALLOCATE (is_constraint(natom))
+         is_constraint = .FALSE.
+      END IF
+      DO i = 1, becke_control%natoms
+         catom(i) = becke_control%atoms(i)
+         ! note previously the check is_constraint(i) was NOT performed
+         IF ((becke_control%dynamic_confine .OR. &
+             becke_control%save_pot .OR. &
+             becke_control%cavity_confine .OR. &
+             becke_control%should_skip)) &
+            is_constraint(catom(i)) = .TRUE.
+      END DO
       ! Setup atomic radii for adjusting cell boundaries
       IF (becke_control%adjust) THEN
          IF (.NOT. ASSOCIATED(becke_control%radii)) THEN
@@ -419,6 +435,8 @@ CONTAINS
             DEALLOCATE (stride)
          END IF
       END IF
+      IF (ALLOCATED(is_constraint)) &
+         DEALLOCATE (is_constraint)
 
    END SUBROUTINE becke_constraint_init
 

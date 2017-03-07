@@ -145,7 +145,7 @@ CONTAINS
       INTEGER                                            :: bounds(2), dir, handle, i, iatom, &
                                                             igroup, ind(3), ip, j, jatom, jp, k, &
                                                             lb_index, natom, np(3), nskipped, &
-                                                            tmp_index(2), ub_index
+                                                            tmp_index(2), ub_index, skip_max
       INTEGER, ALLOCATABLE, DIMENSION(:)                 :: catom
       INTEGER, DIMENSION(2, 3)                           :: bo, bo_conf
       LOGICAL                                            :: in_memory, my_just_gradients
@@ -228,7 +228,7 @@ CONTAINS
       IF (becke_control%dynamic_confine .OR. &
           becke_control%save_pot .OR. &
           becke_control%cavity_confine .OR. &
-          becke_control%should_skip) THEN
+          becke_control%should_skip)  THEN
          ALLOCATE (is_constraint(natom))
          is_constraint = .FALSE.
       END IF
@@ -236,6 +236,7 @@ CONTAINS
       ! already been calculated (data for pair ji is set using symmetry)
       ! With gradient precomputation, symmetry exploited for both weight function and gradients
       ALLOCATE (skip_me(natom))
+      skip_max = becke_control%natoms !COUNT(becke_control%is_constraint == .TRUE.)
       DO i = 1, becke_control%natoms
          catom(i) = becke_control%atoms(i)
          ! note previously the check is_constraint(i) was NOT performed
@@ -346,7 +347,7 @@ CONTAINS
                      cell_functions(iatom) = 0.0_dp
                      IF (becke_control%should_skip) THEN
                         IF (is_constraint(iatom)) nskipped = nskipped+1
-                        IF (nskipped == becke_control%natoms) THEN
+                        IF (nskipped == skip_max) THEN
                            IF (in_memory) THEN
                               IF (becke_control%cavity_confine) THEN
                                  becke_control%cavity%pw%cr3d(k, j, i) = 0.0_dp
@@ -527,7 +528,7 @@ CONTAINS
                      skip_me(iatom) = .TRUE.
                      IF (becke_control%should_skip) THEN
                         IF (is_constraint(iatom)) nskipped = nskipped+1
-                        IF (nskipped == becke_control%natoms) THEN
+                        IF (nskipped == skip_max) THEN
                            IF (in_memory) THEN
                               IF (becke_control%cavity_confine) THEN
                                  becke_control%cavity%pw%cr3d(k, j, i) = 0.0_dp
@@ -540,7 +541,7 @@ CONTAINS
                      END IF
                   END IF
                END DO !iatom
-               IF (nskipped == becke_control%natoms) CYCLE
+               IF (nskipped == skip_max) CYCLE
                ! Sum up cell functions
                sum_cell_f_group = 0.0_dp
                DO igroup = 1, SIZE(group)
