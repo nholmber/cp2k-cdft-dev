@@ -19,9 +19,7 @@
 
 MODULE qs_ks_utils
    USE cell_types,                      ONLY: cell_type
-   USE cp_control_types,                ONLY: becke_restraint_type,&
-                                              cdft_control_type,&
-                                              dft_control_type
+   USE cp_control_types,                ONLY: dft_control_type
    USE cp_dbcsr_operations,             ONLY: copy_dbcsr_to_fm,&
                                               copy_fm_to_dbcsr,&
                                               cp_dbcsr_plus_fm_fm_t,&
@@ -93,6 +91,8 @@ MODULE qs_ks_utils
    USE qs_kind_types,                   ONLY: get_qs_kind_set,&
                                               qs_kind_type
    USE qs_ks_qmmm_methods,              ONLY: qmmm_modify_hartree_pot
+   USE qs_cdft_types,                   ONLY: becke_constraint_type,&
+                                              cdft_control_type
    USE qs_ks_types,                     ONLY: qs_ks_env_type
    USE qs_mo_types,                     ONLY: get_mo_set,&
                                               mo_set_p_type
@@ -1187,7 +1187,7 @@ CONTAINS
                                                             v_tau_rspace, v_tau_rspace_aux_fit
       TYPE(pw_p_type)                                    :: v_efield_rspace, v_sic_rspace, &
                                                             v_spin_ddapc_rest_r, v_sccs_rspace
-      TYPE(becke_restraint_type), POINTER                :: becke
+      TYPE(becke_constraint_type), POINTER                :: becke
       TYPE(cdft_control_type), POINTER                   :: cdft_control
       LOGICAL, INTENT(in)                                :: calculate_forces
 
@@ -1275,7 +1275,7 @@ CONTAINS
                                                 +v_spin_ddapc_rest_r%pw%cr3d
                END IF
             END IF
-            IF (dft_control%qs_control%becke_restraint) THEN
+            IF (dft_control%qs_control%becke_constraint) THEN
                DO igroup = 1, SIZE(becke%group)
                   IF (ispin == 2 .AND. .NOT. becke%group(igroup)%is_charge_constraint) THEN
                      sign = -1.0_dp

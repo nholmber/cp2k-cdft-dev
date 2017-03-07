@@ -27,9 +27,7 @@ MODULE qs_ks_methods
    USE atomic_kind_types,               ONLY: atomic_kind_type
    USE cell_types,                      ONLY: cell_type
    USE cp_blacs_env,                    ONLY: cp_blacs_env_type
-   USE cp_control_types,                ONLY: becke_restraint_type,&
-                                              cdft_control_type,&
-                                              dft_control_type
+   USE cp_control_types,                ONLY: dft_control_type
    USE cp_dbcsr_cp2k_link,              ONLY: cp_dbcsr_alloc_block_from_nbl
    USE cp_dbcsr_operations,             ONLY: copy_dbcsr_to_fm,&
                                               copy_fm_to_dbcsr,&
@@ -125,10 +123,12 @@ MODULE qs_ks_methods
                                               integrate_rho_nlcc,&
                                               integrate_v_core_rspace,&
                                               integrate_v_rspace_one_center
-   USE qs_ks_apply_restraints,          ONLY: qs_ks_becke_restraint,&
+   USE qs_ks_apply_restraints,          ONLY: qs_ks_becke_constraint,&
                                               qs_ks_cdft_constraint,&
                                               qs_ks_mulliken_restraint,&
                                               qs_ks_s2_restraint
+   USE qs_cdft_types,                   ONLY: becke_constraint_type,&
+                                              cdft_control_type
    USE qs_ks_atom,                      ONLY: update_ks_atom
    USE qs_ks_qmmm_methods,              ONLY: qmmm_calculate_energy,&
                                               qmmm_modify_hartree_pot
@@ -231,7 +231,7 @@ CONTAINS
                                                             mulliken_order_p
       REAL(KIND=dp), DIMENSION(3, 3)                     :: h_stress
       TYPE(admm_type), POINTER                           :: admm_env
-      TYPE(becke_restraint_type), POINTER                :: becke
+      TYPE(becke_constraint_type), POINTER                :: becke
       TYPE(cdft_control_type), POINTER                   :: cdft_control
       TYPE(cell_type), POINTER                           :: cell
       TYPE(cp_logger_type), POINTER                      :: logger
@@ -465,7 +465,7 @@ CONTAINS
       IF (gapw) CALL Vh_1c_gg_integrals(qs_env, energy%hartree_1c)
 
       ! Check if becke potential is needed to constrain charges
-      CALL qs_ks_becke_restraint(qs_env, auxbas_pw_pool, calculate_forces, matrix_s, becke)
+      CALL qs_ks_becke_constraint(qs_env, auxbas_pw_pool, calculate_forces, matrix_s, becke)
 
       ! Check if CDFT constraint is needed
       CALL qs_ks_cdft_constraint(qs_env, auxbas_pw_pool, calculate_forces, cdft_control)
@@ -685,7 +685,7 @@ CONTAINS
          CALL pw_pool_give_back_pw(auxbas_pw_pool, v_efield_rspace%pw)
       END IF
 
-      IF (calculate_forces .AND. dft_control%qs_control%becke_restraint) THEN
+      IF (calculate_forces .AND. dft_control%qs_control%becke_constraint) THEN
          IF (.NOT. becke%transfer_pot) THEN
             DO iatom = 1, SIZE(dft_control%qs_control%becke_control%group)
                CALL pw_pool_give_back_pw(auxbas_pw_pool, &

@@ -270,8 +270,8 @@ CONTAINS
             CALL read_ddapc_section(qs_control=dft_control%qs_control, &
                                     ddapc_restraint_section=rest_b_section)
          END IF
-         IF (dft_control%qs_control%becke_restraint) THEN
-            rest_b_section => section_vals_get_subs_vals(input, "PROPERTIES%ET_COUPLING%BECKE_RESTRAINT_B")
+         IF (dft_control%qs_control%becke_constraint) THEN
+            rest_b_section => section_vals_get_subs_vals(input, "PROPERTIES%ET_COUPLING%BECKE_CONSTRAINT_B")
             CALL read_becke_section(qs_control=dft_control%qs_control, &
                                     becke_section=rest_b_section)
          END IF
@@ -280,7 +280,7 @@ CONTAINS
 
          CALL qs_ks_update_qs_env(qs_env, calculate_forces=.FALSE., just_energy=.TRUE.)
          CALL calc_et_coupling(qs_env)
-         IF (dft_control%qs_control%becke_restraint) THEN
+         IF (dft_control%qs_control%becke_constraint) THEN
             CALL pw_env_get(pw_env, auxbas_pw_pool=auxbas_pw_pool)
             CALL pw_pool_give_back_pw(auxbas_pw_pool, &
                                       dft_control%qs_control%becke_control%group(1)%weight%pw)

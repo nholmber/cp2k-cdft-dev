@@ -482,7 +482,7 @@ CONTAINS
       ! Start replicating the working arrays on both np/2 processor groups
       mixed_cdft%sim_step = mixed_cdft%sim_step+1
       CALL get_qs_env(qs_env, pw_env=pw_env, dft_control=dft_control)
-      CPASSERT(dft_control%qs_control%becke_restraint)
+      CPASSERT(dft_control%qs_control%becke_constraint)
       CALL pw_env_get(pw_env, auxbas_pw_pool=auxbas_pw_pool)
       bo = auxbas_pw_pool%pw_grid%bounds_local
       ! First determine the size of the arrays along the confinement dir
@@ -1414,13 +1414,13 @@ CONTAINS
       END DO
       IF (iounit > 0) THEN
          WRITE (iounit, '(/,T3,A,T66)') &
-            '------------------------- CDFT coupling information -------------------------'
+            '------------------------- CDFT coupling information --------------------------'
          WRITE (iounit, '(T3,A,T66,(3X,F12.2))') &
             'Information at step (fs)            :', mixed_cdft%sim_step*mixed_cdft%sim_dt
          DO ivar = 1, nvar
             IF (ivar > 1) &
                WRITE (iounit, '(A)') ''
-            WRITE (iounit, '(T3,A,T60,(3X,I18))') 'Atomic group                       :', ivar
+            WRITE (iounit, '(T3,A,T60,(3X,I18))') 'Atomic group                        :', ivar
             WRITE (iounit, '(T3,A,T60,(3X,F18.12))') 'Strength of constraint A            :', strength_a(ivar)
             WRITE (iounit, '(T3,A,T60,(3X,F18.12))') 'Strength of constraint B            :', strength_b(ivar)
             WRITE (iounit, '(T3,A,T60,(3X,F18.12))') 'Final value of constraint A         :', Waa(ivar)
@@ -1617,7 +1617,7 @@ CONTAINS
          CASE (becke_cutoff_element)
             IF (.NOT. SIZE(atomic_kind_set) == SIZE(mixed_cdft%becke_control%cutoffs_tmp)) &
                CALL cp_abort(__LOCATION__, &
-                             "Size of keyword BECKE_RESTRAINT\ELEMENT_CUTOFFS does"// &
+                             "Size of keyword BECKE_CONSTRAINT\ELEMENT_CUTOFFS does"// &
                              "not match number of atomic kinds in the input coordinate file.")
             DO ikind = 1, SIZE(atomic_kind_set)
                CALL get_atomic_kind(atomic_kind_set(ikind), natom=katom, atom_list=atom_list)
@@ -1647,7 +1647,7 @@ CONTAINS
       in_memory = calculate_forces .AND. mixed_cdft%becke_control%in_memory
       IF (in_memory .NEQV. calculate_forces) &
          CALL cp_abort(__LOCATION__, &
-                       "The flag BECKE_RESTRAINT\IN_MEMORY must be activated "// &
+                       "The flag BECKE_CONSTRAINT\IN_MEMORY must be activated "// &
                        "for the calculation of mixed CDFT forces")
       IF (in_memory .OR. mixed_cdft%first_iteration) ALLOCATE (coefficients(natom))
       DO i = 1, mixed_cdft%becke_control%natoms

@@ -12,8 +12,8 @@
 MODULE mixed_cdft_types
    USE cp_blacs_env,                    ONLY: cp_blacs_env_release,&
                                               cp_blacs_env_type
-   USE cp_control_types,                ONLY: becke_control_release,&
-                                              becke_restraint_type
+   USE qs_cdft_types,                   ONLY: becke_control_release,&
+                                              becke_constraint_type
    USE cp_log_handling,                 ONLY: cp_logger_release,&
                                               cp_logger_type
    USE kinds,                           ONLY: dp
@@ -138,7 +138,7 @@ MODULE mixed_cdft_types
 !> \param eps_svd value that controls which matrix inversion method to use
 !> \param weight the constraint weight function
 !> \param cavity the confinement cavity: the weight function is nonzero only within the cavity
-!> \param becke_control container for becke_restraint_type
+!> \param becke_control container for becke_constraint_type
 !> \param sendbuff buffer that holds the data to be replicated
 !> \param blacs_env the blacs_env needed to redistribute arrays during a coupling calculation
 !> \param dlb_control container for load balancing structures
@@ -163,7 +163,7 @@ MODULE mixed_cdft_types
       REAL(KIND=dp)                                    :: eps_rho_rspace, sim_dt, &
                                                           eps_svd
       REAL(KIND=dp), POINTER, DIMENSION(:, :, :)       :: weight, cavity
-      TYPE(becke_restraint_type), POINTER              :: becke_control
+      TYPE(becke_constraint_type), POINTER              :: becke_control
       TYPE(buffers), DIMENSION(:), POINTER             :: sendbuff
       TYPE(cp_blacs_env_type), POINTER                 :: blacs_env
       TYPE(mixed_cdft_dlb_type), POINTER               :: dlb_control

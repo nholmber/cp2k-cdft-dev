@@ -547,7 +547,7 @@ CONTAINS
          ENDIF !fm->dbcsr
       ENDDO !fm -> dbcsr
 
-      IF (dft_control%qs_control%becke_restraint) THEN
+      IF (dft_control%qs_control%becke_constraint) THEN
          ! Check if Becke potential is not needed for force evaluation or CDFT and deallocate
          IF (.NOT. dft_control%qs_control%becke_control%save_pot .AND. &
              .NOT. dft_control%qs_control%cdft) THEN
@@ -1031,7 +1031,7 @@ CONTAINS
 
       cdft_control%ienergy = cdft_control%ienergy+1
 
-      IF (dft_control%qs_control%becke_restraint) THEN
+      IF (dft_control%qs_control%becke_constraint) THEN
          ! Store needed arrays for ET coupling calculation
          IF (cdft_control%do_et) THEN
             CALL get_qs_env(qs_env=qs_env, matrix_s=matrix_s)

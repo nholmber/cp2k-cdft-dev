@@ -566,21 +566,21 @@ CONTAINS
       TYPE(enumeration_type), POINTER                    :: enum
       TYPE(keyword_type), POINTER                        :: keyword
       TYPE(section_type), POINTER                        :: section
-      TYPE(section_vals_type), POINTER :: becke_restraint_section, cdft_control_section, &
+      TYPE(section_vals_type), POINTER :: becke_constraint_section, cdft_control_section, &
          ddapc_restraint_section, dftb_parameter, dftb_section, lri_optbas_section, mull_section, &
          s2_restraint_section, scptb_section, se_section
 
       CALL timeset(routineN, handle)
 
       was_present = .FALSE.
-      NULLIFY (mull_section, ddapc_restraint_section, s2_restraint_section, becke_restraint_section, &
+      NULLIFY (mull_section, ddapc_restraint_section, s2_restraint_section, becke_constraint_section, &
                se_section, dftb_section, dftb_parameter, scptb_section, lri_optbas_section, &
                cdft_control_section)
 
       mull_section => section_vals_get_subs_vals(qs_section, "MULLIKEN_RESTRAINT")
       ddapc_restraint_section => section_vals_get_subs_vals(qs_section, "DDAPC_RESTRAINT")
       s2_restraint_section => section_vals_get_subs_vals(qs_section, "S2_RESTRAINT")
-      becke_restraint_section => section_vals_get_subs_vals(qs_section, "BECKE_RESTRAINT")
+      becke_constraint_section => section_vals_get_subs_vals(qs_section, "BECKE_CONSTRAINT")
       se_section => section_vals_get_subs_vals(qs_section, "SE")
       dftb_section => section_vals_get_subs_vals(qs_section, "DFTB")
       dftb_parameter => section_vals_get_subs_vals(dftb_section, "PARAMETER")
@@ -815,10 +815,10 @@ CONTAINS
                                    i_val=qs_control%s2_restraint_control%functional_form)
       ENDIF
 
-      CALL section_vals_get(becke_restraint_section, explicit=qs_control%becke_restraint)
+      CALL section_vals_get(becke_constraint_section, explicit=qs_control%becke_constraint)
 
-      IF (qs_control%becke_restraint) THEN
-         CALL read_becke_section(qs_control, becke_restraint_section)
+      IF (qs_control%becke_constraint) THEN
+         CALL read_becke_section(qs_control, becke_constraint_section)
       ENDIF
 
       CALL section_vals_get(cdft_control_section, explicit=qs_control%cdft)
@@ -2121,7 +2121,7 @@ CONTAINS
                   CPABORT("Mismatch in defining constraint.")
                END IF
             CASE (outer_scf_becke_constraint)
-               ! Do nothing, yet. For now, constraint is defined QS%BECKE_RESTRAINT
+               ! Do nothing, yet. For now, constraint is defined QS%BECKE_CONSTRAINT
             END SELECT
 
             CALL cite_reference(Holmberg2017)

@@ -10,7 +10,7 @@
 !> \author Joost VandeVondele
 ! **************************************************************************************************
 MODULE qs_outer_scf
-   USE cp_control_types,                ONLY: becke_restraint_type,&
+   USE cp_control_types,                ONLY: becke_constraint_type,&
                                               cdft_control_type,&
                                               ddapc_restraint_type,&
                                               dft_control_type,&
@@ -112,7 +112,7 @@ CONTAINS
 
       INTEGER                                            :: handle, ihistory, ivar, n
       LOGICAL                                            :: is_constraint
-      TYPE(becke_restraint_type), POINTER                :: becke_control
+      TYPE(becke_constraint_type), POINTER                :: becke_control
       TYPE(cdft_control_type), POINTER                   :: cdft_control
       TYPE(ddapc_restraint_type), POINTER                :: ddapc_restraint_control
       TYPE(dft_control_type), POINTER                    :: dft_control
@@ -159,7 +159,7 @@ CONTAINS
          scf_env%outer_scf%gradient(:, ihistory) = s2_restraint_control%s2_order_p- &
                                                    s2_restraint_control%target
       CASE (outer_scf_becke_constraint)
-         CPASSERT(dft_control%qs_control%becke_restraint)
+         CPASSERT(dft_control%qs_control%becke_constraint)
          becke_control => dft_control%qs_control%becke_control
          DO ivar = 1, SIZE(scf_env%outer_scf%gradient, 1)
             scf_env%outer_scf%variables(ivar, ihistory) = becke_control%strength(ivar)
@@ -407,7 +407,7 @@ CONTAINS
 
       INTEGER                                            :: handle, ihistory, n
       LOGICAL                                            :: is_constraint
-      TYPE(becke_restraint_type), POINTER                :: becke_control
+      TYPE(becke_constraint_type), POINTER                :: becke_control
       TYPE(cdft_control_type), POINTER                   :: cdft_control
       TYPE(ddapc_restraint_type), POINTER                :: ddapc_restraint_control
       TYPE(dft_control_type), POINTER                    :: dft_control

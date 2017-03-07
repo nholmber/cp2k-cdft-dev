@@ -143,7 +143,7 @@ MODULE input_cp2k_dft
    PUBLIC :: create_bsse_section, create_qs_section
    PUBLIC :: create_scf_section
    PUBLIC :: create_interp_section, create_localize_section
-   PUBLIC :: create_becke_restraint_section, create_ddapc_restraint_section
+   PUBLIC :: create_becke_constraint_section, create_ddapc_restraint_section
    PUBLIC :: create_mgrid_section
 
 CONTAINS
@@ -2999,7 +2999,7 @@ CONTAINS
       CALL section_add_subsection(section, subsection)
       CALL section_release(subsection)
 
-      CALL create_becke_restraint_section(subsection, "BECKE_RESTRAINT")
+      CALL create_becke_constraint_section(subsection, "BECKE_CONSTRAINT")
       CALL section_add_subsection(section, subsection)
       CALL section_release(subsection)
 
@@ -4033,11 +4033,11 @@ CONTAINS
 !> \param section ...
 !> \param section_name ...
 ! **************************************************************************************************
-   SUBROUTINE create_becke_restraint_section(section, section_name)
+   SUBROUTINE create_becke_constraint_section(section, section_name)
       TYPE(section_type), POINTER                        :: section
       CHARACTER(len=*), INTENT(in)                       :: section_name
 
-      CHARACTER(len=*), PARAMETER :: routineN = 'create_becke_restraint_section', &
+      CHARACTER(len=*), PARAMETER :: routineN = 'create_becke_constraint_section', &
          routineP = moduleN//':'//routineN
 
       TYPE(keyword_type), POINTER                        :: keyword
@@ -4326,7 +4326,7 @@ CONTAINS
       CALL section_release(group_section)
 
 
-   END SUBROUTINE create_becke_restraint_section
+   END SUBROUTINE create_becke_constraint_section
 
 ! *****************************************************************************
 !> \brief ...

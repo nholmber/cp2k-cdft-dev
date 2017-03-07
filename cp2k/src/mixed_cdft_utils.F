@@ -16,8 +16,7 @@ MODULE mixed_cdft_utils
                                               cp_blacs_env_release,&
                                               cp_blacs_env_retain,&
                                               cp_blacs_env_type
-   USE cp_control_types,                ONLY: becke_control_create,&
-                                              dft_control_type
+   USE cp_control_types,                ONLY: dft_control_type
    USE cp_dbcsr_operations,             ONLY: copy_dbcsr_to_fm,&
                                               copy_fm_to_dbcsr_bc
    USE cp_files,                        ONLY: open_file
@@ -102,6 +101,7 @@ MODULE mixed_cdft_utils
                                               qs_environment_type
    USE qs_kind_types,                   ONLY: create_qs_kind_set,&
                                               qs_kind_type
+   USE qs_cdft_types,                   ONLY: becke_control_create
    USE realspace_grid_types,            ONLY: realspace_grid_desc_p_type,&
                                               realspace_grid_input_type,&
                                               realspace_grid_p_type,&
@@ -199,7 +199,7 @@ CONTAINS
             CALL force_env_get(force_env_qs, qs_env=qs_env)
          END IF
          CALL get_qs_env(qs_env, pw_env=pw_env, dft_control=dft_control)
-         IF (.NOT. dft_control%qs_control%becke_restraint) &
+         IF (.NOT. dft_control%qs_control%becke_constraint) &
             CALL cp_abort(__LOCATION__, &
                           "Mixed CDFT currently only supports the Becke constraint."// &
                           "Becke constraint must be active in QS section of both force_evals!")
@@ -274,7 +274,7 @@ CONTAINS
                IF (nkinds .GT. settings%max_nkinds) &
                   CALL cp_abort(__LOCATION__, &
                                 "More than "//TRIM(cp_to_string(settings%max_nkinds))// &
-                                " unique elements were defined in BECKE_RESTRAINT\ELEMENT_CUTOFF. Are you sure"// &
+                                " unique elements were defined in BECKE_CONSTRAINT\ELEMENT_CUTOFF. Are you sure"// &
                                 " your input is correct? If yes, please increase max_nkinds and recompile.")
                settings%cutoffs(1:nkinds, iforce_eval) = dft_control%qs_control%becke_control%cutoffs_tmp(:)
                IF (.NOT. mixed_cdft%is_parallel .AND. iforce_eval /= 1) &
@@ -286,13 +286,13 @@ CONTAINS
                CALL get_qs_env(qs_env, atomic_kind_set=atomic_kind_set)
                IF (.NOT. SIZE(atomic_kind_set) == SIZE(dft_control%qs_control%becke_control%radii_tmp)) &
                   CALL cp_abort(__LOCATION__, &
-                                "Length of keyword BECKE_RESTRAINT\ATOMIC_RADII does not "// &
+                                "Length of keyword BECKE_CONSTRAINT\ATOMIC_RADII does not "// &
                                 "match number of atomic kinds in the input coordinate file.")
                nkinds = SIZE(dft_control%qs_control%becke_control%radii_tmp)
                IF (nkinds .GT. settings%max_nkinds) &
                   CALL cp_abort(__LOCATION__, &
                                 "More than "//TRIM(cp_to_string(settings%max_nkinds))// &
-                                " unique elements were defined in BECKE_RESTRAINT\ATOMIC_RADII. Are you sure"// &
+                                " unique elements were defined in BECKE_CONSTRAINT\ATOMIC_RADII. Are you sure"// &
                                 " your input is correct? If yes, please increase max_nkinds and recompile.")
                settings%radii(1:nkinds, iforce_eval) = dft_control%qs_control%becke_control%radii_tmp(:)
                IF (.NOT. mixed_cdft%is_parallel .AND. iforce_eval /= 1) &
@@ -333,7 +333,7 @@ CONTAINS
       END DO
       IF (.NOT. is_match) &
          CALL cp_abort(__LOCATION__, &
-                      "Mismatch detected in the &BECKE_RESTRAINT settings of the two force_evals.")
+                      "Mismatch detected in the &BECKE_CONSTRAINT settings of the two force_evals.")
       CALL mp_sum(settings%si, force_env%para_env%group)
       CALL mp_sum(settings%sr, force_env%para_env%group)
       CALL mp_sum(settings%confine_bounds, force_env%para_env%group)
@@ -345,12 +345,12 @@ CONTAINS
       END DO
       IF (.NOT. is_match) &
          CALL cp_abort(__LOCATION__, &
-                      "Mismatch detected in the &BECKE_RESTRAINT settings of the two force_evals.")
+                      "Mismatch detected in the &BECKE_CONSTRAINT settings of the two force_evals.")
       is_match = is_match .AND. (settings%confine_bounds(1, 1) == settings%confine_bounds(1, 2))
       is_match = is_match .AND. (settings%confine_bounds(2, 1) == settings%confine_bounds(2, 2))
       IF (.NOT. is_match) &
          CALL cp_abort(__LOCATION__, &
-                       "Mismatch detected in the &BECKE_RESTRAINT&CONFINE_BOUNDS"// &
+                       "Mismatch detected in the &BECKE_CONSTRAINT&CONFINE_BOUNDS"// &
                        " settings of the two force_evals.")
       ! Some CDFT features are currently disabled for mixed calculations: check that these features were not requested
       SELECT CASE (settings%si (1, 1))
@@ -446,7 +446,7 @@ CONTAINS
             END DO
             IF (.NOT. is_match) &
                CALL cp_abort(__LOCATION__, &
-                             "Mismatch detected in the &BECKE_RESTRAINT"// &
+                             "Mismatch detected in the &BECKE_CONSTRAINT"// &
                              "&ELEMENT_CUTOFF settings of the two force_evals.")
             ALLOCATE (mixed_cdft%becke_control%cutoffs_tmp(nkinds))
             mixed_cdft%becke_control%cutoffs_tmp = settings%cutoffs(1:nkinds, 1)
@@ -460,7 +460,7 @@ CONTAINS
             END DO
             IF (.NOT. is_match) &
                CALL cp_abort(__LOCATION__, &
-                             "Mismatch detected in the &BECKE_RESTRAINT"// &
+                             "Mismatch detected in the &BECKE_CONSTRAINT"// &
                              "&ATOMIC_RADII settings of the two force_evals.")
             ALLOCATE (mixed_cdft%becke_control%radii(nkinds))
             mixed_cdft%becke_control%radii = settings%radii(1:nkinds, 1)
