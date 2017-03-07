@@ -411,8 +411,12 @@ CONTAINS
          ALLOCATE (mixed_cdft%becke_control%atoms(settings%nbecke))
          mixed_cdft%becke_control%atoms = settings%atoms(1:settings%nbecke, 1)
          ALLOCATE(mixed_cdft%becke_control%group(1))
+         ALLOCATE(mixed_cdft%becke_control%group(1)%atoms(settings%nbecke))
+         ALLOCATE(mixed_cdft%becke_control%group(1)%coeff(settings%nbecke))
+         NULLIFY(mixed_cdft%becke_control%group(1)%weight%pw)
+         NULLIFY(mixed_cdft%becke_control%group(1)%gradients)
+         NULLIFY(mixed_cdft%becke_control%group(1)%integrated)
          mixed_cdft%becke_control%group(1)%atoms = mixed_cdft%becke_control%atoms
-         ALLOCATE (mixed_cdft%becke_control%group(1)%coeff(settings%nbecke))
          mixed_cdft%becke_control%group(1)%coeff = settings%coeffs(1:settings%nbecke, 1)
          mixed_cdft%becke_control%natoms = settings%nbecke
          mixed_cdft%becke_control%confine_method = settings%si(1, 1)
