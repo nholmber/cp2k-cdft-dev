@@ -19,7 +19,7 @@ MODULE cp_control_utils
    USE cp_files,                        ONLY: close_file,&
                                               open_file
    USE cp_log_handling,                 ONLY: cp_get_default_logger,&
-                                              cp_logger_type, &
+                                              cp_logger_type,&
                                               cp_to_string
    USE cp_output_handling,              ONLY: cp_print_key_finished_output,&
                                               cp_print_key_unit_nr
@@ -29,8 +29,7 @@ MODULE cp_control_utils
                                               set_hirshfeld_info
    USE input_constants,                 ONLY: &
         becke_cavity_conf, becke_cutoff_element, becke_cutoff_global, becke_dynamic_conf, &
-        becke_mixed_conf, becke_none_conf, becke_static_conf, cdft_combined_constraint, &
-        cdft_density_constraint, cdft_magnetization_constraint, cdft_atomic_magnetization_constraint, constant_env, custom_env, &
+        becke_mixed_conf, becke_none_conf, becke_static_conf, constant_env, custom_env, &
         do_admm_basis_projection, do_admm_blocked_projection, do_admm_blocking_purify_full, &
         do_admm_charge_constrained_projection, do_admm_exch_scaling_merlot, &
         do_admm_purify_mcweeny, do_admm_purify_mo_diag, do_admm_purify_mo_no_diag, &
@@ -59,7 +58,7 @@ MODULE cp_control_utils
    USE kinds,                           ONLY: default_path_length,&
                                               default_string_length,&
                                               dp
-   USE memory_utilities,                ONLY: reallocate                                              
+   USE memory_utilities,                ONLY: reallocate
    USE util,                            ONLY: sort
    USE xc_derivatives,                  ONLY: xc_functionals_get_needs
    USE xc_input_constants,              ONLY: xc_deriv_collocate
@@ -1726,10 +1725,10 @@ CONTAINS
       CHARACTER(len=*), PARAMETER :: routineN = 'read_becke_section', &
          routineP = moduleN//':'//routineN
 
-      INTEGER                                            :: j, jj, k, n_rep, nvar, natoms, i, &
+      INTEGER                                            :: i, j, jj, k, n_rep, natoms, nvar, &
                                                             tot_natoms
-      INTEGER, DIMENSION(:), POINTER                     :: tmplist, atomlist, dummylist
-      LOGICAL                                            :: exists, found, is_duplicate
+      INTEGER, DIMENSION(:), POINTER                     :: atomlist, dummylist, tmplist
+      LOGICAL                                            :: exists, is_duplicate
       REAL(KIND=dp), DIMENSION(:), POINTER               :: rtmplist
       TYPE(section_vals_type), POINTER                   :: group_section, tmp_section
 
@@ -1740,12 +1739,12 @@ CONTAINS
       IF (.NOT. exists) CPABORT("Section ATOM_GROUP is missing.")
       IF (ASSOCIATED(qs_control%becke_control%group)) THEN
          DO i = 1, SIZE(qs_control%becke_control%group)
-            DEALLOCATE(qs_control%becke_control%group(i)%atoms)
-            DEALLOCATE(qs_control%becke_control%group(i)%coeff)
+            DEALLOCATE (qs_control%becke_control%group(i)%atoms)
+            DEALLOCATE (qs_control%becke_control%group(i)%coeff)
          END DO
-         DEALLOCATE(qs_control%becke_control%group)
+         DEALLOCATE (qs_control%becke_control%group)
       END IF
-      ALLOCATE(qs_control%becke_control%group(nvar))
+      ALLOCATE (qs_control%becke_control%group(nvar))
       tot_natoms = 0
       ! Parse all ATOM_GROUP sections
       DO k = 1, nvar
@@ -1757,25 +1756,25 @@ CONTAINS
             CALL section_vals_val_get(tmp_section, "ATOMS", i_rep_val=j, i_vals=tmplist)
             IF (SIZE(tmplist) < 1) &
                CPABORT("Each ATOM_GROUP must contain at least 1 atom.")
-            natoms = natoms + SIZE(tmplist)
+            natoms = natoms+SIZE(tmplist)
          END DO
-         ALLOCATE(qs_control%becke_control%group(k)%atoms(natoms))
-         ALLOCATE(qs_control%becke_control%group(k)%coeff(natoms))
-         NULLIFY(qs_control%becke_control%group(k)%weight%pw)
-         NULLIFY(qs_control%becke_control%group(k)%gradients)
-         NULLIFY(qs_control%becke_control%group(k)%integrated)
-         tot_natoms = tot_natoms + natoms
+         ALLOCATE (qs_control%becke_control%group(k)%atoms(natoms))
+         ALLOCATE (qs_control%becke_control%group(k)%coeff(natoms))
+         NULLIFY (qs_control%becke_control%group(k)%weight%pw)
+         NULLIFY (qs_control%becke_control%group(k)%gradients)
+         NULLIFY (qs_control%becke_control%group(k)%integrated)
+         tot_natoms = tot_natoms+natoms
          ! Now parse
          jj = 0
          DO j = 1, n_rep
             CALL section_vals_val_get(tmp_section, "ATOMS", i_rep_val=j, i_vals=tmplist)
             CALL section_vals_val_get(tmp_section, "COEFF", i_rep_val=j, r_vals=rtmplist)
             CALL section_vals_val_get(tmp_section, "CHARGE_CONSTRAINT", &
-                                      l_val=qs_control%becke_control%group(k)%is_charge_constraint)            
+                                      l_val=qs_control%becke_control%group(k)%is_charge_constraint)
             IF (SIZE(tmplist) /= SIZE(rtmplist)) &
                CPABORT("Length of keywords ATOMS and COEFF must match.")
             DO i = 1, SIZE(tmplist)
-               jj = jj + 1
+               jj = jj+1
                qs_control%becke_control%group(k)%atoms(jj) = tmplist(i)
                IF (ABS(rtmplist(i)) /= 1.0_dp) &
                   CPABORT("Keyword COEFF accepts only values +/-1.0")
@@ -1784,7 +1783,7 @@ CONTAINS
          END DO
       END DO
       ! Create a list containing all constraint atoms
-      ALLOCATE(atomlist(tot_natoms))
+      ALLOCATE (atomlist(tot_natoms))
       atomlist = -1
       jj = 0
       DO k = 1, nvar
@@ -1797,7 +1796,7 @@ CONTAINS
                END IF
             END DO
             IF (.NOT. is_duplicate) THEN
-               jj = jj + 1
+               jj = jj+1
                atomlist(jj) = qs_control%becke_control%group(k)%atoms(j)
             END IF
          END DO
@@ -1817,15 +1816,15 @@ CONTAINS
                CALL section_vals_val_get(group_section, "ATOMS", i_rep_val=j, i_vals=tmplist)
                IF (SIZE(tmplist) < 1) &
                   CPABORT("DUMMY_ATOMS must contain at least 1 atom.")
-               natoms = natoms + SIZE(tmplist)
+               natoms = natoms+SIZE(tmplist)
             END DO
-            ALLOCATE(dummylist(natoms))
+            ALLOCATE (dummylist(natoms))
             ! Now parse
             jj = 0
             DO j = 1, n_rep
                CALL section_vals_val_get(group_section, "ATOMS", i_rep_val=j, i_vals=tmplist)
                DO i = 1, SIZE(tmplist)
-                  jj = jj + 1
+                  jj = jj+1
                   dummylist(jj) = tmplist(i)
                END DO
             END DO
@@ -1848,24 +1847,24 @@ CONTAINS
       END IF
       ! Join dummy atoms and constraint atoms into one list
       IF (ASSOCIATED(qs_control%becke_control%atoms)) &
-         DEALLOCATE(qs_control%becke_control%atoms)
+         DEALLOCATE (qs_control%becke_control%atoms)
       IF (ASSOCIATED(qs_control%becke_control%is_constraint)) &
-         DEALLOCATE(qs_control%becke_control%is_constraint)
+         DEALLOCATE (qs_control%becke_control%is_constraint)
       IF (ASSOCIATED(dummylist)) THEN
          qs_control%becke_control%natoms = SIZE(atomlist)+SIZE(dummylist)
       ELSE
          qs_control%becke_control%natoms = SIZE(atomlist)
       END IF
-      ALLOCATE(qs_control%becke_control%atoms(qs_control%becke_control%natoms))
-      ALLOCATE(qs_control%becke_control%is_constraint(qs_control%becke_control%natoms))
+      ALLOCATE (qs_control%becke_control%atoms(qs_control%becke_control%natoms))
+      ALLOCATE (qs_control%becke_control%is_constraint(qs_control%becke_control%natoms))
       qs_control%becke_control%atoms(1:SIZE(atomlist)) = atomlist
       IF (ASSOCIATED(dummylist)) THEN
          qs_control%becke_control%atoms(1+SIZE(atomlist):) = dummylist
-         DEALLOCATE(dummylist)
+         DEALLOCATE (dummylist)
       END IF
       qs_control%becke_control%is_constraint = .FALSE.
       qs_control%becke_control%is_constraint(1:SIZE(atomlist)) = .TRUE.
-      DEALLOCATE(atomlist)
+      DEALLOCATE (atomlist)
       ! Need to deallocate first in case ET_COUPLING calculation (in qs_energy_utils)
       IF (ASSOCIATED(qs_control%becke_control%strength)) &
          DEALLOCATE (qs_control%becke_control%strength)
@@ -1883,7 +1882,7 @@ CONTAINS
                        "The length of keyword STRENGTH is incorrect. "// &
                        "Expected "//TRIM(ADJUSTL(cp_to_string(nvar)))// &
                        " value(s), got "// &
-                       TRIM(ADJUSTL(cp_to_string(SIZE(rtmplist))))// " value(s).")
+                       TRIM(ADJUSTL(cp_to_string(SIZE(rtmplist))))//" value(s).")
       DO j = 1, nvar
          qs_control%becke_control%strength(j) = rtmplist(j)
       END DO
@@ -1893,7 +1892,7 @@ CONTAINS
                        "The length of keyword TARGET is incorrect. "// &
                        "Expected "//TRIM(ADJUSTL(cp_to_string(nvar)))// &
                        " value(s), got "// &
-                       TRIM(ADJUSTL(cp_to_string(SIZE(rtmplist))))// " value(s).")
+                       TRIM(ADJUSTL(cp_to_string(SIZE(rtmplist))))//" value(s).")
       DO j = 1, nvar
          qs_control%becke_control%target(j) = rtmplist(j)
       END DO
@@ -2112,7 +2111,7 @@ CONTAINS
                   CALL section_vals_get(hirshfeld_constraint_section, explicit=exists)
                   IF (exists) THEN
                      CALL read_hirshfeld_constraint_section(qs_control, hirshfeld_constraint_section)
-                     ALLOCATE(qs_control%cdft_control%is_charge_constraint(1))
+                     ALLOCATE (qs_control%cdft_control%is_charge_constraint(1))
                      qs_control%cdft_control%is_charge_constraint(1) = .TRUE.
                   ELSE
                      CPABORT("HIRSHFELD_CONSTRAINT section is missing.")

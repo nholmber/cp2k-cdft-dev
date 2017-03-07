@@ -10,20 +10,16 @@
 !> \author Nico Holmberg [03.2017]
 ! **************************************************************************************************
 MODULE qs_cdft_types
-   USE cp_fm_types,                     ONLY: cp_fm_p_type,&
-                                              cp_fm_release
+   USE cp_fm_types,                     ONLY: cp_fm_p_type
    USE dbcsr_api,                       ONLY: dbcsr_p_type
    USE hirshfeld_types,                 ONLY: hirshfeld_type,&
                                               release_hirshfeld_type
    USE input_constants,                 ONLY: becke_cutoff_global,&
                                               becke_none_conf,&
-                                              cdft_combined_all,&
                                               cdft_density_constraint,&
-                                              do_full_density,&
                                               outer_scf_none,&
                                               radius_single
    USE kinds,                           ONLY: default_path_length,&
-                                              default_string_length,&
                                               dp
    USE pw_types,                        ONLY: pw_p_type
 #include "./base/base_uses.f90"
@@ -105,7 +101,7 @@ MODULE qs_cdft_types
       LOGICAL                              :: is_charge_constraint
    END TYPE becke_group_type
 
-   ! Utility vector container for building becke constraint 
+   ! Utility vector container for building becke constraint
    TYPE becke_vector_buffer
       LOGICAL                              :: store_vectors
       REAL(kind=dp), ALLOCATABLE, &
@@ -282,7 +278,9 @@ MODULE qs_cdft_types
    ! Public subroutines
 
    PUBLIC :: becke_control_create, &
-             becke_control_release
+             becke_control_release, &
+             cdft_control_create, &
+             cdft_control_release
 
 CONTAINS
 
@@ -293,7 +291,7 @@ CONTAINS
 !>      02.2007 created [Florian Schiffmann]
 ! **************************************************************************************************
    SUBROUTINE becke_control_create(becke_control)
-      TYPE(becke_constraint_type), POINTER                :: becke_control
+      TYPE(becke_constraint_type), POINTER               :: becke_control
 
       CHARACTER(len=*), PARAMETER :: routineN = 'becke_control_create', &
          routineP = moduleN//':'//routineN
@@ -358,7 +356,7 @@ CONTAINS
 !>      02.2007 created [Florian Schiffmann]
 ! **************************************************************************************************
    SUBROUTINE becke_control_release(becke_control)
-      TYPE(becke_constraint_type), POINTER                :: becke_control
+      TYPE(becke_constraint_type), POINTER               :: becke_control
 
       CHARACTER(len=*), PARAMETER :: routineN = 'becke_control_release', &
          routineP = moduleN//':'//routineN
@@ -374,18 +372,18 @@ CONTAINS
          IF (ASSOCIATED(becke_control%group)) THEN
             DO i = 1, SIZE(becke_control%group)
                IF (ASSOCIATED(becke_control%group(i)%atoms)) &
-                  DEALLOCATE(becke_control%group(i)%atoms)
+                  DEALLOCATE (becke_control%group(i)%atoms)
                IF (ASSOCIATED(becke_control%group(i)%coeff)) &
-                  DEALLOCATE(becke_control%group(i)%coeff)
+                  DEALLOCATE (becke_control%group(i)%coeff)
                IF (ALLOCATED(becke_control%group(i)%d_sum_const_dR)) &
-                  DEALLOCATE(becke_control%group(i)%d_sum_const_dR)
+                  DEALLOCATE (becke_control%group(i)%d_sum_const_dR)
                IF (ASSOCIATED(becke_control%group(i)%gradients)) &
-                  DEALLOCATE(becke_control%group(i)%gradients)
+                  DEALLOCATE (becke_control%group(i)%gradients)
                IF (ASSOCIATED(becke_control%group(i)%integrated)) &
-                  DEALLOCATE(becke_control%group(i)%integrated)                  
-            END DO                                                      
+                  DEALLOCATE (becke_control%group(i)%integrated)
+            END DO
             DEALLOCATE (becke_control%group)
-         END IF          
+         END IF
          IF (ASSOCIATED(becke_control%cutoffs)) &
             DEALLOCATE (becke_control%cutoffs)
          IF (ASSOCIATED(becke_control%cutoffs_tmp)) &
@@ -399,7 +397,7 @@ CONTAINS
          IF (ASSOCIATED(becke_control%fragments)) &
             DEALLOCATE (becke_control%fragments)
          IF (ASSOCIATED(becke_control%charge)) &
-            DEALLOCATE (becke_control%charge)            
+            DEALLOCATE (becke_control%charge)
          IF (ASSOCIATED(becke_control%aij)) &
             DEALLOCATE (becke_control%aij)
          IF (ASSOCIATED(becke_control%is_constraint)) &
@@ -429,7 +427,7 @@ CONTAINS
 !>      02.2007 created [Florian Schiffmann]
 ! **************************************************************************************************
    SUBROUTINE becke_control_retain(becke_control)
-      TYPE(becke_constraint_type), POINTER                :: becke_control
+      TYPE(becke_constraint_type), POINTER               :: becke_control
 
       CHARACTER(len=*), PARAMETER :: routineN = 'becke_control_retain', &
          routineP = moduleN//':'//routineN
@@ -538,7 +536,7 @@ CONTAINS
          IF (ASSOCIATED(cdft_control%value)) &
             DEALLOCATE (cdft_control%value)
          IF (ALLOCATED(cdft_control%is_charge_constraint)) &
-            DEALLOCATE(cdft_control%is_charge_constraint)
+            DEALLOCATE (cdft_control%is_charge_constraint)
          cdft_control%type = outer_scf_none
          NULLIFY (cdft_control%weight%pw)
          IF (ASSOCIATED(cdft_control%hirshfeld_control)) THEN

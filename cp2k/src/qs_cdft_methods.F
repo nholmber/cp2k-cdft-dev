@@ -15,48 +15,29 @@ MODULE qs_cdft_methods
                                               get_atomic_kind_set
    USE cell_types,                      ONLY: cell_type,&
                                               pbc
-   USE cp_control_types,                ONLY: cdft_control_type,&
-                                              dft_control_type, &
-                                              becke_group_type, &
-                                              becke_constraint_type
-   USE cp_dbcsr_operations,             ONLY: cp_dbcsr_sm_fm_multiply
-   USE cp_fm_basic_linalg,              ONLY: cp_fm_invert,&
-                                              cp_fm_transpose
-   USE cp_fm_pool_types,                ONLY: cp_fm_pool_p_type,&
-                                              fm_pool_get_el_struct
-   USE cp_fm_struct,                    ONLY: cp_fm_struct_type
-   USE cp_fm_types,                     ONLY: cp_fm_create,&
-                                              cp_fm_get_info,&
-                                              cp_fm_p_type,&
-                                              cp_fm_release,&
-                                              cp_fm_type
-   USE cp_gemm_interface,               ONLY: cp_gemm
+   USE cp_control_types,                ONLY: becke_constraint_type,&
+                                              becke_group_type,&
+                                              cdft_control_type,&
+                                              dft_control_type
    USE cp_log_handling,                 ONLY: cp_get_default_logger,&
-                                              cp_logger_type,&
-                                              cp_to_string
+                                              cp_logger_type
    USE cp_output_handling,              ONLY: cp_print_key_finished_output,&
                                               cp_print_key_unit_nr
    USE cp_para_types,                   ONLY: cp_para_env_type
    USE cp_realspace_grid_cube,          ONLY: cp_pw_to_cube
-   USE cp_units,                        ONLY: cp_unit_from_cp2k
    USE cube_utils,                      ONLY: cube_info_type
-   USE dbcsr_api,                       ONLY: dbcsr_deallocate_matrix_set,&
-                                              dbcsr_p_type
    USE hirshfeld_methods,               ONLY: create_shape_function
    USE hirshfeld_types,                 ONLY: get_hirshfeld_info,&
                                               hirshfeld_type,&
                                               set_hirshfeld_info
-   USE input_constants,                 ONLY: &
-        becke_cutoff_element, becke_cutoff_global, cdft_combined_acceptor, cdft_combined_all, &
-        cdft_combined_constraint, cdft_combined_donor, cdft_density_constraint, &
-        cdft_magnetization_constraint, ref_charge_atomic, ref_charge_mulliken, cdft_atomic_magnetization_constraint
+   USE input_constants,                 ONLY: ref_charge_atomic,&
+                                              ref_charge_mulliken
    USE input_section_types,             ONLY: section_vals_get_subs_vals,&
                                               section_vals_type
    USE kahan_sum,                       ONLY: accurate_sum,&
                                               accurate_sum_arrays_product
    USE kinds,                           ONLY: dp,&
                                               int_8
-   USE mathlib,                         ONLY: diamat_all
    USE message_passing,                 ONLY: mp_sum
    USE particle_list_types,             ONLY: particle_list_type
    USE particle_types,                  ONLY: particle_type
@@ -65,8 +46,7 @@ MODULE qs_cdft_methods
    USE pw_methods,                      ONLY: pw_axpy,&
                                               pw_copy,&
                                               pw_integrate_function,&
-                                              pw_scale,&
-                                              pw_set
+                                              pw_scale
    USE pw_pool_types,                   ONLY: pw_pool_create_pw,&
                                               pw_pool_give_back_pw,&
                                               pw_pool_type
@@ -82,8 +62,6 @@ MODULE qs_cdft_methods
    USE qs_integrate_potential,          ONLY: integrate_pgf_product_rspace
    USE qs_kind_types,                   ONLY: get_qs_kind,&
                                               qs_kind_type
-   USE qs_matrix_pools,                 ONLY: mpools_get
-   USE qs_mo_types,                     ONLY: get_mo_set
    USE qs_modify_pab_block,             ONLY: FUNC_AB
    USE qs_rho0_types,                   ONLY: get_rho0_mpole,&
                                               mpole_rho_atom,&
@@ -125,55 +103,8 @@ MODULE qs_cdft_methods
       CHARACTER(len=*), PARAMETER :: routineN = 'becke_constraint', &
          routineP = moduleN//':'//routineN
 
-      CHARACTER(len=2)                                   :: element_symbol
-      INTEGER :: atom_a, bounds(2), dir, handle, i, iatom, iex, ikind, ind(3), ip, ithread, ivar, &
-         iw, j, jatom, k, katom, lb_index, natom, nelectron_total, nkind, np(3), npme, &
-         nskipped, nthread, numexp, nvar, tmp_index(2), ub_index, unit_nr, igroup, jp
-      INTEGER, ALLOCATABLE, DIMENSION(:)                 :: catom
-      INTEGER, DIMENSION(2, 3)                           :: bo, bo_conf
-      INTEGER, DIMENSION(:), POINTER                     :: atom_list, cores, stride
-      LOGICAL                                            :: build, in_memory, paw_atom, store_vectors
-      LOGICAL, ALLOCATABLE, DIMENSION(:)                 :: is_constraint, skip_me
-      LOGICAL, ALLOCATABLE, DIMENSION(:, :)              :: atom_in_group
-      REAL(kind=dp) :: alpha, chi, coef, dist1, dist2, dmyexp, dvol, dynamic_radius, eps_cavity, &
-         ircov, jrcov, lb, my1, my1_homo, myexp, nelectron_frag, sign, sum_cell_f_all, &
-         sum_cell_f_combined, sum_cell_f_constr, tc, th, tmp_const, ub, uij, zeff, nelectrons
-      REAL(kind=dp), ALLOCATABLE, DIMENSION(:)           :: cell_functions, coefficients, dE, &
-                                                            distances, ds_dR_i, ds_dR_j, &
-                                                            strength, target_val, &
-                                                            sum_cell_f_group
-      REAL(kind=dp), ALLOCATABLE, DIMENSION(:, :)        :: d_sum_Pm_dR, &
-                                                            distance_vecs, dP_i_dRi, &
-                                                            electronic_charge, position_vecs, R12, gapw_offset
-      REAL(kind=dp), ALLOCATABLE, DIMENSION(:, :, :)     :: dP_i_dRj, pair_dist_vecs
-      REAL(kind=dp), DIMENSION(3)                        :: cell_v, dist_vec, dmy_dR_i, dmy_dR_j, &
-                                                            dr, dr1_r2, dr_i_dR, dr_ij_dR, &
-                                                            dr_j_dR, grid_p, r, r1, ra, shift
-      REAL(KIND=dp), DIMENSION(:), POINTER               :: cutoffs
-      REAL(KIND=dp), DIMENSION(:, :), POINTER            :: pab
-      REAL(KIND=dp), DIMENSION(:, :, :, :), POINTER      :: gradients
-      TYPE(atomic_kind_type), DIMENSION(:), POINTER      :: atomic_kind_set
-      TYPE(cell_type), POINTER                           :: cell
-      TYPE(cp_logger_type), POINTER                      :: logger
-      TYPE(cp_para_env_type), POINTER                    :: para_env
-      TYPE(becke_constraint_type), POINTER                :: becke_control
-      TYPE(becke_group_type), POINTER, DIMENSION(:)      :: group
+      INTEGER                                            :: handle
       TYPE(dft_control_type), POINTER                    :: dft_control
-      TYPE(hirshfeld_type), POINTER                      :: cavity_env
-      TYPE(mpole_rho_atom), DIMENSION(:), POINTER        :: mp_rho
-      TYPE(particle_list_type), POINTER                  :: particles
-      TYPE(particle_type), DIMENSION(:), POINTER         :: particle_set
-      TYPE(pw_env_type), POINTER                         :: pw_env
-      TYPE(pw_p_type)                                    :: rho_frag
-      TYPE(pw_p_type), DIMENSION(:), POINTER             :: rho_r, charge
-      TYPE(pw_pool_type), POINTER                        :: auxbas_pw_pool
-      TYPE(qs_energy_type), POINTER                      :: energy
-      TYPE(qs_kind_type), DIMENSION(:), POINTER          :: qs_kind_set
-      TYPE(qs_rho_type), POINTER                         :: rho
-      TYPE(qs_subsys_type), POINTER                      :: subsys
-      TYPE(realspace_grid_type), POINTER                 :: rs_cavity
-      TYPE(rho0_mpole_type), POINTER                     :: rho0_mpole
-      TYPE(section_vals_type), POINTER                   :: becke_constraint_section
 
       IF (dft_control%qs_control%becke_constraint) THEN
          IF (calc_pot) THEN
@@ -202,77 +133,54 @@ MODULE qs_cdft_methods
       TYPE(qs_environment_type), POINTER                 :: qs_env
       LOGICAL, OPTIONAL                                  :: just_gradients
 
-      CHARACTER(len=*), PARAMETER :: routineN = 'becke_constraint', &
+      CHARACTER(len=*), PARAMETER :: routineN = 'becke_constraint_low', &
          routineP = moduleN//':'//routineN
 
-      CHARACTER(len=2)                                   :: element_symbol
-      INTEGER :: atom_a, bounds(2), dir, handle, i, iatom, iex, ikind, ind(3), ip, ithread, ivar, &
-         iw, j, jatom, k, katom, lb_index, natom, nelectron_total, nkind, np(3), npme, &
-         nskipped, nthread, numexp, nvar, tmp_index(2), ub_index, unit_nr, igroup, jp
+      INTEGER                                            :: bounds(2), dir, handle, i, iatom, &
+                                                            igroup, ind(3), ip, j, jatom, jp, k, &
+                                                            lb_index, natom, np(3), nskipped, &
+                                                            tmp_index(2), ub_index
       INTEGER, ALLOCATABLE, DIMENSION(:)                 :: catom
       INTEGER, DIMENSION(2, 3)                           :: bo, bo_conf
-      INTEGER, DIMENSION(:), POINTER                     :: atom_list, cores, stride
-      LOGICAL                                            :: build, in_memory, paw_atom, my_just_gradients
+      LOGICAL                                            :: in_memory, my_just_gradients
       LOGICAL, ALLOCATABLE, DIMENSION(:)                 :: is_constraint, skip_me
       LOGICAL, ALLOCATABLE, DIMENSION(:, :)              :: atom_in_group
-      REAL(kind=dp) :: alpha, chi, coef, dist1, dist2, dmyexp, dvol, dynamic_radius, eps_cavity, &
-         ircov, jrcov, lb, my1, my1_homo, myexp, nelectron_frag, sign, sum_cell_f_all, &
-         sum_cell_f_combined, sum_cell_f_constr, tc, th, tmp_const, ub, uij, zeff, nelectrons
-      REAL(kind=dp), ALLOCATABLE, DIMENSION(:)           :: cell_functions, coefficients, dE, &
-                                                            distances, ds_dR_i, ds_dR_j, &
-                                                            strength, target_val, &
+      REAL(kind=dp)                                      :: dist1, dist2, dmyexp, dvol, eps_cavity, &
+                                                            my1, my1_homo, myexp, sum_cell_f_all, &
+                                                            th, tmp_const
+      REAL(kind=dp), ALLOCATABLE, DIMENSION(:)           :: cell_functions, ds_dR_i, ds_dR_j, &
                                                             sum_cell_f_group
-      REAL(kind=dp), ALLOCATABLE, DIMENSION(:, :)        :: d_sum_Pm_dR, &
-                                                            distance_vecs, dP_i_dRi, &
-                                                            electronic_charge, position_vecs, R12, gapw_offset
-      REAL(kind=dp), ALLOCATABLE, DIMENSION(:, :, :)     :: dP_i_dRj, pair_dist_vecs
+      REAL(kind=dp), ALLOCATABLE, DIMENSION(:, :)        :: d_sum_Pm_dR, dP_i_dRi
+      REAL(kind=dp), ALLOCATABLE, DIMENSION(:, :, :)     :: dP_i_dRj
       REAL(kind=dp), DIMENSION(3)                        :: cell_v, dist_vec, dmy_dR_i, dmy_dR_j, &
                                                             dr, dr1_r2, dr_i_dR, dr_ij_dR, &
-                                                            dr_j_dR, grid_p, r, r1, ra, shift
+                                                            dr_j_dR, grid_p, r, r1, shift
       REAL(KIND=dp), DIMENSION(:), POINTER               :: cutoffs
-      REAL(KIND=dp), DIMENSION(:, :), POINTER            :: pab
-      REAL(KIND=dp), DIMENSION(:, :, :, :), POINTER      :: gradients
-      TYPE(atomic_kind_type), DIMENSION(:), POINTER      :: atomic_kind_set
+      TYPE(becke_constraint_type), POINTER               :: becke_control
+      TYPE(becke_group_type), DIMENSION(:), POINTER      :: group
       TYPE(cell_type), POINTER                           :: cell
-      TYPE(cp_logger_type), POINTER                      :: logger
-      TYPE(cp_para_env_type), POINTER                    :: para_env
-      TYPE(becke_constraint_type), POINTER                :: becke_control
-      TYPE(becke_group_type), POINTER, DIMENSION(:)      :: group
       TYPE(dft_control_type), POINTER                    :: dft_control
-      TYPE(hirshfeld_type), POINTER                      :: cavity_env
-      TYPE(mpole_rho_atom), DIMENSION(:), POINTER        :: mp_rho
-      TYPE(particle_list_type), POINTER                  :: particles
       TYPE(particle_type), DIMENSION(:), POINTER         :: particle_set
-      TYPE(pw_env_type), POINTER                         :: pw_env
-      TYPE(pw_p_type)                                    :: rho_frag
-      TYPE(pw_p_type), DIMENSION(:), POINTER             :: rho_r, charge
-      TYPE(pw_pool_type), POINTER                        :: auxbas_pw_pool
-      TYPE(qs_energy_type), POINTER                      :: energy
-      TYPE(qs_kind_type), DIMENSION(:), POINTER          :: qs_kind_set
-      TYPE(qs_rho_type), POINTER                         :: rho
-      TYPE(qs_subsys_type), POINTER                      :: subsys
-      TYPE(realspace_grid_type), POINTER                 :: rs_cavity
-      TYPE(rho0_mpole_type), POINTER                     :: rho0_mpole
-      TYPE(section_vals_type), POINTER                   :: becke_constraint_section
+      TYPE(pw_p_type), DIMENSION(:), POINTER             :: charge
 
       NULLIFY (cutoffs, cell, dft_control, particle_set, group, charge)
 
       CALL timeset(routineN, handle)
       CALL get_qs_env(qs_env, &
                       cell=cell, &
-                      particle_set=particle_set, 
+                      particle_set=particle_set, &
                       natom=natom, &
                       dft_control=dft_control)
       becke_control => dft_control%qs_control%becke_control
       group => becke_control%group
       cutoffs => becke_control%cutoffs
       IF (becke_control%atomic_charges) &
-            charge => becke_control%charge
+         charge => becke_control%charge
       in_memory = .FALSE.
       IF (becke_control%save_pot) THEN
          in_memory = becke_control%in_memory
       END IF
-      ! Decide if only gradients need to be calculated 
+      ! Decide if only gradients need to be calculated
       my_just_gradients = .FALSE.
       IF (PRESENT(just_gradients)) my_just_gradients = just_gradients
       IF (my_just_gradients) THEN
@@ -364,14 +272,14 @@ MODULE qs_cdft_methods
             IF (bounds(2) .LT. bo(2, 3)) bo_conf(2, 3) = bounds(2)-1
             IF (bounds(1) .GT. bo(1, 3)) bo_conf(1, 3) = bounds(1)+1
          END IF
-         ALLOCATE(atom_in_group(SIZE(group), natom))
+         ALLOCATE (atom_in_group(SIZE(group), natom))
          atom_in_group = .FALSE.
          DO igroup = 1, SIZE(group)
-            ALLOCATE(group(igroup)%gradients(3*SIZE(group(igroup)%atoms), bo_conf(1, 1):bo_conf(2, 1), &
-                                             bo_conf(1, 2):bo_conf(2, 2), &
-                                             bo_conf(1, 3):bo_conf(2, 3)))
+            ALLOCATE (group(igroup)%gradients(3*SIZE(group(igroup)%atoms), bo_conf(1, 1):bo_conf(2, 1), &
+                                              bo_conf(1, 2):bo_conf(2, 2), &
+                                              bo_conf(1, 3):bo_conf(2, 3)))
             group(igroup)%gradients = 0.0_dp
-            ALLOCATE(group(igroup)%d_sum_const_dR(3,natom))
+            ALLOCATE (group(igroup)%d_sum_const_dR(3, natom))
             group(igroup)%d_sum_const_dR = 0.0_dp
             DO ip = 1, SIZE(group(igroup)%atoms)
                atom_in_group(igroup, group(igroup)%atoms(ip)) = .TRUE.
@@ -388,7 +296,7 @@ MODULE qs_cdft_methods
          END IF
       END IF
       ! Allocate remaining work
-      ALLOCATE(sum_cell_f_group(SIZE(group)))
+      ALLOCATE (sum_cell_f_group(SIZE(group)))
       ALLOCATE (cell_functions(natom))
       IF (in_memory) THEN
          ALLOCATE (ds_dR_j(3))
@@ -517,7 +425,7 @@ MODULE qs_cdft_methods
                            my1 = (dist1-dist2)/becke_control%vector_buffer%R12(iatom, jatom)
                            IF (becke_control%adjust) THEN
                               my1_homo = my1 ! Homonuclear quantity needed for gradient
-                              my1 = my1+ becke_control%aij(iatom, jatom)*(1.0_dp-my1**2)
+                              my1 = my1+becke_control%aij(iatom, jatom)*(1.0_dp-my1**2)
                            END IF
                            ! f(myij)
                            myexp = 1.5_dp*my1-0.5_dp*my1**3
@@ -526,9 +434,9 @@ MODULE qs_cdft_methods
                               tmp_const = (1.5_dp**2)*dmyexp*(1-myexp**2)* &
                                           (1.0_dp-((1.5_dp*myexp-0.5_dp*(myexp**3))**2))
                               ! d s(myij)/d R_i
-                              ds_dR_i(:) = -0.5_dp*tmp_const*dmy_dR_i(:) 
+                              ds_dR_i(:) = -0.5_dp*tmp_const*dmy_dR_i(:)
                               ! d s(myij)/d R_j
-                              ds_dR_j(:) = -0.5_dp*tmp_const*dmy_dR_j(:) 
+                              ds_dR_j(:) = -0.5_dp*tmp_const*dmy_dR_j(:)
                               IF (becke_control%adjust) THEN
                                  tmp_const = 1.0_dp-2.0_dp*my1_homo* &
                                              becke_control%aij(iatom, jatom)
@@ -537,10 +445,10 @@ MODULE qs_cdft_methods
                                  ds_dR_j(:) = ds_dR_j(:)*tmp_const
                               END IF
                            END IF
-                           ! s(myij) = f[f(f{myij})] 
+                           ! s(myij) = f[f(f{myij})]
                            myexp = 1.5_dp*myexp-0.5_dp*myexp**3
                            myexp = 1.5_dp*myexp-0.5_dp*myexp**3
-                           tmp_const = 0.5_dp*(1.0_dp-myexp) 
+                           tmp_const = 0.5_dp*(1.0_dp-myexp)
                            cell_functions(iatom) = cell_functions(iatom)*tmp_const
                            IF (in_memory) THEN
                               IF (ABS(tmp_const) .LE. th) tmp_const = tmp_const+th
@@ -570,7 +478,7 @@ MODULE qs_cdft_methods
                      IF (in_memory) THEN
                         ! Final value of dP_i_dRi
                         dP_i_dRi(:, iatom) = cell_functions(iatom)*dP_i_dRi(:, iatom)
-                        ! Update relevant sums with value 
+                        ! Update relevant sums with value
                         d_sum_Pm_dR(:, iatom) = d_sum_Pm_dR(:, iatom)+dP_i_dRi(:, iatom)
                         IF (is_constraint(iatom)) THEN
                            DO igroup = 1, SIZE(group)
@@ -581,7 +489,7 @@ MODULE qs_cdft_methods
                                     EXIT
                                  END IF
                               END DO
-                              group(igroup)%d_sum_const_dR(1:3, iatom) = group(igroup)%d_sum_const_dR(1:3, iatom) + &
+                              group(igroup)%d_sum_const_dR(1:3, iatom) = group(igroup)%d_sum_const_dR(1:3, iatom)+ &
                                                                          group(igroup)%coeff(ip)*dP_i_dRi(:, iatom)
                            END DO
                         END IF
@@ -631,7 +539,7 @@ MODULE qs_cdft_methods
                sum_cell_f_group = 0.0_dp
                DO igroup = 1, SIZE(group)
                   DO ip = 1, SIZE(group(igroup)%atoms)
-                     sum_cell_f_group(igroup) = sum_cell_f_group(igroup) + group(igroup)%coeff(ip) *&
+                     sum_cell_f_group(igroup) = sum_cell_f_group(igroup)+group(igroup)%coeff(ip)* &
                                                 cell_functions(group(igroup)%atoms(ip))
                   END DO
                END DO
@@ -671,7 +579,7 @@ MODULE qs_cdft_methods
          DEALLOCATE (dP_i_dRj)
          DEALLOCATE (dP_i_dRi)
          DO igroup = 1, SIZE(group)
-            DEALLOCATE(group(igroup)%d_sum_const_dR)
+            DEALLOCATE (group(igroup)%d_sum_const_dR)
          END DO
          DEALLOCATE (atom_in_group)
          IF (becke_control%vector_buffer%store_vectors) THEN
@@ -704,28 +612,21 @@ MODULE qs_cdft_methods
    SUBROUTINE becke_constraint_force(qs_env)
       TYPE(qs_environment_type), POINTER                 :: qs_env
 
-      CHARACTER(len=*), PARAMETER :: routineN = 'becke_constraint_force', routineP = moduleN//':'//routineN
+      CHARACTER(len=*), PARAMETER :: routineN = 'becke_constraint_force', &
+         routineP = moduleN//':'//routineN
 
-      INTEGER :: dir, handle, i, iatom, ikind, ind(3), ip, ispin, ivar, j, jatom, k, lb_index, &
-         natom, ngrad, np(3), nskipped, nvar, tmp_index(2), ub_index, jp, igroup
-      INTEGER, ALLOCATABLE, DIMENSION(:)                 :: atom_of_kind, catom, kind_of
+      INTEGER                                            :: dir, handle, i, iatom, igroup, ikind, &
+                                                            ind(3), ispin, j, k, lb_index, natom, &
+                                                            np(3), nvar, tmp_index(2), ub_index
+      INTEGER, ALLOCATABLE, DIMENSION(:)                 :: atom_of_kind, kind_of
       INTEGER, DIMENSION(2, 3)                           :: bo, bo_conf
-      LOGICAL, ALLOCATABLE, DIMENSION(:)                 :: is_constraint
-      LOGICAL, ALLOCATABLE, DIMENSION(:, :)              :: atom_in_group
-      REAL(kind=dp) :: dist1, dist2, dpolyn, dvol, eps_cavity, f_3, my1, my1_homo, polyn, sign, &
-         sum_Pm, th, tmp_const, dw_dR(3)
-      REAL(kind=dp), ALLOCATABLE, DIMENSION(:)           :: coefficients, P_i, strength, sum_cell_f_group
-      REAL(kind=dp), ALLOCATABLE, DIMENSION(:, :)        :: dP_i_dRi, R12, s_my_ij, d_sum_Pm_dR
-      REAL(kind=dp), ALLOCATABLE, DIMENSION(:, :, :)     :: dP_i_dRj, ds_dR
-      REAL(kind=dp), DIMENSION(3)                        :: cell_v, dist_vec_i, dist_vec_j, &
-                                                            dmy_dR_i, dmy_dR_j, dr, dr1_r2, &
-                                                            dr_i_dR, dr_ij_dR, dr_j_dR, grid_p, r, &
-                                                            r1, shift
+      REAL(kind=dp)                                      :: dvol, eps_cavity, sign, th
+      REAL(kind=dp), ALLOCATABLE, DIMENSION(:)           :: strength
+      REAL(kind=dp), DIMENSION(3)                        :: dr, shift
       REAL(KIND=dp), DIMENSION(:), POINTER               :: cutoffs
-      REAL(KIND=dp), DIMENSION(:, :, :, :), POINTER      :: gradients
       TYPE(atomic_kind_type), DIMENSION(:), POINTER      :: atomic_kind_set
-      TYPE(becke_constraint_type), POINTER                :: becke_control
-      TYPE(becke_group_type), POINTER, DIMENSION(:)      :: group
+      TYPE(becke_constraint_type), POINTER               :: becke_control
+      TYPE(becke_group_type), DIMENSION(:), POINTER      :: group
       TYPE(cell_type), POINTER                           :: cell
       TYPE(cp_para_env_type), POINTER                    :: para_env
       TYPE(dft_control_type), POINTER                    :: dft_control
@@ -764,7 +665,7 @@ MODULE qs_cdft_methods
                                atom_of_kind=atom_of_kind, &
                                kind_of=kind_of)
       DO igroup = 1, SIZE(group)
-         ALLOCATE(group(igroup)%integrated(3, natom))
+         ALLOCATE (group(igroup)%integrated(3, natom))
          group(igroup)%integrated = 0.0_dp
       END DO
       bo = group(1)%weight%pw%pw_grid%bounds_local
@@ -829,13 +730,13 @@ MODULE qs_cdft_methods
                      DO iatom = 1, natom
                         DO ispin = 1, dft_control%nspins
                            IF (ispin == 2 .AND. .NOT. group(igroup)%is_charge_constraint) THEN
-                              sign = -1.0_dp 
+                              sign = -1.0_dp
                            ELSE
                               sign = 1.0_dp
                            END IF
-                           group(igroup)%integrated(:, iatom) = group(igroup)%integrated(:, iatom) + sign*&
-                              group(igroup)%gradients(3*(iatom-1)+1:3*(iatom-1)+3, k, j, i)* &
-                              rho_r(ispin)%pw%cr3d(k, j, i)*dvol
+                           group(igroup)%integrated(:, iatom) = group(igroup)%integrated(:, iatom)+sign* &
+                                                                group(igroup)%gradients(3*(iatom-1)+1:3*(iatom-1)+3, k, j, i)* &
+                                                                rho_r(ispin)%pw%cr3d(k, j, i)*dvol
                         END DO
                      END DO
                   END DO
@@ -852,13 +753,13 @@ MODULE qs_cdft_methods
                      DO iatom = 1, natom
                         DO ispin = 1, dft_control%nspins
                            IF (ispin == 2 .AND. .NOT. group(igroup)%is_charge_constraint) THEN
-                              sign = -1.0_dp 
+                              sign = -1.0_dp
                            ELSE
                               sign = 1.0_dp
                            END IF
-                           group(igroup)%integrated(:, iatom) = group(igroup)%integrated(:, iatom) + sign*&
-                              group(igroup)%gradients(3*(iatom-1)+1:3*(iatom-1)+3, k, j, i)* &
-                              rho_r(ispin)%pw%cr3d(k, j, i)*dvol
+                           group(igroup)%integrated(:, iatom) = group(igroup)%integrated(:, iatom)+sign* &
+                                                                group(igroup)%gradients(3*(iatom-1)+1:3*(iatom-1)+3, k, j, i)* &
+                                                                rho_r(ispin)%pw%cr3d(k, j, i)*dvol
                         END DO
                      END DO
                   END DO
@@ -892,7 +793,7 @@ MODULE qs_cdft_methods
       DEALLOCATE (atom_of_kind)
       DEALLOCATE (kind_of)
       DO igroup = 1, SIZE(group)
-         DEALLOCATE(group(igroup)%integrated)
+         DEALLOCATE (group(igroup)%integrated)
       END DO
       NULLIFY (group)
 
@@ -901,7 +802,7 @@ MODULE qs_cdft_methods
    END SUBROUTINE becke_force
 
 ! **************************************************************************************************
-!> \brief Calculates the value of a Becke constraint by integrating the product of the Becke 
+!> \brief Calculates the value of a Becke constraint by integrating the product of the Becke
 !>        weight function and the realspace electron density
 !> \param qs_env the qs_env where to build the constraint
 !> \par   History
@@ -909,62 +810,41 @@ MODULE qs_cdft_methods
 ! **************************************************************************************************
    SUBROUTINE becke_constraint_integrate(qs_env)
       TYPE(qs_environment_type), POINTER                 :: qs_env
-      LOGICAL                                            :: calc_pot, calculate_forces
 
-      CHARACTER(len=*), PARAMETER :: routineN = 'becke_constraint', &
+      CHARACTER(len=*), PARAMETER :: routineN = 'becke_constraint_integrate', &
          routineP = moduleN//':'//routineN
 
       CHARACTER(len=2)                                   :: element_symbol
-      INTEGER :: atom_a, bounds(2), dir, handle, i, iatom, iex, ikind, ind(3), ip, ithread, ivar, &
-         iw, j, jatom, k, katom, lb_index, natom, nelectron_total, nkind, np(3), npme, &
-         nskipped, nthread, numexp, nvar, tmp_index(2), ub_index, unit_nr, igroup, jp
-      INTEGER, ALLOCATABLE, DIMENSION(:)                 :: catom
-      INTEGER, DIMENSION(2, 3)                           :: bo, bo_conf
-      INTEGER, DIMENSION(:), POINTER                     :: atom_list, cores, stride
-      LOGICAL                                            :: build, in_memory, paw_atom, store_vectors
-      LOGICAL, ALLOCATABLE, DIMENSION(:)                 :: is_constraint, skip_me
-      LOGICAL, ALLOCATABLE, DIMENSION(:, :)              :: atom_in_group
-      REAL(kind=dp) :: alpha, chi, coef, dist1, dist2, dmyexp, dvol, dynamic_radius, eps_cavity, &
-         ircov, jrcov, lb, my1, my1_homo, myexp, nelectron_frag, sign, sum_cell_f_all, &
-         sum_cell_f_combined, sum_cell_f_constr, tc, th, tmp_const, ub, uij, zeff, nelectrons
-      REAL(kind=dp), ALLOCATABLE, DIMENSION(:)           :: cell_functions, coefficients, dE, &
-                                                            distances, ds_dR_i, ds_dR_j, &
-                                                            strength, target_val, &
-                                                            sum_cell_f_group
-      REAL(kind=dp), ALLOCATABLE, DIMENSION(:, :)        :: d_sum_Pm_dR, &
-                                                            distance_vecs, dP_i_dRi, &
-                                                            electronic_charge, position_vecs, R12, gapw_offset
-      REAL(kind=dp), ALLOCATABLE, DIMENSION(:, :, :)     :: dP_i_dRj, pair_dist_vecs
-      REAL(kind=dp), DIMENSION(3)                        :: cell_v, dist_vec, dmy_dR_i, dmy_dR_j, &
-                                                            dr, dr1_r2, dr_i_dR, dr_ij_dR, &
-                                                            dr_j_dR, grid_p, r, r1, ra, shift
-      REAL(KIND=dp), DIMENSION(:), POINTER               :: cutoffs
-      REAL(KIND=dp), DIMENSION(:, :), POINTER            :: pab
-      REAL(KIND=dp), DIMENSION(:, :, :, :), POINTER      :: gradients
-      TYPE(atomic_kind_type), DIMENSION(:), POINTER      :: atomic_kind_set
-      TYPE(cell_type), POINTER                           :: cell
+      INTEGER                                            :: handle, i, iatom, igroup, ikind, ivar, &
+                                                            iw, jatom, natom, nelectron_total, &
+                                                            nvar, unit_nr
+      INTEGER, DIMENSION(:), POINTER                     :: stride
+      LOGICAL                                            :: paw_atom
+      LOGICAL, ALLOCATABLE, DIMENSION(:)                 :: is_constraint
+      REAL(kind=dp)                                      :: alpha, dvol, eps_cavity, nelectron_frag, &
+                                                            sign, tc, zeff
+      REAL(kind=dp), ALLOCATABLE, DIMENSION(:)           :: dE, strength, target_val
+      REAL(kind=dp), ALLOCATABLE, DIMENSION(:, :)        :: electronic_charge, gapw_offset
+      TYPE(becke_constraint_type), POINTER               :: becke_control
+      TYPE(becke_group_type), DIMENSION(:), POINTER      :: group
       TYPE(cp_logger_type), POINTER                      :: logger
       TYPE(cp_para_env_type), POINTER                    :: para_env
-      TYPE(becke_constraint_type), POINTER                :: becke_control
-      TYPE(becke_group_type), POINTER, DIMENSION(:)      :: group
       TYPE(dft_control_type), POINTER                    :: dft_control
-      TYPE(hirshfeld_type), POINTER                      :: cavity_env
       TYPE(mpole_rho_atom), DIMENSION(:), POINTER        :: mp_rho
       TYPE(particle_list_type), POINTER                  :: particles
       TYPE(particle_type), DIMENSION(:), POINTER         :: particle_set
       TYPE(pw_env_type), POINTER                         :: pw_env
       TYPE(pw_p_type)                                    :: rho_frag
-      TYPE(pw_p_type), DIMENSION(:), POINTER             :: rho_r, charge
+      TYPE(pw_p_type), DIMENSION(:), POINTER             :: charge, rho_r
       TYPE(pw_pool_type), POINTER                        :: auxbas_pw_pool
       TYPE(qs_energy_type), POINTER                      :: energy
       TYPE(qs_kind_type), DIMENSION(:), POINTER          :: qs_kind_set
       TYPE(qs_rho_type), POINTER                         :: rho
       TYPE(qs_subsys_type), POINTER                      :: subsys
-      TYPE(realspace_grid_type), POINTER                 :: rs_cavity
       TYPE(rho0_mpole_type), POINTER                     :: rho0_mpole
       TYPE(section_vals_type), POINTER                   :: becke_constraint_section
 
-      NULLIFY (para_env, dft_control, particle_set, rho_r, energy, rho, logger, becke_constraint_section, qs_kind_set,&
+      NULLIFY (para_env, dft_control, particle_set, rho_r, energy, rho, logger, becke_constraint_section, qs_kind_set, &
                particles, subsys, pw_env, auxbas_pw_pool, mp_rho, rho0_mpole, group, charge)
       CALL timeset(routineN, handle)
       logger => cp_get_default_logger()
@@ -999,7 +879,7 @@ MODULE qs_cdft_methods
       DO i = 1, dft_control%nspins
          DO igroup = 1, SIZE(group)
             IF (i == 2 .AND. .NOT. group(igroup)%is_charge_constraint) THEN
-               sign = -1.0_dp 
+               sign = -1.0_dp
             ELSE
                sign = 1.0_dp
             END IF
@@ -1078,11 +958,11 @@ MODULE qs_cdft_methods
                CALL cp_abort(__LOCATION__, &
                              "Absolute weight required for Becke deformation density.")
             IF (becke_control%external_control .AND. becke_control%cavity_confine) THEN
-               becke_control%target(1) = becke_control%target(1)+&
+               becke_control%target(1) = becke_control%target(1)+ &
                                          accurate_sum_arrays_product(group(1)%weight%pw%cr3d, rho_frag%pw%cr3d, &
                                                                      becke_control%cavity_mat, eps_cavity)*dvol
             ELSE
-               becke_control%target(1) = becke_control%target(1)+ accurate_sum(group(1)%weight%pw%cr3d*rho_frag%pw%cr3d)*dvol
+               becke_control%target(1) = becke_control%target(1)+accurate_sum(group(1)%weight%pw%cr3d*rho_frag%pw%cr3d)*dvol
             END IF
             CALL mp_sum(becke_control%target, para_env%group)
             IF (debug_this_module) THEN
@@ -1131,7 +1011,7 @@ MODULE qs_cdft_methods
          CALL get_rho0_mpole(rho0_mpole, mp_rho=mp_rho)
          DO i = 1, dft_control%nspins
             IF (i == 2 .AND. .NOT. group(igroup)%is_charge_constraint) THEN
-               sign = -1.0_dp 
+               sign = -1.0_dp
             ELSE
                sign = 1.0_dp
             END IF
@@ -1141,7 +1021,7 @@ MODULE qs_cdft_methods
                   CALL get_atomic_kind(particle_set(jatom)%atomic_kind, kind_number=ikind)
                   CALL get_qs_kind(qs_kind_set(ikind), paw_atom=paw_atom)
                   IF (paw_atom) THEN
-                     gapw_offset(igroup, i) = gapw_offset(igroup, i) + sign*group(igroup)%coeff(iatom)*mp_rho(jatom)%q0(i)
+                     gapw_offset(igroup, i) = gapw_offset(igroup, i)+sign*group(igroup)%coeff(iatom)*mp_rho(jatom)%q0(i)
                   END IF
                END DO
             END DO
@@ -1156,7 +1036,7 @@ MODULE qs_cdft_methods
                      electronic_charge(iatom, i) = electronic_charge(iatom, i)+mp_rho(jatom)%q0(i)
                   END DO
                END IF
-            END DO 
+            END DO
          END IF
          DO i = 1, dft_control%nspins
             DO ivar = 1, nvar
@@ -1175,74 +1055,36 @@ MODULE qs_cdft_methods
       ! Print constraint info and atomic Becke charges
       IF (iw > 0) THEN
          WRITE (iw, '(/,T3,A,T60)') &
-               '--------------------- Becke constraint information ---------------------'
-            DO igroup = 1, SIZE(group)
-               IF (igroup > 1) WRITE (iw, '(T3,A)') ' '
-               WRITE (iw, '(T3,A,T54,(3X,I18))') &
-                  'Atomic group                       :', igroup
-               IF (group(igroup)%is_charge_constraint) THEN
-                  WRITE (iw, '(T3,A,T50,A)') &
-                     'Type of constraint                 :', ADJUSTR('Charge density constraint')
-               ELSE
-                  WRITE (iw, '(T3,A,T43,A)') &
-                     'Type of constraint                 :', ADJUSTR('Magnetization density constraint')                  
-               END IF
-               WRITE (iw, '(T3,A,T54,(3X,F18.12))') &
-                  'Target value of constraint         :', target_val(igroup)
-               WRITE (iw, '(T3,A,T54,(3X,F18.12))') &
-                  'Current value of constraint        :', dE(igroup)
-               WRITE (iw, '(T3,A,T59,(3X,ES13.3))') &
-                  'Deviation from target              :', dE(igroup)-target_val(igroup)
-               WRITE (iw, '(T3,A,T54,(3X,F18.12))') &
-                  'Strength of constraint             :', strength(igroup)
-            END DO
-            WRITE (iw, '(T3,A)') &
-               '------------------------------------------------------------------------'
-            IF (becke_control%atomic_charges) THEN
-               WRITE (iw, '(/,T3,A,T60)') &
-                  '-------------------------------- Becke atomic charges -------------------------------'
-               IF (.NOT. becke_control%fragment_density) THEN
-                  IF (dft_control%nspins == 1) THEN
-                     WRITE (iw, '(T3,A,A)') &
-                        '#Atom  Element   Is_constraint', '   Core charge    Population (total)'// &
-                        '    Net charge'
-                     tc = 0.0_dp
-                     DO iatom = 1, becke_control%natoms
-                        jatom = becke_control%atoms(iatom)
-                        CALL get_atomic_kind(atomic_kind=particle_set(jatom)%atomic_kind, &
-                                             element_symbol=element_symbol, &
-                                             kind_number=ikind)
-                        CALL get_qs_kind(qs_kind_set(ikind), zeff=zeff)
-                        WRITE (iw, "(i7,T15,A2,T23,L2,T39,F8.3,T61,F8.3,T75,F8.3)") &
-                           jatom, element_symbol, becke_control%is_constraint(iatom), zeff, electronic_charge(iatom, 1), &
-                           (zeff-electronic_charge(iatom, 1))
-                        tc = tc+(zeff-electronic_charge(iatom, 1))
-                     END DO
-                     WRITE (iw, '(/,T3,A,T75,F8.3,/)') "Total Charge: ", tc
-                  ELSE
-                     WRITE (iw, '(T3,A,A)') &
-                        '#Atom  Element   Is_constraint', '   Core charge    Population (alpha, beta)'// &
-                        '    Net charge      Spin population'
-                     tc = 0.0_dp
-                     DO iatom = 1, becke_control%natoms
-                        jatom = becke_control%atoms(iatom)
-                        CALL get_atomic_kind(atomic_kind=particle_set(jatom)%atomic_kind, &
-                                             element_symbol=element_symbol, &
-                                             kind_number=ikind)
-                        CALL get_qs_kind(qs_kind_set(ikind), zeff=zeff)
-                        WRITE (iw, "(i7,T15,A2,T23,L2,T39,F8.3,T53,F8.3,T63,F8.3,T81,F8.3,T90,F8.3)") &
-                           jatom, element_symbol, &
-                           becke_control%is_constraint(iatom), &
-                           zeff, electronic_charge(iatom, 1), electronic_charge(iatom, 2), &
-                           (zeff-electronic_charge(iatom, 1)-electronic_charge(iatom, 2)), &
-                           electronic_charge(iatom, 1)-electronic_charge(iatom, 2)
-                        tc = tc+(zeff-electronic_charge(iatom, 1)-electronic_charge(iatom, 2))
-                     END DO
-                     WRITE (iw, '(/,T3,A,T81,F8.3,/)') "Total Charge: ", tc
-                  END IF
-               ELSE
+            '--------------------- Becke constraint information ---------------------'
+         DO igroup = 1, SIZE(group)
+            IF (igroup > 1) WRITE (iw, '(T3,A)') ' '
+            WRITE (iw, '(T3,A,T54,(3X,I18))') &
+               'Atomic group                       :', igroup
+            IF (group(igroup)%is_charge_constraint) THEN
+               WRITE (iw, '(T3,A,T50,A)') &
+                  'Type of constraint                 :', ADJUSTR('Charge density constraint')
+            ELSE
+               WRITE (iw, '(T3,A,T43,A)') &
+                  'Type of constraint                 :', ADJUSTR('Magnetization density constraint')
+            END IF
+            WRITE (iw, '(T3,A,T54,(3X,F18.12))') &
+               'Target value of constraint         :', target_val(igroup)
+            WRITE (iw, '(T3,A,T54,(3X,F18.12))') &
+               'Current value of constraint        :', dE(igroup)
+            WRITE (iw, '(T3,A,T59,(3X,ES13.3))') &
+               'Deviation from target              :', dE(igroup)-target_val(igroup)
+            WRITE (iw, '(T3,A,T54,(3X,F18.12))') &
+               'Strength of constraint             :', strength(igroup)
+         END DO
+         WRITE (iw, '(T3,A)') &
+            '------------------------------------------------------------------------'
+         IF (becke_control%atomic_charges) THEN
+            WRITE (iw, '(/,T3,A,T60)') &
+               '-------------------------------- Becke atomic charges -------------------------------'
+            IF (.NOT. becke_control%fragment_density) THEN
+               IF (dft_control%nspins == 1) THEN
                   WRITE (iw, '(T3,A,A)') &
-                     '#Atom  Element   Is_constraint', '   Fragment charge    Population (total)'// &
+                     '#Atom  Element   Is_constraint', '   Core charge    Population (total)'// &
                      '    Net charge'
                   tc = 0.0_dp
                   DO iatom = 1, becke_control%natoms
@@ -1250,36 +1092,74 @@ MODULE qs_cdft_methods
                      CALL get_atomic_kind(atomic_kind=particle_set(jatom)%atomic_kind, &
                                           element_symbol=element_symbol, &
                                           kind_number=ikind)
-                     IF (dft_control%nspins == 1) THEN
-                        WRITE (iw, "(i7,T15,A2,T23,L2,T39,F8.3,T61,F8.3,T75,F8.3)") &
-                           jatom, element_symbol, &
-                           becke_control%is_constraint(iatom), &
-                           becke_control%charges_fragment(iatom), &
-                           electronic_charge(iatom, 1), &
-                           (electronic_charge(iatom, 1)- &
-                            becke_control%charges_fragment(iatom))
-                        tc = tc+(electronic_charge(iatom, 1)- &
-                                 becke_control%charges_fragment(iatom))
-                     ELSE
-                        WRITE (iw, "(i7,T15,A2,T23,L2,T39,F8.3,T61,F8.3,T75,F8.3)") &
-                           jatom, element_symbol, &
-                           becke_control%is_constraint(iatom), &
-                           becke_control%charges_fragment(iatom), &
-                           electronic_charge(iatom, 1)+electronic_charge(iatom, 2), &
-                           (electronic_charge(iatom, 1)+electronic_charge(iatom, 2)- &
-                            becke_control%charges_fragment(iatom))
-                        tc = tc+(electronic_charge(iatom, 1)+electronic_charge(iatom, 2)- &
-                                 becke_control%charges_fragment(iatom))
-                     END IF
+                     CALL get_qs_kind(qs_kind_set(ikind), zeff=zeff)
+                     WRITE (iw, "(i7,T15,A2,T23,L2,T39,F8.3,T61,F8.3,T75,F8.3)") &
+                        jatom, element_symbol, becke_control%is_constraint(iatom), zeff, electronic_charge(iatom, 1), &
+                        (zeff-electronic_charge(iatom, 1))
+                     tc = tc+(zeff-electronic_charge(iatom, 1))
                   END DO
                   WRITE (iw, '(/,T3,A,T75,F8.3,/)') "Total Charge: ", tc
+               ELSE
+                  WRITE (iw, '(T3,A,A)') &
+                     '#Atom  Element   Is_constraint', '   Core charge    Population (alpha, beta)'// &
+                     '    Net charge      Spin population'
+                  tc = 0.0_dp
+                  DO iatom = 1, becke_control%natoms
+                     jatom = becke_control%atoms(iatom)
+                     CALL get_atomic_kind(atomic_kind=particle_set(jatom)%atomic_kind, &
+                                          element_symbol=element_symbol, &
+                                          kind_number=ikind)
+                     CALL get_qs_kind(qs_kind_set(ikind), zeff=zeff)
+                     WRITE (iw, "(i7,T15,A2,T23,L2,T39,F8.3,T53,F8.3,T63,F8.3,T81,F8.3,T90,F8.3)") &
+                        jatom, element_symbol, &
+                        becke_control%is_constraint(iatom), &
+                        zeff, electronic_charge(iatom, 1), electronic_charge(iatom, 2), &
+                        (zeff-electronic_charge(iatom, 1)-electronic_charge(iatom, 2)), &
+                        electronic_charge(iatom, 1)-electronic_charge(iatom, 2)
+                     tc = tc+(zeff-electronic_charge(iatom, 1)-electronic_charge(iatom, 2))
+                  END DO
+                  WRITE (iw, '(/,T3,A,T81,F8.3,/)') "Total Charge: ", tc
                END IF
+            ELSE
+               WRITE (iw, '(T3,A,A)') &
+                  '#Atom  Element   Is_constraint', '   Fragment charge    Population (total)'// &
+                  '    Net charge'
+               tc = 0.0_dp
+               DO iatom = 1, becke_control%natoms
+                  jatom = becke_control%atoms(iatom)
+                  CALL get_atomic_kind(atomic_kind=particle_set(jatom)%atomic_kind, &
+                                       element_symbol=element_symbol, &
+                                       kind_number=ikind)
+                  IF (dft_control%nspins == 1) THEN
+                     WRITE (iw, "(i7,T15,A2,T23,L2,T39,F8.3,T61,F8.3,T75,F8.3)") &
+                        jatom, element_symbol, &
+                        becke_control%is_constraint(iatom), &
+                        becke_control%charges_fragment(iatom), &
+                        electronic_charge(iatom, 1), &
+                        (electronic_charge(iatom, 1)- &
+                         becke_control%charges_fragment(iatom))
+                     tc = tc+(electronic_charge(iatom, 1)- &
+                              becke_control%charges_fragment(iatom))
+                  ELSE
+                     WRITE (iw, "(i7,T15,A2,T23,L2,T39,F8.3,T61,F8.3,T75,F8.3)") &
+                        jatom, element_symbol, &
+                        becke_control%is_constraint(iatom), &
+                        becke_control%charges_fragment(iatom), &
+                        electronic_charge(iatom, 1)+electronic_charge(iatom, 2), &
+                        (electronic_charge(iatom, 1)+electronic_charge(iatom, 2)- &
+                         becke_control%charges_fragment(iatom))
+                     tc = tc+(electronic_charge(iatom, 1)+electronic_charge(iatom, 2)- &
+                              becke_control%charges_fragment(iatom))
+                  END IF
+               END DO
+               WRITE (iw, '(/,T3,A,T75,F8.3,/)') "Total Charge: ", tc
             END IF
          END IF
-         DEALLOCATE (dE, strength, target_val)
-         IF (becke_control%atomic_charges) &
-            DEALLOCATE (electronic_charge)
-         CALL cp_print_key_finished_output(iw, logger, becke_constraint_section, "PROGRAM_RUN_INFO")
+      END IF
+      DEALLOCATE (dE, strength, target_val)
+      IF (becke_control%atomic_charges) &
+         DEALLOCATE (electronic_charge)
+      CALL cp_print_key_finished_output(iw, logger, becke_constraint_section, "PROGRAM_RUN_INFO")
 
    END SUBROUTINE becke_constraint_integrate
 

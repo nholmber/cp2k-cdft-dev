@@ -17,13 +17,8 @@ MODULE qs_ks_apply_restraints
    USE dbcsr_api,                       ONLY: dbcsr_copy,&
                                               dbcsr_p_type,&
                                               dbcsr_set
-   USE input_constants,                 ONLY: cdft_combined_acceptor,&
-                                              cdft_combined_all,&
-                                              cdft_combined_constraint,&
-                                              cdft_combined_donor,&
-                                              outer_scf_becke_constraint,&
-                                              outer_scf_hirshfeld_constraint, &
-                                              cdft_atomic_magnetization_constraint
+   USE input_constants,                 ONLY: outer_scf_becke_constraint,&
+                                              outer_scf_hirshfeld_constraint
    USE kinds,                           ONLY: dp
    USE mulliken,                        ONLY: mulliken_restraint
    USE pw_methods,                      ONLY: pw_scale
@@ -31,6 +26,10 @@ MODULE qs_ks_apply_restraints
                                               pw_pool_type
    USE pw_types,                        ONLY: REALDATA3D,&
                                               REALSPACE
+   USE qs_cdft_methods,                 ONLY: becke_constraint,&
+                                              hirshfeld_constraint
+   USE qs_cdft_types,                   ONLY: becke_constraint_type,&
+                                              cdft_control_type
    USE qs_energy_types,                 ONLY: qs_energy_type
    USE qs_environment_types,            ONLY: get_qs_env,&
                                               qs_environment_type
@@ -39,10 +38,6 @@ MODULE qs_ks_apply_restraints
                                               mo_set_p_type
    USE qs_rho_types,                    ONLY: qs_rho_get,&
                                               qs_rho_type
-   USE qs_cdft_methods,                 ONLY: becke_constraint,&
-                                              hirshfeld_constraint,&                                              
-   USE qs_cdft_types,                   ONLY: becke_constraint_type,&
-                                              cdft_control_type
    USE s_square_methods,                ONLY: s2_restraint
 #include "./base/base_uses.f90"
 
@@ -71,13 +66,12 @@ CONTAINS
       TYPE(pw_pool_type), POINTER                        :: auxbas_pw_pool
       LOGICAL, INTENT(in)                                :: calculate_forces
       TYPE(dbcsr_p_type), DIMENSION(:, :), POINTER       :: matrix_s
-      TYPE(becke_constraint_type), POINTER                :: becke
+      TYPE(becke_constraint_type), POINTER               :: becke
 
       CHARACTER(LEN=*), PARAMETER :: routineN = 'qs_ks_becke_constraint', &
          routineP = moduleN//':'//routineN
 
       INTEGER                                            :: iatom, igroup
-      LOGICAL                                            :: has_global_weight, has_group_weight
       REAL(KIND=dp)                                      :: inv_vol
       TYPE(dft_control_type), POINTER                    :: dft_control
 
@@ -96,7 +90,7 @@ CONTAINS
             END DO
             IF (becke%atomic_charges) THEN
                IF (.NOT. ASSOCIATED(becke%charge)) &
-                  ALLOCATE(becke%charge(becke%natoms))
+                  ALLOCATE (becke%charge(becke%natoms))
                DO iatom = 1, becke%natoms
                   CALL pw_pool_create_pw(auxbas_pw_pool, becke%charge(iatom)%pw, &
                                          use_data=REALDATA3D, in_space=REALSPACE)
@@ -122,7 +116,7 @@ CONTAINS
             ! Combined constraint not allowed
             IF (SIZE(becke%group) /= 1) &
                CALL cp_abort(__LOCATION__, &
-                            "Only one constraint allowed for ET_COUPLING, switch to MIXED_CDFT.")               
+                             "Only one constraint allowed for ET_COUPLING, switch to MIXED_CDFT.")
             IF (qs_env%et_coupling%keep_matrix) THEN
                IF (qs_env%et_coupling%first_run) THEN
                   NULLIFY (qs_env%et_coupling%rest_mat(1)%matrix)

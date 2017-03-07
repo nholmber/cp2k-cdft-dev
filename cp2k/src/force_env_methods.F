@@ -74,18 +74,10 @@ MODULE force_env_methods
                                               parsef
    USE global_types,                    ONLY: global_environment_type,&
                                               globenv_retain
-   USE input_constants,                 ONLY: debug_run,&
-                                              mix_coupled,&
-                                              mix_generic,&
-                                              mix_linear_combination,&
-                                              mix_minimum,&
-                                              mix_restrained,&
-                                              use_bazant_eip,&
-                                              use_lenosky_eip, &
-                                              cdft_combined_constraint, &
-                                              cdft_combined_all, &
-                                              cdft_combined_acceptor, &
-                                              cdft_combined_donor
+   USE input_constants,                 ONLY: &
+        cdft_combined_acceptor, cdft_combined_all, cdft_combined_constraint, cdft_combined_donor, &
+        debug_run, mix_coupled, mix_generic, mix_linear_combination, mix_minimum, mix_restrained, &
+        use_bazant_eip, use_lenosky_eip
    USE input_section_types,             ONLY: section_vals_get_subs_vals,&
                                               section_vals_retain,&
                                               section_vals_type,&

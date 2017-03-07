@@ -112,7 +112,7 @@ CONTAINS
 
       INTEGER                                            :: handle, ihistory, ivar, n
       LOGICAL                                            :: is_constraint
-      TYPE(becke_constraint_type), POINTER                :: becke_control
+      TYPE(becke_constraint_type), POINTER               :: becke_control
       TYPE(cdft_control_type), POINTER                   :: cdft_control
       TYPE(ddapc_restraint_type), POINTER                :: ddapc_restraint_control
       TYPE(dft_control_type), POINTER                    :: dft_control
@@ -407,7 +407,7 @@ CONTAINS
 
       INTEGER                                            :: handle, ihistory, n
       LOGICAL                                            :: is_constraint
-      TYPE(becke_constraint_type), POINTER                :: becke_control
+      TYPE(becke_constraint_type), POINTER               :: becke_control
       TYPE(cdft_control_type), POINTER                   :: cdft_control
       TYPE(ddapc_restraint_type), POINTER                :: ddapc_restraint_control
       TYPE(dft_control_type), POINTER                    :: dft_control

@@ -80,12 +80,11 @@ MODULE qs_scf
    USE input_constants,                 ONLY: &
         broyden_type_1, broyden_type_1_explicit, broyden_type_1_explicit_ls, broyden_type_1_ls, &
         broyden_type_2, broyden_type_2_explicit, broyden_type_2_explicit_ls, broyden_type_2_ls, &
-        cdft2ot, cdft_combined_acceptor, cdft_combined_all, cdft_combined_constraint, &
-        cdft_combined_donor, history_guess, jacobian_fd1, jacobian_fd1_backward, &
-        jacobian_fd1_central, jacobian_fd2, jacobian_fd2_backward, ot2cdft, ot_precond_full_all, &
-        ot_precond_full_single, ot_precond_full_single_inverse, ot_precond_none, &
-        ot_precond_s_inverse, outer_scf_hirshfeld_constraint, outer_scf_optimizer_broyden, &
-        outer_scf_optimizer_newton, outer_scf_optimizer_newton_ls
+        cdft2ot, history_guess, jacobian_fd1, jacobian_fd1_backward, jacobian_fd1_central, &
+        jacobian_fd2, jacobian_fd2_backward, ot2cdft, ot_precond_full_all, ot_precond_full_single, &
+        ot_precond_full_single_inverse, ot_precond_none, ot_precond_s_inverse, &
+        outer_scf_hirshfeld_constraint, outer_scf_optimizer_broyden, outer_scf_optimizer_newton, &
+        outer_scf_optimizer_newton_ls
    USE input_section_types,             ONLY: section_vals_get_subs_vals,&
                                               section_vals_type
    USE kinds,                           ONLY: default_path_length,&
@@ -924,8 +923,8 @@ CONTAINS
 
       CHARACTER(len=*), PARAMETER :: routineN = 'cdft_scf', routineP = moduleN//':'//routineN
 
-      INTEGER                                            :: handle, iatom, ispin, output_unit, &
-                                                            ivar, nvar
+      INTEGER                                            :: handle, iatom, ispin, ivar, nvar, &
+                                                            output_unit
       LOGICAL                                            :: cdft_loop_converged, converged, &
                                                             exit_cdft_loop, first_iteration
       TYPE(cdft_control_type), POINTER                   :: cdft_control
@@ -1047,7 +1046,7 @@ CONTAINS
                                        hmat=cdft_control%wmat(ivar), qs_env=qs_env, &
                                        calculate_forces=.FALSE., &
                                        gapw=dft_control%qs_control%gapw)
-            END DO 
+            END DO
             ! Overlap matrix
             CALL dbcsr_init_p(cdft_control%matrix_s%matrix)
             CALL dbcsr_copy(cdft_control%matrix_s%matrix, matrix_s(1)%matrix, &
@@ -1160,10 +1159,8 @@ CONTAINS
          routineP = moduleN//':'//routineN
 
       CHARACTER(len=default_path_length)                 :: project_name
-      INTEGER                                            :: handle, i, ihistory, ispin, iter_count, &
-                                                            iwork, j, lp, max_scf, nspins, nvar, &
-                                                            nwork, outer_scf_ihistory, &
-                                                            output_unit, pwork, nsteps, twork, counter
+      INTEGER :: counter, handle, i, ihistory, ispin, iter_count, iwork, j, lp, max_scf, nspins, &
+         nsteps, nvar, nwork, outer_scf_ihistory, output_unit, pwork, twork
       LOGICAL                                            :: converged, explicit_jacobian, &
                                                             should_build, should_stop, &
                                                             use_md_history
@@ -1385,11 +1382,11 @@ CONTAINS
                counter = 0
                DO iwork = nwork, pwork
                   IF (iwork == 0) CYCLE
-                  counter = counter + 1
+                  counter = counter+1
                   IF (output_unit > 0) THEN
                      WRITE (output_unit, FMT="(A)") " #####################################"
                      WRITE (output_unit, '(A,I3,A,I3,A)') &
-                        " ###  Energy evaluation ", counter, " of ", twork , " ###"
+                        " ###  Energy evaluation ", counter, " of ", twork, " ###"
                      WRITE (output_unit, FMT="(A)") " #####################################"
                   END IF
                   scf_env%outer_scf%variables(:, iter_count+1) = scf_env%outer_scf%variables(:, iter_count)
@@ -1523,8 +1520,8 @@ CONTAINS
 
       CHARACTER(len=default_path_length)                 :: project_name
       INTEGER                                            :: handle, i, ispin, iter_count, lp, &
-                                                            max_scf, nspins, nvar, output_unit, &
-                                                            nsteps
+                                                            max_scf, nspins, nsteps, nvar, &
+                                                            output_unit
       LOGICAL                                            :: converged, do_linesearch, should_exit, &
                                                             should_stop
       REAL(KIND=dp)                                      :: alpha

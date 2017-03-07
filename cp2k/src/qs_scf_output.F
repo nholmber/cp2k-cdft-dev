@@ -22,12 +22,10 @@ MODULE qs_scf_output
         becke_mixed_conf, becke_none_conf, becke_static_conf, broyden_type_1, &
         broyden_type_1_explicit, broyden_type_1_explicit_ls, broyden_type_1_ls, broyden_type_2, &
         broyden_type_2_explicit, broyden_type_2_explicit_ls, broyden_type_2_ls, &
-        cdft_combined_acceptor, cdft_combined_all, cdft_combined_constraint, cdft_combined_donor, &
-        cdft_density_constraint, cdft_magnetization_constraint, outer_scf_becke_constraint, &
-        outer_scf_hirshfeld_constraint, outer_scf_optimizer_bisect, outer_scf_optimizer_broyden, &
-        outer_scf_optimizer_diis, outer_scf_optimizer_newton, outer_scf_optimizer_newton_ls, &
-        outer_scf_optimizer_sd, outer_scf_optimizer_secant, radius_covalent, radius_single, &
-        radius_user, radius_vdw, cdft_atomic_magnetization_constraint
+        outer_scf_becke_constraint, outer_scf_hirshfeld_constraint, outer_scf_optimizer_bisect, &
+        outer_scf_optimizer_broyden, outer_scf_optimizer_diis, outer_scf_optimizer_newton, &
+        outer_scf_optimizer_newton_ls, outer_scf_optimizer_sd, outer_scf_optimizer_secant, &
+        radius_covalent, radius_single, radius_user, radius_vdw
    USE input_section_types,             ONLY: section_vals_get_subs_vals,&
                                               section_vals_type,&
                                               section_vals_val_get
@@ -646,8 +644,8 @@ CONTAINS
       CHARACTER(LEN=*), PARAMETER :: routineN = 'qs_scf_cdft_info', &
          routineP = moduleN//':'//routineN
 
-      REAL(KIND=dp)                                      :: outer_loop_eps
       INTEGER                                            :: igroup
+      REAL(KIND=dp)                                      :: outer_loop_eps
 
       IF (cdft_loop) THEN
          outer_loop_eps = SQRT(MAXVAL(scf_env%outer_scf%gradient(:, scf_env%outer_scf%iter_count)**2))
@@ -684,8 +682,8 @@ CONTAINS
                   'Type of constraint                 :', ADJUSTR('Charge density constraint')
             ELSE
                WRITE (output_unit, '(T3,A,T43,A)') &
-                  'Type of constraint                 :', ADJUSTR('Magnetization density constraint')   
-            END IF             
+                  'Type of constraint                 :', ADJUSTR('Magnetization density constraint')
+            END IF
             WRITE (output_unit, '(T3,A,T54,(3X,F18.12))') &
                'Target value of constraint         :', cdft_control%target(igroup)
             WRITE (output_unit, '(T3,A,T54,(3X,F18.12))') &

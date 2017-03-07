@@ -12,13 +12,13 @@
 MODULE mixed_cdft_types
    USE cp_blacs_env,                    ONLY: cp_blacs_env_release,&
                                               cp_blacs_env_type
-   USE qs_cdft_types,                   ONLY: becke_control_release,&
-                                              becke_constraint_type
    USE cp_log_handling,                 ONLY: cp_logger_release,&
                                               cp_logger_type
    USE kinds,                           ONLY: dp
    USE pw_env_types,                    ONLY: pw_env_release,&
                                               pw_env_type
+   USE qs_cdft_types,                   ONLY: becke_constraint_type,&
+                                              becke_control_release
    USE qs_kind_types,                   ONLY: deallocate_qs_kind_set,&
                                               qs_kind_type
 #include "./base/base_uses.f90"
@@ -159,7 +159,7 @@ MODULE mixed_cdft_types
                                                           wfn_overlap_method, &
                                                           has_unit_metric, &
                                                           is_parallel
-      LOGICAL, DIMENSION(:), ALLOCATABLE               :: is_charge_constraint                                                          
+      LOGICAL, DIMENSION(:), ALLOCATABLE               :: is_charge_constraint
       REAL(KIND=dp)                                    :: eps_rho_rspace, sim_dt, &
                                                           eps_svd
       REAL(KIND=dp), POINTER, DIMENSION(:, :, :)       :: weight, cavity
@@ -271,7 +271,7 @@ CONTAINS
       IF (ASSOCIATED(cdft_control%cavity)) &
          DEALLOCATE (cdft_control%cavity)
       IF (ALLOCATED(cdft_control%is_charge_constraint)) &
-         DEALLOCATE(cdft_control%is_charge_constraint)
+         DEALLOCATE (cdft_control%is_charge_constraint)
       IF (ASSOCIATED(cdft_control%dlb_control)) &
          CALL mixed_cdft_dlb_release(cdft_control%dlb_control)
       IF (ASSOCIATED(cdft_control%sendbuff)) THEN

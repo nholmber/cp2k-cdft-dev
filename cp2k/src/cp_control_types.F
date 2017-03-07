@@ -10,19 +10,17 @@
 MODULE cp_control_types
    USE cp_fm_types,                     ONLY: cp_fm_p_type,&
                                               cp_fm_release
-   USE dbcsr_api,                       ONLY: dbcsr_p_type
    USE input_constants,                 ONLY: do_full_density
    USE kinds,                           ONLY: default_path_length,&
                                               default_string_length,&
                                               dp
-   USE pw_types,                        ONLY: pw_p_type
+   USE qs_cdft_types,                   ONLY: becke_constraint_type,&
+                                              becke_control_create,&
+                                              becke_control_release,&
+                                              cdft_control_create,&
+                                              cdft_control_type
    USE xas_control,                     ONLY: xas_control_release,&
                                               xas_control_type
-   USE qs_cdft_types,                   ONLY: becke_constraint_type, &
-                                              becke_control_create, &
-                                              becke_control_release, &
-                                              cdft_control_type, &
-                                              cdft_control_create
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE

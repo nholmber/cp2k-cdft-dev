@@ -11,91 +11,47 @@
 ! **************************************************************************************************
 MODULE qs_cdft_utils
    USE atomic_kind_types,               ONLY: atomic_kind_type,&
-                                              get_atomic_kind,&
-                                              get_atomic_kind_set
+                                              get_atomic_kind
    USE cell_types,                      ONLY: cell_type,&
                                               pbc
-   USE cp_control_types,                ONLY: cdft_control_type,&
-                                              dft_control_type, &
-                                              becke_group_type, &
-                                              becke_constraint_type
-   USE cp_dbcsr_operations,             ONLY: cp_dbcsr_sm_fm_multiply
-   USE cp_fm_basic_linalg,              ONLY: cp_fm_invert,&
-                                              cp_fm_transpose
-   USE cp_fm_pool_types,                ONLY: cp_fm_pool_p_type,&
-                                              fm_pool_get_el_struct
-   USE cp_fm_struct,                    ONLY: cp_fm_struct_type
-   USE cp_fm_types,                     ONLY: cp_fm_create,&
-                                              cp_fm_get_info,&
-                                              cp_fm_p_type,&
-                                              cp_fm_release,&
-                                              cp_fm_type
-   USE cp_gemm_interface,               ONLY: cp_gemm
+   USE cp_control_types,                ONLY: becke_constraint_type,&
+                                              becke_group_type,&
+                                              dft_control_type
    USE cp_log_handling,                 ONLY: cp_get_default_logger,&
-                                              cp_logger_type,&
-                                              cp_to_string
-   USE cp_output_handling,              ONLY: cp_print_key_finished_output,&
-                                              cp_print_key_unit_nr
+                                              cp_logger_type
+   USE cp_output_handling,              ONLY: cp_print_key_unit_nr
    USE cp_para_types,                   ONLY: cp_para_env_type
    USE cp_realspace_grid_cube,          ONLY: cp_pw_to_cube
    USE cp_units,                        ONLY: cp_unit_from_cp2k
-   USE cube_utils,                      ONLY: cube_info_type
-   USE dbcsr_api,                       ONLY: dbcsr_deallocate_matrix_set,&
-                                              dbcsr_p_type
    USE hirshfeld_methods,               ONLY: create_shape_function
-   USE hirshfeld_types,                 ONLY: get_hirshfeld_info,&
-                                              hirshfeld_type,&
-                                              set_hirshfeld_info
-   USE input_constants,                 ONLY: &
-        becke_cutoff_element, becke_cutoff_global, cdft_combined_acceptor, cdft_combined_all, &
-        cdft_combined_constraint, cdft_combined_donor, cdft_density_constraint, &
-        cdft_magnetization_constraint, ref_charge_atomic, ref_charge_mulliken, cdft_atomic_magnetization_constraint
+   USE hirshfeld_types,                 ONLY: hirshfeld_type
+   USE input_constants,                 ONLY: becke_cutoff_element,&
+                                              becke_cutoff_global
    USE input_section_types,             ONLY: section_vals_get_subs_vals,&
                                               section_vals_type
-   USE kahan_sum,                       ONLY: accurate_sum,&
-                                              accurate_sum_arrays_product
    USE kinds,                           ONLY: dp,&
                                               int_8
-   USE mathlib,                         ONLY: diamat_all
-   USE message_passing,                 ONLY: mp_sum
    USE particle_list_types,             ONLY: particle_list_type
    USE particle_types,                  ONLY: particle_type
    USE pw_env_types,                    ONLY: pw_env_get,&
                                               pw_env_type
-   USE pw_methods,                      ONLY: pw_axpy,&
-                                              pw_copy,&
-                                              pw_integrate_function,&
-                                              pw_scale,&
-                                              pw_set
    USE pw_pool_types,                   ONLY: pw_pool_create_pw,&
-                                              pw_pool_give_back_pw,&
                                               pw_pool_type
    USE pw_types,                        ONLY: REALDATA3D,&
-                                              REALSPACE,&
-                                              pw_p_type,&
-                                              pw_release
+                                              REALSPACE
    USE qs_collocate_density,            ONLY: collocate_pgf_product_rspace
-   USE qs_energy_types,                 ONLY: qs_energy_type
    USE qs_environment_types,            ONLY: get_qs_env,&
                                               qs_environment_type
-   USE qs_force_types,                  ONLY: qs_force_type
-   USE qs_integrate_potential,          ONLY: integrate_pgf_product_rspace
-   USE qs_kind_types,                   ONLY: get_qs_kind,&
-                                              qs_kind_type
-   USE qs_matrix_pools,                 ONLY: mpools_get
-   USE qs_mo_types,                     ONLY: get_mo_set
+   USE qs_kind_types,                   ONLY: qs_kind_type
    USE qs_modify_pab_block,             ONLY: FUNC_AB
-   USE qs_rho0_types,                   ONLY: get_rho0_mpole,&
-                                              mpole_rho_atom,&
-                                              rho0_mpole_type
-   USE qs_rho_types,                    ONLY: qs_rho_get,&
-                                              qs_rho_type
    USE qs_subsys_types,                 ONLY: qs_subsys_get,&
                                               qs_subsys_type
-   USE realspace_grid_cube,             ONLY: cube_to_pw
-   USE realspace_grid_types,            ONLY: &
-        pw2rs, realspace_grid_desc_type, realspace_grid_type, rs2pw, rs_grid_create, &
-        rs_grid_release, rs_grid_retain, rs_grid_zero, rs_pw_transfer
+   USE realspace_grid_types,            ONLY: realspace_grid_type,&
+                                              rs2pw,&
+                                              rs_grid_release,&
+                                              rs_grid_retain,&
+                                              rs_grid_zero,&
+                                              rs_pw_transfer
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE
@@ -109,77 +65,54 @@ MODULE qs_cdft_utils
    PUBLIC :: becke_constraint_init, hfun_scale
 
 ! **************************************************************************************************
-!> \brief calculates a Becke constraint
+!> \brief Initializes the Becke constraint environment
 !> \param qs_env the qs_env where to build the constraint
-!> \param calc_pot if the potential needs to be recalculated or just integrated
-!> \param calculate_forces logical if potential has to be calculated or only_energy
 !> \par   History
 !>        Created 01.2007 [fschiff]
 !>        Extended functionality 12/15-12/16 [Nico Holmberg]
 ! **************************************************************************************************
    SUBROUTINE becke_constraint_init(qs_env)
       TYPE(qs_environment_type), POINTER                 :: qs_env
-      LOGICAL                                            :: calc_pot, calculate_forces
 
-      CHARACTER(len=*), PARAMETER :: routineN = 'becke_constraint', &
+      CHARACTER(len=*), PARAMETER :: routineN = 'becke_constraint_init', &
          routineP = moduleN//':'//routineN
 
       CHARACTER(len=2)                                   :: element_symbol
-      INTEGER :: atom_a, bounds(2), dir, handle, i, iatom, iex, ikind, ind(3), ip, ithread, ivar, &
-         iw, j, jatom, k, katom, lb_index, natom, nelectron_total, nkind, np(3), npme, &
-         nskipped, nthread, numexp, nvar, tmp_index(2), ub_index, unit_nr, igroup, jp
-      INTEGER, ALLOCATABLE, DIMENSION(:)                 :: catom
-      INTEGER, DIMENSION(2, 3)                           :: bo, bo_conf
+      INTEGER :: atom_a, bounds(2), dir, handle, i, iatom, iex, igroup, ikind, ip, ithread, iw, j, &
+         jatom, katom, lb_index, natom, nkind, npme, nthread, numexp, ub_index, unit_nr
       INTEGER, DIMENSION(:), POINTER                     :: atom_list, cores, stride
-      LOGICAL                                            :: build, in_memory, paw_atom, store_vectors
-      LOGICAL, ALLOCATABLE, DIMENSION(:)                 :: is_constraint, skip_me
-      LOGICAL, ALLOCATABLE, DIMENSION(:, :)              :: atom_in_group
-      REAL(kind=dp) :: alpha, chi, coef, dist1, dist2, dmyexp, dvol, dynamic_radius, eps_cavity, &
-         ircov, jrcov, lb, my1, my1_homo, myexp, nelectron_frag, sign, sum_cell_f_all, &
-         sum_cell_f_combined, sum_cell_f_constr, tc, th, tmp_const, ub, uij, zeff, nelectrons
-      REAL(kind=dp), ALLOCATABLE, DIMENSION(:)           :: cell_functions, coefficients, dE, &
-                                                            distances, ds_dR_i, ds_dR_j, &
-                                                            strength, target_val, &
-                                                            sum_cell_f_group
-      REAL(kind=dp), ALLOCATABLE, DIMENSION(:, :)        :: d_sum_Pm_dR, &
-                                                            distance_vecs, dP_i_dRi, &
-                                                            electronic_charge, position_vecs, R12, gapw_offset
-      REAL(kind=dp), ALLOCATABLE, DIMENSION(:, :, :)     :: dP_i_dRj, pair_dist_vecs
-      REAL(kind=dp), DIMENSION(3)                        :: cell_v, dist_vec, dmy_dR_i, dmy_dR_j, &
-                                                            dr, dr1_r2, dr_i_dR, dr_ij_dR, &
-                                                            dr_j_dR, grid_p, r, r1, ra, shift
-      REAL(KIND=dp), DIMENSION(:), POINTER               :: cutoffs
+      LOGICAL                                            :: build, in_memory, store_vectors
+      LOGICAL, ALLOCATABLE, DIMENSION(:)                 :: is_constraint
+      REAL(kind=dp)                                      :: alpha, chi, coef, dynamic_radius, &
+                                                            eps_cavity, ircov, jrcov, lb, &
+                                                            tmp_const, ub, uij
+      REAL(kind=dp), ALLOCATABLE, DIMENSION(:, :)        :: position_vecs
+      REAL(kind=dp), DIMENSION(3)                        :: cell_v, dist_vec, dr, r, r1, ra, shift
       REAL(KIND=dp), DIMENSION(:, :), POINTER            :: pab
-      REAL(KIND=dp), DIMENSION(:, :, :, :), POINTER      :: gradients
       TYPE(atomic_kind_type), DIMENSION(:), POINTER      :: atomic_kind_set
+      TYPE(becke_constraint_type), POINTER               :: becke_control
+      TYPE(becke_group_type), DIMENSION(:), POINTER      :: group
       TYPE(cell_type), POINTER                           :: cell
       TYPE(cp_logger_type), POINTER                      :: logger
       TYPE(cp_para_env_type), POINTER                    :: para_env
-      TYPE(becke_constraint_type), POINTER                :: becke_control
-      TYPE(becke_group_type), POINTER, DIMENSION(:)      :: group
       TYPE(dft_control_type), POINTER                    :: dft_control
       TYPE(hirshfeld_type), POINTER                      :: cavity_env
-      TYPE(mpole_rho_atom), DIMENSION(:), POINTER        :: mp_rho
       TYPE(particle_list_type), POINTER                  :: particles
       TYPE(particle_type), DIMENSION(:), POINTER         :: particle_set
       TYPE(pw_env_type), POINTER                         :: pw_env
-      TYPE(pw_p_type)                                    :: rho_frag
-      TYPE(pw_p_type), DIMENSION(:), POINTER             :: rho_r, charge
       TYPE(pw_pool_type), POINTER                        :: auxbas_pw_pool
-      TYPE(qs_energy_type), POINTER                      :: energy
       TYPE(qs_kind_type), DIMENSION(:), POINTER          :: qs_kind_set
-      TYPE(qs_rho_type), POINTER                         :: rho
       TYPE(qs_subsys_type), POINTER                      :: subsys
       TYPE(realspace_grid_type), POINTER                 :: rs_cavity
-      TYPE(rho0_mpole_type), POINTER                     :: rho0_mpole
       TYPE(section_vals_type), POINTER                   :: becke_constraint_section
 
-      NULLIFY (cores, stride, atom_list, cell, para_env, dft_control, particle_set, rho_r, energy, rho, logger, &
-               becke_constraint_section, qs_kind_set, particles, subsys, pab, pw_env, rs_cavity, cavity_env, &
+      NULLIFY (cores, stride, atom_list, cell, para_env, dft_control, &
+               particle_set, logger, becke_constraint_section, qs_kind_set, &
+               particles, subsys, pab, pw_env, rs_cavity, cavity_env, &
                auxbas_pw_pool, atomic_kind_set, group)
       logger => cp_get_default_logger()
       CALL timeset(routineN, handle)
-      CALL get_qs_env(qs_env, 
+      CALL get_qs_env(qs_env, &
                       cell=cell, &
                       particle_set=particle_set, &
                       natom=natom, &
@@ -265,7 +198,7 @@ MODULE qs_cdft_utils
       IF (becke_control%adjust .AND. .NOT. ASSOCIATED(becke_control%aij)) THEN
          ALLOCATE (becke_control%aij(natom, natom))
          build = .TRUE.
-      END IF 
+      END IF
       IF (becke_control%vector_buffer%store_vectors) THEN
          ALLOCATE (becke_control%vector_buffer%distances(natom))
          ALLOCATE (becke_control%vector_buffer%distance_vecs(3, natom))
@@ -324,7 +257,7 @@ MODULE qs_cdft_utils
                ELSE
                   becke_control%aij(iatom, jatom) = 0.0_dp
                END IF
-                ! Note change of sign
+               ! Note change of sign
                becke_control%aij(jatom, iatom) = -becke_control%aij(iatom, jatom)
             END IF
          END DO

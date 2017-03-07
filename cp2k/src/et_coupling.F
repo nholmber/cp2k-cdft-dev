@@ -9,11 +9,6 @@
 !> \author fschiff (01.2007)
 ! **************************************************************************************************
 MODULE et_coupling
-   USE atomic_kind_types,               ONLY: atomic_kind_type,&
-                                              get_atomic_kind,&
-                                              get_atomic_kind_set
-   USE cell_types,                      ONLY: cell_type,&
-                                              pbc
    USE cp_control_types,                ONLY: dft_control_type
    USE cp_dbcsr_operations,             ONLY: cp_dbcsr_sm_fm_multiply
    USE cp_fm_basic_linalg,              ONLY: cp_fm_invert,&
@@ -33,65 +28,18 @@ MODULE et_coupling
    USE cp_output_handling,              ONLY: cp_print_key_finished_output,&
                                               cp_print_key_unit_nr
    USE cp_para_types,                   ONLY: cp_para_env_type
-   USE cp_realspace_grid_cube,          ONLY: cp_pw_to_cube
-   USE cp_units,                        ONLY: cp_unit_from_cp2k
-   USE cube_utils,                      ONLY: cube_info_type
    USE dbcsr_api,                       ONLY: dbcsr_deallocate_matrix_set,&
                                               dbcsr_p_type
-   USE hirshfeld_methods,               ONLY: create_shape_function
-   USE hirshfeld_types,                 ONLY: get_hirshfeld_info,&
-                                              hirshfeld_type,&
-                                              set_hirshfeld_info
-   USE input_constants,                 ONLY: &
-        becke_cutoff_element, becke_cutoff_global, cdft_combined_acceptor, cdft_combined_all, &
-        cdft_combined_constraint, cdft_combined_donor, cdft_density_constraint, &
-        cdft_magnetization_constraint, ref_charge_atomic, ref_charge_mulliken, cdft_atomic_magnetization_constraint
    USE input_section_types,             ONLY: section_vals_get_subs_vals,&
                                               section_vals_type
-   USE kahan_sum,                       ONLY: accurate_sum,&
-                                              accurate_sum_arrays_product
-   USE kinds,                           ONLY: dp,&
-                                              int_8
+   USE kinds,                           ONLY: dp
    USE mathlib,                         ONLY: diamat_all
    USE message_passing,                 ONLY: mp_sum
-   USE particle_list_types,             ONLY: particle_list_type
-   USE particle_types,                  ONLY: particle_type
-   USE pw_env_types,                    ONLY: pw_env_get,&
-                                              pw_env_type
-   USE pw_methods,                      ONLY: pw_axpy,&
-                                              pw_copy,&
-                                              pw_integrate_function,&
-                                              pw_scale,&
-                                              pw_set
-   USE pw_pool_types,                   ONLY: pw_pool_create_pw,&
-                                              pw_pool_give_back_pw,&
-                                              pw_pool_type
-   USE pw_types,                        ONLY: REALDATA3D,&
-                                              REALSPACE,&
-                                              pw_p_type,&
-                                              pw_release
-   USE qs_collocate_density,            ONLY: collocate_pgf_product_rspace
    USE qs_energy_types,                 ONLY: qs_energy_type
    USE qs_environment_types,            ONLY: get_qs_env,&
                                               qs_environment_type
-   USE qs_force_types,                  ONLY: qs_force_type
-   USE qs_integrate_potential,          ONLY: integrate_pgf_product_rspace
-   USE qs_kind_types,                   ONLY: get_qs_kind,&
-                                              qs_kind_type
    USE qs_matrix_pools,                 ONLY: mpools_get
    USE qs_mo_types,                     ONLY: get_mo_set
-   USE qs_modify_pab_block,             ONLY: FUNC_AB
-   USE qs_rho0_types,                   ONLY: get_rho0_mpole,&
-                                              mpole_rho_atom,&
-                                              rho0_mpole_type
-   USE qs_rho_types,                    ONLY: qs_rho_get,&
-                                              qs_rho_type
-   USE qs_subsys_types,                 ONLY: qs_subsys_get,&
-                                              qs_subsys_type
-   USE realspace_grid_cube,             ONLY: cube_to_pw
-   USE realspace_grid_types,            ONLY: &
-        pw2rs, realspace_grid_desc_type, realspace_grid_type, rs2pw, rs_grid_create, &
-        rs_grid_release, rs_grid_retain, rs_grid_zero, rs_pw_transfer
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE

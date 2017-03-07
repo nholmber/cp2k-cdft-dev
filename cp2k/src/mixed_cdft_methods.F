@@ -55,14 +55,7 @@ MODULE mixed_cdft_methods
    USE hirshfeld_types,                 ONLY: hirshfeld_type
    USE input_constants,                 ONLY: becke_cutoff_element,&
                                               becke_cutoff_global,&
-                                              do_spin_density,&
-                                              mix_linear_combination,&
-                                              cdft_combined_constraint, &
-                                              cdft_density_constraint, &
-                                              cdft_magnetization_constraint, &
-                                              cdft_combined_all, &
-                                              cdft_combined_acceptor, &
-                                              cdft_combined_donor
+                                              mix_linear_combination
    USE input_section_types,             ONLY: section_vals_get,&
                                               section_vals_get_subs_vals,&
                                               section_vals_type,&
@@ -71,9 +64,7 @@ MODULE mixed_cdft_methods
                                               dp,&
                                               int_8
    USE machine,                         ONLY: m_walltime
-   USE mathlib,                         ONLY: diamat_all, &
-                                              invert_matrix
-   USE linear_systems,                  ONLY: solve_system
+   USE mathlib,                         ONLY: diamat_all
    USE memory_utilities,                ONLY: reallocate
    USE message_passing,                 ONLY: mp_bcast,&
                                               mp_irecv,&
@@ -634,8 +625,8 @@ CONTAINS
       ! Assemble the recved slices
       DO j = 1, SIZE(mixed_cdft%source_list)
          dft_control%qs_control%becke_control%group(1)%weight%pw%cr3d(recvbuffer(j)%imap(1):recvbuffer(j)%imap(2), &
-                                                                     recvbuffer(j)%imap(3):recvbuffer(j)%imap(4), &
-                                                                     recvbuffer(j)%imap(5):recvbuffer(j)%imap(6)) = &
+                                                                      recvbuffer(j)%imap(3):recvbuffer(j)%imap(4), &
+                                                                      recvbuffer(j)%imap(5):recvbuffer(j)%imap(6)) = &
             recvbuffer(j)%r3
       END DO
       ! Do the same for slices sent during dlb
@@ -651,8 +642,8 @@ CONTAINS
                                LBOUND(mixed_cdft%dlb_control%recvbuff(j)%buffs(i)%weight, 3), &
                                UBOUND(mixed_cdft%dlb_control%recvbuff(j)%buffs(i)%weight, 3)/)
                      dft_control%qs_control%becke_control%group(1)%weight%pw%cr3d(INDEX(1):INDEX(2), &
-                                                                                 INDEX(3):INDEX(4), &
-                                                                                 INDEX(5):INDEX(6)) = &
+                                                                                  INDEX(3):INDEX(4), &
+                                                                                  INDEX(5):INDEX(6)) = &
                         mixed_cdft%dlb_control%recvbuff(j)%buffs(i)%weight
                      DEALLOCATE (mixed_cdft%dlb_control%recvbuff(j)%buffs(i)%weight)
                   END DO
@@ -1006,25 +997,26 @@ CONTAINS
          routineP = moduleN//':'//routineN
 
       CHARACTER(LEN=default_path_length)                 :: file_name
-      INTEGER                                            :: handle, iforce_eval, iounit, ispin, j, &
-                                                            k, my_id, nao, ncol_local, &
-                                                            nforce_eval, nmo, nrow_local, nspins, &
-                                                            nvar, ivar, istate, jstate, i
+      INTEGER                                            :: handle, i, iforce_eval, iounit, ispin, &
+                                                            istate, ivar, j, jstate, k, nao, &
+                                                            ncol_local, nforce_eval, nmo, &
+                                                            nrow_local, nspins, nvar
       INTEGER, ALLOCATABLE, DIMENSION(:)                 :: ncol_mo, nrow_mo
       LOGICAL                                            :: exist, natom_mismatch
       REAL(KIND=dp)                                      :: coupling_wfn, energy_a, energy_b, &
-                                                            maxocc, Sda, sum_a(2), sum_b(2), inv_error, result(2)
-      REAL(KIND=dp), ALLOCATABLE, DIMENSION(:)           :: evals, metric, S_det, Wda, Waa, Wbb, &
-                                                            strength_a, strength_b
+                                                            maxocc, RESULT(2), Sda, sum_a(2), &
+                                                            sum_b(2)
+      REAL(KIND=dp), ALLOCATABLE, DIMENSION(:)           :: evals, metric, S_det, strength_a, &
+                                                            strength_b, Waa, Wbb, Wda
       REAL(KIND=dp), ALLOCATABLE, DIMENSION(:, :)        :: a, b, overlaps
       REAL(KIND=dp), DIMENSION(2)                        :: c, eigenv
-      REAL(KIND=dp), DIMENSION(2, 2)                     :: S_mat, tmp_mat, U, W_mat, inv_U, old_W_mat
+      REAL(KIND=dp), DIMENSION(2, 2)                     :: old_W_mat, S_mat, tmp_mat, U, W_mat
       TYPE(atomic_kind_type), DIMENSION(:), POINTER      :: atomic_kind_set
       TYPE(cp_blacs_env_type), POINTER                   :: blacs_env
       TYPE(cp_fm_p_type), DIMENSION(:, :), POINTER       :: mixed_mo_coeff, w_matrix_mo
       TYPE(cp_fm_struct_type), POINTER                   :: fm_struct_mo, mo_mo_fmstruct
-      TYPE(cp_fm_type), POINTER                          :: inverse_mat, mo_overlap_wfn, mo_tmp, mo_overlap, &
-                                                            Tinverse, tmp2
+      TYPE(cp_fm_type), POINTER                          :: inverse_mat, mo_overlap, mo_overlap_wfn, &
+                                                            mo_tmp, Tinverse, tmp2
       TYPE(cp_logger_type), POINTER                      :: logger
       TYPE(cp_subsys_type), POINTER                      :: subsys_mix
       TYPE(dbcsr_p_type), DIMENSION(:, :), POINTER       :: density_matrix, w_matrix
@@ -1090,8 +1082,8 @@ CONTAINS
             DO istate = 1, 2
                NULLIFY (w_matrix_mo(istate, ivar)%matrix)
                CALL cp_fm_create(matrix=w_matrix_mo(istate, ivar)%matrix, matrix_struct=mo_mo_fmstruct, &
-                                 name="W_"//TRIM(ADJUSTL(cp_to_string(istate)))//"_"//&
-                                       TRIM(ADJUSTL(cp_to_string(ivar)))//"_MATRIX")
+                                 name="W_"//TRIM(ADJUSTL(cp_to_string(istate)))//"_"// &
+                                 TRIM(ADJUSTL(cp_to_string(ivar)))//"_MATRIX")
             END DO
          END DO
          CALL cp_fm_struct_release(mo_mo_fmstruct)
@@ -1171,10 +1163,10 @@ CONTAINS
          END DO
       ELSE
          Sda = S_det(1)**2
-         Wda(1) = (a(1,1)+b(1,1))*Sda
+         Wda(1) = (a(1, 1)+b(1, 1))*Sda
       END IF
       ! Transfer info about the constraint calculations
-      ALLOCATE(Waa(nvar), Wbb(nvar), strength_a(nvar), strength_b(nvar))
+      ALLOCATE (Waa(nvar), Wbb(nvar), strength_a(nvar), strength_b(nvar))
       Waa(:) = 0.0_dp
       Wbb(:) = 0.0_dp
       strength_a(:) = mixed_env%strength(1, :)
@@ -1343,7 +1335,7 @@ CONTAINS
             CALL dbcsr_release_p(w_matrix(istate, ivar)%matrix)
          END DO
       END DO
-      DEALLOCATE(w_matrix)
+      DEALLOCATE (w_matrix)
       CALL dbcsr_release_p(mixed_matrix_s)
       DEALLOCATE (mixed_mo_coeff, w_matrix_mo)
       ! construct S and W
@@ -1365,18 +1357,18 @@ CONTAINS
          old_W_mat(1, 2) = SUM(Wda)
          old_W_mat(2, 1) = SUM(Wda)
          DO ivar = 1, nvar
-            W_mat(1, 2) = W_mat(1, 2) + strength_a(ivar)*Wda(ivar)
-            W_mat(2, 1) = W_mat(2, 1) + strength_b(ivar)*Wda(ivar)
+            W_mat(1, 2) = W_mat(1, 2)+strength_a(ivar)*Wda(ivar)
+            W_mat(2, 1) = W_mat(2, 1)+strength_b(ivar)*Wda(ivar)
             IF (i == 1) THEN
-               W_mat(1, 1) = W_mat(1, 1) + strength_a(ivar)*Waa(ivar)
-               W_mat(2, 2) = W_mat(2, 2) + strength_b(ivar)*Wbb(ivar)
+               W_mat(1, 1) = W_mat(1, 1)+strength_a(ivar)*Waa(ivar)
+               W_mat(2, 2) = W_mat(2, 2)+strength_b(ivar)*Wbb(ivar)
             END IF
          END DO
-         W_mat(1, 2) = (W_mat(1, 2) + W_mat(2, 1))/2.0_dp
+         W_mat(1, 2) = (W_mat(1, 2)+W_mat(2, 1))/2.0_dp
          W_mat(2, 1) = W_mat(1, 2)
-         IF (i==2) W_mat = old_W_mat
+         IF (i == 2) W_mat = old_W_mat
          IF (force_env%para_env%mepos == force_env%para_env%source) THEN
-            print *, 'W_mat', ivar, W_mat(1, 1), W_mat(1, 2), W_mat(2, 1), W_mat(2, 2)
+            PRINT*, 'W_mat', ivar, W_mat(1, 1), W_mat(1, 2), W_mat(2, 1), W_mat(2, 2)
          END IF
          !! Invert S via eigendecomposition and compute S^-(1/2)
          CALL diamat_all(S_mat, eigenv, .TRUE.)
@@ -1399,10 +1391,10 @@ CONTAINS
          sum_a = 0.0_dp
          sum_b = 0.0_dp
          DO ivar = 1, nvar
-            sum_b(1) = sum_b(1) + strength_b(ivar)*Wbb(ivar)         
-            sum_b(2) = sum_b(2) + strength_b(ivar)*Wda(ivar)             
-            sum_a(1) = sum_a(1) + strength_a(ivar)*Waa(ivar)
-            sum_a(2) = sum_a(2) + strength_a(ivar)*Wda(ivar)             
+            sum_b(1) = sum_b(1)+strength_b(ivar)*Wbb(ivar)
+            sum_b(2) = sum_b(2)+strength_b(ivar)*Wda(ivar)
+            sum_a(1) = sum_a(1)+strength_a(ivar)*Waa(ivar)
+            sum_a(2) = sum_a(2)+strength_a(ivar)*Wda(ivar)
          END DO
          c(1) = (energy_b+sum_b(1))*Sda-sum_b(2) ! H_AB = F_B*S_AB - V_B * W_AB
          c(2) = (energy_a+sum_a(1))*Sda-sum_a(2) ! H_BA = F_A*S_BA - V_A * W_BA
@@ -1410,7 +1402,7 @@ CONTAINS
          W_mat(2, 1) = W_mat(1, 2)
          S_mat = MATMUL(W_mat, (tmp_mat)) ! H'' * V
          W_mat = MATMUL(TRANSPOSE(tmp_mat), S_mat) ! H = V^T * H'' * V
-         result(i) = W_mat(1, 2)
+         RESULT(i) = W_mat(1, 2)
       END DO
       IF (iounit > 0) THEN
          WRITE (iounit, '(/,T3,A,T66)') &
@@ -1429,16 +1421,16 @@ CONTAINS
          WRITE (iounit, '(T3,A,T60,(3X,F18.12))') 'Overlap between states A and B      :', Sda
          WRITE (iounit, '(T3,A,T60,(3X,F18.12))') 'Charge transfer energy (B-A) (Ha)   :', (energy_b-energy_a)
          WRITE (iounit, *)
-         IF (ABS(result(1))*1.0E3_dp .GE. 0.1_dp) THEN
+         IF (ABS(RESULT(1))*1.0E3_dp .GE. 0.1_dp) THEN
             WRITE (iounit, '(T3,A,T60,(3X,F18.12))') &
-               'Diabatic electronic coupling (mHartree):', ABS(result(1)*1.0E3_dp)
+               'Diabatic electronic coupling (mHartree):', ABS(RESULT(1)*1.0E3_dp)
             WRITE (iounit, '(T3,A,T60,(3X,F18.12))') &
-               'Diabatic coupling old def (mHartree):', ABS(result(2)*1.0E3_dp)               
+               'Diabatic coupling old def (mHartree):', ABS(RESULT(2)*1.0E3_dp)
          ELSE
             WRITE (iounit, '(T3,A,T60,(3X,F18.12))') &
-               'Diabatic electronic coupling (microHartree):', ABS(result(1)*1.0E6_dp)
+               'Diabatic electronic coupling (microHartree):', ABS(RESULT(1)*1.0E6_dp)
             WRITE (iounit, '(T3,A,T60,(3X,F18.12))') &
-               'Diabatic coupling old def (microHartree):', ABS(result(2)*1.0E6_dp)                   
+               'Diabatic coupling old def (microHartree):', ABS(RESULT(2)*1.0E6_dp)
          END IF
          IF (mixed_cdft%calculate_metric) THEN
             WRITE (iounit, *)

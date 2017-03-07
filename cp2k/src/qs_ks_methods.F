@@ -65,11 +65,7 @@ MODULE qs_ks_methods
    USE hartree_local_methods,           ONLY: Vh_1c_gg_integrals
    USE hfx_admm_utils,                  ONLY: hfx_admm_init,&
                                               hfx_ks_matrix
-   USE input_constants,                 ONLY: cdft_combined_acceptor,&
-                                              cdft_combined_all,&
-                                              cdft_combined_constraint,&
-                                              cdft_combined_donor,&
-                                              do_ppl_grid,&
+   USE input_constants,                 ONLY: do_ppl_grid,&
                                               outer_scf_hirshfeld_constraint
    USE input_section_types,             ONLY: section_vals_get,&
                                               section_vals_get_subs_vals,&
@@ -110,6 +106,8 @@ MODULE qs_ks_methods
    USE qmmm_image_charge,               ONLY: add_image_pot_to_hartree_pot,&
                                               calculate_image_pot,&
                                               integrate_potential_devga_rspace
+   USE qs_cdft_types,                   ONLY: becke_constraint_type,&
+                                              cdft_control_type
    USE qs_charges_types,                ONLY: qs_charges_type
    USE qs_core_energies,                ONLY: calculate_ptrace
    USE qs_dftb_matrices,                ONLY: build_dftb_ks_matrix
@@ -127,8 +125,6 @@ MODULE qs_ks_methods
                                               qs_ks_cdft_constraint,&
                                               qs_ks_mulliken_restraint,&
                                               qs_ks_s2_restraint
-   USE qs_cdft_types,                   ONLY: becke_constraint_type,&
-                                              cdft_control_type
    USE qs_ks_atom,                      ONLY: update_ks_atom
    USE qs_ks_qmmm_methods,              ONLY: qmmm_calculate_energy,&
                                               qmmm_modify_hartree_pot
@@ -231,7 +227,7 @@ CONTAINS
                                                             mulliken_order_p
       REAL(KIND=dp), DIMENSION(3, 3)                     :: h_stress
       TYPE(admm_type), POINTER                           :: admm_env
-      TYPE(becke_constraint_type), POINTER                :: becke
+      TYPE(becke_constraint_type), POINTER               :: becke
       TYPE(cdft_control_type), POINTER                   :: cdft_control
       TYPE(cell_type), POINTER                           :: cell
       TYPE(cp_logger_type), POINTER                      :: logger

@@ -47,10 +47,8 @@ MODULE qs_ks_utils
         dbcsr_deallocate_matrix_set, dbcsr_get_info, dbcsr_init_p, dbcsr_multiply, dbcsr_p_type, &
         dbcsr_release_p, dbcsr_scale, dbcsr_scale_by_vector, dbcsr_set, dbcsr_trace, dbcsr_type
    USE input_constants,                 ONLY: &
-        cdft_combined_acceptor, cdft_combined_all, cdft_combined_donor, &
-        cdft_magnetization_constraint, do_ppl_grid, outer_scf_hirshfeld_constraint, sic_ad, &
-        sic_eo, sic_list_all, sic_list_unpaired, sic_mauri_spz, sic_mauri_us, sic_none, cdft_atomic_magnetization_constraint, &
-        cdft_density_constraint, cdft_combined_constraint
+        do_ppl_grid, outer_scf_hirshfeld_constraint, sic_ad, sic_eo, sic_list_all, &
+        sic_list_unpaired, sic_mauri_spz, sic_mauri_us, sic_none
    USE input_section_types,             ONLY: section_vals_get_subs_vals,&
                                               section_vals_type,&
                                               section_vals_val_get
@@ -81,6 +79,8 @@ MODULE qs_ks_utils
                                               REALSPACE,&
                                               RECIPROCALSPACE,&
                                               pw_p_type
+   USE qs_cdft_types,                   ONLY: becke_constraint_type,&
+                                              cdft_control_type
    USE qs_charges_types,                ONLY: qs_charges_type
    USE qs_collocate_density,            ONLY: calculate_rho_elec
    USE qs_energy_types,                 ONLY: qs_energy_type
@@ -91,8 +91,6 @@ MODULE qs_ks_utils
    USE qs_kind_types,                   ONLY: get_qs_kind_set,&
                                               qs_kind_type
    USE qs_ks_qmmm_methods,              ONLY: qmmm_modify_hartree_pot
-   USE qs_cdft_types,                   ONLY: becke_constraint_type,&
-                                              cdft_control_type
    USE qs_ks_types,                     ONLY: qs_ks_env_type
    USE qs_mo_types,                     ONLY: get_mo_set,&
                                               mo_set_p_type
@@ -1187,14 +1185,14 @@ CONTAINS
                                                             v_tau_rspace, v_tau_rspace_aux_fit
       TYPE(pw_p_type)                                    :: v_efield_rspace, v_sic_rspace, &
                                                             v_spin_ddapc_rest_r, v_sccs_rspace
-      TYPE(becke_constraint_type), POINTER                :: becke
+      TYPE(becke_constraint_type), POINTER               :: becke
       TYPE(cdft_control_type), POINTER                   :: cdft_control
       LOGICAL, INTENT(in)                                :: calculate_forces
 
       CHARACTER(LEN=*), PARAMETER :: routineN = 'sum_up_and_integrate', &
          routineP = moduleN//':'//routineN
 
-      INTEGER                                            :: handle, ispin, ivar, igroup, nspins, nvar
+      INTEGER                                            :: handle, igroup, ispin, nspins
       LOGICAL                                            :: do_ppl, gapw, gapw_xc
       REAL(dp)                                           :: dvol, sign
       TYPE(dbcsr_p_type), DIMENSION(:), POINTER          :: ksmat, matrix_ks_aux_fit, &
