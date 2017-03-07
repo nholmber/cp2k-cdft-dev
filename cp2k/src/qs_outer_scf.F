@@ -10,9 +10,7 @@
 !> \author Joost VandeVondele
 ! **************************************************************************************************
 MODULE qs_outer_scf
-   USE cp_control_types,                ONLY: becke_constraint_type,&
-                                              cdft_control_type,&
-                                              ddapc_restraint_type,&
+   USE cp_control_types,                ONLY: ddapc_restraint_type,&
                                               dft_control_type,&
                                               s2_restraint_type
    USE cp_log_handling,                 ONLY: cp_to_string
@@ -31,6 +29,8 @@ MODULE qs_outer_scf
    USE qs_basis_gradient,               ONLY: qs_basis_center_gradient,&
                                               qs_update_basis_center_pos,&
                                               return_basis_center_gradient_norm
+   USE qs_cdft_types,                   ONLY: cdft_control_type, &
+                                              becke_constraint_type
    USE qs_energy_types,                 ONLY: qs_energy_type
    USE qs_environment_types,            ONLY: get_qs_env,&
                                               qs_environment_type,&

@@ -5,8 +5,7 @@
 
 MODULE qs_scf_output
    USE atomic_kind_types,               ONLY: atomic_kind_type
-   USE cp_control_types,                ONLY: cdft_control_type,&
-                                              dft_control_type
+   USE cp_control_types,                ONLY: dft_control_type
    USE cp_dbcsr_output,                 ONLY: cp_dbcsr_write_sparse_matrix
    USE cp_log_handling,                 ONLY: cp_get_default_logger,&
                                               cp_logger_type
@@ -42,6 +41,7 @@ MODULE qs_scf_output
    USE pw_env_types,                    ONLY: pw_env_type
    USE pw_poisson_types,                ONLY: pw_poisson_implicit
    USE qmmm_image_charge,               ONLY: print_image_coefficients
+   USE qs_cdft_types,                   ONLY: cdft_control_type
    USE qs_charges_types,                ONLY: qs_charges_type
    USE qs_energy_types,                 ONLY: qs_energy_type
    USE qs_environment_types,            ONLY: get_qs_env,&

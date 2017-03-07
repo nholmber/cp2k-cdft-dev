@@ -44,8 +44,7 @@
 ! **************************************************************************************************
 MODULE qs_scf
    USE atomic_kind_types,               ONLY: atomic_kind_type
-   USE cp_control_types,                ONLY: cdft_control_type,&
-                                              dft_control_type
+   USE cp_control_types,                ONLY: dft_control_type
    USE cp_dbcsr_operations,             ONLY: copy_dbcsr_to_fm
    USE cp_files,                        ONLY: open_file
    USE cp_fm_types,                     ONLY: cp_fm_create,&
@@ -105,6 +104,7 @@ MODULE qs_scf
                                               pw_pool_type
    USE qs_block_davidson_types,         ONLY: block_davidson_deallocate
    USE qs_charges_types,                ONLY: qs_charges_type
+   USE qs_cdft_types,                   ONLY: cdft_control_type
    USE qs_density_mixing_types,         ONLY: gspace_mixing_nr
    USE qs_diis,                         ONLY: qs_diis_b_clear,&
                                               qs_diis_b_create

@@ -14,9 +14,7 @@ MODULE qs_cdft_utils
                                               get_atomic_kind
    USE cell_types,                      ONLY: cell_type,&
                                               pbc
-   USE cp_control_types,                ONLY: becke_constraint_type,&
-                                              becke_group_type,&
-                                              dft_control_type
+   USE cp_control_types,                ONLY: dft_control_type
    USE cp_log_handling,                 ONLY: cp_get_default_logger,&
                                               cp_logger_type
    USE cp_output_handling,              ONLY: cp_print_key_unit_nr
@@ -39,6 +37,8 @@ MODULE qs_cdft_utils
                                               pw_pool_type
    USE pw_types,                        ONLY: REALDATA3D,&
                                               REALSPACE
+   USE qs_cdft_types,                   ONLY: becke_constraint_type,&
+                                              becke_group_type                                              
    USE qs_collocate_density,            ONLY: collocate_pgf_product_rspace
    USE qs_environment_types,            ONLY: get_qs_env,&
                                               qs_environment_type
