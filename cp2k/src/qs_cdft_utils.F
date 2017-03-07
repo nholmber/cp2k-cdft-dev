@@ -144,13 +144,12 @@ CONTAINS
          is_constraint = .FALSE.
       END IF
       DO i = 1, becke_control%natoms
-         catom(i) = becke_control%atoms(i)
          ! note previously the check is_constraint(i) was NOT performed
          IF ((becke_control%dynamic_confine .OR. &
              becke_control%save_pot .OR. &
              becke_control%cavity_confine .OR. &
              becke_control%should_skip)) &
-            is_constraint(catom(i)) = .TRUE.
+            is_constraint(becke_control%atoms(i)) = .TRUE.
       END DO
       ! Setup atomic radii for adjusting cell boundaries
       IF (becke_control%adjust) THEN
