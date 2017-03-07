@@ -53,7 +53,9 @@ MODULE qs_cdft_methods
                                               pw_release
    USE qs_cdft_types,                   ONLY: becke_constraint_type,&
                                               becke_group_type, &
-                                              cdft_control_type                                           
+                                              cdft_control_type
+   USE qs_cdft_utils,                   ONLY: becke_constraint_init, &
+                                              hfun_scale                                    
    USE qs_collocate_density,            ONLY: collocate_pgf_product_rspace
    USE qs_energy_types,                 ONLY: qs_energy_type
    USE qs_environment_types,            ONLY: get_qs_env,&
@@ -389,7 +391,7 @@ CONTAINS
                            IF (jatom < iatom) THEN
                               IF (.NOT. skip_me(jatom)) CYCLE
                            END IF
-                           IF (store_vectors) THEN
+                           IF (becke_control%vector_buffer%store_vectors) THEN
                               IF (becke_control%vector_buffer%distances(jatom) .EQ. 0.0_dp) THEN
                                  r1 = becke_control%vector_buffer%position_vecs(:, jatom)
                                  dist_vec = (r1-grid_p)-ANINT((r1-grid_p)/cell_v)*cell_v
@@ -409,7 +411,7 @@ CONTAINS
                               dist2 = SQRT(DOT_PRODUCT(dist_vec, dist_vec))
                            END IF
                            IF (in_memory) THEN
-                              IF (store_vectors) THEN
+                              IF (becke_control%vector_buffer%store_vectors) THEN
                                  dr1_r2 = becke_control%vector_buffer%pair_dist_vecs(:, iatom, jatom)
                               ELSE
                                  dr1_r2 = (r-r1)-ANINT((r-r1)/cell_v)*cell_v
