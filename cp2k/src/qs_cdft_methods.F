@@ -87,6 +87,8 @@ MODULE qs_cdft_methods
 
    PUBLIC :: becke_constraint, hirshfeld_constraint
 
+CONTAINS
+
 ! **************************************************************************************************
 !> \brief Driver routine for calculating a Becke constraint
 !> \param qs_env the qs_env where to build the constraint

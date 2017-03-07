@@ -64,6 +64,8 @@ MODULE qs_cdft_utils
 ! *** Public subroutines ***
    PUBLIC :: becke_constraint_init, hfun_scale
 
+CONTAINS
+
 ! **************************************************************************************************
 !> \brief Initializes the Becke constraint environment
 !> \param qs_env the qs_env where to build the constraint
