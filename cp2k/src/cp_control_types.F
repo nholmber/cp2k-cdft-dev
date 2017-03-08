@@ -18,8 +18,8 @@ MODULE cp_control_types
                                               becke_control_create,&
                                               becke_control_release,&
                                               cdft_control_create,&
-                                              cdft_control_type, &
-                                              cdft_control_release
+                                              cdft_control_release,&
+                                              cdft_control_type
    USE xas_control,                     ONLY: xas_control_release,&
                                               xas_control_type
 #include "./base/base_uses.f90"

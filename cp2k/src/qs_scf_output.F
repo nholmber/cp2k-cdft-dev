@@ -17,14 +17,13 @@ MODULE qs_scf_output
    USE cp_units,                        ONLY: cp_unit_from_cp2k
    USE dbcsr_api,                       ONLY: dbcsr_p_type
    USE input_constants,                 ONLY: &
-        becke_cavity_conf, becke_cutoff_element, becke_cutoff_global, becke_dynamic_conf, &
-        becke_mixed_conf, becke_none_conf, becke_static_conf, broyden_type_1, &
-        broyden_type_1_explicit, broyden_type_1_explicit_ls, broyden_type_1_ls, broyden_type_2, &
-        broyden_type_2_explicit, broyden_type_2_explicit_ls, broyden_type_2_ls, &
-        outer_scf_becke_constraint, outer_scf_hirshfeld_constraint, outer_scf_optimizer_bisect, &
-        outer_scf_optimizer_broyden, outer_scf_optimizer_diis, outer_scf_optimizer_newton, &
-        outer_scf_optimizer_newton_ls, outer_scf_optimizer_sd, outer_scf_optimizer_secant, &
-        radius_covalent, radius_single, radius_user, radius_vdw
+        becke_cutoff_element, becke_cutoff_global, broyden_type_1, broyden_type_1_explicit, &
+        broyden_type_1_explicit_ls, broyden_type_1_ls, broyden_type_2, broyden_type_2_explicit, &
+        broyden_type_2_explicit_ls, broyden_type_2_ls, outer_scf_becke_constraint, &
+        outer_scf_hirshfeld_constraint, outer_scf_optimizer_bisect, outer_scf_optimizer_broyden, &
+        outer_scf_optimizer_diis, outer_scf_optimizer_newton, outer_scf_optimizer_newton_ls, &
+        outer_scf_optimizer_sd, outer_scf_optimizer_secant, radius_covalent, radius_single, &
+        radius_user, radius_vdw
    USE input_section_types,             ONLY: section_vals_get_subs_vals,&
                                               section_vals_type,&
                                               section_vals_val_get
@@ -834,22 +833,10 @@ CONTAINS
                WRITE (output_unit, '(A)') &
                "  Using atomic radii to generate a heteronuclear charge partitioning"
             WRITE (output_unit, '(A)') "  "
-            SELECT CASE (dft_control%qs_control%becke_control%confine_method)
-            CASE (becke_none_conf)
+            IF (.NOT. dft_control%qs_control%becke_control%cavity_confine) THEN
                WRITE (output_unit, '(A)') &
                   "  No confinement is active"
-            CASE (becke_static_conf)
-               WRITE (output_unit, '(A,A3,A)') &
-                  "  Static confinement is active along ", &
-                  dir(dft_control%qs_control%becke_control%confine_dir), " axis"
-               WRITE (output_unit, '(A,F8.4,F8.4)') &
-                  "  Confinement bounds      : ", dft_control%qs_control%becke_control%confine_bounds(1), &
-                  dft_control%qs_control%becke_control%confine_bounds(2)
-            CASE (becke_dynamic_conf)
-               WRITE (output_unit, '(A,A3,A,F8.4)') &
-                  "  Dynamic confinement is active along ", dir(dft_control%qs_control%becke_control%confine_dir), &
-                  " axis using a radius of ", dft_control%qs_control%becke_control%dynamic_radius
-            CASE (becke_cavity_conf)
+            ELSE
                WRITE (output_unit, '(A)') "  Confinement using a Gaussian shaped cavity is active"
                SELECT CASE (dft_control%qs_control%becke_control%cavity_shape)
                CASE (radius_single)
@@ -868,31 +855,7 @@ CONTAINS
                END SELECT
                WRITE (output_unit, '(A,ES12.4)') &
                   "  Cavity threshold        : ", dft_control%qs_control%becke_control%eps_cavity
-            CASE (becke_mixed_conf)
-               WRITE (output_unit, '(A)') &
-                  "  Mixed confinement is active"
-               WRITE (output_unit, '(A,A3,A,F8.4)') &
-                  "  Dynamic confinement is active along ", dir(dft_control%qs_control%becke_control%confine_dir), &
-                  " axis using a radius of ", dft_control%qs_control%becke_control%dynamic_radius
-               WRITE (output_unit, '(A)') "  Confinement using a Gaussian shaped cavity is active"
-               SELECT CASE (dft_control%qs_control%becke_control%cavity_shape)
-               CASE (radius_single)
-                  WRITE (output_unit, '(A,F8.4,A)') &
-                     "  Type of Gaussian        : Fixed radius: ", &
-                     cp_unit_from_cp2k(dft_control%qs_control%becke_control%rcavity, "angstrom"), " angstrom"
-               CASE (radius_covalent)
-                  WRITE (output_unit, '(A)') &
-                     "  Type of Gaussian        : Covalent radius "
-               CASE (radius_vdw)
-                  WRITE (output_unit, '(A)') &
-                     "  Type of Gaussian        : vdW radius "
-               CASE (radius_user)
-                  WRITE (output_unit, '(A)') &
-                     "  Type of Gaussian        : User radius "
-               END SELECT
-               WRITE (output_unit, '(A,ES12.4)') &
-                  "  Cavity threshold        : ", dft_control%qs_control%becke_control%eps_cavity
-            END SELECT
+            END IF
          END SELECT
          WRITE (output_unit, '(/,A)') &
             "  ---------------------------------- CDFT --------------------------------------"

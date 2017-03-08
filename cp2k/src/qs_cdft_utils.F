@@ -38,7 +38,7 @@ MODULE qs_cdft_utils
    USE pw_types,                        ONLY: REALDATA3D,&
                                               REALSPACE
    USE qs_cdft_types,                   ONLY: becke_constraint_type,&
-                                              becke_group_type                                              
+                                              becke_group_type
    USE qs_collocate_density,            ONLY: collocate_pgf_product_rspace
    USE qs_environment_types,            ONLY: get_qs_env,&
                                               qs_environment_type
@@ -81,15 +81,14 @@ CONTAINS
 
       CHARACTER(len=2)                                   :: element_symbol
       INTEGER :: atom_a, bounds(2), dir, handle, i, iatom, iex, igroup, ikind, ip, ithread, iw, j, &
-         jatom, katom, lb_index, natom, nkind, npme, nthread, numexp, ub_index, unit_nr
-      INTEGER, DIMENSION(:), POINTER                     :: atom_list, cores, stride
+         jatom, katom, natom, nkind, npme, nthread, numexp, unit_nr
       INTEGER, DIMENSION(2, 3)                           :: bo
-      LOGICAL                                            :: build, in_memory, store_vectors
+      INTEGER, DIMENSION(:), POINTER                     :: atom_list, cores, stride
+      LOGICAL                                            :: build, in_memory
       LOGICAL, ALLOCATABLE, DIMENSION(:)                 :: is_constraint
       REAL(KIND=dp)                                      :: alpha, chi, coef, dynamic_radius, &
-                                                            eps_cavity, ircov, jrcov, lb, &
-                                                            tmp_const, ub, uij
-      REAL(KIND=dp), DIMENSION(3)                        :: cell_v, dist_vec, dr, r, r1, ra, shift
+                                                            eps_cavity, ircov, jrcov, lb, ub, uij
+      REAL(KIND=dp), DIMENSION(3)                        :: cell_v, dist_vec, r, r1, ra
       REAL(KIND=dp), DIMENSION(:), POINTER               :: radii_list
       REAL(KIND=dp), DIMENSION(:, :), POINTER            :: pab
       TYPE(atomic_kind_type), DIMENSION(:), POINTER      :: atomic_kind_set
@@ -140,7 +139,7 @@ CONTAINS
       END IF
       IF (becke_control%save_pot .OR. &
           becke_control%cavity_confine .OR. &
-          becke_control%should_skip)  THEN
+          becke_control%should_skip) THEN
          ALLOCATE (is_constraint(natom))
          is_constraint = .FALSE.
       END IF
@@ -320,7 +319,7 @@ CONTAINS
          ! Setup the Gaussian shape function
          IF (.NOT. ASSOCIATED(cavity_env%kind_shape_fn)) THEN
             IF (ASSOCIATED(becke_control%radii)) THEN
-               ALLOCATE(radii_list(SIZE(becke_control%radii)))
+               ALLOCATE (radii_list(SIZE(becke_control%radii)))
                DO ikind = 1, SIZE(becke_control%radii)
                   IF (cavity_env%use_bohr) THEN
                      radii_list(ikind) = becke_control%radii(ikind)
@@ -333,7 +332,7 @@ CONTAINS
                                        radius=becke_control%rcavity, &
                                        radii_list=radii_list)
             IF (ASSOCIATED(radii_list)) &
-               DEALLOCATE(radii_list)
+               DEALLOCATE (radii_list)
          END IF
          ! Form cavity by summing isolated Gaussian densities over constraint atoms
          NULLIFY (rs_cavity)
@@ -392,7 +391,7 @@ CONTAINS
          CALL rs_pw_transfer(rs_cavity, becke_control%cavity%pw, rs2pw)
          CALL rs_grid_release(rs_cavity)
          ! Grid points where the Gaussian density falls below eps_cavity are ignored
-         ! We can calculate the smallest/largest values along z-direction outside 
+         ! We can calculate the smallest/largest values along z-direction outside
          ! which the cavity is zero at every point (x, y)
          ! If gradients are needed storage needs to be allocated only for grid points within
          ! these bounds
@@ -403,12 +402,12 @@ CONTAINS
             IF (bounds(2) .LT. bo(2, 3)) THEN
                bounds(2) = bounds(2)-1
             ELSE
-               bounds(2) = bo(2,3)
+               bounds(2) = bo(2, 3)
             END IF
             IF (bounds(1) .GT. bo(1, 3)) THEN
                bounds(1) = bounds(1)+1
             ELSE
-               bounds(2) = bo(1,3)
+               bounds(2) = bo(1, 3)
             END IF
             becke_control%confine_bounds = bounds
          END IF
@@ -504,7 +503,8 @@ CONTAINS
 
       CHARACTER(len=*), PARAMETER :: routineN = 'hfun_zero', routineP = moduleN//':'//routineN
 
-      INTEGER                                            :: i1, i2, i3, lb, n1, n2, n3, nzeroed, nzeroed_inner, ub
+      INTEGER                                            :: i1, i2, i3, lb, n1, n2, n3, nzeroed, &
+                                                            nzeroed_inner, ub
       LOGICAL                                            :: lb_final, ub_final
 
       n1 = SIZE(fun, 1)
@@ -524,7 +524,7 @@ CONTAINS
             DO i1 = 1, n1
                IF (fun(i1, i2, i3) < th) THEN
                   IF (just_bounds) THEN
-                     nzeroed_inner = nzeroed_inner +1
+                     nzeroed_inner = nzeroed_inner+1
                   ELSE
                      fun(i1, i2, i3) = 0.0_dp
                   END IF
@@ -534,7 +534,7 @@ CONTAINS
             END DO
             IF (just_bounds) THEN
                IF (nzeroed_inner < n1) EXIT
-               nzeroed = nzeroed + nzeroed_inner
+               nzeroed = nzeroed+nzeroed_inner
             END IF
          END DO
          IF (just_bounds) THEN

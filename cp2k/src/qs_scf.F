@@ -103,8 +103,8 @@ MODULE qs_scf
    USE pw_pool_types,                   ONLY: pw_pool_give_back_pw,&
                                               pw_pool_type
    USE qs_block_davidson_types,         ONLY: block_davidson_deallocate
-   USE qs_charges_types,                ONLY: qs_charges_type
    USE qs_cdft_types,                   ONLY: cdft_control_type
+   USE qs_charges_types,                ONLY: qs_charges_type
    USE qs_density_mixing_types,         ONLY: gspace_mixing_nr
    USE qs_diis,                         ONLY: qs_diis_b_clear,&
                                               qs_diis_b_create

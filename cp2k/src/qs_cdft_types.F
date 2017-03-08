@@ -15,7 +15,6 @@ MODULE qs_cdft_types
    USE hirshfeld_types,                 ONLY: hirshfeld_type,&
                                               release_hirshfeld_type
    USE input_constants,                 ONLY: becke_cutoff_global,&
-                                              becke_none_conf,&
                                               cdft_density_constraint,&
                                               outer_scf_none,&
                                               radius_single

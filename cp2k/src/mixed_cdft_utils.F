@@ -57,12 +57,7 @@ MODULE mixed_cdft_utils
    USE hirshfeld_types,                 ONLY: create_hirshfeld_type,&
                                               release_hirshfeld_type,&
                                               set_hirshfeld_info
-   USE input_constants,                 ONLY: becke_cavity_conf,&
-                                              becke_cutoff_element,&
-                                              becke_dynamic_conf,&
-                                              becke_mixed_conf,&
-                                              becke_none_conf,&
-                                              becke_static_conf,&
+   USE input_constants,                 ONLY: becke_cutoff_element,&
                                               shape_function_gaussian
    USE input_section_types,             ONLY: section_vals_duplicate,&
                                               section_vals_get_subs_vals,&

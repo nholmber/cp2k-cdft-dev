@@ -28,8 +28,7 @@ MODULE cp_control_utils
    USE hirshfeld_types,                 ONLY: create_hirshfeld_type,&
                                               set_hirshfeld_info
    USE input_constants,                 ONLY: &
-        becke_cavity_conf, becke_cutoff_element, becke_cutoff_global, becke_dynamic_conf, &
-        becke_mixed_conf, becke_none_conf, becke_static_conf, constant_env, custom_env, &
+        becke_cutoff_element, becke_cutoff_global, constant_env, custom_env, &
         do_admm_basis_projection, do_admm_blocked_projection, do_admm_blocking_purify_full, &
         do_admm_charge_constrained_projection, do_admm_exch_scaling_merlot, &
         do_admm_purify_mcweeny, do_admm_purify_mo_diag, do_admm_purify_mo_no_diag, &
@@ -45,7 +44,7 @@ MODULE cp_control_utils
         sccs_andreussi, sccs_derivative_cd3, sccs_derivative_cd5, sccs_derivative_cd7, &
         sccs_derivative_fft, sccs_fattebert_gygi, shape_function_gaussian, sic_ad, sic_eo, &
         sic_list_all, sic_list_unpaired, sic_mauri_spz, sic_mauri_us, sic_none, slater, &
-        tddfpt_excitations, use_mom_ref_user, xas_dip_len, radius_user
+        tddfpt_excitations, use_mom_ref_user, xas_dip_len
    USE input_cp2k_dft,                  ONLY: create_dft_section,&
                                               create_qs_section
    USE input_enumeration_types,         ONLY: enum_i2c,&
@@ -1938,10 +1937,10 @@ CONTAINS
       IF (qs_control%becke_control%cavity_confine) THEN
          CALL section_vals_val_get(becke_section, "CAVITY_SHAPE", &
                                    i_val=qs_control%becke_control%cavity_shape)
-         IF (qs_control%becke_control%cavity_shape == radius_user .AND.  &
+         IF (qs_control%becke_control%cavity_shape == radius_user .AND. &
              .NOT. qs_control%becke_control%adjust) &
             CALL cp_abort(__LOCATION__, &
-                         "Activate keyword ADJUST_SIZE to use cavity shape USER.")
+                          "Activate keyword ADJUST_SIZE to use cavity shape USER.")
          CALL section_vals_val_get(becke_section, "CAVITY_RADIUS", &
                                    r_val=qs_control%becke_control%rcavity)
          CALL section_vals_val_get(becke_section, "EPS_CAVITY", &

@@ -394,7 +394,7 @@ CONTAINS
          routineP = moduleN//':'//routineN
 
       INTEGER :: handle, handle2, i, iforce_eval, ind, INDEX(6), iounit, j, lb_min, &
-         my_special_work, natom, nforce_eval, recv_offset, req(3), ub_max
+         my_special_work, natom, nforce_eval, recv_offset, ub_max
       INTEGER, DIMENSION(2, 3)                           :: bo
       INTEGER, DIMENSION(:), POINTER                     :: lb, req_total, sendbuffer_i, ub
       REAL(KIND=dp)                                      :: t1, t2
@@ -486,7 +486,7 @@ CONTAINS
       IF (mixed_cdft%becke_control%cavity_confine) THEN
          ! Gaussian confinement => the bounds depend on the processor and need to be communicated
          ALLOCATE (sendbuffer_i(2))
-         sendbuffer_i =  mixed_cdft%becke_control%confine_bounds
+         sendbuffer_i = mixed_cdft%becke_control%confine_bounds
          DO i = 1, SIZE(mixed_cdft%source_list)
             ALLOCATE (recvbuffer(i)%iv(2))
             CALL mp_irecv(msgout=recvbuffer(i)%iv, source=mixed_cdft%source_list(i), &
@@ -1497,16 +1497,16 @@ CONTAINS
          routineP = moduleN//':'//routineN
 
       CHARACTER(len=2)                                   :: element_symbol
-      INTEGER :: atom_a, bounds(2), dir, handle, i, iatom, iex, iforce_eval, ikind, iounit, &
-         ithread, j, jatom, katom, lb_index, my_work, my_work_size, natom, nforce_eval, nkind, &
-         np(3), npme, nthread, numexp, offset_dlb, tmp_index(2), ub_index, unit_nr
+      INTEGER :: atom_a, bounds(2), handle, i, iatom, iex, iforce_eval, ikind, iounit, ithread, j, &
+         jatom, katom, my_work, my_work_size, natom, nforce_eval, nkind, np(3), npme, nthread, &
+         numexp, offset_dlb, unit_nr
       INTEGER, DIMENSION(2, 3)                           :: bo, bo_conf
       INTEGER, DIMENSION(:), POINTER                     :: atom_list, cores, stride
       LOGICAL                                            :: build
-      REAL(kind=dp)                                      :: alpha, chi, coef, dynamic_radius, ircov, &
-                                                            jrcov, lb, ra(3), tmp_const, ub, uij
+      REAL(kind=dp)                                      :: alpha, chi, coef, ircov, jrcov, ra(3), &
+                                                            uij
       REAL(kind=dp), DIMENSION(3)                        :: cell_v, dist_vec, dr, r, r1, shift
-      REAL(KIND=dp), DIMENSION(:), POINTER            :: radii_list
+      REAL(KIND=dp), DIMENSION(:), POINTER               :: radii_list
       REAL(KIND=dp), DIMENSION(:, :), POINTER            :: pab
       TYPE(atomic_kind_type), DIMENSION(:), POINTER      :: atomic_kind_set
       TYPE(cell_type), POINTER                           :: cell
@@ -1715,7 +1715,7 @@ CONTAINS
          nkind = SIZE(qs_kind_set)
          IF (.NOT. ASSOCIATED(cavity_env%kind_shape_fn)) THEN
             IF (ASSOCIATED(mixed_cdft%becke_control%radii)) THEN
-               ALLOCATE(radii_list(SIZE(mixed_cdft%becke_control%radii)))
+               ALLOCATE (radii_list(SIZE(mixed_cdft%becke_control%radii)))
                DO ikind = 1, SIZE(mixed_cdft%becke_control%radii)
                   IF (cavity_env%use_bohr) THEN
                      radii_list(ikind) = mixed_cdft%becke_control%radii(ikind)
@@ -1728,7 +1728,7 @@ CONTAINS
                                        radius=mixed_cdft%becke_control%rcavity, &
                                        radii_list=radii_list)
             IF (ASSOCIATED(radii_list)) &
-               DEALLOCATE(radii_list)
+               DEALLOCATE (radii_list)
          END IF
          NULLIFY (rs_cavity)
          CALL pw_env_get(pw_env=mixed_cdft%pw_env, auxbas_rs_grid=rs_cavity, &
@@ -1793,12 +1793,12 @@ CONTAINS
             IF (bounds(2) .LT. bo(2, 3)) THEN
                bounds(2) = bounds(2)-1
             ELSE
-               bounds(2) = bo(2,3)
+               bounds(2) = bo(2, 3)
             END IF
             IF (bounds(1) .GT. bo(1, 3)) THEN
                bounds(1) = bounds(1)+1
             ELSE
-               bounds(2) = bo(1,3)
+               bounds(2) = bo(1, 3)
             END IF
             IF (mixed_cdft%is_pencil .OR. mixed_cdft%is_special) THEN
                my_work_size = (bounds(2)-bounds(1)+1)*(bo(2, 2)-bo(1, 2)+1)
@@ -1829,7 +1829,7 @@ CONTAINS
       END IF
       bo_conf = bo
       IF (mixed_cdft%becke_control%cavity_confine) &
-         bo_conf(:, 3) = mixed_cdft%becke_control%confine_bounds 
+         bo_conf(:, 3) = mixed_cdft%becke_control%confine_bounds
       ! Load balance
       IF (mixed_cdft%dlb) &
          CALL mixed_becke_constraint_dlb(force_env, mixed_cdft, my_work, &
@@ -2699,9 +2699,9 @@ CONTAINS
       CHARACTER(len=*), PARAMETER :: routineN = 'mixed_becke_constraint_low', &
          routineP = moduleN//':'//routineN
 
-      INTEGER :: dir, handle, i, iatom, icomm, iforce_eval, ind(3), index, iounit, ip, ispecial, &
-         iwork, j, jatom, jcomm, k, lb_index, my_special_work, my_work, natom, nbuffs, &
-         nforce_eval, np(3), nsent_total, nskipped, nwork, offset, offset_repl, ub_index
+      INTEGER :: handle, i, iatom, icomm, iforce_eval, index, iounit, ip, ispecial, iwork, j, &
+         jatom, jcomm, k, my_special_work, my_work, natom, nbuffs, nforce_eval, np(3), &
+         nsent_total, nskipped, nwork, offset, offset_repl
       INTEGER, DIMENSION(:), POINTER                     :: req_recv, work, work_dlb
       INTEGER, DIMENSION(:, :), POINTER                  :: nsent, req_send
       LOGICAL                                            :: completed_recv, should_communicate

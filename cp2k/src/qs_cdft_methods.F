@@ -52,10 +52,10 @@ MODULE qs_cdft_methods
                                               pw_p_type,&
                                               pw_release
    USE qs_cdft_types,                   ONLY: becke_constraint_type,&
-                                              becke_group_type, &
+                                              becke_group_type,&
                                               cdft_control_type
-   USE qs_cdft_utils,                   ONLY: becke_constraint_init, &
-                                              hfun_scale                                    
+   USE qs_cdft_utils,                   ONLY: becke_constraint_init,&
+                                              hfun_scale
    USE qs_collocate_density,            ONLY: collocate_pgf_product_rspace
    USE qs_energy_types,                 ONLY: qs_energy_type
    USE qs_environment_types,            ONLY: get_qs_env,&
@@ -142,10 +142,8 @@ CONTAINS
       CHARACTER(len=*), PARAMETER :: routineN = 'becke_constraint_low', &
          routineP = moduleN//':'//routineN
 
-      INTEGER                                            :: bounds(2), dir, handle, i, iatom, &
-                                                            igroup, ind(3), ip, j, jatom, jp, k, &
-                                                            lb_index, natom, np(3), nskipped, &
-                                                            tmp_index(2), ub_index
+      INTEGER                                            :: handle, i, iatom, igroup, ind(3), ip, j, &
+                                                            jatom, jp, k, natom, np(3), nskipped
       INTEGER, ALLOCATABLE, DIMENSION(:)                 :: catom
       INTEGER, DIMENSION(2, 3)                           :: bo, bo_conf
       LOGICAL                                            :: in_memory, my_just_gradients
@@ -228,7 +226,7 @@ CONTAINS
       ALLOCATE (catom(becke_control%natoms))
       IF (becke_control%save_pot .OR. &
           becke_control%cavity_confine .OR. &
-          becke_control%should_skip)  THEN
+          becke_control%should_skip) THEN
          ALLOCATE (is_constraint(natom))
          is_constraint = .FALSE.
       END IF
@@ -260,8 +258,8 @@ CONTAINS
          ! With confinement active, we dont need to store gradients outside
          ! the confinement bounds since they vanish for all particles
          IF (becke_control%cavity_confine) THEN
-            bo_conf(1,3) = becke_control%confine_bounds(1)
-            bo_conf(2,3) = becke_control%confine_bounds(2)
+            bo_conf(1, 3) = becke_control%confine_bounds(1)
+            bo_conf(2, 3) = becke_control%confine_bounds(2)
             !IF (bounds(2) .LT. bo(2, 3)) bo_conf(2, 3) = bounds(2)-1
             !IF (bounds(1) .GT. bo(1, 3)) bo_conf(1, 3) = bounds(1)+1
          END IF
@@ -593,11 +591,10 @@ CONTAINS
       CHARACTER(len=*), PARAMETER :: routineN = 'becke_constraint_force', &
          routineP = moduleN//':'//routineN
 
-      INTEGER                                            :: dir, handle, i, iatom, igroup, ikind, &
-                                                            ind(3), ispin, j, k, lb_index, natom, &
-                                                            np(3), nvar, tmp_index(2), ub_index
+      INTEGER                                            :: handle, i, iatom, igroup, ikind, ind(3), &
+                                                            ispin, j, k, natom, np(3), nvar
       INTEGER, ALLOCATABLE, DIMENSION(:)                 :: atom_of_kind, kind_of
-      INTEGER, DIMENSION(2, 3)                           :: bo, bo_conf
+      INTEGER, DIMENSION(2, 3)                           :: bo
       REAL(kind=dp)                                      :: dvol, eps_cavity, sign, th
       REAL(kind=dp), ALLOCATABLE, DIMENSION(:)           :: strength
       REAL(kind=dp), DIMENSION(3)                        :: dr, shift

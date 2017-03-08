@@ -26,11 +26,9 @@ MODULE input_cp2k_dft
                                               low_print_level,&
                                               medium_print_level,&
                                               silent_print_level
-   USE cp_units,                        ONLY: cp_unit_from_cp2k,&
-                                              cp_unit_to_cp2k
+   USE cp_units,                        ONLY: cp_unit_to_cp2k
    USE input_constants,                 ONLY: &
-        atomic_guess, becke_cavity_conf, becke_cutoff_element, becke_cutoff_global, &
-        becke_dynamic_conf, becke_mixed_conf, becke_none_conf, becke_static_conf, broyden_type_1, &
+        atomic_guess, becke_cutoff_element, becke_cutoff_global, broyden_type_1, &
         broyden_type_1_explicit, broyden_type_1_explicit_ls, broyden_type_1_ls, broyden_type_2, &
         broyden_type_2_explicit, broyden_type_2_explicit_ls, broyden_type_2_ls, casci_canonical, &
         cholesky_dbcsr, cholesky_inverse, cholesky_off, cholesky_reduce, cholesky_restore, &
@@ -4102,7 +4100,7 @@ CONTAINS
       CALL keyword_release(keyword)
 
       CALL keyword_create(keyword, name="CAVITY_CONFINE", &
-                          description="Activates Gaussian cavity confinement. The constraint is evaluated only inside "//&
+                          description="Activates Gaussian cavity confinement. The constraint is evaluated only inside "// &
                           "the cavity. The cavity is formed by summing spherical Gaussians centered on the constraint atoms.", &
                           usage="CAVITY_CONFINE", &
                           default_l_val=.FALSE., lone_keyword_l_val=.TRUE.)
