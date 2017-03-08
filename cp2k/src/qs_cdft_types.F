@@ -15,7 +15,6 @@ MODULE qs_cdft_types
    USE hirshfeld_types,                 ONLY: hirshfeld_type,&
                                               release_hirshfeld_type
    USE input_constants,                 ONLY: becke_cutoff_global,&
-                                              cdft_density_constraint,&
                                               outer_scf_none,&
                                               radius_single
    USE kinds,                           ONLY: default_path_length,&
@@ -41,8 +40,6 @@ MODULE qs_cdft_types
 !> \param cutoff_type the cutoff type to use for building the constraint
 !> \param atoms list of constraint atoms
 !> \param cavity the Gaussian confinement cavity: the constraint is nonzero outside this cavity
-!> \param combined_weight the Becke real space potential for the spin constraint when using combined
-!>                        density+spin constraint
 !> \param group container for atom groups each defining their own constraint
 !> \param charge atomic Becke real space potentials needed to calculate atomic Becke charges
 !> \param fragments container for isolated fragment densities read from cube files
@@ -75,7 +72,6 @@ MODULE qs_cdft_types
 !> \param aij pairwise parameters used to adjust the Becke cell boundaries built from atomic radii
 !> \param skip_list a list of grid points skipped my keyword should_skip
 !> \param cavity_mat a compacted version of cavity
-!> \param combined_mat a compacted version of combined_weight
 ! **************************************************************************************************
    ! To build multiple constraints
    TYPE becke_group_type
@@ -172,7 +168,6 @@ MODULE qs_cdft_types
 !>                     last purge
 !> \param istep a counter to keep track of how many steps have passed since the last purge
 !> \param ienergy a counter tracking the total number of CDFT energy evaluations
-!> \param constraint_type the constraint type to use
 !> \param constraints holds information about the CDFT SCF loop
 !> \param constraint_control the outer_scf_control_type for the constraint
 !> \param ot_control the outer_scf_control_type for OT where data is stashed when outside the OT
@@ -235,8 +230,7 @@ MODULE qs_cdft_types
       INTEGER                              :: ref_count, total_steps, TYPE, &
                                               precond_freq, nreused, max_reuse, &
                                               purge_freq, nbad_conv, purge_offset, &
-                                              istep, constraint_type, &
-                                              ienergy
+                                              istep, ienergy
       TYPE(qs_outer_scf_type)              :: constraint
       TYPE(outer_scf_control_type)         :: constraint_control, ot_control
       TYPE(hirshfeld_constraint_type), &
@@ -450,7 +444,6 @@ CONTAINS
       cdft_control%nbad_conv = 0
       cdft_control%purge_offset = 0
       cdft_control%istep = 0
-      cdft_control%constraint_type = cdft_density_constraint
       cdft_control%ienergy = 0
       NULLIFY (cdft_control%hirshfeld_control)
       NULLIFY (cdft_control%weight%pw)

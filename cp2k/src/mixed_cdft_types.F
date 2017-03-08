@@ -109,9 +109,7 @@ MODULE mixed_cdft_types
 !> \brief Main mixed CDFT control type
 !> \param sim_step counter to keep track of the simulation step for MD
 !> \param multiplicity spin multiplicity
-!> \param constraint_type determins what kind of constraint to use
-!> \param combined_type for combined density+spin constraint, determines which atoms to apply the
-!>                      spin constraint
+!> \param nconstraint the number of constraints
 !> \param source_list a list of processors which will send this processor data
 !> \param dest_list a list of processors which this processor will send data to
 !> \param recv_bo bounds of the data which this processor will receive (is_special = .FALSE.)
@@ -147,7 +145,7 @@ MODULE mixed_cdft_types
 ! **************************************************************************************************
    TYPE mixed_cdft_type
       INTEGER                                          :: sim_step, multiplicity, &
-                                                          constraint_type, combined_type
+                                                          nconstraint
       INTEGER, POINTER, DIMENSION(:)                   :: source_list, dest_list, &
                                                           recv_bo, source_list_save, &
                                                           dest_list_save
@@ -163,7 +161,7 @@ MODULE mixed_cdft_types
       REAL(KIND=dp)                                    :: eps_rho_rspace, sim_dt, &
                                                           eps_svd
       REAL(KIND=dp), POINTER, DIMENSION(:, :, :)       :: weight, cavity
-      TYPE(becke_constraint_type), POINTER              :: becke_control
+      TYPE(becke_constraint_type), POINTER             :: becke_control
       TYPE(buffers), DIMENSION(:), POINTER             :: sendbuff
       TYPE(cp_blacs_env_type), POINTER                 :: blacs_env
       TYPE(mixed_cdft_dlb_type), POINTER               :: dlb_control

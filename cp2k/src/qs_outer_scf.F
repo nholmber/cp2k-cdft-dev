@@ -17,8 +17,7 @@ MODULE qs_outer_scf
    USE input_constants,                 ONLY: &
         broyden_type_1, broyden_type_1_explicit, broyden_type_1_explicit_ls, broyden_type_1_ls, &
         broyden_type_2, broyden_type_2_explicit, broyden_type_2_explicit_ls, broyden_type_2_ls, &
-        cdft2ot, cdft_combined_constraint, cdft_density_constraint, cdft_magnetization_constraint, &
-        do_ddapc_constraint, do_s2_constraint, ot2cdft, outer_scf_basis_center_opt, &
+        cdft2ot, do_ddapc_constraint, do_s2_constraint, ot2cdft, outer_scf_basis_center_opt, &
         outer_scf_becke_constraint, outer_scf_cdft_constraint, outer_scf_ddapc_constraint, &
         outer_scf_none, outer_scf_optimizer_bisect, outer_scf_optimizer_broyden, &
         outer_scf_optimizer_diis, outer_scf_optimizer_newton, outer_scf_optimizer_newton_ls, &
@@ -77,12 +76,7 @@ CONTAINS
          res = 1
       CASE (outer_scf_becke_constraint, outer_scf_cdft_constraint)
          IF (PRESENT(cdft_control)) THEN
-            SELECT CASE (cdft_control%constraint_type)
-            CASE (cdft_density_constraint, cdft_magnetization_constraint)
-               res = 1
-            CASE (cdft_combined_constraint)
-               res = 2
-            END SELECT
+            res = SIZE(cdft_control%target)
          ELSE
             res = 1
          END IF

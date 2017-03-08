@@ -74,10 +74,14 @@ MODULE force_env_methods
                                               parsef
    USE global_types,                    ONLY: global_environment_type,&
                                               globenv_retain
-   USE input_constants,                 ONLY: &
-        cdft_combined_acceptor, cdft_combined_all, cdft_combined_constraint, cdft_combined_donor, &
-        debug_run, mix_coupled, mix_generic, mix_linear_combination, mix_minimum, mix_restrained, &
-        use_bazant_eip, use_lenosky_eip
+   USE input_constants,                 ONLY: debug_run,&
+                                              mix_coupled,&
+                                              mix_generic,&
+                                              mix_linear_combination,&
+                                              mix_minimum,&
+                                              mix_restrained,&
+                                              use_bazant_eip,&
+                                              use_lenosky_eip
    USE input_section_types,             ONLY: section_vals_get_subs_vals,&
                                               section_vals_retain,&
                                               section_vals_type,&
@@ -1221,16 +1225,7 @@ CONTAINS
       NULLIFY (qs_env, dft_control)
       IF (force_env%mixed_env%do_mixed_cdft) THEN
          nforce_eval = SIZE(force_env%sub_force_env)
-         IF (force_env%mixed_env%cdft_control%constraint_type == cdft_combined_constraint) THEN
-            SELECT CASE (force_env%mixed_env%cdft_control%combined_type)
-            CASE (cdft_combined_donor, cdft_combined_acceptor)
-               nvar = 2
-            CASE (cdft_combined_all)
-               nvar = 1
-            END SELECT
-         ELSE
-            nvar = 1
-         END IF
+         nvar = force_env%mixed_env%cdft_control%nconstraint
          ! Transfer cdft strengths for writing restart
          IF (.NOT. ASSOCIATED(force_env%mixed_env%strength)) &
             ALLOCATE (force_env%mixed_env%strength(2, nvar))

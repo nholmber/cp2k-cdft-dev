@@ -362,13 +362,14 @@ CONTAINS
       mixed_cdft%has_unit_metric = .FALSE.
       IF (settings%si(10, 1) == 1) mixed_cdft%has_unit_metric = .TRUE.
       mixed_cdft%eps_rho_rspace = settings%sr(4, 1)
+      mixed_cdft%nconstraint = settings%si(12, 1)
       settings%radius = settings%sr(5, 1)
       ! Transfer settings only needed if the constraint should be built in parallel
       IF (mixed_cdft%is_parallel) THEN
          IF (settings%si(7, 1) == 1) &
             CALL cp_abort(__LOCATION__, &
                           "Calculation of atomic Becke charges not supported with parallel mode mixed CDFT")
-         IF (settings%si(12, 1) /= 1) &
+         IF (mixed_cdft%nconstraint /= 1) &
             CALL cp_abort(__LOCATION__, &
                           "Parallel mode mixed CDFT does not yet support multiple constraints.")
          CALL becke_control_create(mixed_cdft%becke_control)
