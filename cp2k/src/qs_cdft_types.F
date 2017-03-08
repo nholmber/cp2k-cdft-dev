@@ -70,7 +70,6 @@ MODULE qs_cdft_types
 !> \param eps_cavity threshold used screen small values of the Gaussian cavity density
 !> \param cavity_env the structure used to build the Gaussian cavity
 !> \param aij pairwise parameters used to adjust the Becke cell boundaries built from atomic radii
-!> \param skip_list a list of grid points skipped my keyword should_skip
 !> \param cavity_mat a compacted version of cavity
 ! **************************************************************************************************
    ! To build multiple constraints
@@ -131,7 +130,6 @@ MODULE qs_cdft_types
       TYPE(becke_vector_buffer)            :: vector_buffer
       REAL(KIND=dp), POINTER, &
          DIMENSION(:, :)                   :: aij
-      LOGICAL, POINTER, DIMENSION(:, :, :) :: skip_list
       REAL(KIND=dp), POINTER, &
          DIMENSION(:, :, :)                :: cavity_mat
    END TYPE becke_constraint_type
@@ -314,7 +312,6 @@ CONTAINS
       NULLIFY (becke_control%is_constraint)
       NULLIFY (becke_control%cavity_mat)
       NULLIFY (becke_control%cavity_env)
-      NULLIFY (becke_control%skip_list)
       NULLIFY (becke_control%cutoffs)
       NULLIFY (becke_control%cutoffs_tmp)
       NULLIFY (becke_control%charges_fragment)
@@ -378,8 +375,6 @@ CONTAINS
             DEALLOCATE (becke_control%is_constraint)
          IF (ASSOCIATED(becke_control%cavity_mat)) &
             DEALLOCATE (becke_control%cavity_mat)
-         IF (ASSOCIATED(becke_control%skip_list)) &
-            DEALLOCATE (becke_control%skip_list)
          IF (ASSOCIATED(becke_control%target)) &
             DEALLOCATE (becke_control%target)
          IF (ASSOCIATED(becke_control%strength)) &

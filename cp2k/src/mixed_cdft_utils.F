@@ -384,8 +384,7 @@ CONTAINS
          mixed_cdft%becke_control%group(1)%atoms = mixed_cdft%becke_control%atoms
          mixed_cdft%becke_control%group(1)%coeff = settings%coeffs(1:settings%nbecke, 1)
          mixed_cdft%becke_control%natoms = settings%nbecke
-         mixed_cdft%becke_control%confine_method = settings%si(1, 1)
-         mixed_cdft%becke_control%cutoff_type = settings%si(2, 1)
+         mixed_cdft%becke_control%cutoff_type = settings%si(1, 1)
          IF (settings%si(2, 1) == 1) mixed_cdft%becke_control%cavity_confine = .TRUE.
          IF (settings%si(3, 1) == 1) mixed_cdft%becke_control%should_skip = .TRUE.
          IF (settings%si(4, 1) == 1) mixed_cdft%becke_control%print_cavity = .TRUE.

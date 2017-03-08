@@ -233,15 +233,6 @@ CONTAINS
             END IF
             becke_control%vector_buffer%R12(iatom, jatom) = SQRT(DOT_PRODUCT(dist_vec, dist_vec))
             becke_control%vector_buffer%R12(jatom, iatom) = becke_control%vector_buffer%R12(iatom, jatom)
-            IF (becke_control%dynamic_confine) THEN
-               IF (is_constraint(iatom) .AND. is_constraint(jatom)) THEN
-                  ! ub = max(r(dir)+dynamic_radius), lb = min(r(dir)-dynamic_radius)
-                  IF ((r(dir)+dynamic_radius) .GT. ub) ub = r(dir)+dynamic_radius
-                  IF ((r1(dir)+dynamic_radius) .GT. ub) ub = r1(dir)+dynamic_radius
-                  IF ((r(dir)-dynamic_radius) .LT. lb) lb = r(dir)-dynamic_radius
-                  IF ((r1(dir)-dynamic_radius) .LT. lb) lb = r1(dir)-dynamic_radius
-               END IF
-            END IF
             ! Set up heteronuclear cell partitioning using user defined radii
             IF (build) THEN
                CALL get_atomic_kind(atomic_kind=particle_set(iatom)%atomic_kind, kind_number=ikind)

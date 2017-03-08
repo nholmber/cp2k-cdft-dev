@@ -165,7 +165,7 @@ CONTAINS
 
       NULLIFY (settings%grid_span, settings%npts, settings%cutoff, settings%rel_cutoff, &
                settings%spherical, settings%rs_dims, settings%odd, settings%atoms, &
-               settings%coeffs, settings%si, settings%sr, settings%confine_bounds, &
+               settings%coeffs, settings%si, settings%sr, &
                settings%cutoffs, settings%radii)
 
       is_qmmm = .FALSE.
@@ -1786,27 +1786,25 @@ CONTAINS
                                 use_data=REALDATA3D, in_space=REALSPACE)
          CALL rs_pw_transfer(rs_cavity, mixed_cdft%becke_control%cavity%pw, rs2pw)
          CALL rs_grid_release(rs_cavity)
-         IF (.NOT. mixed_cdft%becke_control%dynamic_confine) THEN
-            CALL hfun_zero(mixed_cdft%becke_control%cavity%pw%cr3d, &
-                           mixed_cdft%becke_control%eps_cavity, &
-                           just_zero=.FALSE., bounds=bounds, work=my_work)
-            IF (bounds(2) .LT. bo(2, 3)) THEN
-               bounds(2) = bounds(2)-1
-            ELSE
-               bounds(2) = bo(2, 3)
-            END IF
-            IF (bounds(1) .GT. bo(1, 3)) THEN
-               bounds(1) = bounds(1)+1
-            ELSE
-               bounds(2) = bo(1, 3)
-            END IF
-            IF (mixed_cdft%is_pencil .OR. mixed_cdft%is_special) THEN
-               my_work_size = (bounds(2)-bounds(1)+1)*(bo(2, 2)-bo(1, 2)+1)
-            ELSE
-               my_work_size = (bounds(2)-bounds(1)+1)*(bo(2, 1)-bo(1, 1)+1)
-            END IF
-            mixed_cdft%becke_control%confine_bounds = bounds
+         CALL hfun_zero(mixed_cdft%becke_control%cavity%pw%cr3d, &
+                        mixed_cdft%becke_control%eps_cavity, &
+                        just_zero=.FALSE., bounds=bounds, work=my_work)
+         IF (bounds(2) .LT. bo(2, 3)) THEN
+            bounds(2) = bounds(2)-1
+         ELSE
+            bounds(2) = bo(2, 3)
          END IF
+         IF (bounds(1) .GT. bo(1, 3)) THEN
+            bounds(1) = bounds(1)+1
+         ELSE
+            bounds(2) = bo(1, 3)
+         END IF
+         IF (mixed_cdft%is_pencil .OR. mixed_cdft%is_special) THEN
+            my_work_size = (bounds(2)-bounds(1)+1)*(bo(2, 2)-bo(1, 2)+1)
+         ELSE
+            my_work_size = (bounds(2)-bounds(1)+1)*(bo(2, 1)-bo(1, 1)+1)
+         END IF
+         mixed_cdft%becke_control%confine_bounds = bounds
          IF (mixed_cdft%becke_control%print_cavity) THEN
             CALL hfun_zero(mixed_cdft%becke_control%cavity%pw%cr3d, &
                            mixed_cdft%becke_control%eps_cavity, just_zero=.TRUE.)
