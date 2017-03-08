@@ -38,16 +38,13 @@ MODULE qs_cdft_types
 !> \param strength Lagrangian multipliers of the constraints
 !> \param becke_order_p integrated values of the constraints
 !> \param natoms number of constraint atoms
-!> \param confine_method the confine method id
 !> \param cavity_shape the confinement cavity shape id
-!> \param constraint_type the constraint type to use
 !> \param cutoff_type the cutoff type to use for building the constraint
 !> \param atoms list of constraint atoms
 !> \param cavity the Gaussian confinement cavity: the constraint is nonzero outside this cavity
 !> \param combined_weight the Becke real space potential for the spin constraint when using combined
 !>                        density+spin constraint
-!> \param group_weight atom group specific Becke real space potentials needed to constrain
-!>                      the charge/magnetization density of that group
+!> \param group container for atom groups each defining their own constraint
 !> \param charge atomic Becke real space potentials needed to calculate atomic Becke charges
 !> \param fragments container for isolated fragment densities read from cube files
 !> \param need_pot logical which determines if the Becke potential needs to be built
@@ -57,8 +54,6 @@ MODULE qs_cdft_types
 !>                  computed simultaneously with the potential instead of separately
 !> \param adjust logical which determines if the Becke potential is adjusted with atomic radii
 !> \param atomic_charges logical which determines if atomic Becke charges should be computed
-!> \param confine logical which determines if static confinement is active
-!> \param dynamic_confine logical which determines if dynamic confinement is active
 !> \param cavity_confine logical which determines if cavity confinement is active
 !> \param should_skip logical which determines is grid points should be skipped if all constraint
 !>                    atoms are found to reside beyond the cutoff distance from it
@@ -69,23 +64,19 @@ MODULE qs_cdft_types
 !> \param fragment_density use isolated fragment densities as a reference for the constraint
 !> \param fragments_integrated logical to determine if the fragment densities have been integrated
 !> \param use_bohr decides whether to use angstrom or bohr units for the confinement cavity radius
-!> \param coeff determines how to sum up the constraint atoms to form the value of the constraint
 !> \param cutoffs element specific cutoffs
 !> \param cutoffs_tmp same as cutoffs but a temporary read during parsing of this type
 !> \param charges_fragment the values of the integrated isolated fragment densities
 !> \param radii_tmp temporary list of element specific atomic radii used to adjust the Becke cells
 !> \param radii permanent copy of radii_tmp
-!> \param confine_dir for dynamic/mixed/static confinement determines the direction of confinement
-!> \param confine_bounds_int grid point indices outside which the constraint vanishes along confine_dir
-!> \param confine_bounds same as confine_bounds_int, but in distance units
-!> \param dynamic_radius the radius parameter used for creating the dynamic confinement bounds
+!> \param confine_bounds grid point indices outside which the constraint vanishes along Z-axis
 !> \param rcavity an optional global radius parameter used to define the Gaussian confinement cavity
 !> \param eps_cavity threshold used screen small values of the Gaussian cavity density
 !> \param cavity_env the structure used to build the Gaussian cavity
 !> \param aij pairwise parameters used to adjust the Becke cell boundaries built from atomic radii
 !> \param skip_list a list of grid points skipped my keyword should_skip
 !> \param cavity_mat a compacted version of cavity
-!> \param combined_mat a compated version of combined_weight
+!> \param combined_mat a compacted version of combined_weight
 ! **************************************************************************************************
    ! To build multiple constraints
    TYPE becke_group_type
@@ -122,15 +113,13 @@ MODULE qs_cdft_types
       REAL(KIND=dp), DIMENSION(:), POINTER :: TARGET, strength, &
                                               becke_order_p
       INTEGER                              :: natoms
-      INTEGER                              :: confine_method, cavity_shape, cutoff_type, &
-                                              constraint_type
+      INTEGER                              :: cavity_shape, cutoff_type
       INTEGER, POINTER, DIMENSION(:)       :: atoms
       TYPE(pw_p_type)                      :: cavity
       TYPE(pw_p_type), POINTER, &
          DIMENSION(:)                      :: fragments, charge
       LOGICAL                              :: need_pot, save_pot, in_memory, &
-                                              adjust, atomic_charges, confine, &
-                                              dynamic_confine, cavity_confine, &
+                                              adjust, atomic_charges, cavity_confine, &
                                               should_skip, print_cavity, &
                                               external_control, first_iteration, &
                                               fragment_density, fragments_integrated, &
@@ -139,9 +128,8 @@ MODULE qs_cdft_types
       REAL(KIND=dp), POINTER, DIMENSION(:) :: cutoffs, cutoffs_tmp, &
                                               charges_fragment, radii_tmp, &
                                               radii
-      INTEGER                              :: confine_dir, confine_bounds_int(2)
-      REAL(KIND=dp)                        :: confine_bounds(2), dynamic_radius, &
-                                              rcavity, eps_cavity
+      INTEGER                              :: confine_bounds(2)
+      REAL(KIND=dp)                        :: rcavity, eps_cavity
       TYPE(hirshfeld_type), POINTER        :: cavity_env
       TYPE(becke_group_type), POINTER, &
          DIMENSION(:)                      :: group
@@ -306,10 +294,7 @@ CONTAINS
       becke_control%transfer_pot = .FALSE.
       becke_control%adjust = .FALSE.
       becke_control%atomic_charges = .FALSE.
-      becke_control%confine_method = becke_none_conf
       becke_control%cutoff_type = becke_cutoff_global
-      becke_control%confine = .FALSE.
-      becke_control%dynamic_confine = .FALSE.
       becke_control%cavity_confine = .FALSE.
       becke_control%should_skip = .FALSE.
       becke_control%print_cavity = .FALSE.
@@ -318,16 +303,12 @@ CONTAINS
       becke_control%fragment_density = .FALSE.
       becke_control%fragments_integrated = .FALSE.
       becke_control%use_bohr = .FALSE.
-      becke_control%confine_dir = 3
-      becke_control%confine_bounds = 0.0_dp
-      becke_control%confine_bounds_int = 0
-      becke_control%dynamic_radius = 6.0_dp
+      becke_control%confine_bounds = 0
       becke_control%rcavity = 3.0_dp
       becke_control%rglobal = 6.0_dp
       becke_control%eps_cavity = 1.0e-5_dp
       becke_control%cavity_shape = radius_single
       becke_control%external_control = .FALSE.
-      becke_control%constraint_type = cdft_density_constraint
       becke_control%vector_buffer%store_vectors = .TRUE.
       NULLIFY (becke_control%cavity%pw)
       NULLIFY (becke_control%strength)

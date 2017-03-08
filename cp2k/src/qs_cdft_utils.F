@@ -83,6 +83,7 @@ CONTAINS
       INTEGER :: atom_a, bounds(2), dir, handle, i, iatom, iex, igroup, ikind, ip, ithread, iw, j, &
          jatom, katom, lb_index, natom, nkind, npme, nthread, numexp, ub_index, unit_nr
       INTEGER, DIMENSION(:), POINTER                     :: atom_list, cores, stride
+      INTEGER, DIMENSION(2, 3)                           :: bo
       LOGICAL                                            :: build, in_memory, store_vectors
       LOGICAL, ALLOCATABLE, DIMENSION(:)                 :: is_constraint
       REAL(KIND=dp)                                      :: alpha, chi, coef, dynamic_radius, &
@@ -137,8 +138,7 @@ CONTAINS
       IF (becke_control%save_pot) THEN
          in_memory = becke_control%in_memory
       END IF
-      IF (becke_control%dynamic_confine .OR. &
-          becke_control%save_pot .OR. &
+      IF (becke_control%save_pot .OR. &
           becke_control%cavity_confine .OR. &
           becke_control%should_skip)  THEN
          ALLOCATE (is_constraint(natom))
@@ -147,10 +147,9 @@ CONTAINS
       DO i = 1, becke_control%natoms
          ! Notice that here is_constraint=.TRUE. also for dummy atoms to properly compute their Becke charges
          ! A subsequent check (atom_in_group) ensures that the gradients of these dummy atoms are correct
-         IF ((becke_control%dynamic_confine .OR. &
-             becke_control%save_pot .OR. &
+         IF (becke_control%save_pot .OR. &
              becke_control%cavity_confine .OR. &
-             becke_control%should_skip)) &
+             becke_control%should_skip) &
             is_constraint(becke_control%atoms(i)) = .TRUE.
       END DO
       eps_cavity = becke_control%eps_cavity
@@ -197,20 +196,6 @@ CONTAINS
          DO iatom = 1, becke_control%natoms
             becke_control%charge(iatom)%pw%cr3d = 0.0_dp
          END DO
-      END IF
-      ! Setup static/dynamic confinement
-      IF (becke_control%confine) THEN
-         dir = becke_control%confine_dir
-         lb = becke_control%confine_bounds(1)
-         ub = becke_control%confine_bounds(2)
-         ! Convert [0,L] to [-L/2, L/2]
-         lb = lb-cell%hmat(dir, dir)/2._dp
-         ub = ub-cell%hmat(dir, dir)/2._dp
-      ELSE IF (becke_control%dynamic_confine) THEN
-         dir = becke_control%confine_dir
-         lb = HUGE(0.0_dp)
-         ub = -HUGE(0.0_dp)
-         dynamic_radius = becke_control%dynamic_radius
       END IF
       ! Allocate storage for cell adjustment coefficients and needed distance vectors
       build = .FALSE.
@@ -326,48 +311,30 @@ CONTAINS
          END IF
          becke_control%first_iteration = .FALSE.
       END IF
-      ! Convert confinement bounds to RS grid indices
-      IF (becke_control%dynamic_confine .OR. &
-          becke_control%confine) THEN
-         tmp_const = (ub-shift(dir))/dr(dir)
-         IF (tmp_const .GE. 0.0_dp) THEN
-            ub_index = CEILING(tmp_const)
-         ELSE
-            ub_index = FLOOR(tmp_const)
-         END IF
-         tmp_const = (lb-shift(dir))/dr(dir)
-         IF (tmp_const .GE. 0.0_dp) THEN
-            lb_index = CEILING(tmp_const)
-         ELSE
-            lb_index = FLOOR(tmp_const)
-         END IF
-         ! Store confinement bound indices for use in force calculation
-         becke_control%confine_bounds_int(1) = lb_index
-         becke_control%confine_bounds_int(2) = ub_index
-      END IF
       ! Setup cavity confinement using spherical Gaussians
       IF (becke_control%cavity_confine) THEN
          cavity_env => becke_control%cavity_env
          CALL get_qs_env(qs_env, atomic_kind_set=atomic_kind_set, pw_env=pw_env, qs_kind_set=qs_kind_set)
          CPASSERT(ASSOCIATED(qs_kind_set))
          nkind = SIZE(qs_kind_set)
-         IF (ASSOCIATED(becke_control%radii)) THEN
-            ALLOCATE(radii_list(SIZE(becke_control%radii)))
-            DO ikind = 1, SIZE(becke_control%radii)
-               IF (cavity_env%use_bohr) THEN
-                  radii_list(ikind) = becke_control%radii(ikind)
-               ELSE
-                  radii_list(ikind) = cp_unit_from_cp2k(becke_control%radii(ikind), "angstrom")
-               END IF
-            END DO
-         END IF
          ! Setup the Gaussian shape function
-         IF (.NOT. ASSOCIATED(cavity_env%kind_shape_fn)) &
+         IF (.NOT. ASSOCIATED(cavity_env%kind_shape_fn)) THEN
+            IF (ASSOCIATED(becke_control%radii)) THEN
+               ALLOCATE(radii_list(SIZE(becke_control%radii)))
+               DO ikind = 1, SIZE(becke_control%radii)
+                  IF (cavity_env%use_bohr) THEN
+                     radii_list(ikind) = becke_control%radii(ikind)
+                  ELSE
+                     radii_list(ikind) = cp_unit_from_cp2k(becke_control%radii(ikind), "angstrom")
+                  END IF
+               END DO
+            END IF
             CALL create_shape_function(cavity_env, qs_kind_set, atomic_kind_set, &
                                        radius=becke_control%rcavity, &
                                        radii_list=radii_list)
-         IF (ASSOCIATED(radii_list)) &
-            DEALLOCATE(radii_list)
+            IF (ASSOCIATED(radii_list)) &
+               DEALLOCATE(radii_list)
+         END IF
          ! Form cavity by summing isolated Gaussian densities over constraint atoms
          NULLIFY (rs_cavity)
          CALL pw_env_get(pw_env, auxbas_rs_grid=rs_cavity, auxbas_pw_pool=auxbas_pw_pool)
@@ -424,11 +391,26 @@ CONTAINS
                                 use_data=REALDATA3D, in_space=REALSPACE)
          CALL rs_pw_transfer(rs_cavity, becke_control%cavity%pw, rs2pw)
          CALL rs_grid_release(rs_cavity)
-         ! Ignore grid points where the Gaussian density falls below eps_cavity
-         IF ((in_memory .OR. becke_control%save_pot) .AND. .NOT. becke_control%dynamic_confine) THEN
+         ! Grid points where the Gaussian density falls below eps_cavity are ignored
+         ! We can calculate the smallest/largest values along z-direction outside 
+         ! which the cavity is zero at every point (x, y)
+         ! If gradients are needed storage needs to be allocated only for grid points within
+         ! these bounds
+         IF (in_memory .OR. becke_control%save_pot) THEN
             CALL hfun_zero(becke_control%cavity%pw%cr3d, eps_cavity, just_bounds=.TRUE., bounds=bounds)
-            becke_control%confine_bounds_int(1) = bounds(1)
-            becke_control%confine_bounds_int(2) = bounds(2)
+            ! Save bounds (first nonzero grid point indices)
+            bo = group(1)%weight%pw%pw_grid%bounds_local
+            IF (bounds(2) .LT. bo(2, 3)) THEN
+               bounds(2) = bounds(2)-1
+            ELSE
+               bounds(2) = bo(2,3)
+            END IF
+            IF (bounds(1) .GT. bo(1, 3)) THEN
+               bounds(1) = bounds(1)+1
+            ELSE
+               bounds(2) = bo(1,3)
+            END IF
+            becke_control%confine_bounds = bounds
          END IF
          ! Optional printing of cavity (meant for testing, so options currently hardcoded...)
          IF (becke_control%print_cavity) THEN
@@ -522,7 +504,7 @@ CONTAINS
 
       CHARACTER(len=*), PARAMETER :: routineN = 'hfun_zero', routineP = moduleN//':'//routineN
 
-      INTEGER                                            :: i1, i2, i3, lb, n1, n2, n3, nzeroed, ub
+      INTEGER                                            :: i1, i2, i3, lb, n1, n2, n3, nzeroed, nzeroed_inner, ub
       LOGICAL                                            :: lb_final, ub_final
 
       n1 = SIZE(fun, 1)
@@ -538,10 +520,11 @@ CONTAINS
       DO i3 = 1, n3
          IF (just_bounds) nzeroed = 0
          DO i2 = 1, n2
+            IF (just_bounds) nzeroed_inner = 0
             DO i1 = 1, n1
                IF (fun(i1, i2, i3) < th) THEN
                   IF (just_bounds) THEN
-                     nzeroed = nzeroed+1
+                     nzeroed_inner = nzeroed_inner +1
                   ELSE
                      fun(i1, i2, i3) = 0.0_dp
                   END IF
@@ -549,7 +532,10 @@ CONTAINS
                   IF (just_bounds) EXIT
                END IF
             END DO
-            IF (just_bounds .AND. nzeroed < n1) EXIT
+            IF (just_bounds) THEN
+               IF (nzeroed_inner < n1) EXIT
+               nzeroed = nzeroed + nzeroed_inner
+            END IF
          END DO
          IF (just_bounds) THEN
             IF (nzeroed == (n2*n1)) THEN
@@ -573,4 +559,5 @@ CONTAINS
       END IF
 
    END SUBROUTINE hfun_zero
+
 END MODULE qs_cdft_utils

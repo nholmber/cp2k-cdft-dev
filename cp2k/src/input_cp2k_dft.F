@@ -4101,29 +4101,16 @@ CONTAINS
       CALL section_add_keyword(section, keyword)
       CALL keyword_release(keyword)
 
-      CALL keyword_create(keyword, name="CONFINE", &
-                          description="Specifies the type of confinement used", &
-                          usage="CONFINE (NONE|STATIC|DYNAMIC|CAVITY|MIXED)", &
-                          enum_c_vals=s2a("NONE", "STATIC", "DYNAMIC", "CAVITY", "MIXED"), &
-                          enum_i_vals=(/becke_none_conf, becke_static_conf, becke_dynamic_conf, &
-                                        becke_cavity_conf, becke_mixed_conf/), &
-                          enum_desc=s2a("No confinement", &
-                                        "Confine Becke partitioning to a region of space"// &
-                                        " along CONFINE_DIR axis. Does not honor PBC: ATOMS must be far"// &
-                                        " away from cell boundary along CONFINE_DIR for meaningful results.", &
-                                        "Dynamically confine Becke partitioning to a region of space"// &
-                                        " along CONFINE_DIR axis. Confinement bounds are (re)generated "// &
-                                        " each step so that only points within DYNAMIC_RADIUS are included in"// &
-                                        " the partitioning. Does not honor PBC: ATOMS must be far"// &
-                                        " away from cell boundary along CONFINE_DIR for meaningful results.", &
-                                        "Form a cavity using constraint atom centered spherical Gaussians", &
-                                        "Mixed dynamic and cavity confinement"), &
-                          default_i_val=becke_none_conf)
+      CALL keyword_create(keyword, name="CAVITY_CONFINE", &
+                          description="Activates Gaussian cavity confinement. The constraint is evaluated only inside "//&
+                          "the cavity. The cavity is formed by summing spherical Gaussians centered on the constraint atoms.", &
+                          usage="CAVITY_CONFINE", &
+                          default_l_val=.FALSE., lone_keyword_l_val=.TRUE.)
       CALL section_add_keyword(section, keyword)
       CALL keyword_release(keyword)
 
       CALL keyword_create(keyword, name="CAVITY_SHAPE", &
-                          description="Specifies the type of Gaussian cavity used", &
+                          description="Specifies the type of Gaussian cavity used.", &
                           usage="CAVITY_SHAPE (SINGLE|VDW|COVALENT|USER)", &
                           enum_c_vals=s2a("DEFAULT", "SINGLE", "VDW", "COVALENT", "USER"), &
                           enum_i_vals=(/radius_default, radius_single, radius_vdw, radius_covalent, radius_user/), &
@@ -4150,36 +4137,6 @@ CONTAINS
                           " are hardcoded.", &
                           usage="CAVITY_PRINT", &
                           default_l_val=.FALSE., lone_keyword_l_val=.TRUE.)
-      CALL section_add_keyword(section, keyword)
-      CALL keyword_release(keyword)
-
-      CALL keyword_create(keyword, name="CONFINE_DIR", &
-                          description="Confinement direction.", &
-                          usage="CONFINE_DIR (X|Y|Z)", &
-                          enum_c_vals=s2a("X", "Y", "Z"), &
-                          enum_i_vals=(/1, 2, 3/), &
-                          enum_desc=s2a("Along x", "Along y", "Along z"), &
-                          n_var=1, default_i_val=3)
-      CALL section_add_keyword(section, keyword)
-      CALL keyword_release(keyword)
-
-      CALL keyword_create(keyword, name="CONFINE_BOUNDS", &
-                          description="Confinement bounds.", &
-                          usage="CONFINE_BOUNDS <REAL> <REAL>", &
-                          unit_str="angstrom", &
-                          default_r_vals=(/cp_unit_to_cp2k(0.0_dp, "angstrom"), &
-                                           cp_unit_to_cp2k(0.0_dp, "angstrom")/), &
-                          type_of_var=real_t, n_var=2)
-      CALL section_add_keyword(section, keyword)
-      CALL keyword_release(keyword)
-
-      CALL keyword_create(keyword, name="DYNAMIC_RADIUS", &
-                          description="Parameter controlling the creation of dynamic confinement"// &
-                          " bounds.", &
-                          usage="DYNAMIC_RADIUS <REAL>", &
-                          unit_str="angstrom", &
-                          default_r_val=cp_unit_to_cp2k(6.0_dp, "angstrom"), &
-                          type_of_var=real_t, n_var=1)
       CALL section_add_keyword(section, keyword)
       CALL keyword_release(keyword)
 

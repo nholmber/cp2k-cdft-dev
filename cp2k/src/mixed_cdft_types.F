@@ -194,7 +194,6 @@ MODULE mixed_cdft_types
                                                             rel_cutoff
       REAL(KIND=dp), DIMENSION(:, :), POINTER            :: sr, &
                                                             coeffs, &
-                                                            confine_bounds, &
                                                             cutoffs, &
                                                             radii
    END TYPE mixed_cdft_settings_type

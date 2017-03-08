@@ -226,8 +226,7 @@ CONTAINS
          END DO
       END IF
       ALLOCATE (catom(becke_control%natoms))
-      IF (becke_control%dynamic_confine .OR. &
-          becke_control%save_pot .OR. &
+      IF (becke_control%save_pot .OR. &
           becke_control%cavity_confine .OR. &
           becke_control%should_skip)  THEN
          ALLOCATE (is_constraint(natom))
@@ -241,8 +240,7 @@ CONTAINS
          catom(i) = becke_control%atoms(i)
          ! Notice that here is_constraint=.TRUE. also for dummy atoms to properly compute their Becke charges
          ! A subsequent check (atom_in_group) ensures that the gradients of these dummy atoms are correct
-         IF (becke_control%dynamic_confine .OR. &
-             becke_control%save_pot .OR. &
+         IF (becke_control%save_pot .OR. &
              becke_control%cavity_confine .OR. &
              becke_control%should_skip) &
             is_constraint(catom(i)) = .TRUE.
@@ -261,25 +259,11 @@ CONTAINS
          bo_conf = bo
          ! With confinement active, we dont need to store gradients outside
          ! the confinement bounds since they vanish for all particles
-         IF (becke_control%dynamic_confine .OR. &
-             becke_control%confine) THEN
-            ! Ensure bounds are within local grid bounds
-            IF (ub_index .GT. bo(2, dir)) THEN
-               tmp_index(2) = bo(2, dir)-1
-            ELSE
-               tmp_index(2) = ub_index-1
-            END IF
-            IF (lb_index .LT. bo(1, dir)) THEN
-               tmp_index(1) = bo(1, dir)+1
-            ELSE
-               tmp_index(1) = lb_index+1
-            END IF
-            bo_conf(2, dir) = tmp_index(2)
-            bo_conf(1, dir) = tmp_index(1)
-         ELSE IF (becke_control%cavity_confine) THEN
-            bounds = becke_control%confine_bounds_int
-            IF (bounds(2) .LT. bo(2, 3)) bo_conf(2, 3) = bounds(2)-1
-            IF (bounds(1) .GT. bo(1, 3)) bo_conf(1, 3) = bounds(1)+1
+         IF (becke_control%cavity_confine) THEN
+            bo_conf(1,3) = becke_control%confine_bounds(1)
+            bo_conf(2,3) = becke_control%confine_bounds(2)
+            !IF (bounds(2) .LT. bo(2, 3)) bo_conf(2, 3) = bounds(2)-1
+            !IF (bounds(1) .GT. bo(1, 3)) bo_conf(1, 3) = bounds(1)+1
          END IF
          ALLOCATE (atom_in_group(SIZE(group), natom))
          atom_in_group = .FALSE.
@@ -294,15 +278,6 @@ CONTAINS
                atom_in_group(igroup, group(igroup)%atoms(ip)) = .TRUE.
             END DO
          END DO
-         ! If requested, store skipped grid points that were not handled by confinement
-         IF (becke_control%should_skip .AND. .NOT. &
-             becke_control%cavity_confine) THEN
-            ! With cavity confine, we use the cavity to store these values and dont need this array
-            ALLOCATE (becke_control%skip_list(bo_conf(1, 1):bo_conf(2, 1), &
-                                              bo_conf(1, 2):bo_conf(2, 2)+1, &
-                                              bo_conf(1, 3):bo_conf(2, 3)))
-            becke_control%skip_list = .FALSE.
-         END IF
       END IF
       ! Allocate remaining work
       ALLOCATE (sum_cell_f_group(SIZE(group)))
@@ -325,10 +300,6 @@ CONTAINS
                   IF (becke_control%cavity%pw%cr3d(k, j, i) < eps_cavity) CYCLE
                END IF
                ind = (/k, j, i/)
-               IF (becke_control%confine .OR. &
-                   becke_control%dynamic_confine) THEN
-                  IF (ind(dir) .LE. lb_index .OR. ind(dir) .GE. ub_index) CYCLE
-               END IF
                grid_p(1) = k*dr(1)+shift(1)
                grid_p(2) = j*dr(2)+shift(2)
                grid_p(3) = i*dr(3)+shift(3)
@@ -353,8 +324,6 @@ CONTAINS
                            IF (in_memory) THEN
                               IF (becke_control%cavity_confine) THEN
                                  becke_control%cavity%pw%cr3d(k, j, i) = 0.0_dp
-                              ELSE
-                                 becke_control%skip_list(k, j, i) = .TRUE.
                               END IF
                            END IF
                            EXIT
@@ -535,8 +504,6 @@ CONTAINS
                            IF (in_memory) THEN
                               IF (becke_control%cavity_confine) THEN
                                  becke_control%cavity%pw%cr3d(k, j, i) = 0.0_dp
-                              ELSE
-                                 becke_control%skip_list(k, j, i) = .TRUE.
                               END IF
                            END IF
                            EXIT
@@ -686,37 +653,6 @@ CONTAINS
       np = group(1)%weight%pw%pw_grid%npts
       shift = -REAL(MODULO(np, 2), dp)*dr/2.0_dp
 
-      IF (becke_control%confine .OR. &
-          becke_control%dynamic_confine) THEN
-         dir = becke_control%confine_dir
-         lb_index = becke_control%confine_bounds_int(1)
-         ub_index = becke_control%confine_bounds_int(2)
-      END IF
-
-      IF (becke_control%in_memory) THEN
-         bo_conf = bo
-         IF (becke_control%dynamic_confine .OR. &
-             becke_control%confine) THEN
-            IF (ub_index .GT. bo(2, dir)) THEN
-               tmp_index(2) = bo(2, dir)-1
-            ELSE
-               tmp_index(2) = ub_index-1
-            END IF
-            IF (lb_index .LT. bo(1, dir)) THEN
-               tmp_index(1) = bo(1, dir)+1
-            ELSE
-               tmp_index(1) = lb_index+1
-            END IF
-            bo_conf(2, dir) = tmp_index(2)
-            bo_conf(1, dir) = tmp_index(1)
-         ELSE IF (becke_control%cavity_confine) THEN
-            IF (becke_control%confine_bounds_int(2) .LT. bo(2, 3)) &
-               bo_conf(2, 3) = becke_control%confine_bounds_int(2)-1
-            IF (becke_control%confine_bounds_int(1) .GT. bo(1, 3)) &
-               bo_conf(1, 3) = becke_control%confine_bounds_int(1)+1
-         END IF
-      END IF
-
       IF (.NOT. becke_control%in_memory) &
          ! Gradients were not precomputed => calculate them now
          CALL becke_constraint_low(qs_env, just_gradients=.TRUE.)
@@ -731,12 +667,6 @@ CONTAINS
                      IF (becke_control%cavity%pw%cr3d(k, j, i) < eps_cavity) CYCLE
                   END IF
                   ind = (/k, j, i/)
-                  IF (becke_control%confine .OR. becke_control%dynamic_confine) THEN
-                     IF (ind(dir) .LE. lb_index .OR. ind(dir) .GE. ub_index) CYCLE
-                  END IF
-                  IF (becke_control%should_skip .AND. .NOT. becke_control%cavity_confine) THEN
-                     IF (becke_control%skip_list(k, j, i)) CYCLE
-                  END IF
                   DO igroup = 1, SIZE(group)
                      DO iatom = 1, natom
                         DO ispin = 1, dft_control%nspins
@@ -783,8 +713,6 @@ CONTAINS
             DEALLOCATE (group(igroup)%gradients)
          END DO
       END IF
-      IF (becke_control%should_skip .AND. .NOT. becke_control%cavity_confine) &
-         DEALLOCATE (becke_control%skip_list)
       DO igroup = 1, SIZE(group)
          CALL mp_sum(group(igroup)%integrated, para_env%group)
       END DO

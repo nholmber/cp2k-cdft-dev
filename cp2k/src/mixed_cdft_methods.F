@@ -411,17 +411,15 @@ CONTAINS
       TYPE(section_vals_type), POINTER                   :: force_env_section, print_section
 
       TYPE buffers
-         INTEGER                               :: imap(6)
+         INTEGER                                         :: imap(6)
          INTEGER, DIMENSION(:), &
-            POINTER                             :: iv => null()
-         LOGICAL, DIMENSION(:, :, :), &
-            POINTER                             :: b3 => null()
+            POINTER                                      :: iv => null()
          REAL(KIND=dp), POINTER, &
-            DIMENSION(:, :, :)                    :: r3 => null()
+            DIMENSION(:, :, :)                           :: r3 => null()
          REAL(KIND=dp), POINTER, &
-            DIMENSION(:, :, :, :)                  :: r4 => null()
+            DIMENSION(:, :, :, :)                        :: r4 => null()
       END TYPE buffers
-      TYPE(buffers), DIMENSION(:), POINTER     :: recvbuffer
+      TYPE(buffers), DIMENSION(:), POINTER               :: recvbuffer
 
       NULLIFY (subsys_mix, force_env_qs, particles_mix, force_env_section, print_section, &
                mixed_env, mixed_cdft, pw_env, auxbas_pw_pool, mixed_auxbas_pw_pool, &
@@ -485,22 +483,10 @@ CONTAINS
       ALLOCATE (recvbuffer(SIZE(mixed_cdft%source_list)))
       ALLOCATE (req_total(my_special_work*SIZE(mixed_cdft%dest_list)+SIZE(mixed_cdft%source_list)))
       ALLOCATE (lb(SIZE(mixed_cdft%source_list)), ub(SIZE(mixed_cdft%source_list)))
-      IF (mixed_cdft%becke_control%cavity_confine .AND. &
-          .NOT. mixed_cdft%becke_control%dynamic_confine) THEN
-         ! Only Gaussian confinement => the bounds depend on the processor and need to be communicated
+      IF (mixed_cdft%becke_control%cavity_confine) THEN
+         ! Gaussian confinement => the bounds depend on the processor and need to be communicated
          ALLOCATE (sendbuffer_i(2))
-         IF (mixed_cdft%becke_control%confine_bounds_int(2) .LT. &
-             mixed_auxbas_pw_pool%pw_grid%bounds_local(2, 3)) THEN
-            sendbuffer_i(2) = mixed_cdft%becke_control%confine_bounds_int(2)-1
-         ELSE
-            sendbuffer_i(2) = mixed_cdft%becke_control%confine_bounds_int(2)
-         END IF
-         IF (mixed_cdft%becke_control%confine_bounds_int(1) .GT. &
-             mixed_auxbas_pw_pool%pw_grid%bounds_local(1, 3)) THEN
-            sendbuffer_i(1) = mixed_cdft%becke_control%confine_bounds_int(1)+1
-         ELSE
-            sendbuffer_i(1) = mixed_cdft%becke_control%confine_bounds_int(1)
-         END IF
+         sendbuffer_i =  mixed_cdft%becke_control%confine_bounds
          DO i = 1, SIZE(mixed_cdft%source_list)
             ALLOCATE (recvbuffer(i)%iv(2))
             CALL mp_irecv(msgout=recvbuffer(i)%iv, source=mixed_cdft%source_list(i), &
@@ -543,13 +529,6 @@ CONTAINS
                END DO
             END IF
          END IF
-      ELSE IF (mixed_cdft%becke_control%dynamic_confine .OR. &
-               mixed_cdft%becke_control%confine) THEN
-         ! No Gaussian confinement or mixed confinement => the bounds are the same on all processors
-         ub_max = mixed_cdft%becke_control%confine_bounds_int(2)-1
-         lb_min = mixed_cdft%becke_control%confine_bounds_int(1)+1
-         lb = lb_min
-         ub = ub_max
       ELSE
          ! No confinement
          ub_max = bo(2, 3)
@@ -586,7 +565,7 @@ CONTAINS
          END IF
       END IF
       ! Transfer the arrays one-by-one and deallocate shared storage
-      ! Start with  theweight function
+      ! Start with the weight function
       DO j = 1, SIZE(mixed_cdft%source_list)
          ALLOCATE (recvbuffer(j)%r3(recvbuffer(j)%imap(1):recvbuffer(j)%imap(2), &
                                     recvbuffer(j)%imap(3):recvbuffer(j)%imap(4), &
@@ -716,34 +695,6 @@ CONTAINS
          DEALLOCATE (recvbuffer(j)%r3)
       END DO
       IF (calculate_forces) THEN
-         ! List of skipped grid points for other confiment methods
-         IF (mixed_cdft%becke_control%should_skip .AND. .NOT. &
-             mixed_cdft%becke_control%cavity_confine) THEN
-            CALL mp_isend(msgin=mixed_cdft%becke_control%skip_list, dest=mixed_cdft%dest_list(1), &
-                          request=req(1), comm=force_env%para_env%group)
-            DO j = 1, 2
-               ALLOCATE (recvbuffer(j)%b3(recvbuffer(j)%imap(1):recvbuffer(j)%imap(2), &
-                                          recvbuffer(j)%imap(3):recvbuffer(j)%imap(4), &
-                                          recvbuffer(j)%imap(5):recvbuffer(j)%imap(6)))
-               CALL mp_irecv(msgout=recvbuffer(j)%b3, source=mixed_cdft%source_list(j), &
-                             request=req(j+1), comm=force_env%para_env%group)
-            END DO
-            CALL mp_wait(req(1))
-            CALL mp_isend(msgin=mixed_cdft%becke_control%skip_list, dest=mixed_cdft%dest_list(2), &
-                          request=req(1), comm=force_env%para_env%group)
-            CALL mp_waitall(req)
-            DEALLOCATE (mixed_cdft%becke_control%skip_list)
-            ALLOCATE (dft_control%qs_control%becke_control%skip_list(bo(1, 1):bo(2, 1), &
-                                                                     bo(1, 2):bo(2, 2), &
-                                                                     lb_min:ub_max))
-            DO j = 1, 2
-               dft_control%qs_control%becke_control%skip_list(recvbuffer(j)%imap(1):recvbuffer(j)%imap(2), &
-                                                              recvbuffer(j)%imap(3):recvbuffer(j)%imap(4), &
-                                                              recvbuffer(j)%imap(5):recvbuffer(j)%imap(6)) = &
-                  recvbuffer(j)%b3
-               DEALLOCATE (recvbuffer(j)%b3)
-            END DO
-         END IF
          ! Gradients of the weight function
          DO j = 1, SIZE(mixed_cdft%source_list)
             ALLOCATE (recvbuffer(j)%r4(3*natom, recvbuffer(j)%imap(1):recvbuffer(j)%imap(2), &
@@ -833,11 +784,8 @@ CONTAINS
       dft_control%qs_control%becke_control%transfer_pot = .FALSE.
       ! Store the bound indices for force calculation
       IF (calculate_forces) THEN
-         ! Note: these are the final bounds i.e. the first nonzero elements of the arrays...
-         ! On the contrary, mixed_cdft%....%bounds include (possibly) the zero elements
-         ! This is messy and needs to be fixed
-         dft_control%qs_control%becke_control%confine_bounds_int(2) = ub_max
-         dft_control%qs_control%becke_control%confine_bounds_int(1) = lb_min
+         dft_control%qs_control%becke_control%confine_bounds(2) = ub_max
+         dft_control%qs_control%becke_control%confine_bounds(1) = lb_min
       END IF
       CALL pw_scale(dft_control%qs_control%becke_control%group(1)%weight%pw, &
                     dft_control%qs_control%becke_control%group(1)%weight%pw%pw_grid%dvol)
@@ -1558,6 +1506,7 @@ CONTAINS
       REAL(kind=dp)                                      :: alpha, chi, coef, dynamic_radius, ircov, &
                                                             jrcov, lb, ra(3), tmp_const, ub, uij
       REAL(kind=dp), DIMENSION(3)                        :: cell_v, dist_vec, dr, r, r1, shift
+      REAL(KIND=dp), DIMENSION(:), POINTER            :: radii_list
       REAL(KIND=dp), DIMENSION(:, :), POINTER            :: pab
       TYPE(atomic_kind_type), DIMENSION(:), POINTER      :: atomic_kind_set
       TYPE(cell_type), POINTER                           :: cell
@@ -1574,7 +1523,7 @@ CONTAINS
 
       NULLIFY (pab, cell, force_env_qs, particle_set, force_env_section, print_section, &
                qs_kind_set, particles, subsys_mix, rs_cavity, cavity_env, auxbas_pw_pool, &
-               atomic_kind_set)
+               atomic_kind_set, radii_list)
       logger => cp_get_default_logger()
       nforce_eval = SIZE(force_env%sub_force_env)
       CALL timeset(routineN, handle)
@@ -1628,8 +1577,7 @@ CONTAINS
          build = .TRUE.
       END IF
       ALLOCATE (catom(mixed_cdft%becke_control%natoms))
-      IF (mixed_cdft%becke_control%dynamic_confine .OR. &
-          mixed_cdft%becke_control%save_pot .OR. &
+      IF (mixed_cdft%becke_control%save_pot .OR. &
           mixed_cdft%becke_control%cavity_confine .OR. &
           mixed_cdft%becke_control%should_skip .OR. &
           mixed_cdft%first_iteration) THEN
@@ -1644,8 +1592,7 @@ CONTAINS
       IF (in_memory .OR. mixed_cdft%first_iteration) ALLOCATE (coefficients(natom))
       DO i = 1, mixed_cdft%becke_control%natoms
          catom(i) = mixed_cdft%becke_control%atoms(i)
-         IF (mixed_cdft%becke_control%dynamic_confine .OR. &
-             mixed_cdft%becke_control%save_pot .OR. &
+         IF (mixed_cdft%becke_control%save_pot .OR. &
              mixed_cdft%becke_control%cavity_confine .OR. &
              mixed_cdft%becke_control%should_skip .OR. &
              mixed_cdft%first_iteration) &
@@ -1665,18 +1612,6 @@ CONTAINS
       DO i = 1, 3
          cell_v(i) = cell%hmat(i, i)
       END DO
-      IF (mixed_cdft%becke_control%confine) THEN
-         dir = mixed_cdft%becke_control%confine_dir
-         lb = mixed_cdft%becke_control%confine_bounds(1)
-         ub = mixed_cdft%becke_control%confine_bounds(2)
-         lb = lb-cell%hmat(dir, dir)/2._dp
-         ub = ub-cell%hmat(dir, dir)/2._dp
-      ELSE IF (mixed_cdft%becke_control%dynamic_confine) THEN
-         dir = mixed_cdft%becke_control%confine_dir
-         lb = HUGE(0.0_dp)
-         ub = -HUGE(0.0_dp)
-         dynamic_radius = mixed_cdft%becke_control%dynamic_radius
-      END IF
       ALLOCATE (R12(natom, natom))
       DO iatom = 1, natom-1
          DO jatom = iatom+1, natom
@@ -1697,13 +1632,6 @@ CONTAINS
             END IF
             R12(iatom, jatom) = SQRT(DOT_PRODUCT(dist_vec, dist_vec))
             R12(jatom, iatom) = R12(iatom, jatom)
-            IF (mixed_cdft%becke_control%dynamic_confine .AND. &
-                is_constraint(iatom) .AND. is_constraint(jatom)) THEN
-               IF ((r(dir)+dynamic_radius) .GT. ub) ub = r(dir)+dynamic_radius
-               IF ((r1(dir)+dynamic_radius) .GT. ub) ub = r1(dir)+dynamic_radius
-               IF ((r(dir)-dynamic_radius) .LT. lb) lb = r(dir)-dynamic_radius
-               IF ((r1(dir)-dynamic_radius) .LT. lb) lb = r1(dir)-dynamic_radius
-            END IF
             IF (build) THEN
                CALL get_atomic_kind(atomic_kind=particle_set(iatom)%atomic_kind, &
                                     kind_number=ikind)
@@ -1779,33 +1707,29 @@ CONTAINS
          mixed_cdft%first_iteration = .FALSE.
       END IF
 
-      IF (mixed_cdft%becke_control%dynamic_confine .OR. &
-          mixed_cdft%becke_control%confine) THEN
-         tmp_const = (ub-shift(dir))/dr(dir)
-         IF (tmp_const .GE. 0.0_dp) THEN
-            ub_index = CEILING(tmp_const)
-         ELSE
-            ub_index = FLOOR(tmp_const)
-         END IF
-         tmp_const = (lb-shift(dir))/dr(dir)
-         IF (tmp_const .GE. 0.0_dp) THEN
-            lb_index = CEILING(tmp_const)
-         ELSE
-            lb_index = FLOOR(tmp_const)
-         END IF
-         mixed_cdft%becke_control%confine_bounds_int(1) = lb_index
-         mixed_cdft%becke_control%confine_bounds_int(2) = ub_index
-      END IF
       IF (mixed_cdft%becke_control%cavity_confine) THEN
          CPASSERT(ASSOCIATED(mixed_cdft%qs_kind_set))
          cavity_env => mixed_cdft%becke_control%cavity_env
          qs_kind_set => mixed_cdft%qs_kind_set
          CALL cp_subsys_get(subsys_mix, atomic_kind_set=atomic_kind_set)
          nkind = SIZE(qs_kind_set)
-         IF (.NOT. ASSOCIATED(cavity_env%kind_shape_fn)) &
+         IF (.NOT. ASSOCIATED(cavity_env%kind_shape_fn)) THEN
+            IF (ASSOCIATED(mixed_cdft%becke_control%radii)) THEN
+               ALLOCATE(radii_list(SIZE(mixed_cdft%becke_control%radii)))
+               DO ikind = 1, SIZE(mixed_cdft%becke_control%radii)
+                  IF (cavity_env%use_bohr) THEN
+                     radii_list(ikind) = mixed_cdft%becke_control%radii(ikind)
+                  ELSE
+                     radii_list(ikind) = cp_unit_from_cp2k(mixed_cdft%becke_control%radii(ikind), "angstrom")
+                  END IF
+               END DO
+            END IF
             CALL create_shape_function(cavity_env, qs_kind_set, atomic_kind_set, &
                                        radius=mixed_cdft%becke_control%rcavity, &
-                                       radii_list=mixed_cdft%becke_control%radii)
+                                       radii_list=radii_list)
+            IF (ASSOCIATED(radii_list)) &
+               DEALLOCATE(radii_list)
+         END IF
          NULLIFY (rs_cavity)
          CALL pw_env_get(pw_env=mixed_cdft%pw_env, auxbas_rs_grid=rs_cavity, &
                          auxbas_pw_pool=auxbas_pw_pool)
@@ -1866,13 +1790,22 @@ CONTAINS
             CALL hfun_zero(mixed_cdft%becke_control%cavity%pw%cr3d, &
                            mixed_cdft%becke_control%eps_cavity, &
                            just_zero=.FALSE., bounds=bounds, work=my_work)
+            IF (bounds(2) .LT. bo(2, 3)) THEN
+               bounds(2) = bounds(2)-1
+            ELSE
+               bounds(2) = bo(2,3)
+            END IF
+            IF (bounds(1) .GT. bo(1, 3)) THEN
+               bounds(1) = bounds(1)+1
+            ELSE
+               bounds(2) = bo(1,3)
+            END IF
             IF (mixed_cdft%is_pencil .OR. mixed_cdft%is_special) THEN
                my_work_size = (bounds(2)-bounds(1)+1)*(bo(2, 2)-bo(1, 2)+1)
             ELSE
                my_work_size = (bounds(2)-bounds(1)+1)*(bo(2, 1)-bo(1, 1)+1)
             END IF
-            mixed_cdft%becke_control%confine_bounds_int(1) = bounds(1)
-            mixed_cdft%becke_control%confine_bounds_int(2) = bounds(2)
+            mixed_cdft%becke_control%confine_bounds = bounds
          END IF
          IF (mixed_cdft%becke_control%print_cavity) THEN
             CALL hfun_zero(mixed_cdft%becke_control%cavity%pw%cr3d, &
@@ -1895,25 +1828,8 @@ CONTAINS
          END IF
       END IF
       bo_conf = bo
-      IF (mixed_cdft%becke_control%dynamic_confine .OR. &
-          mixed_cdft%becke_control%confine) THEN
-         IF (ub_index .GT. bo(2, dir)) THEN
-            tmp_index(2) = bo(2, dir)-1
-         ELSE
-            tmp_index(2) = ub_index-1
-         END IF
-         IF (lb_index .LT. bo(1, dir)) THEN
-            tmp_index(1) = bo(1, dir)+1
-         ELSE
-            tmp_index(1) = lb_index+1
-         END IF
-         bo_conf(2, dir) = tmp_index(2)
-         bo_conf(1, dir) = tmp_index(1)
-      ELSE IF (mixed_cdft%becke_control%cavity_confine) THEN
-         IF (bounds(2) .LT. bo(2, 3)) bo_conf(2, 3) = bounds(2)-1
-         IF (bounds(1) .GT. bo(1, 3)) bo_conf(1, 3) = bounds(1)+1
-      END IF
-
+      IF (mixed_cdft%becke_control%cavity_confine) &
+         bo_conf(:, 3) = mixed_cdft%becke_control%confine_bounds 
       ! Load balance
       IF (mixed_cdft%dlb) &
          CALL mixed_becke_constraint_dlb(force_env, mixed_cdft, my_work, &
@@ -1981,13 +1897,6 @@ CONTAINS
                                                                   bo(1, 2)+offset_dlb:bo(2, 2), &
                                                                   bo_conf(1, 3):bo_conf(2, 3)))
             mixed_cdft%becke_control%group(1)%gradients = 0.0_dp
-         END IF
-         IF (mixed_cdft%becke_control%should_skip .AND. .NOT. &
-             mixed_cdft%becke_control%cavity_confine) THEN
-            ALLOCATE (mixed_cdft%becke_control%skip_list(bo_conf(1, 1):bo_conf(2, 1), &
-                                                         bo_conf(1, 2):bo_conf(2, 2), &
-                                                         bo_conf(1, 3):bo_conf(2, 3)))
-            mixed_cdft%becke_control%skip_list = .FALSE.
          END IF
       END IF
 
@@ -2855,9 +2764,6 @@ CONTAINS
       np = auxbas_pw_pool%pw_grid%npts
       dr = auxbas_pw_pool%pw_grid%dr
       shift = -REAL(MODULO(np, 2), dp)*dr/2.0_dp
-      dir = mixed_cdft%becke_control%confine_dir
-      lb_index = mixed_cdft%becke_control%confine_bounds_int(1)
-      ub_index = mixed_cdft%becke_control%confine_bounds_int(2)
       ALLOCATE (cell_functions(natom), skip_me(natom))
       IF (store_vectors) THEN
          ALLOCATE (distances(natom))
@@ -3137,11 +3043,6 @@ CONTAINS
                      IF (mixed_cdft%becke_control%cavity_confine) THEN
                         IF (cavity(k, j, i) < mixed_cdft%becke_control%eps_cavity) CYCLE
                      END IF
-                     IF (mixed_cdft%becke_control%confine .OR. &
-                         mixed_cdft%becke_control%dynamic_confine) THEN
-                        ind = (/k, j, i/)
-                        IF (ind(dir) .LE. lb_index .OR. ind(dir) .GE. ub_index) CYCLE
-                     END IF
                      grid_p(1) = k*dr(1)+shift(1)
                      grid_p(2) = j*dr(2)+shift(2)
                      grid_p(3) = i*dr(3)+shift(3)
@@ -3163,8 +3064,6 @@ CONTAINS
                                  IF (in_memory) THEN
                                     IF (mixed_cdft%becke_control%cavity_confine) THEN
                                        cavity(k, j, i) = 0.0_dp
-                                    ELSE
-                                       mixed_cdft%becke_control%skip_list(k, j, i) = .TRUE.
                                     END IF
                                  END IF
                                  EXIT
@@ -3314,8 +3213,6 @@ CONTAINS
                                  IF (in_memory) THEN
                                     IF (mixed_cdft%becke_control%cavity_confine) THEN
                                        cavity(k, j, i) = 0.0_dp
-                                    ELSE
-                                       mixed_cdft%becke_control%skip_list(k, j, i) = .TRUE.
                                     END IF
                                  END IF
                                  EXIT

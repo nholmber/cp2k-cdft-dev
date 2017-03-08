@@ -45,7 +45,7 @@ MODULE cp_control_utils
         sccs_andreussi, sccs_derivative_cd3, sccs_derivative_cd5, sccs_derivative_cd7, &
         sccs_derivative_fft, sccs_fattebert_gygi, shape_function_gaussian, sic_ad, sic_eo, &
         sic_list_all, sic_list_unpaired, sic_mauri_spz, sic_mauri_us, sic_none, slater, &
-        tddfpt_excitations, use_mom_ref_user, xas_dip_len
+        tddfpt_excitations, use_mom_ref_user, xas_dip_len, radius_user
    USE input_cp2k_dft,                  ONLY: create_dft_section,&
                                               create_qs_section
    USE input_enumeration_types,         ONLY: enum_i2c,&
@@ -1896,10 +1896,14 @@ CONTAINS
       DO j = 1, nvar
          qs_control%becke_control%target(j) = rtmplist(j)
       END DO
+      IF (qs_control%becke_control%atomic_charges) THEN
+         IF (ASSOCIATED(qs_control%becke_control%charge)) &
+            DEALLOCATE (qs_control%becke_control%charge)
+         ALLOCATE (qs_control%becke_control%charge(qs_control%becke_control%natoms))
+      END IF
 
       CALL section_vals_val_get(becke_section, "ADJUST_SIZE", &
                                 l_val=qs_control%becke_control%adjust)
-
       IF (qs_control%becke_control%adjust) THEN
          CALL section_vals_val_get(becke_section, "ATOMIC_RADII", explicit=exists)
          IF (.NOT. exists) CPABORT("Keyword ATOMIC_RADII is missing.")
@@ -1911,13 +1915,8 @@ CONTAINS
          END DO
       END IF
 
-      CALL section_vals_val_get(becke_section, "SHOULD_SKIP", &
-                                l_val=qs_control%becke_control%should_skip)
-      CALL section_vals_val_get(becke_section, "CONFINE", &
-                                i_val=qs_control%becke_control%confine_method)
       CALL section_vals_val_get(becke_section, "CUTOFF_TYPE", &
                                 i_val=qs_control%becke_control%cutoff_type)
-
       SELECT CASE (qs_control%becke_control%cutoff_type)
       CASE (becke_cutoff_global)
          CALL section_vals_val_get(becke_section, "GLOBAL_CUTOFF", &
@@ -1930,63 +1929,19 @@ CONTAINS
             qs_control%becke_control%cutoffs_tmp(j) = rtmplist(j)
          END DO
       END SELECT
-
-      SELECT CASE (qs_control%becke_control%confine_method)
-      CASE (becke_none_conf)
-         qs_control%becke_control%confine = .FALSE.
-         qs_control%becke_control%dynamic_confine = .FALSE.
-         qs_control%becke_control%cavity_confine = .FALSE.
-      CASE (becke_static_conf)
-         qs_control%becke_control%confine = .TRUE.
-         qs_control%becke_control%dynamic_confine = .FALSE.
-         qs_control%becke_control%cavity_confine = .FALSE.
-      CASE (becke_dynamic_conf)
-         qs_control%becke_control%confine = .FALSE.
-         qs_control%becke_control%dynamic_confine = .TRUE.
-         qs_control%becke_control%cavity_confine = .FALSE.
-      CASE (becke_cavity_conf)
-         qs_control%becke_control%confine = .FALSE.
-         qs_control%becke_control%dynamic_confine = .FALSE.
-         qs_control%becke_control%cavity_confine = .TRUE.
-      CASE (becke_mixed_conf)
-         qs_control%becke_control%confine = .FALSE.
-         qs_control%becke_control%dynamic_confine = .TRUE.
-         qs_control%becke_control%cavity_confine = .TRUE.
-      END SELECT
-
+      CALL section_vals_val_get(becke_section, "CAVITY_CONFINE", &
+                                l_val=qs_control%becke_control%cavity_confine)
+      CALL section_vals_val_get(becke_section, "SHOULD_SKIP", &
+                                l_val=qs_control%becke_control%should_skip)
       CALL section_vals_val_get(becke_section, "IN_MEMORY", &
                                 l_val=qs_control%becke_control%in_memory)
-
-      IF (qs_control%becke_control%atomic_charges) THEN
-         IF (ASSOCIATED(qs_control%becke_control%charge)) &
-            DEALLOCATE (qs_control%becke_control%charge)
-         ALLOCATE (qs_control%becke_control%charge(qs_control%becke_control%natoms))
-      END IF
-
-      IF (qs_control%becke_control%confine) THEN
-         CALL section_vals_val_get(becke_section, "CONFINE_DIR", &
-                                   i_val=qs_control%becke_control%confine_dir)
-         jj = 0
-         CALL section_vals_val_get(becke_section, "CONFINE_BOUNDS", r_vals=rtmplist)
-         DO j = 1, SIZE(rtmplist)
-            jj = jj+1
-            IF (jj .GT. 2) CPABORT("Need exactly two values to define confinement.")
-            qs_control%becke_control%confine_bounds(jj) = rtmplist(j)
-         END DO
-         IF (jj .LT. 2) CPABORT("Need exactly two values to define confinement.")
-      END IF
-
-      IF (qs_control%becke_control%dynamic_confine) THEN
-         CALL section_vals_val_get(becke_section, "CONFINE_DIR", &
-                                   i_val=qs_control%becke_control%confine_dir)
-         jj = 0
-         CALL section_vals_val_get(becke_section, "DYNAMIC_RADIUS", &
-                                   r_val=qs_control%becke_control%dynamic_radius)
-      END IF
-
       IF (qs_control%becke_control%cavity_confine) THEN
          CALL section_vals_val_get(becke_section, "CAVITY_SHAPE", &
                                    i_val=qs_control%becke_control%cavity_shape)
+         IF (qs_control%becke_control%cavity_shape == radius_user .AND.  &
+             .NOT. qs_control%becke_control%adjust) &
+            CALL cp_abort(__LOCATION__, &
+                         "Activate keyword ADJUST_SIZE to use cavity shape USER.")
          CALL section_vals_val_get(becke_section, "CAVITY_RADIUS", &
                                    r_val=qs_control%becke_control%rcavity)
          CALL section_vals_val_get(becke_section, "EPS_CAVITY", &
@@ -2005,14 +1960,8 @@ CONTAINS
                                  use_bohr=qs_control%becke_control%use_bohr)
       END IF
 
-      IF (qs_control%becke_control%confine) THEN
-         IF (qs_control%becke_control%confine_bounds(1) /= qs_control%becke_control%confine_bounds(2)) &
-            CPABORT("Static confinement was requested but the bounds were not defined.")
-      END IF
-
       CALL section_vals_val_get(becke_section, "FRAGMENT_DENSITIES", &
                                 l_val=qs_control%becke_control%fragment_density)
-
       IF (qs_control%becke_control%fragment_density) THEN
          CALL section_vals_val_get(becke_section, "FRAGMENT_A_FILE_NAME", &
                                    c_val=qs_control%becke_control%fragment_a_fname)

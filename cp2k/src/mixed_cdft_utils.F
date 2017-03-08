@@ -161,9 +161,8 @@ CONTAINS
       ALLOCATE (settings%odd(nforce_eval))
       ALLOCATE (settings%atoms(natom, nforce_eval))
       ALLOCATE (settings%coeffs(natom, nforce_eval))
-      ALLOCATE (settings%si(16, nforce_eval))
-      ALLOCATE (settings%sr(6, nforce_eval))
-      ALLOCATE (settings%confine_bounds(2, nforce_eval))
+      ALLOCATE (settings%si(12, nforce_eval))
+      ALLOCATE (settings%sr(5, nforce_eval))
       ALLOCATE (settings%cutoffs(settings%max_nkinds, nforce_eval))
       ALLOCATE (settings%radii(settings%max_nkinds, nforce_eval))
       settings%grid_span = 0
@@ -179,7 +178,6 @@ CONTAINS
       settings%coeffs = 0.0_dp
       settings%si = 0
       settings%sr = 0.0_dp
-      settings%confine_bounds = 0.0_dp
       settings%cutoffs = 0.0_dp
       settings%radii = 0.0_dp
       ! Get information from the sub_force_envs
@@ -218,52 +216,35 @@ CONTAINS
                dft_control%qs_control%becke_control%atoms
             settings%coeffs(1:dft_control%qs_control%becke_control%natoms, iforce_eval) = &
                dft_control%qs_control%becke_control%group(1)%coeff
-            ! Only GAPW and serial calculation needs to keep a copy of these arrays for constraint integration
-            IF (.NOT. dft_control%qs_control%gapw) THEN
-               IF (mixed_cdft%is_parallel .OR. &
-                   (.NOT. mixed_cdft%is_parallel .AND. iforce_eval /= 1)) THEN
-                  DEALLOCATE (dft_control%qs_control%becke_control%atoms)
-                  DO i = 1, SIZE(dft_control%qs_control%becke_control%group)
-                     DEALLOCATE (dft_control%qs_control%becke_control%group(i)%coeff)
-                     DEALLOCATE (dft_control%qs_control%becke_control%group(i)%atoms)
-                  END DO
-               END IF
-            END IF
-            settings%si(1, iforce_eval) = dft_control%qs_control%becke_control%confine_method
-            settings%si(2, iforce_eval) = dft_control%qs_control%becke_control%cutoff_type
-            IF (dft_control%qs_control%becke_control%confine) settings%si(3, iforce_eval) = 1
-            IF (dft_control%qs_control%becke_control%dynamic_confine) settings%si(4, iforce_eval) = 1
+            settings%si(1, iforce_eval) = dft_control%qs_control%becke_control%cutoff_type
             IF (dft_control%qs_control%becke_control%cavity_confine) THEN
-               settings%si(5, iforce_eval) = 1
+               settings%si(2, iforce_eval) = 1
                IF (.NOT. mixed_cdft%is_parallel .AND. iforce_eval /= 1) &
                   CALL release_hirshfeld_type(dft_control%qs_control%becke_control%cavity_env)
             END IF
-            IF (dft_control%qs_control%becke_control%should_skip) settings%si(6, iforce_eval) = 1
-            IF (dft_control%qs_control%becke_control%print_cavity) settings%si(7, iforce_eval) = 1
-            IF (dft_control%qs_control%becke_control%in_memory) settings%si(8, iforce_eval) = 1
-            settings%si(9, iforce_eval) = dft_control%qs_control%becke_control%confine_dir
-            IF (dft_control%qs_control%becke_control%adjust) settings%si(10, iforce_eval) = 1
-            IF (dft_control%qs_control%becke_control%atomic_charges) settings%si(11, iforce_eval) = 1
-            settings%si(12, iforce_eval) = dft_control%qs_control%becke_control%cavity_shape
-            settings%si(13, iforce_eval) = dft_control%multiplicity
+            IF (dft_control%qs_control%becke_control%should_skip) settings%si(3, iforce_eval) = 1
+            IF (dft_control%qs_control%becke_control%print_cavity) settings%si(4, iforce_eval) = 1
+            IF (dft_control%qs_control%becke_control%in_memory) settings%si(5, iforce_eval) = 1
+            IF (dft_control%qs_control%becke_control%adjust) settings%si(6, iforce_eval) = 1
+            IF (dft_control%qs_control%becke_control%atomic_charges) settings%si(7, iforce_eval) = 1
+            settings%si(8, iforce_eval) = dft_control%qs_control%becke_control%cavity_shape
+            settings%si(9, iforce_eval) = dft_control%multiplicity
             IF (qs_env%has_unit_metric) THEN
-               settings%si(14, iforce_eval) = 1
+               settings%si(10, iforce_eval) = 1
             ELSE
-               settings%si(14, iforce_eval) = 0
+               settings%si(10, iforce_eval) = 0
             END IF
             IF (dft_control%qs_control%becke_control%use_bohr) THEN
-               settings%si(15, iforce_eval) = 1
+               settings%si(11, iforce_eval) = 1
             ELSE
-               settings%si(15, iforce_eval) = 0
+               settings%si(11, iforce_eval) = 0
             END IF
-            settings%si(16, iforce_eval) = SIZE(dft_control%qs_control%becke_control%group)
-            settings%sr(1, iforce_eval) = dft_control%qs_control%becke_control%dynamic_radius
-            settings%sr(2, iforce_eval) = dft_control%qs_control%becke_control%rcavity
-            settings%sr(3, iforce_eval) = dft_control%qs_control%becke_control%rglobal
-            settings%sr(4, iforce_eval) = dft_control%qs_control%becke_control%eps_cavity
-            settings%sr(5, iforce_eval) = dft_control%qs_control%eps_rho_rspace
-            settings%sr(6, iforce_eval) = pw_env%cube_info(pw_env%auxbas_grid)%max_rad_ga
-            settings%confine_bounds(:, iforce_eval) = dft_control%qs_control%becke_control%confine_bounds
+            settings%si(12, iforce_eval) = SIZE(dft_control%qs_control%becke_control%group)
+            settings%sr(1, iforce_eval) = dft_control%qs_control%becke_control%rcavity
+            settings%sr(2, iforce_eval) = dft_control%qs_control%becke_control%rglobal
+            settings%sr(3, iforce_eval) = dft_control%qs_control%becke_control%eps_cavity
+            settings%sr(4, iforce_eval) = dft_control%qs_control%eps_rho_rspace
+            settings%sr(5, iforce_eval) = pw_env%cube_info(pw_env%auxbas_grid)%max_rad_ga
             IF (dft_control%qs_control%becke_control%cutoff_type == becke_cutoff_element) THEN
                nkinds = SIZE(dft_control%qs_control%becke_control%cutoffs_tmp)
                IF (nkinds .GT. settings%max_nkinds) &
@@ -272,10 +253,6 @@ CONTAINS
                                 " unique elements were defined in BECKE_CONSTRAINT\ELEMENT_CUTOFF. Are you sure"// &
                                 " your input is correct? If yes, please increase max_nkinds and recompile.")
                settings%cutoffs(1:nkinds, iforce_eval) = dft_control%qs_control%becke_control%cutoffs_tmp(:)
-               IF (.NOT. mixed_cdft%is_parallel .AND. iforce_eval /= 1) &
-                  DEALLOCATE (dft_control%qs_control%becke_control%cutoffs_tmp)
-            ELSE
-
             END IF
             IF (dft_control%qs_control%becke_control%adjust) THEN
                CALL get_qs_env(qs_env, atomic_kind_set=atomic_kind_set)
@@ -290,9 +267,27 @@ CONTAINS
                                 " unique elements were defined in BECKE_CONSTRAINT\ATOMIC_RADII. Are you sure"// &
                                 " your input is correct? If yes, please increase max_nkinds and recompile.")
                settings%radii(1:nkinds, iforce_eval) = dft_control%qs_control%becke_control%radii_tmp(:)
-               IF (.NOT. mixed_cdft%is_parallel .AND. iforce_eval /= 1) &
-                  DEALLOCATE (dft_control%qs_control%becke_control%radii_tmp)
             END IF
+         END IF
+         ! All processors can deallocate these arrays
+         ! Only GAPW and serial calculation needs to keep a copy of these arrays for constraint integration
+         IF (.NOT. dft_control%qs_control%gapw) THEN
+            IF (mixed_cdft%is_parallel .OR. &
+                (.NOT. mixed_cdft%is_parallel .AND. iforce_eval /= 1)) THEN
+               DEALLOCATE (dft_control%qs_control%becke_control%atoms)
+               DO i = 1, SIZE(dft_control%qs_control%becke_control%group)
+                  DEALLOCATE (dft_control%qs_control%becke_control%group(i)%coeff)
+                  DEALLOCATE (dft_control%qs_control%becke_control%group(i)%atoms)
+               END DO
+            END IF
+         END IF
+         IF (dft_control%qs_control%becke_control%cutoff_type == becke_cutoff_element) THEN
+            IF (.NOT. mixed_cdft%is_parallel .AND. iforce_eval /= 1) &
+               DEALLOCATE (dft_control%qs_control%becke_control%cutoffs_tmp)
+         END IF
+         IF (dft_control%qs_control%becke_control%adjust) THEN
+            IF (.NOT. mixed_cdft%is_parallel .AND. iforce_eval /= 1) &
+               DEALLOCATE (dft_control%qs_control%becke_control%radii_tmp)
          END IF
       END DO
       ! Make sure the grids are consistent
@@ -331,7 +326,6 @@ CONTAINS
                        "Mismatch detected in the &BECKE_CONSTRAINT settings of the two force_evals.")
       CALL mp_sum(settings%si, force_env%para_env%group)
       CALL mp_sum(settings%sr, force_env%para_env%group)
-      CALL mp_sum(settings%confine_bounds, force_env%para_env%group)
       DO i = 1, SIZE(settings%si, 1)
          IF (settings%si(i, 1) /= settings%si(i, 2)) is_match = .FALSE.
       END DO
@@ -341,28 +335,8 @@ CONTAINS
       IF (.NOT. is_match) &
          CALL cp_abort(__LOCATION__, &
                        "Mismatch detected in the &BECKE_CONSTRAINT settings of the two force_evals.")
-      is_match = is_match .AND. (settings%confine_bounds(1, 1) == settings%confine_bounds(1, 2))
-      is_match = is_match .AND. (settings%confine_bounds(2, 1) == settings%confine_bounds(2, 2))
-      IF (.NOT. is_match) &
-         CALL cp_abort(__LOCATION__, &
-                       "Mismatch detected in the &BECKE_CONSTRAINT&CONFINE_BOUNDS"// &
-                       " settings of the two force_evals.")
       ! Some CDFT features are currently disabled for mixed calculations: check that these features were not requested
-      SELECT CASE (settings%si (1, 1))
-      CASE (becke_cavity_conf, becke_none_conf)
-         ! Do nothing
-      CASE (becke_static_conf, becke_dynamic_conf, becke_mixed_conf)
-         IF (.NOT. mixed_cdft%is_parallel) &
-            CALL cp_abort(__LOCATION__, &
-                          "Serial mode mixed CDFT calculation supports only confinement types"// &
-                          "NONE and CAVITY.")
-         IF (settings%si(9, 1) /= 3) &
-            CALL cp_abort(__LOCATION__, &
-                          "Only z-direction allowed for static/dynamic confinement with mixed CDFT")
-      CASE DEFAULT
-         CPABORT("Unknown confinement method.")
-      END SELECT
-      IF (mixed_cdft%dlb .AND. .NOT. settings%si(5, 1) == 1) &
+      IF (mixed_cdft%dlb .AND. .NOT. settings%si(2, 1) == 1) &
          CALL cp_abort(__LOCATION__, &
                        "Parallel mode mixed CDFT load balancing requires Gaussian cavity confinement.")
 
@@ -389,17 +363,17 @@ CONTAINS
 
       is_match = .TRUE.
       ! Transfer global settings
-      mixed_cdft%multiplicity = settings%si(13, 1)
+      mixed_cdft%multiplicity = settings%si(9, 1)
       mixed_cdft%has_unit_metric = .FALSE.
-      IF (settings%si(14, 1) == 1) mixed_cdft%has_unit_metric = .TRUE.
-      mixed_cdft%eps_rho_rspace = settings%sr(5, 1)
-      settings%radius = settings%sr(6, 1)
+      IF (settings%si(10, 1) == 1) mixed_cdft%has_unit_metric = .TRUE.
+      mixed_cdft%eps_rho_rspace = settings%sr(4, 1)
+      settings%radius = settings%sr(5, 1)
       ! Transfer settings only needed if the constraint should be built in parallel
       IF (mixed_cdft%is_parallel) THEN
-         IF (settings%si(11, 1) == 1) &
+         IF (settings%si(7, 1) == 1) &
             CALL cp_abort(__LOCATION__, &
                           "Calculation of atomic Becke charges not supported with parallel mode mixed CDFT")
-         IF (settings%si(16, 1) /= 1) &
+         IF (settings%si(12, 1) /= 1) &
             CALL cp_abort(__LOCATION__, &
                           "Parallel mode mixed CDFT does not yet support multiple constraints.")
          CALL becke_control_create(mixed_cdft%becke_control)
@@ -416,22 +390,17 @@ CONTAINS
          mixed_cdft%becke_control%natoms = settings%nbecke
          mixed_cdft%becke_control%confine_method = settings%si(1, 1)
          mixed_cdft%becke_control%cutoff_type = settings%si(2, 1)
-         IF (settings%si(3, 1) == 1) mixed_cdft%becke_control%confine = .TRUE.
-         IF (settings%si(4, 1) == 1) mixed_cdft%becke_control%dynamic_confine = .TRUE.
-         IF (settings%si(5, 1) == 1) mixed_cdft%becke_control%cavity_confine = .TRUE.
-         IF (settings%si(6, 1) == 1) mixed_cdft%becke_control%should_skip = .TRUE.
-         IF (settings%si(7, 1) == 1) mixed_cdft%becke_control%print_cavity = .TRUE.
-         IF (settings%si(8, 1) == 1) mixed_cdft%becke_control%in_memory = .TRUE.
-         mixed_cdft%becke_control%confine_dir = settings%si(9, 1)
-         IF (settings%si(10, 1) == 1) mixed_cdft%becke_control%adjust = .TRUE.
-         IF (settings%si(11, 1) == 1) mixed_cdft%becke_control%atomic_charges = .TRUE.
-         mixed_cdft%becke_control%cavity_shape = settings%si(12, 1)
-         IF (settings%si(15, 1) == 1) mixed_cdft%becke_control%use_bohr = .TRUE.
-         mixed_cdft%becke_control%dynamic_radius = settings%sr(1, 1)
-         mixed_cdft%becke_control%rcavity = settings%sr(2, 1)
-         mixed_cdft%becke_control%rglobal = settings%sr(3, 1)
-         mixed_cdft%becke_control%eps_cavity = settings%sr(4, 1)
-         mixed_cdft%becke_control%confine_bounds = settings%confine_bounds(:, 1)
+         IF (settings%si(2, 1) == 1) mixed_cdft%becke_control%cavity_confine = .TRUE.
+         IF (settings%si(3, 1) == 1) mixed_cdft%becke_control%should_skip = .TRUE.
+         IF (settings%si(4, 1) == 1) mixed_cdft%becke_control%print_cavity = .TRUE.
+         IF (settings%si(5, 1) == 1) mixed_cdft%becke_control%in_memory = .TRUE.
+         IF (settings%si(6, 1) == 1) mixed_cdft%becke_control%adjust = .TRUE.
+         IF (settings%si(7, 1) == 1) mixed_cdft%becke_control%atomic_charges = .TRUE.
+         mixed_cdft%becke_control%cavity_shape = settings%si(8, 1)
+         IF (settings%si(11, 1) == 1) mixed_cdft%becke_control%use_bohr = .TRUE.
+         mixed_cdft%becke_control%rcavity = settings%sr(1, 1)
+         mixed_cdft%becke_control%rglobal = settings%sr(2, 1)
+         mixed_cdft%becke_control%eps_cavity = settings%sr(3, 1)
          nkinds = 0
          IF (mixed_cdft%becke_control%cutoff_type == becke_cutoff_element) THEN
             CALL mp_sum(settings%cutoffs, force_env%para_env%group)
@@ -460,15 +429,6 @@ CONTAINS
             ALLOCATE (mixed_cdft%becke_control%radii(nkinds))
             mixed_cdft%becke_control%radii = settings%radii(1:nkinds, 1)
          END IF
-      ELSE
-         SELECT CASE (settings%si (1, 1))
-         CASE (becke_cavity_conf, becke_none_conf)
-            ! Do nothing
-         CASE DEFAULT
-            CALL cp_abort(__LOCATION__, &
-                          "Serial mode mixed CDFT calculation supports only confinement types"// &
-                          "NONE and CAVITY.")
-         END SELECT
       END IF
 
    END SUBROUTINE mixed_cdft_transfer_settings
@@ -866,7 +826,6 @@ CONTAINS
       DEALLOCATE (settings%radii)
       DEALLOCATE (settings%si)
       DEALLOCATE (settings%sr)
-      DEALLOCATE (settings%confine_bounds)
       DEALLOCATE (settings%cutoff)
       DEALLOCATE (settings%rel_cutoff)
       ! Setup mixed blacs_env for redistributing arrays during ET coupling calculation
