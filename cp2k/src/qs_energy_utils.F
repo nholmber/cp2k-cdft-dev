@@ -13,8 +13,7 @@ MODULE qs_energy_utils
    USE atprop_types,                    ONLY: atprop_array_add,&
                                               atprop_type
    USE cp_control_types,                ONLY: dft_control_type
-   USE cp_control_utils,                ONLY: read_becke_section,&
-                                              read_ddapc_section
+   USE cp_control_utils,                ONLY: read_ddapc_section
    USE cp_external_control,             ONLY: external_control
    USE cp_fm_struct,                    ONLY: cp_fm_struct_create,&
                                               cp_fm_struct_release,&
@@ -40,6 +39,7 @@ MODULE qs_energy_utils
    USE pw_pool_types,                   ONLY: pw_pool_give_back_pw,&
                                               pw_pool_type
    USE pw_types,                        ONLY: pw_p_type
+   USE qs_cdft_types,                   ONLY: read_becke_section
    USE qs_energy_types,                 ONLY: qs_energy_type
    USE qs_environment_types,            ONLY: get_qs_env,&
                                               qs_environment_type
