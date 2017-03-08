@@ -201,6 +201,7 @@ CONTAINS
                CPASSERT(PRESENT(radius))
                rco = radius
             END SELECT
+            print *, 'RCO IKIND', rco, ikind, nkind, hirshfeld_env%radius_type
             al = 0.5_dp/rco**2
             hirshfeld_env%kind_shape_fn(ikind)%zet(1) = al
             hirshfeld_env%kind_shape_fn(ikind)%coef(1) = (al/pi)**1.5_dp

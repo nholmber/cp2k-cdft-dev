@@ -145,7 +145,7 @@ CONTAINS
       INTEGER                                            :: bounds(2), dir, handle, i, iatom, &
                                                             igroup, ind(3), ip, j, jatom, jp, k, &
                                                             lb_index, natom, np(3), nskipped, &
-                                                            tmp_index(2), ub_index, skip_max
+                                                            tmp_index(2), ub_index
       INTEGER, ALLOCATABLE, DIMENSION(:)                 :: catom
       INTEGER, DIMENSION(2, 3)                           :: bo, bo_conf
       LOGICAL                                            :: in_memory, my_just_gradients
@@ -186,6 +186,7 @@ CONTAINS
       IF (becke_control%save_pot) THEN
          in_memory = becke_control%in_memory
       END IF
+      eps_cavity = becke_control%eps_cavity
       ! Decide if only gradients need to be calculated
       my_just_gradients = .FALSE.
       IF (PRESENT(just_gradients)) my_just_gradients = just_gradients
@@ -236,10 +237,10 @@ CONTAINS
       ! already been calculated (data for pair ji is set using symmetry)
       ! With gradient precomputation, symmetry exploited for both weight function and gradients
       ALLOCATE (skip_me(natom))
-      skip_max = becke_control%natoms !COUNT(becke_control%is_constraint == .TRUE.)
       DO i = 1, becke_control%natoms
          catom(i) = becke_control%atoms(i)
-         ! note previously the check is_constraint(i) was NOT performed
+         ! Notice that here is_constraint=.TRUE. also for dummy atoms to properly compute their Becke charges
+         ! A subsequent check (atom_in_group) ensures that the gradients of these dummy atoms are correct
          IF (becke_control%dynamic_confine .OR. &
              becke_control%save_pot .OR. &
              becke_control%cavity_confine .OR. &
@@ -276,13 +277,14 @@ CONTAINS
             bo_conf(2, dir) = tmp_index(2)
             bo_conf(1, dir) = tmp_index(1)
          ELSE IF (becke_control%cavity_confine) THEN
+            bounds = becke_control%confine_bounds_int
             IF (bounds(2) .LT. bo(2, 3)) bo_conf(2, 3) = bounds(2)-1
             IF (bounds(1) .GT. bo(1, 3)) bo_conf(1, 3) = bounds(1)+1
          END IF
          ALLOCATE (atom_in_group(SIZE(group), natom))
          atom_in_group = .FALSE.
          DO igroup = 1, SIZE(group)
-            ALLOCATE (group(igroup)%gradients(3*SIZE(group(igroup)%atoms), bo_conf(1, 1):bo_conf(2, 1), &
+            ALLOCATE (group(igroup)%gradients(3*natom, bo_conf(1, 1):bo_conf(2, 1), &
                                               bo_conf(1, 2):bo_conf(2, 2), &
                                               bo_conf(1, 3):bo_conf(2, 3)))
             group(igroup)%gradients = 0.0_dp
@@ -347,7 +349,7 @@ CONTAINS
                      cell_functions(iatom) = 0.0_dp
                      IF (becke_control%should_skip) THEN
                         IF (is_constraint(iatom)) nskipped = nskipped+1
-                        IF (nskipped == skip_max) THEN
+                        IF (nskipped == becke_control%natoms) THEN
                            IF (in_memory) THEN
                               IF (becke_control%cavity_confine) THEN
                                  becke_control%cavity%pw%cr3d(k, j, i) = 0.0_dp
@@ -509,6 +511,7 @@ CONTAINS
                               IF (is_constraint(iatom)) THEN
                                  DO igroup = 1, SIZE(group)
                                     IF (.NOT. atom_in_group(igroup, iatom)) CYCLE
+                                    ip = -1
                                     DO jp = 1, SIZE(group(igroup)%atoms)
                                        IF (iatom == group(igroup)%atoms(jp)) THEN
                                           ip = jp
@@ -528,7 +531,7 @@ CONTAINS
                      skip_me(iatom) = .TRUE.
                      IF (becke_control%should_skip) THEN
                         IF (is_constraint(iatom)) nskipped = nskipped+1
-                        IF (nskipped == skip_max) THEN
+                        IF (nskipped == becke_control%natoms) THEN
                            IF (in_memory) THEN
                               IF (becke_control%cavity_confine) THEN
                                  becke_control%cavity%pw%cr3d(k, j, i) = 0.0_dp
@@ -541,7 +544,7 @@ CONTAINS
                      END IF
                   END IF
                END DO !iatom
-               IF (nskipped == skip_max) CYCLE
+               IF (nskipped == becke_control%natoms) CYCLE
                ! Sum up cell functions
                sum_cell_f_group = 0.0_dp
                DO igroup = 1, SIZE(group)
@@ -606,6 +609,7 @@ CONTAINS
          DEALLOCATE (becke_control%vector_buffer%distance_vecs)
          DEALLOCATE (becke_control%vector_buffer%position_vecs)
       END IF
+      CALL timestop(handle)
 
    END SUBROUTINE becke_constraint_low
 
@@ -879,6 +883,7 @@ CONTAINS
       dvol = group(1)%weight%pw%pw_grid%dvol
       eps_cavity = becke_control%eps_cavity
       IF (becke_control%atomic_charges) THEN
+         charge => becke_control%charge
          ALLOCATE (electronic_charge(becke_control%natoms, dft_control%nspins))
          electronic_charge = 0.0_dp
       END IF
@@ -1167,6 +1172,7 @@ CONTAINS
       IF (becke_control%atomic_charges) &
          DEALLOCATE (electronic_charge)
       CALL cp_print_key_finished_output(iw, logger, becke_constraint_section, "PROGRAM_RUN_INFO")
+      CALL timestop(handle)
 
    END SUBROUTINE becke_constraint_integrate
 

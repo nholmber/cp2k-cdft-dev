@@ -1995,6 +1995,9 @@ CONTAINS
                                    l_val=qs_control%becke_control%print_cavity)
          CALL section_vals_val_get(becke_section, "CAVITY_USE_BOHR", &
                                    l_val=qs_control%becke_control%use_bohr)
+         IF (.NOT. qs_control%becke_control%use_bohr) THEN
+            qs_control%becke_control%rcavity = cp_unit_from_cp2k(qs_control%becke_control%rcavity, "angstrom")
+         END IF
          CALL create_hirshfeld_type(qs_control%becke_control%cavity_env)
          CALL set_hirshfeld_info(qs_control%becke_control%cavity_env, &
                                  shape_function_type=shape_function_gaussian, iterative=.FALSE., &

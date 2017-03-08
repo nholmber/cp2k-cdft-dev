@@ -4215,7 +4215,7 @@ CONTAINS
                           " weight function at each real space grid point.", &
                           usage="GLOBAL_CUTOFF <REAL>", &
                           unit_str="angstrom", &
-                          default_r_val=cp_unit_from_cp2k(6.0_dp, "angstrom"), &
+                          default_r_val=cp_unit_to_cp2k(3.1750632515_dp, "angstrom"), &
                           type_of_var=real_t, n_var=1)
       CALL section_add_keyword(section, keyword)
       CALL keyword_release(keyword)

@@ -85,10 +85,11 @@ CONTAINS
       INTEGER, DIMENSION(:), POINTER                     :: atom_list, cores, stride
       LOGICAL                                            :: build, in_memory, store_vectors
       LOGICAL, ALLOCATABLE, DIMENSION(:)                 :: is_constraint
-      REAL(kind=dp)                                      :: alpha, chi, coef, dynamic_radius, &
+      REAL(KIND=dp)                                      :: alpha, chi, coef, dynamic_radius, &
                                                             eps_cavity, ircov, jrcov, lb, &
                                                             tmp_const, ub, uij
-      REAL(kind=dp), DIMENSION(3)                        :: cell_v, dist_vec, dr, r, r1, ra, shift
+      REAL(KIND=dp), DIMENSION(3)                        :: cell_v, dist_vec, dr, r, r1, ra, shift
+      REAL(KIND=dp), DIMENSION(:), POINTER               :: radii_list
       REAL(KIND=dp), DIMENSION(:, :), POINTER            :: pab
       TYPE(atomic_kind_type), DIMENSION(:), POINTER      :: atomic_kind_set
       TYPE(becke_constraint_type), POINTER               :: becke_control
@@ -110,7 +111,7 @@ CONTAINS
       NULLIFY (cores, stride, atom_list, cell, para_env, dft_control, &
                particle_set, logger, becke_constraint_section, qs_kind_set, &
                particles, subsys, pab, pw_env, rs_cavity, cavity_env, &
-               auxbas_pw_pool, atomic_kind_set, group)
+               auxbas_pw_pool, atomic_kind_set, group, radii_list)
       logger => cp_get_default_logger()
       CALL timeset(routineN, handle)
       CALL get_qs_env(qs_env, &
@@ -144,13 +145,15 @@ CONTAINS
          is_constraint = .FALSE.
       END IF
       DO i = 1, becke_control%natoms
-         ! note previously the check is_constraint(i) was NOT performed
+         ! Notice that here is_constraint=.TRUE. also for dummy atoms to properly compute their Becke charges
+         ! A subsequent check (atom_in_group) ensures that the gradients of these dummy atoms are correct
          IF ((becke_control%dynamic_confine .OR. &
              becke_control%save_pot .OR. &
              becke_control%cavity_confine .OR. &
              becke_control%should_skip)) &
             is_constraint(becke_control%atoms(i)) = .TRUE.
       END DO
+      eps_cavity = becke_control%eps_cavity
       ! Setup atomic radii for adjusting cell boundaries
       IF (becke_control%adjust) THEN
          IF (.NOT. ASSOCIATED(becke_control%radii)) THEN
@@ -348,11 +351,23 @@ CONTAINS
          CALL get_qs_env(qs_env, atomic_kind_set=atomic_kind_set, pw_env=pw_env, qs_kind_set=qs_kind_set)
          CPASSERT(ASSOCIATED(qs_kind_set))
          nkind = SIZE(qs_kind_set)
+         IF (ASSOCIATED(becke_control%radii)) THEN
+            ALLOCATE(radii_list(SIZE(becke_control%radii)))
+            DO ikind = 1, SIZE(becke_control%radii)
+               IF (cavity_env%use_bohr) THEN
+                  radii_list(ikind) = becke_control%radii(ikind)
+               ELSE
+                  radii_list(ikind) = cp_unit_from_cp2k(becke_control%radii(ikind), "angstrom")
+               END IF
+            END DO
+         END IF
          ! Setup the Gaussian shape function
          IF (.NOT. ASSOCIATED(cavity_env%kind_shape_fn)) &
             CALL create_shape_function(cavity_env, qs_kind_set, atomic_kind_set, &
                                        radius=becke_control%rcavity, &
-                                       radii_list=becke_control%radii)
+                                       radii_list=radii_list)
+         IF (ASSOCIATED(radii_list)) &
+            DEALLOCATE(radii_list)
          ! Form cavity by summing isolated Gaussian densities over constraint atoms
          NULLIFY (rs_cavity)
          CALL pw_env_get(pw_env, auxbas_rs_grid=rs_cavity, auxbas_pw_pool=auxbas_pw_pool)
@@ -436,6 +451,7 @@ CONTAINS
       END IF
       IF (ALLOCATED(is_constraint)) &
          DEALLOCATE (is_constraint)
+      CALL timestop(handle)
 
    END SUBROUTINE becke_constraint_init
 
