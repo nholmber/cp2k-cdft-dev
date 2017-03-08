@@ -74,16 +74,24 @@ MODULE qs_cdft_types
 ! **************************************************************************************************
    ! To build multiple constraints
    TYPE becke_group_type
+      ! Atoms of this constraint group
       INTEGER, POINTER, DIMENSION(:)       :: atoms
-      REAL(KIND=dp), POINTER, DIMENSION(:) :: coeff
-      REAL(KIND=dp), POINTER, &
-         DIMENSION(:, :)                   :: integrated
-      REAL(KIND=dp), POINTER, &
-         DIMENSION(:, :, :, :)             :: gradients
-      TYPE(pw_p_type)                      :: weight
+      ! Constraint type: charge constraint or magnetization density constraint
+      LOGICAL                              :: is_charge_constraint
+      ! Temporary array holding a component of the weight function gradient that only includes
+      ! terms defined on constraint atoms
       REAL(kind=dp), ALLOCATABLE, &
          DIMENSION(:, :)                   :: d_sum_const_dR
-      LOGICAL                              :: is_charge_constraint
+      ! Coefficients that determine how to sum up the atoms to form the constraint
+      REAL(KIND=dp), POINTER, DIMENSION(:) :: coeff
+      ! Result of integration dw/dR * rho_r dr where dw/dR is the weight function gradient
+      REAL(KIND=dp), POINTER, &
+         DIMENSION(:, :)                   :: integrated
+      ! Atomic gradients of the weight function at every grid point
+      REAL(KIND=dp), POINTER, &
+         DIMENSION(:, :, :, :)             :: gradients
+      ! The weight function of this constraint group
+      TYPE(pw_p_type)                      :: weight
    END TYPE becke_group_type
 
    ! Utility vector container for building becke constraint
@@ -102,16 +110,11 @@ MODULE qs_cdft_types
    TYPE becke_constraint_type
       CHARACTER(LEN=default_path_length)   :: fragment_a_fname, &
                                               fragment_b_fname
-      INTEGER                              :: ref_count
-      REAL(KIND=dp)                        :: rglobal
-      REAL(KIND=dp), DIMENSION(:), POINTER :: TARGET, strength, &
-                                              becke_order_p
-      INTEGER                              :: natoms
-      INTEGER                              :: cavity_shape, cutoff_type
+      INTEGER                              :: ref_count, &
+                                              natoms, &
+                                              cavity_shape, cutoff_type, &
+                                              confine_bounds(2)
       INTEGER, POINTER, DIMENSION(:)       :: atoms
-      TYPE(pw_p_type)                      :: cavity
-      TYPE(pw_p_type), POINTER, &
-         DIMENSION(:)                      :: fragments, charge
       LOGICAL                              :: need_pot, save_pot, in_memory, &
                                               adjust, atomic_charges, cavity_confine, &
                                               should_skip, print_cavity, &
@@ -119,19 +122,24 @@ MODULE qs_cdft_types
                                               fragment_density, fragments_integrated, &
                                               use_bohr, transfer_pot
       LOGICAL, POINTER, DIMENSION(:)       :: is_constraint
-      REAL(KIND=dp), POINTER, DIMENSION(:) :: cutoffs, cutoffs_tmp, &
+      REAL(KIND=dp)                        :: rglobal, &
+                                              rcavity, eps_cavity
+      REAL(KIND=dp), DIMENSION(:), POINTER :: TARGET, strength, &
+                                              becke_order_p, &
+                                              cutoffs, cutoffs_tmp, &
                                               charges_fragment, radii_tmp, &
                                               radii
-      INTEGER                              :: confine_bounds(2)
-      REAL(KIND=dp)                        :: rcavity, eps_cavity
-      TYPE(hirshfeld_type), POINTER        :: cavity_env
-      TYPE(becke_group_type), POINTER, &
-         DIMENSION(:)                      :: group
-      TYPE(becke_vector_buffer)            :: vector_buffer
       REAL(KIND=dp), POINTER, &
          DIMENSION(:, :)                   :: aij
       REAL(KIND=dp), POINTER, &
          DIMENSION(:, :, :)                :: cavity_mat
+      TYPE(becke_group_type), POINTER, &
+         DIMENSION(:)                      :: group
+      TYPE(becke_vector_buffer)            :: vector_buffer
+      TYPE(hirshfeld_type), POINTER        :: cavity_env
+      TYPE(pw_p_type)                      :: cavity
+      TYPE(pw_p_type), POINTER, &
+         DIMENSION(:)                      :: fragments, charge
    END TYPE becke_constraint_type
 
 ! **************************************************************************************************
@@ -229,21 +237,21 @@ MODULE qs_cdft_types
                                               precond_freq, nreused, max_reuse, &
                                               purge_freq, nbad_conv, purge_offset, &
                                               istep, ienergy
-      TYPE(qs_outer_scf_type)              :: constraint
-      TYPE(outer_scf_control_type)         :: constraint_control, ot_control
-      TYPE(hirshfeld_constraint_type), &
-         POINTER                           :: hirshfeld_control
-      REAL(KIND=dp), DIMENSION(:), POINTER :: strength, TARGET, value
-      TYPE(pw_p_type)                      :: weight
       LOGICAL                              :: need_pot, save_pot, do_et, &
                                               reuse_precond, purge_history, &
                                               should_purge, calculate_metric
       LOGICAL, DIMENSION(:), ALLOCATABLE   :: is_charge_constraint
+      REAL(KIND=dp), DIMENSION(:), POINTER :: strength, TARGET, value
       TYPE(cp_fm_p_type), DIMENSION(:), &
          POINTER                           :: mo_coeff
       TYPE(dbcsr_p_type)                   :: matrix_s
       TYPE(dbcsr_p_type), DIMENSION(:), &
          POINTER                           :: wmat, matrix_p
+      TYPE(hirshfeld_constraint_type), &
+         POINTER                           :: hirshfeld_control
+      TYPE(outer_scf_control_type)         :: constraint_control, ot_control
+      TYPE(pw_p_type)                      :: weight
+      TYPE(qs_outer_scf_type)              :: constraint
    END TYPE cdft_control_type
 
    CHARACTER(len=*), PARAMETER, PRIVATE :: moduleN = 'qs_cdft_types'
@@ -354,6 +362,18 @@ CONTAINS
                   DEALLOCATE (becke_control%group(i)%integrated)
             END DO
             DEALLOCATE (becke_control%group)
+         END IF
+         IF (becke_control%vector_buffer%store_vectors) THEN
+            IF (ALLOCATED(becke_control%vector_buffer%distances)) &
+               DEALLOCATE (becke_control%vector_buffer%distances)
+            IF (ALLOCATED(becke_control%vector_buffer%distance_vecs)) &
+               DEALLOCATE (becke_control%vector_buffer%distance_vecs)
+            IF (ALLOCATED(becke_control%vector_buffer%position_vecs)) &
+               DEALLOCATE (becke_control%vector_buffer%position_vecs)
+            IF (ALLOCATED(becke_control%vector_buffer%R12)) &
+               DEALLOCATE (becke_control%vector_buffer%R12)
+            IF (ALLOCATED(becke_control%vector_buffer%pair_dist_vecs)) &
+               DEALLOCATE (becke_control%vector_buffer%pair_dist_vecs)
          END IF
          IF (ASSOCIATED(becke_control%cutoffs)) &
             DEALLOCATE (becke_control%cutoffs)
