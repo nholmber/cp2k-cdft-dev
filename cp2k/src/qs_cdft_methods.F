@@ -996,22 +996,22 @@ CONTAINS
          DO igroup = 1, SIZE(group)
             IF (igroup > 1) WRITE (iw, '(T3,A)') ' '
             WRITE (iw, '(T3,A,T54,(3X,I18))') &
-               'Atomic group                       :', igroup
+               'Atomic group                :', igroup
             IF (group(igroup)%is_charge_constraint) THEN
                WRITE (iw, '(T3,A,T50,A)') &
-                  'Type of constraint                 :', ADJUSTR('Charge density constraint')
+                  'Type of constraint          :', ADJUSTR('Charge density constraint')
             ELSE
                WRITE (iw, '(T3,A,T43,A)') &
-                  'Type of constraint                 :', ADJUSTR('Magnetization density constraint')
+                  'Type of constraint          :', ADJUSTR('Magnetization density constraint')
             END IF
             WRITE (iw, '(T3,A,T54,(3X,F18.12))') &
-               'Target value of constraint         :', target_val(igroup)
+               'Target value of constraint  :', target_val(igroup)
             WRITE (iw, '(T3,A,T54,(3X,F18.12))') &
-               'Current value of constraint        :', dE(igroup)
+               'Current value of constraint :', dE(igroup)
             WRITE (iw, '(T3,A,T59,(3X,ES13.3))') &
-               'Deviation from target              :', dE(igroup)-target_val(igroup)
+               'Deviation from target       :', dE(igroup)-target_val(igroup)
             WRITE (iw, '(T3,A,T54,(3X,F18.12))') &
-               'Strength of constraint             :', strength(igroup)
+               'Strength of constraint      :', strength(igroup)
          END DO
          WRITE (iw, '(T3,A)') &
             '------------------------------------------------------------------------'

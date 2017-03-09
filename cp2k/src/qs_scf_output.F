@@ -675,22 +675,22 @@ CONTAINS
          DO igroup = 1, SIZE(cdft_control%target)
             IF (igroup > 1) WRITE (output_unit, '(T3,A)') ' '
             WRITE (output_unit, '(T3,A,T54,(3X,I18))') &
-               'Atomic group                       :', igroup
+               'Atomic group                :', igroup
             IF (cdft_control%is_charge_constraint(igroup)) THEN
                WRITE (output_unit, '(T3,A,T50,A)') &
-                  'Type of constraint                 :', ADJUSTR('Charge density constraint')
+                  'Type of constraint          :', ADJUSTR('Charge density constraint')
             ELSE
                WRITE (output_unit, '(T3,A,T43,A)') &
-                  'Type of constraint                 :', ADJUSTR('Magnetization density constraint')
+                  'Type of constraint          :', ADJUSTR('Magnetization density constraint')
             END IF
             WRITE (output_unit, '(T3,A,T54,(3X,F18.12))') &
-               'Target value of constraint         :', cdft_control%target(igroup)
+               'Target value of constraint  :', cdft_control%target(igroup)
             WRITE (output_unit, '(T3,A,T54,(3X,F18.12))') &
-               'Current value of constraint        :', cdft_control%value(igroup)
+               'Current value of constraint :', cdft_control%value(igroup)
             WRITE (output_unit, '(T3,A,T59,(3X,ES13.3))') &
-               'Deviation from target              :', cdft_control%value(igroup)-cdft_control%target(igroup)
+               'Deviation from target       :', cdft_control%value(igroup)-cdft_control%target(igroup)
             WRITE (output_unit, '(T3,A,T54,(3X,F18.12))') &
-               'Strength of constraint             :', cdft_control%strength(igroup)
+               'Strength of constraint      :', cdft_control%strength(igroup)
          END DO
          WRITE (output_unit, '(T3,A)') &
             '------------------------------------------------------------------------'

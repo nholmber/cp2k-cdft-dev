@@ -480,12 +480,11 @@ CONTAINS
       tot_natoms = 0
       ! Parse all ATOM_GROUP sections
       DO k = 1, nvar
-         tmp_section => section_vals_get_subs_vals(becke_section, "ATOM_GROUP", i_rep_section=k)
          ! First determine how much storage is needed
          natoms = 0
-         CALL section_vals_val_get(tmp_section, "ATOMS", n_rep_val=n_rep)
+         CALL section_vals_val_get(group_section, "ATOMS", i_rep_section=k, n_rep_val=n_rep)
          DO j = 1, n_rep
-            CALL section_vals_val_get(tmp_section, "ATOMS", i_rep_val=j, i_vals=tmplist)
+            CALL section_vals_val_get(group_section, "ATOMS", i_rep_section=k, i_rep_val=j, i_vals=tmplist)
             IF (SIZE(tmplist) < 1) &
                CPABORT("Each ATOM_GROUP must contain at least 1 atom.")
             natoms = natoms+SIZE(tmplist)
@@ -499,9 +498,9 @@ CONTAINS
          ! Now parse
          jj = 0
          DO j = 1, n_rep
-            CALL section_vals_val_get(tmp_section, "ATOMS", i_rep_val=j, i_vals=tmplist)
-            CALL section_vals_val_get(tmp_section, "COEFF", i_rep_val=j, r_vals=rtmplist)
-            CALL section_vals_val_get(tmp_section, "CHARGE_CONSTRAINT", &
+            CALL section_vals_val_get(group_section, "ATOMS", i_rep_section=k, i_rep_val=j, i_vals=tmplist)
+            CALL section_vals_val_get(group_section, "COEFF", i_rep_section=k, i_rep_val=j, r_vals=rtmplist)
+            CALL section_vals_val_get(group_section, "CHARGE_CONSTRAINT", i_rep_section=k, &
                                       l_val=qs_control%becke_control%group(k)%is_charge_constraint)
             IF (SIZE(tmplist) /= SIZE(rtmplist)) &
                CPABORT("Length of keywords ATOMS and COEFF must match.")
