@@ -462,9 +462,9 @@ CONTAINS
       INTEGER, DIMENSION(:), POINTER                     :: atomlist, dummylist, tmplist
       LOGICAL                                            :: exists, is_duplicate
       REAL(KIND=dp), DIMENSION(:), POINTER               :: rtmplist
-      TYPE(section_vals_type), POINTER                   :: group_section, tmp_section
+      TYPE(section_vals_type), POINTER                   :: group_section
 
-      NULLIFY (tmplist, rtmplist, atomlist, dummylist, group_section, tmp_section)
+      NULLIFY (tmplist, rtmplist, atomlist, dummylist, group_section)
 
       group_section => section_vals_get_subs_vals(becke_section, "ATOM_GROUP")
       CALL section_vals_get(group_section, n_repetition=nvar, explicit=exists)

@@ -177,6 +177,7 @@ MODULE mixed_cdft_types
    TYPE mixed_cdft_settings_type
       LOGICAL                                            :: is_spherical, &
                                                             is_odd
+      LOGICAL, DIMENSION(:, :), POINTER                  :: sb
       INTEGER                                            :: nbecke, &
                                                             max_nkinds
       INTEGER, DIMENSION(2, 3)                           :: bo
