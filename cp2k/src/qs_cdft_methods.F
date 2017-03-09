@@ -758,7 +758,8 @@ CONTAINS
       LOGICAL                                            :: paw_atom
       LOGICAL, ALLOCATABLE, DIMENSION(:)                 :: is_constraint
       REAL(kind=dp)                                      :: alpha, dvol, eps_cavity, nelectron_frag, &
-                                                            sign, tc, zeff
+                                                            sign, sum_rho(2), sum_weight(2), tc, &
+                                                            zeff
       REAL(kind=dp), ALLOCATABLE, DIMENSION(:)           :: dE, strength, target_val
       REAL(kind=dp), ALLOCATABLE, DIMENSION(:, :)        :: electronic_charge, gapw_offset
       TYPE(becke_constraint_type), POINTER               :: becke_control
@@ -827,8 +828,12 @@ CONTAINS
                                 "Multiple constraints not yet supported by parallel mixed calculations.")
                dE(igroup) = dE(igroup)+sign*accurate_sum_arrays_product(group(igroup)%weight%pw%cr3d, rho_r(i)%pw%cr3d, &
                                                                         becke_control%cavity_mat, eps_cavity)*dvol
+               sum_rho(i) = accurate_sum(rho_r(i)%pw%cr3d)*dvol
+               sum_weight(i) = accurate_sum(group(igroup)%weight%pw%cr3d)*dvol
             ELSE
                dE(igroup) = dE(igroup)+sign*accurate_sum(group(igroup)%weight%pw%cr3d*rho_r(i)%pw%cr3d)*dvol
+               sum_rho(i) = accurate_sum(rho_r(i)%pw%cr3d)*dvol
+               sum_weight(i) = accurate_sum(group(igroup)%weight%pw%cr3d)*dvol
             END IF
          END DO
          IF (becke_control%atomic_charges) THEN
@@ -991,7 +996,7 @@ CONTAINS
       IF (dft_control%qs_control%cdft) dft_control%qs_control%cdft_control%value(:) = dE(:)
       ! Print constraint info and atomic Becke charges
       IF (iw > 0) THEN
-         WRITE (iw, '(/,T3,A,T60)') &
+         WRITE (iw, '(/,T3,A)') &
             '--------------------- Becke constraint information ---------------------'
          DO igroup = 1, SIZE(group)
             IF (igroup > 1) WRITE (iw, '(T3,A)') ' '
@@ -1016,13 +1021,13 @@ CONTAINS
          WRITE (iw, '(T3,A)') &
             '------------------------------------------------------------------------'
          IF (becke_control%atomic_charges) THEN
-            WRITE (iw, '(/,T3,A,T60)') &
-               '-------------------------------- Becke atomic charges -------------------------------'
             IF (.NOT. becke_control%fragment_density) THEN
                IF (dft_control%nspins == 1) THEN
+                  WRITE (iw, '(/,T3,A)') &
+                     '-------------------------------- Becke atomic charges --------------------------------'
                   WRITE (iw, '(T3,A,A)') &
                      '#Atom  Element   Is_constraint', '   Core charge    Population (total)'// &
-                     '    Net charge'
+                     '          Net charge'
                   tc = 0.0_dp
                   DO iatom = 1, becke_control%natoms
                      jatom = becke_control%atoms(iatom)
@@ -1030,13 +1035,15 @@ CONTAINS
                                           element_symbol=element_symbol, &
                                           kind_number=ikind)
                      CALL get_qs_kind(qs_kind_set(ikind), zeff=zeff)
-                     WRITE (iw, "(i7,T15,A2,T23,L2,T39,F8.3,T61,F8.3,T75,F8.3)") &
-                        jatom, element_symbol, becke_control%is_constraint(iatom), zeff, electronic_charge(iatom, 1), &
+                     WRITE (iw, "(i7,T15,A2,T23,L10,T39,F8.3,T61,F8.3,T81,F8.3)") &
+                        jatom, ADJUSTR(element_symbol), becke_control%is_constraint(iatom), zeff, electronic_charge(iatom, 1), &
                         (zeff-electronic_charge(iatom, 1))
                      tc = tc+(zeff-electronic_charge(iatom, 1))
                   END DO
-                  WRITE (iw, '(/,T3,A,T75,F8.3,/)') "Total Charge: ", tc
+                  WRITE (iw, '(/,T3,A,T81,F8.3,/)') "Total Charge: ", tc
                ELSE
+                  WRITE (iw, '(/,T3,A)') &
+                     '------------------------------------------ Becke atomic charges -------------------------------------------'
                   WRITE (iw, '(T3,A,A)') &
                      '#Atom  Element   Is_constraint', '   Core charge    Population (alpha, beta)'// &
                      '    Net charge      Spin population'
@@ -1047,8 +1054,8 @@ CONTAINS
                                           element_symbol=element_symbol, &
                                           kind_number=ikind)
                      CALL get_qs_kind(qs_kind_set(ikind), zeff=zeff)
-                     WRITE (iw, "(i7,T15,A2,T23,L2,T39,F8.3,T53,F8.3,T63,F8.3,T81,F8.3,T90,F8.3)") &
-                        jatom, element_symbol, &
+                     WRITE (iw, "(i7,T15,A2,T23,L10,T39,F8.3,T53,F8.3,T67,F8.3,T81,F8.3,T102,F8.3)") &
+                        jatom, ADJUSTR(element_symbol), &
                         becke_control%is_constraint(iatom), &
                         zeff, electronic_charge(iatom, 1), electronic_charge(iatom, 2), &
                         (zeff-electronic_charge(iatom, 1)-electronic_charge(iatom, 2)), &
@@ -1058,9 +1065,11 @@ CONTAINS
                   WRITE (iw, '(/,T3,A,T81,F8.3,/)') "Total Charge: ", tc
                END IF
             ELSE
+               WRITE (iw, '(/,T3,A)') &
+                  '-------------------------------- Becke atomic charges --------------------------------'
                WRITE (iw, '(T3,A,A)') &
                   '#Atom  Element   Is_constraint', '   Fragment charge    Population (total)'// &
-                  '    Net charge'
+                  '      Net charge'
                tc = 0.0_dp
                DO iatom = 1, becke_control%natoms
                   jatom = becke_control%atoms(iatom)
@@ -1068,8 +1077,8 @@ CONTAINS
                                        element_symbol=element_symbol, &
                                        kind_number=ikind)
                   IF (dft_control%nspins == 1) THEN
-                     WRITE (iw, "(i7,T15,A2,T23,L2,T39,F8.3,T61,F8.3,T75,F8.3)") &
-                        jatom, element_symbol, &
+                     WRITE (iw, "(i7,T15,A2,T23,L10,T43,F8.3,T65,F8.3,T81,F8.3)") &
+                        jatom, ADJUSTR(element_symbol), &
                         becke_control%is_constraint(iatom), &
                         becke_control%charges_fragment(iatom), &
                         electronic_charge(iatom, 1), &
@@ -1078,8 +1087,8 @@ CONTAINS
                      tc = tc+(electronic_charge(iatom, 1)- &
                               becke_control%charges_fragment(iatom))
                   ELSE
-                     WRITE (iw, "(i7,T15,A2,T23,L2,T39,F8.3,T61,F8.3,T75,F8.3)") &
-                        jatom, element_symbol, &
+                     WRITE (iw, "(i7,T15,A2,T23,L10,T43,F8.3,T65,F8.3,T81,F8.3)") &
+                        jatom, ADJUSTR(element_symbol), &
                         becke_control%is_constraint(iatom), &
                         becke_control%charges_fragment(iatom), &
                         electronic_charge(iatom, 1)+electronic_charge(iatom, 2), &
@@ -1089,7 +1098,7 @@ CONTAINS
                               becke_control%charges_fragment(iatom))
                   END IF
                END DO
-               WRITE (iw, '(/,T3,A,T75,F8.3,/)') "Total Charge: ", tc
+               WRITE (iw, '(/,T3,A,T81,F8.3,/)') "Total Charge: ", tc
             END IF
          END IF
       END IF

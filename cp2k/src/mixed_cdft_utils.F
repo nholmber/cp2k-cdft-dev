@@ -264,26 +264,6 @@ CONTAINS
                settings%radii(1:nkinds, iforce_eval) = dft_control%qs_control%becke_control%radii_tmp(:)
             END IF
          END IF
-         ! All processors can deallocate these arrays
-         ! Only GAPW and serial calculation needs to keep a copy of these arrays for constraint integration
-         IF (.NOT. dft_control%qs_control%gapw) THEN
-            IF (mixed_cdft%is_parallel .OR. &
-                (.NOT. mixed_cdft%is_parallel .AND. iforce_eval /= 1)) THEN
-               DEALLOCATE (dft_control%qs_control%becke_control%atoms)
-               DO i = 1, SIZE(dft_control%qs_control%becke_control%group)
-                  DEALLOCATE (dft_control%qs_control%becke_control%group(i)%coeff)
-                  DEALLOCATE (dft_control%qs_control%becke_control%group(i)%atoms)
-               END DO
-            END IF
-         END IF
-         IF (dft_control%qs_control%becke_control%cutoff_type == becke_cutoff_element) THEN
-            IF (.NOT. mixed_cdft%is_parallel .AND. iforce_eval /= 1) &
-               DEALLOCATE (dft_control%qs_control%becke_control%cutoffs_tmp)
-         END IF
-         IF (dft_control%qs_control%becke_control%adjust) THEN
-            IF (.NOT. mixed_cdft%is_parallel .AND. iforce_eval /= 1) &
-               DEALLOCATE (dft_control%qs_control%becke_control%radii_tmp)
-         END IF
       END DO
       ! Make sure the grids are consistent
       CALL mp_sum(settings%grid_span, force_env%para_env%group)
@@ -334,6 +314,36 @@ CONTAINS
       IF (mixed_cdft%dlb .AND. .NOT. settings%si(2, 1) == 1) &
          CALL cp_abort(__LOCATION__, &
                        "Parallel mode mixed CDFT load balancing requires Gaussian cavity confinement.")
+      ! Deallocate some arrays that are no longer neededd
+      DO iforce_eval = 1, nforce_eval
+         IF (.NOT. ASSOCIATED(force_env%sub_force_env(iforce_eval)%force_env)) CYCLE
+         IF (mixed_env%do_mixed_qmmm_cdft) THEN
+            force_env_qs => force_env%sub_force_env(iforce_eval)%force_env
+            qs_env => force_env_qs%qmmm_env%qs_env
+         ELSE
+            force_env_qs => force_env%sub_force_env(iforce_eval)%force_env
+            CALL force_env_get(force_env_qs, qs_env=qs_env)
+         END IF
+         CALL get_qs_env(qs_env, pw_env=pw_env, dft_control=dft_control)
+         IF (.NOT. dft_control%qs_control%gapw) THEN
+            IF (mixed_cdft%is_parallel .OR. &
+                (.NOT. mixed_cdft%is_parallel .AND. iforce_eval /= 1)) THEN
+               DO i = 1, SIZE(dft_control%qs_control%becke_control%group)
+                  DEALLOCATE (dft_control%qs_control%becke_control%group(i)%coeff)
+                  DEALLOCATE (dft_control%qs_control%becke_control%group(i)%atoms)
+               END DO
+               IF (settings%si(7, 1) /= 1) DEALLOCATE (dft_control%qs_control%becke_control%atoms)
+            END IF
+         END IF
+         IF (dft_control%qs_control%becke_control%cutoff_type == becke_cutoff_element) THEN
+            IF (.NOT. mixed_cdft%is_parallel .AND. iforce_eval /= 1) &
+               DEALLOCATE (dft_control%qs_control%becke_control%cutoffs_tmp)
+         END IF
+         IF (dft_control%qs_control%becke_control%adjust) THEN
+            IF (.NOT. mixed_cdft%is_parallel .AND. iforce_eval /= 1) &
+               DEALLOCATE (dft_control%qs_control%becke_control%radii_tmp)
+         END IF
+      END DO
 
    END SUBROUTINE mixed_cdft_parse_settings
 

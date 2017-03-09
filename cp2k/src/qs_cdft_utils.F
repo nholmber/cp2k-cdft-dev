@@ -272,32 +272,32 @@ CONTAINS
       ! Dump some additional information about the calculation
       IF (becke_control%first_iteration) THEN
          IF (iw > 0) THEN
-            WRITE (iw, '(/,T3,A,T60)') &
-               '----------------------------- Becke atomic parameters -----------------------------'
+            WRITE (iw, '(/,T3,A)') &
+               '----------------------- Becke atomic parameters ------------------------'
             IF (becke_control%adjust) THEN
                WRITE (iw, '(T3,A)') &
-                  'Atom  Element     Cutoff (angstrom)    CDFT Radius (angstrom)'
+                  'Atom   Element           Cutoff (angstrom)        CDFT Radius (angstrom)'
                DO iatom = 1, natom
                   CALL get_atomic_kind(atomic_kind=particle_set(iatom)%atomic_kind, element_symbol=element_symbol, &
                                        kind_number=ikind)
                   ircov = cp_unit_from_cp2k(becke_control%radii(ikind), "angstrom")
-                  WRITE (iw, "(i7,T15,A2,T25,F8.3,T47,F8.3,T61,F8.3)") &
-                     iatom, element_symbol, cp_unit_from_cp2k(becke_control%cutoffs(iatom), "angstrom"), &
+                  WRITE (iw, "(i6,T15,A2,T37,F8.3,T67,F8.3)") &
+                     iatom, ADJUSTR(element_symbol), cp_unit_from_cp2k(becke_control%cutoffs(iatom), "angstrom"), &
                      ircov
                END DO
             ELSE
                WRITE (iw, '(T3,A)') &
-                  'Atom  Element     Cutoff (angstrom)'
+                  'Atom   Element           Cutoff (angstrom)'
                DO iatom = 1, natom
                   CALL get_atomic_kind(atomic_kind=particle_set(iatom)%atomic_kind, element_symbol=element_symbol)
-                  WRITE (iw, "(i7,T15,A2,T25,F8.3,T47,F8.3)") &
-                     iatom, element_symbol, cp_unit_from_cp2k(becke_control%cutoffs(iatom), "angstrom")
+                  WRITE (iw, "(i7,T15,A2,T37,F8.3)") &
+                     iatom, ADJUSTR(element_symbol), cp_unit_from_cp2k(becke_control%cutoffs(iatom), "angstrom")
                END DO
             END IF
             WRITE (iw, '(T3,A)') &
-               '-----------------------------------------------------------------------------------'
+               '------------------------------------------------------------------------'
             WRITE (iw, '(/,T3,A,T60)') &
-               '----------------------------- Becke group definitions -----------------------------'
+               '----------------------- Becke group definitions ------------------------'
             DO igroup = 1, SIZE(group)
                IF (igroup > 1) WRITE (iw, '(T3,A)') ' '
                WRITE (iw, '(T3,A,I4,A,I4)') &
@@ -306,11 +306,11 @@ CONTAINS
                DO ip = 1, SIZE(group(igroup)%atoms)
                   iatom = group(igroup)%atoms(ip)
                   CALL get_atomic_kind(atomic_kind=particle_set(iatom)%atomic_kind, element_symbol=element_symbol)
-                  WRITE (iw, '(T11,i7,T25,A2)') iatom, element_symbol
+                  WRITE (iw, '(T11,i7,T25,A2)') iatom, ADJUSTR(element_symbol)
                END DO
             END DO
             WRITE (iw, '(T3,A)') &
-               '-----------------------------------------------------------------------------------'
+               '------------------------------------------------------------------------'
          END IF
          becke_control%first_iteration = .FALSE.
       END IF
@@ -409,9 +409,12 @@ CONTAINS
                bounds(2) = bo(2, 3)
             END IF
             IF (bounds(1) .GT. bo(1, 3)) THEN
+               ! In the special case bounds(1) == bounds(2) == bo(2, 3), after this check
+               ! bounds(1) > bounds(2) and the subsequent gradient allocation (:, :, :, bounds(1):bounds(2))
+               ! will correctly allocate a 0-sized array
                bounds(1) = bounds(1)+1
             ELSE
-               bounds(2) = bo(1, 3)
+               bounds(1) = bo(1, 3)
             END IF
             becke_control%confine_bounds = bounds
          END IF

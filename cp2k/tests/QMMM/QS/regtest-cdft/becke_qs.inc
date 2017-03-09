@@ -47,8 +47,8 @@
       IN_MEMORY       TRUE
     @ENDIF
     @IF ( ${BECKE_CAVITY_CONFINE} == TRUE )
-      ! Defaults to NONE
-      CONFINE         CAVITY
+      ! Defaults to FALSE
+      CAVITY_CONFINE  TRUE
       EPS_CAVITY      1.0E-6
       CAVITY_SHAPE    ${BECKE_CAVITY_SHAPE}
       ! For shape single

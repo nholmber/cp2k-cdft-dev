@@ -824,7 +824,7 @@ CONTAINS
       CHARACTER(len=*), PARAMETER :: routineN = 'mixed_cdft_transfer_weight', &
          routineP = moduleN//':'//routineN
 
-      INTEGER                                            :: bounds_of(8), handle, igroup
+      INTEGER                                            :: bounds_of(8), handle, iatom, igroup
       TYPE(dft_control_type), POINTER                    :: dft_control_source, dft_control_target
       TYPE(force_env_type), POINTER                      :: force_env_qs_source, force_env_qs_target
       TYPE(mixed_cdft_type), POINTER                     :: mixed_cdft
@@ -908,6 +908,21 @@ CONTAINS
                dft_control_target%qs_control%becke_control%group(igroup)%gradients = &
                   dft_control_source%qs_control%becke_control%group(igroup)%gradients
                DEALLOCATE (dft_control_source%qs_control%becke_control%group(igroup)%gradients)
+            END DO
+         END IF
+         ! Atomic weight functions needed for Becke charges
+         IF (dft_control_source%qs_control%becke_control%atomic_charges) THEN
+            IF (.NOT. ASSOCIATED(dft_control_target%qs_control%becke_control%charge)) &
+               ALLOCATE (dft_control_target%qs_control%becke_control% &
+                         charge(dft_control_target%qs_control%becke_control%natoms))
+            DO iatom = 1, dft_control_target%qs_control%becke_control%natoms
+               CALL pw_pool_create_pw(auxbas_pw_pool_target, &
+                                      dft_control_target%qs_control%becke_control%charge(iatom)%pw, &
+                                      use_data=REALDATA3D, in_space=REALSPACE)
+               dft_control_target%qs_control%becke_control%charge(iatom)%pw%cr3d = &
+                  dft_control_source%qs_control%becke_control%charge(iatom)%pw%cr3d
+               CALL pw_pool_give_back_pw(auxbas_pw_pool_source, &
+                                         dft_control_source%qs_control%becke_control%charge(iatom)%pw)
             END DO
          END IF
          ! Set some flags so the weight is not rebuilt during SCF
@@ -1356,22 +1371,22 @@ CONTAINS
          WRITE (iounit, '(/,T3,A,T66)') &
             '------------------------- CDFT coupling information --------------------------'
          WRITE (iounit, '(T3,A,T66,(3X,F12.2))') &
-            'Information at step (fs)            :', mixed_cdft%sim_step*mixed_cdft%sim_dt
+            'Information at step (fs)                   :', mixed_cdft%sim_step*mixed_cdft%sim_dt
          DO ivar = 1, nvar
             IF (ivar > 1) &
                WRITE (iounit, '(A)') ''
-            WRITE (iounit, '(T3,A,T60,(3X,I18))') 'Atomic group                        :', ivar
-            WRITE (iounit, '(T3,A,T60,(3X,F18.12))') 'Strength of constraint A            :', strength_a(ivar)
-            WRITE (iounit, '(T3,A,T60,(3X,F18.12))') 'Strength of constraint B            :', strength_b(ivar)
-            WRITE (iounit, '(T3,A,T60,(3X,F18.12))') 'Final value of constraint A         :', Waa(ivar)
-            WRITE (iounit, '(T3,A,T60,(3X,F18.12))') 'Final value of constraint B         :', Wbb(ivar)
+            WRITE (iounit, '(T3,A,T60,(3X,I18))') 'Atomic group                               :', ivar
+            WRITE (iounit, '(T3,A,T60,(3X,F18.12))') 'Strength of constraint A                   :', strength_a(ivar)
+            WRITE (iounit, '(T3,A,T60,(3X,F18.12))') 'Strength of constraint B                   :', strength_b(ivar)
+            WRITE (iounit, '(T3,A,T60,(3X,F18.12))') 'Final value of constraint A                :', Waa(ivar)
+            WRITE (iounit, '(T3,A,T60,(3X,F18.12))') 'Final value of constraint B                :', Wbb(ivar)
          END DO
-         WRITE (iounit, '(T3,A,T60,(3X,F18.12))') 'Overlap between states A and B      :', Sda
-         WRITE (iounit, '(T3,A,T60,(3X,F18.12))') 'Charge transfer energy (B-A) (Ha)   :', (energy_b-energy_a)
+         WRITE (iounit, '(T3,A,T60,(3X,F18.12))') 'Overlap between states A and B             :', Sda
+         WRITE (iounit, '(T3,A,T60,(3X,F18.12))') 'Charge transfer energy (B-A) (Hartree)     :', (energy_b-energy_a)
          WRITE (iounit, *)
          IF (ABS(RESULT(1))*1.0E3_dp .GE. 0.1_dp) THEN
             WRITE (iounit, '(T3,A,T60,(3X,F18.12))') &
-               'Diabatic electronic coupling (mHartree):', ABS(RESULT(1)*1.0E3_dp)
+               'Diabatic electronic coupling (mHartree)    :', ABS(RESULT(1)*1.0E3_dp)
             WRITE (iounit, '(T3,A,T60,(3X,F18.12))') &
                'Diabatic coupling old def (mHartree):', ABS(RESULT(2)*1.0E3_dp)
          ELSE
@@ -1664,10 +1679,10 @@ CONTAINS
          iounit = cp_print_key_unit_nr(logger, print_section, '', extension='.mixedLog')
          IF (iounit > 0) THEN
             WRITE (iounit, '(/,T3,A,T66)') &
-               '----------------------------- Becke atomic parameters -----------------------------'
+               '-------------------------- Becke atomic parameters ---------------------------'
             IF (mixed_cdft%becke_control%adjust) THEN
                WRITE (iounit, '(T3,A,A)') &
-                  'Atom  Element   Coefficient', '     Cutoff (angstrom)    CDFT Radius (angstrom)'
+                  'Atom   Element  Coefficient', '     Cutoff (angstrom)       CDFT Radius (angstrom)'
                DO iatom = 1, natom
                   CALL get_atomic_kind(atomic_kind=particle_set(iatom)%atomic_kind, &
                                        element_symbol=element_symbol, &
@@ -1678,14 +1693,14 @@ CONTAINS
                   ELSE
                      coef = 0.0_dp
                   END IF
-                  WRITE (iounit, "(i7,T15,A2,T23,F8.3,T39,F8.3,T61,F8.3,T75,F8.3)") &
-                     iatom, element_symbol, coef, &
+                  WRITE (iounit, "(i6,T14,A2,T22,F8.3,T44,F8.3,T73,F8.3)") &
+                     iatom, ADJUSTR(element_symbol), coef, &
                      cp_unit_from_cp2k(mixed_cdft%becke_control%cutoffs(iatom), "angstrom"), &
                      ircov
                END DO
             ELSE
                WRITE (iounit, '(T3,A,A)') &
-                  'Atom  Element   Coefficient', '     Cutoff (angstrom)'
+                  'Atom   Element  Coefficient', '     Cutoff (angstrom)'
                DO iatom = 1, natom
                   CALL get_atomic_kind(atomic_kind=particle_set(iatom)%atomic_kind, &
                                        element_symbol=element_symbol)
@@ -1694,13 +1709,13 @@ CONTAINS
                   ELSE
                      coef = 0.0_dp
                   END IF
-                  WRITE (iounit, "(i7,T15,A2,T23,F8.3,T39,F8.3,T61,F8.3,T75)") &
-                     iatom, element_symbol, coef, &
+                  WRITE (iounit, "(i6,T14,A2,T22,F8.3,T44,F8.3)") &
+                     iatom, ADJUSTR(element_symbol), coef, &
                      cp_unit_from_cp2k(mixed_cdft%becke_control%cutoffs(iatom), "angstrom")
                END DO
             END IF
             WRITE (iounit, '(T3,A)') &
-               '-----------------------------------------------------------------------------------'
+               '------------------------------------------------------------------------------'
          END IF
          CALL cp_print_key_finished_output(iounit, logger, force_env_section, &
                                            "MIXED%PRINT%PROGRAM_RUN_INFO")
@@ -1795,14 +1810,22 @@ CONTAINS
             bounds(2) = bo(2, 3)
          END IF
          IF (bounds(1) .GT. bo(1, 3)) THEN
+            ! In the special case bounds(1) == bounds(2) == bo(2, 3), after this check
+            ! bounds(1) > bounds(2) and the subsequent gradient allocation (:, :, :, bounds(1):bounds(2))
+            ! will correctly allocate a 0-sized array
             bounds(1) = bounds(1)+1
          ELSE
-            bounds(2) = bo(1, 3)
+            bounds(1) = bo(1, 3)
          END IF
-         IF (mixed_cdft%is_pencil .OR. mixed_cdft%is_special) THEN
-            my_work_size = (bounds(2)-bounds(1)+1)*(bo(2, 2)-bo(1, 2)+1)
+         IF (bounds(1) > bounds(2)) THEN
+            my_work_size = 0
          ELSE
-            my_work_size = (bounds(2)-bounds(1)+1)*(bo(2, 1)-bo(1, 1)+1)
+            my_work_size = (bounds(2)-bounds(1)+1)
+            IF (mixed_cdft%is_pencil .OR. mixed_cdft%is_special) THEN
+               my_work_size = my_work_size*(bo(2, 2)-bo(1, 2)+1)
+            ELSE
+               my_work_size = my_work_size*(bo(2, 1)-bo(1, 1)+1)
+            END IF
          END IF
          mixed_cdft%becke_control%confine_bounds = bounds
          IF (mixed_cdft%becke_control%print_cavity) THEN

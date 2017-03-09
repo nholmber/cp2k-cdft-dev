@@ -114,7 +114,7 @@ MODULE qs_environment
                                               write_structure_data
    USE particle_types,                  ONLY: particle_type
    USE qmmm_types_low,                  ONLY: qmmm_env_qm_type
-   USE qs_cdft_types,                   ONLY: read_becke_section
+   USE qs_cdft_utils,                   ONLY: read_becke_section
    USE qs_dftb_parameters,              ONLY: qs_dftb_param_init
    USE qs_dftb_types,                   ONLY: qs_dftb_pairpot_type
    USE qs_dispersion_nonloc,            ONLY: qs_dispersion_nonloc_init

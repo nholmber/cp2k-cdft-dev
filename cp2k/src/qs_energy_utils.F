@@ -39,7 +39,7 @@ MODULE qs_energy_utils
    USE pw_pool_types,                   ONLY: pw_pool_give_back_pw,&
                                               pw_pool_type
    USE pw_types,                        ONLY: pw_p_type
-   USE qs_cdft_types,                   ONLY: read_becke_section
+   USE qs_cdft_utils,                   ONLY: read_becke_section
    USE qs_energy_types,                 ONLY: qs_energy_type
    USE qs_environment_types,            ONLY: get_qs_env,&
                                               qs_environment_type
