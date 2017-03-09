@@ -1624,7 +1624,7 @@ CONTAINS
          ! Print some info
          IF (output_unit > 0) THEN
             WRITE (output_unit, FMT="(/,A)") &
-               " ==================================  LINE SEARCH STARTED  ================================="
+               " ================================== LINE SEARCH STARTED  =================================="
             WRITE (output_unit, FMT="(A)") &
                " Evaluating optimal step size for optimizer"
             WRITE (output_unit, '(A,I10,A,I10)') &

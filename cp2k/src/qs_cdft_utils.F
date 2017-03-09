@@ -300,13 +300,13 @@ CONTAINS
                '----------------------- Becke group definitions ------------------------'
             DO igroup = 1, SIZE(group)
                IF (igroup > 1) WRITE (iw, '(T3,A)') ' '
-               WRITE (iw, '(T3,A,I4,A,I4)') &
+               WRITE (iw, '(T5,A,I5,A,I5)') &
                   'Atomic group', igroup, ' of ', SIZE(group)
-               WRITE (iw, '(T13,A)') ' Atom  Element'
+               WRITE (iw, '(T5,A)') 'Atom  Element  Coefficient'
                DO ip = 1, SIZE(group(igroup)%atoms)
                   iatom = group(igroup)%atoms(ip)
                   CALL get_atomic_kind(atomic_kind=particle_set(iatom)%atomic_kind, element_symbol=element_symbol)
-                  WRITE (iw, '(T11,i7,T25,A2)') iatom, ADJUSTR(element_symbol)
+                  WRITE (iw, '(i8,T16,A2,T23,F8.3)') iatom, ADJUSTR(element_symbol), group(igroup)%coeff(ip)
                END DO
             END DO
             WRITE (iw, '(T3,A)') &
