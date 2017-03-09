@@ -758,8 +758,7 @@ CONTAINS
       LOGICAL                                            :: paw_atom
       LOGICAL, ALLOCATABLE, DIMENSION(:)                 :: is_constraint
       REAL(kind=dp)                                      :: alpha, dvol, eps_cavity, nelectron_frag, &
-                                                            sign, sum_rho(2), sum_weight(2), tc, &
-                                                            zeff
+                                                            sign, tc, zeff
       REAL(kind=dp), ALLOCATABLE, DIMENSION(:)           :: dE, strength, target_val
       REAL(kind=dp), ALLOCATABLE, DIMENSION(:, :)        :: electronic_charge, gapw_offset
       TYPE(becke_constraint_type), POINTER               :: becke_control
@@ -828,12 +827,8 @@ CONTAINS
                                 "Multiple constraints not yet supported by parallel mixed calculations.")
                dE(igroup) = dE(igroup)+sign*accurate_sum_arrays_product(group(igroup)%weight%pw%cr3d, rho_r(i)%pw%cr3d, &
                                                                         becke_control%cavity_mat, eps_cavity)*dvol
-               sum_rho(i) = accurate_sum(rho_r(i)%pw%cr3d)*dvol
-               sum_weight(i) = accurate_sum(group(igroup)%weight%pw%cr3d)*dvol
             ELSE
                dE(igroup) = dE(igroup)+sign*accurate_sum(group(igroup)%weight%pw%cr3d*rho_r(i)%pw%cr3d)*dvol
-               sum_rho(i) = accurate_sum(rho_r(i)%pw%cr3d)*dvol
-               sum_weight(i) = accurate_sum(group(igroup)%weight%pw%cr3d)*dvol
             END IF
          END DO
          IF (becke_control%atomic_charges) THEN
