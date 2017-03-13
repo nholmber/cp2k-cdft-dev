@@ -12,23 +12,37 @@
 !>  - 2016-08    Code organization (Alfio Lazzaro).
 ! **************************************************************************************************
 MODULE dbcsr_mm_common
+   USE acc_event,                       ONLY: acc_event_record,&
+                                              acc_event_synchronize,&
+                                              acc_stream_wait_event
    USE acc_stream,                      ONLY: acc_stream_type
-   USE array_types,                     ONLY: array_hold
-   USE dbcsr_data_methods,              ONLY: dbcsr_data_ensure_size
-   USE dbcsr_methods,                   ONLY: dbcsr_get_index_memory_type,&
+   USE array_types,                     ONLY: array_data,&
+                                              array_hold
+   USE dbcsr_acc_operations,            ONLY: dbcsr_acc_transpose
+   USE dbcsr_data_methods,              ONLY: dbcsr_data_ensure_size,&
+                                              dbcsr_data_host2dev,&
+                                              dbcsr_data_set_size_referenced,&
+                                              dbcsr_get_data_p_c,&
+                                              dbcsr_get_data_p_d,&
+                                              dbcsr_get_data_p_s,&
+                                              dbcsr_get_data_p_z
+   USE dbcsr_methods,                   ONLY: dbcsr_get_data_type,&
+                                              dbcsr_get_index_memory_type,&
                                               dbcsr_nfullcols_local,&
-                                              dbcsr_nfullrows_local
+                                              dbcsr_nfullrows_local,&
+                                              dbcsr_valid_index
    USE dbcsr_mm_multrec,                ONLY: dbcsr_mm_multrec_type
    USE dbcsr_ptr_util,                  ONLY: ensure_array_size
-   USE dbcsr_types,                     ONLY: dbcsr_data_obj,&
-                                              dbcsr_memtype_type,&
-                                              dbcsr_mpi_size_limits,&
-                                              dbcsr_mpi_statistics_type,&
-                                              dbcsr_type
+   USE dbcsr_types,                     ONLY: &
+        dbcsr_data_obj, dbcsr_memtype_type, dbcsr_mpi_size_limits, dbcsr_mpi_statistics_type, &
+        dbcsr_type, dbcsr_type_complex_4, dbcsr_type_complex_8, dbcsr_type_int_4, &
+        dbcsr_type_real_4, dbcsr_type_real_8
    USE dbcsr_work_operations,           ONLY: dbcsr_create
    USE kinds,                           ONLY: int_4,&
                                               int_8,&
-                                              real_8
+                                              real_4,&
+                                              real_8,&
+                                              sp
 #include "../../base/base_uses.f90"
 
    IMPLICIT NONE
@@ -48,6 +62,7 @@ MODULE dbcsr_mm_common
    TYPE(dbcsr_mpi_statistics_type), SAVE :: dbcsr_mpi_statistics
    INTEGER, SAVE :: num_multiplications = 0
    REAL, SAVE :: max_memory = 0
+   REAL, PARAMETER :: huge_norm = HUGE(1.0)**(1.0/3.0)
 
    TYPE(dbcsr_memtype_type), SAVE  :: memtype_abpanel_1, memtype_abpanel_2, &
                                       memtype_trsbuffer_1, memtype_trsbuffer_2, &
@@ -76,7 +91,12 @@ MODULE dbcsr_mm_common
    PUBLIC :: rec_sort_index
    PUBLIC :: enumerate_blk_sizes
 
+   PUBLIC :: acc_transpose_blocks
+
    PUBLIC :: product_matrix_size_guess
+
+   PUBLIC :: calculate_norms
+   PUBLIC :: huge_norm
 
 CONTAINS
 
@@ -333,6 +353,164 @@ CONTAINS
    END SUBROUTINE enumerate_blk_sizes
 
 ! **************************************************************************************************
+!> \brief write out a stack for transposing the blocks
+!> \param matrix ...
+!> \param trs_stackbuf ...
+!> \param row_blk_sizes2enum ...
+!> \param enum2row_blk_sizes ...
+!> \param col_blk_sizes2enum ...
+!> \param enum2col_blk_sizes ...
+!> \author Ole Schuett
+! **************************************************************************************************
+   SUBROUTINE acc_transpose_blocks(matrix, trs_stackbuf, &
+                                   row_blk_sizes2enum, enum2row_blk_sizes, &
+                                   col_blk_sizes2enum, enum2col_blk_sizes)
+      TYPE(dbcsr_type), INTENT(IN)                       :: matrix
+      TYPE(dbcsr_data_obj), INTENT(INOUT)                :: trs_stackbuf
+      INTEGER, DIMENSION(:), INTENT(IN), POINTER         :: row_blk_sizes2enum, enum2row_blk_sizes, &
+                                                            col_blk_sizes2enum, enum2col_blk_sizes
+
+      CHARACTER(len=*), PARAMETER :: routineN = 'acc_transpose_blocks', &
+         routineP = moduleN//':'//routineN
+
+      INTEGER                                            :: blk_p, col, handle, handle1, i, m, mi, &
+                                                            mi_max, n, nblks, ni, ni_max, offset, &
+                                                            row, x
+      INTEGER, ALLOCATABLE, DIMENSION(:, :)              :: counters, filled, offsets, tmp_stack
+      INTEGER, DIMENSION(:), POINTER                     :: blk_index, col_blk_sizes, &
+                                                            local2global_cols, local2global_rows, &
+                                                            row_blk_sizes, trs_stack
+
+      CALL timeset(routineN, handle)
+
+      NULLIFY (local2global_rows, local2global_cols, trs_stack)
+
+      IF (.NOT. matrix%list_indexing) &
+         CPABORT("build_trs_stack: only list_indexing supported.")
+      IF (.NOT. matrix%local_indexing) &
+         CPABORT("build_trs_stack: only local_indexing supported.")
+      IF (trs_stackbuf%d%data_type /= dbcsr_type_int_4) &
+         CPABORT("build_trs_stack: stac_buf has wrong datatype")
+      blk_index => matrix%coo_l
+      nblks = matrix%nblks
+
+      ! make sure buffer from previous cannon-tick was uploaded
+      CALL timeset(routineN//"_sync", handle1)
+      CALL acc_event_synchronize(trs_stackbuf%d%acc_ready)
+      CALL timestop(handle1)
+
+      CALL timeset(routineN//"_ensure", handle1)
+      CALL dbcsr_data_ensure_size(trs_stackbuf, data_size=nblks, nocopy=.TRUE.)
+      CALL dbcsr_data_set_size_referenced(trs_stackbuf, nblks)
+      trs_stack => trs_stackbuf%d%i4
+      CALL timestop(handle1)
+
+      mi_max = SIZE(enum2row_blk_sizes); ni_max = SIZE(enum2col_blk_sizes)
+      ALLOCATE (counters(mi_max, ni_max), offsets(mi_max, ni_max))
+      counters(:, :) = 0; offsets(:, :) = 0
+
+      CALL timeset(routineN//"_comp", handle1)
+
+      ! Simplified algorithm for single size blocks
+      IF (mi_max .EQ. 1 .AND. ni_max .EQ. 1) THEN
+         DO i = 1, nblks
+            blk_p = blk_index(3*(i-1)+3)
+            IF (blk_p == 0) CYCLE
+            counters(1, 1) = counters(1, 1)+1
+            trs_stack(counters(1, 1)) = blk_p-1
+         ENDDO
+      ELSE
+         ALLOCATE (tmp_stack(3, nblks))
+         row_blk_sizes => array_data(matrix%row_blk_size)
+         col_blk_sizes => array_data(matrix%col_blk_size)
+         local2global_rows => array_data(matrix%local_rows)
+         local2global_cols => array_data(matrix%local_cols)
+
+         ! collect block addresses and dimensions in a temporary stack
+         ! while doing so, also count number of blocks per block-dimensions
+         DO i = 1, nblks
+            row = blk_index(3*(i-1)+1)
+            col = blk_index(3*(i-1)+2)
+            blk_p = blk_index(3*(i-1)+3)
+            IF (blk_p == 0) CYCLE
+            row = local2global_rows(row)
+            col = local2global_cols(col)
+            m = row_blk_sizes(row)
+            n = col_blk_sizes(col)
+            mi = row_blk_sizes2enum(m)
+            ni = col_blk_sizes2enum(n)
+            tmp_stack(1, i) = mi
+            tmp_stack(2, i) = ni
+            tmp_stack(3, i) = blk_p-1
+            counters(mi, ni) = counters(mi, ni)+1
+         ENDDO
+         ! calculate offsets for first element of each sub-stack
+         offset = 0
+         DO mi = 1, mi_max
+            DO ni = 1, ni_max
+               offsets(mi, ni) = offset
+               offset = offset+counters(mi, ni)
+            ENDDO
+         ENDDO
+         ! write all sub-stacks into the host-pinned buffer
+         ALLOCATE (filled(mi_max, ni_max))
+         filled(:, :) = 0
+         DO i = 1, nblks
+            mi = tmp_stack(1, i)
+            ni = tmp_stack(2, i)
+            blk_p = tmp_stack(3, i)
+            x = offsets(mi, ni)+filled(mi, ni)+1
+            trs_stack(x) = blk_p
+            filled(mi, ni) = filled(mi, ni)+1
+         ENDDO
+         !sanity check
+         DO ni = 1, ni_max
+            DO mi = 1, mi_max
+               IF (filled(mi, ni) /= counters(mi, ni)) &
+                  CPABORT("acc_transpose_blocks: bug")
+            END DO
+         END DO
+      ENDIF
+      CALL timestop(handle1)
+
+      CALL timeset(routineN//"_sync", handle1)
+      !transfer all stacks
+      CALL dbcsr_data_host2dev(trs_stackbuf)
+      ! make sure block-buffer is uploaded befor running the kernels
+      CALL acc_stream_wait_event(trs_stackbuf%d%memory_type%acc_stream, matrix%data_area%d%acc_ready)
+      CALL timestop(handle1)
+
+      CALL timeset(routineN//"_kernels", handle1)
+      ! launch kernels
+      DO ni = 1, ni_max
+         DO mi = 1, mi_max
+            IF (counters(mi, ni) > 0) THEN
+               m = enum2row_blk_sizes(mi)
+               n = enum2col_blk_sizes(ni)
+               CALL dbcsr_acc_transpose( &
+                  trs_stack=trs_stackbuf%d%acc_devmem, &
+                  offset=offsets(mi, ni), &
+                  nblks=counters(mi, ni), &
+                  datatype=matrix%data_type, &
+                  buffer=matrix%data_area%d%acc_devmem, &
+                  m=m, n=n, &
+                  stream=trs_stackbuf%d%memory_type%acc_stream)
+            END IF
+         ENDDO
+      ENDDO
+      CALL timestop(handle1)
+
+      CALL timeset(routineN//"_sync", handle1)
+      ! make sure block-buffer are not used until transpose kernels finnished
+      CALL acc_event_record(trs_stackbuf%d%acc_ready, trs_stackbuf%d%memory_type%acc_stream)
+      CALL acc_stream_wait_event(matrix%data_area%d%memory_type%acc_stream, trs_stackbuf%d%acc_ready)
+      CALL acc_event_record(matrix%data_area%d%acc_ready, matrix%data_area%d%memory_type%acc_stream)
+      CALL timestop(handle1)
+
+      CALL timestop(handle)
+   END SUBROUTINE acc_transpose_blocks
+
+! **************************************************************************************************
 !> \brief Guess the size of the product matrix from the A and B sparsities
 !> \param matrix_left ...
 !> \param matrix_right ...
@@ -379,5 +557,77 @@ CONTAINS
       ENDIF
       size_guess = INT(REAL(size8, KIND=real_8)*fill_guess, KIND=int_4)
    END FUNCTION product_matrix_size_guess
+
+! **************************************************************************************************
+!> \brief Calculates per-block norms.
+!>
+!> Rewritten to be very low-level.
+!> \param[in,out] matrix     DBCSR matrix for which to calculate norms
+!> \param[out] norms         Block norms
+! **************************************************************************************************
+   SUBROUTINE calculate_norms(matrix, norms)
+      TYPE(dbcsr_type), INTENT(IN)                       :: matrix
+      REAL(kind=sp), DIMENSION(:), INTENT(OUT)           :: norms
+
+      CHARACTER(len=*), PARAMETER :: routineN = 'calculate_norms', &
+         routineP = moduleN//':'//routineN
+
+      INTEGER                                            :: data_type, handle, nblks
+      INTEGER, DIMENSION(:), POINTER                     :: local_cols, local_rows
+
+!   ---------------------------------------------------------------------------
+
+      CALL timeset(routineN, handle)
+      ! Checks for validity
+      IF (.NOT. dbcsr_valid_index(matrix)) &
+         CPABORT("The matrix must be valid.")
+      data_type = dbcsr_get_data_type(matrix)
+      local_rows => array_data(matrix%local_rows)
+      local_cols => array_data(matrix%local_cols)
+      nblks = matrix%nblks
+      SELECT CASE (data_type)
+      CASE (dbcsr_type_real_4)
+         CALL calc_norms_s(norms, nblks, &
+                           matrix%coo_l, &
+                           array_data(matrix%row_blk_size), &
+                           array_data(matrix%col_blk_size), &
+                           dbcsr_get_data_p_s(matrix%data_area), &
+                           local2global_rows=local_rows, &
+                           local2global_cols=local_cols)
+      CASE (dbcsr_type_real_8)
+         CALL calc_norms_d(norms, nblks, &
+                           matrix%coo_l, &
+                           array_data(matrix%row_blk_size), &
+                           array_data(matrix%col_blk_size), &
+                           dbcsr_get_data_p_d(matrix%data_area), &
+                           local2global_rows=local_rows, &
+                           local2global_cols=local_cols)
+      CASE (dbcsr_type_complex_4)
+         CALL calc_norms_c(norms, nblks, &
+                           matrix%coo_l, &
+                           array_data(matrix%row_blk_size), &
+                           array_data(matrix%col_blk_size), &
+                           dbcsr_get_data_p_c(matrix%data_area), &
+                           local2global_rows=local_rows, &
+                           local2global_cols=local_cols)
+      CASE (dbcsr_type_complex_8)
+         CALL calc_norms_z(norms, nblks, &
+                           matrix%coo_l, &
+                           array_data(matrix%row_blk_size), &
+                           array_data(matrix%col_blk_size), &
+                           dbcsr_get_data_p_z(matrix%data_area), &
+                           local2global_rows=local_rows, &
+                           local2global_cols=local_cols)
+      CASE DEFAULT
+         CPABORT("Invalid data type.")
+      END SELECT
+      !
+      CALL timestop(handle)
+   END SUBROUTINE calculate_norms
+
+#include "dbcsr_mm_common_d.f90"
+#include "dbcsr_mm_common_z.f90"
+#include "dbcsr_mm_common_s.f90"
+#include "dbcsr_mm_common_c.f90"
 
 END MODULE dbcsr_mm_common
