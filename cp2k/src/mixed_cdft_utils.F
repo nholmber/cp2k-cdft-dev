@@ -155,7 +155,10 @@ CONTAINS
       ALLOCATE (settings%rs_dims(2, nforce_eval))
       ALLOCATE (settings%odd(nforce_eval))
       ALLOCATE (settings%atoms(natom, nforce_eval))
-      ALLOCATE (settings%coeffs(natom, nforce_eval))
+      IF (mixed_cdft%is_parallel) THEN
+         ALLOCATE (settings%coeffs(natom, nforce_eval))
+         settings%coeffs = 0.0_dp
+      END IF
       ALLOCATE (settings%si(4, nforce_eval))
       ALLOCATE (settings%sb(8, nforce_eval))
       ALLOCATE (settings%sr(5, nforce_eval))
@@ -171,7 +174,6 @@ CONTAINS
       settings%odd = 0
       settings%is_odd = .FALSE.
       settings%atoms = 0
-      settings%coeffs = 0.0_dp
       settings%si = 0
       settings%sr = 0.0_dp
       settings%sb = .FALSE.
@@ -212,7 +214,8 @@ CONTAINS
                              " Use default values for MIXED\MAPPING.")
             settings%atoms(1:dft_control%qs_control%becke_control%natoms, iforce_eval) = &
                dft_control%qs_control%becke_control%atoms
-            settings%coeffs(1:dft_control%qs_control%becke_control%natoms, iforce_eval) = &
+            IF (mixed_cdft%is_parallel) &
+               settings%coeffs(1:dft_control%qs_control%becke_control%natoms, iforce_eval) = &
                dft_control%qs_control%becke_control%group(1)%coeff
             ! Integer type settings
             settings%si(1, iforce_eval) = dft_control%qs_control%becke_control%cutoff_type
@@ -283,11 +286,14 @@ CONTAINS
       IF (settings%odd(1) == 1) settings%is_odd = .TRUE.
       ! Make sure Becke settings are consistent
       CALL mp_sum(settings%atoms, force_env%para_env%group)
-      CALL mp_sum(settings%coeffs, force_env%para_env%group)
+      IF (mixed_cdft%is_parallel) &
+         CALL mp_sum(settings%coeffs, force_env%para_env%group)
       settings%nbecke = 0
       DO i = 1, SIZE(settings%atoms, 1)
          IF (settings%atoms(i, 1) /= settings%atoms(i, 2)) is_match = .FALSE.
-         IF (settings%coeffs(i, 1) /= settings%coeffs(i, 2)) is_match = .FALSE.
+         IF (mixed_cdft%is_parallel) THEN
+            IF (settings%coeffs(i, 1) /= settings%coeffs(i, 2)) is_match = .FALSE.
+         END IF
          IF (settings%atoms(i, 1) /= 0) settings%nbecke = settings%nbecke+1
       END DO
       IF (.NOT. is_match) &
@@ -297,9 +303,9 @@ CONTAINS
       CALL mp_sum(settings%sr, force_env%para_env%group)
       DO i = 1, SIZE(settings%sb, 1)
          CALL mp_sum(settings%sb(i, 1), force_env%para_env%group)
-         CALL mp_sum(settings%sb(i, 2), force_env%para_env%group)         
+         CALL mp_sum(settings%sb(i, 2), force_env%para_env%group)
          IF (settings%sb(i, 1) .NEQV. settings%sb(i, 2)) is_match = .FALSE.
-      END DO 
+      END DO
       DO i = 1, SIZE(settings%si, 1)
          IF (settings%si(i, 1) /= settings%si(i, 2)) is_match = .FALSE.
       END DO
@@ -310,7 +316,7 @@ CONTAINS
          CALL cp_abort(__LOCATION__, &
                        "Mismatch detected in the &BECKE_CONSTRAINT settings of the two force_evals.")
       ! Some CDFT features are currently disabled for mixed calculations: check that these features were not requested
-      IF (mixed_cdft%dlb .AND. settings%sb(1, 1)) &
+      IF (mixed_cdft%dlb .AND. .NOT. settings%sb(1, 1)) &
          CALL cp_abort(__LOCATION__, &
                        "Parallel mode mixed CDFT load balancing requires Gaussian cavity confinement.")
       ! Deallocate some arrays that are no longer neededd
@@ -329,8 +335,7 @@ CONTAINS
                CALL release_hirshfeld_type(dft_control%qs_control%becke_control%cavity_env)
          END IF
          IF (.NOT. dft_control%qs_control%gapw) THEN
-            IF (mixed_cdft%is_parallel .OR. &
-                (.NOT. mixed_cdft%is_parallel .AND. iforce_eval /= 1)) THEN
+            IF (mixed_cdft%is_parallel) THEN
                DO i = 1, SIZE(dft_control%qs_control%becke_control%group)
                   DEALLOCATE (dft_control%qs_control%becke_control%group(i)%coeff)
                   DEALLOCATE (dft_control%qs_control%becke_control%group(i)%atoms)
@@ -404,7 +409,7 @@ CONTAINS
          mixed_cdft%becke_control%adjust = settings%sb(5, 1)
          mixed_cdft%becke_control%atomic_charges = settings%sb(6, 1)
          mixed_cdft%becke_control%cavity_shape = settings%si(2, 1)
-         mixed_cdft%becke_control%use_bohr = settings%sb(8, 1) 
+         mixed_cdft%becke_control%use_bohr = settings%sb(8, 1)
          mixed_cdft%becke_control%rcavity = settings%sr(1, 1)
          mixed_cdft%becke_control%rglobal = settings%sr(2, 1)
          mixed_cdft%becke_control%eps_cavity = settings%sr(3, 1)
@@ -828,7 +833,8 @@ CONTAINS
       DEALLOCATE (settings%rs_dims)
       DEALLOCATE (settings%odd)
       DEALLOCATE (settings%atoms)
-      DEALLOCATE (settings%coeffs)
+      IF (mixed_cdft%is_parallel) &
+         DEALLOCATE (settings%coeffs)
       DEALLOCATE (settings%cutoffs)
       DEALLOCATE (settings%radii)
       DEALLOCATE (settings%si)

@@ -156,7 +156,7 @@ MODULE mixed_cdft_types
                                                           calculate_metric, &
                                                           wfn_overlap_method, &
                                                           has_unit_metric, &
-                                                          is_parallel
+                                                          is_parallel, use_lowdin
       LOGICAL, DIMENSION(:), ALLOCATABLE               :: is_charge_constraint
       REAL(KIND=dp)                                    :: eps_rho_rspace, sim_dt, &
                                                           eps_svd

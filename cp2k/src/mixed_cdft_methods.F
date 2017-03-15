@@ -269,14 +269,17 @@ CONTAINS
                CALL section_vals_val_get(mixed_section, "LINEAR%MORE_WORK", &
                                          i_val=mixed_cdft%dlb_control%more_work)
             END IF
-            ! Metric/Wavefunction overlap method
+            ! Metric/Wavefunction overlap method/Lowdin orthoganlization
             mixed_cdft%calculate_metric = .FALSE.
             mixed_cdft%wfn_overlap_method = .FALSE.
+            mixed_cdft%use_lowdin = .FALSE.
             IF (mixed_env%do_mixed_et) THEN
                CALL section_vals_val_get(mixed_section, "LINEAR%MIXED_CDFT_METRIC", &
                                          l_val=mixed_cdft%calculate_metric)
                CALL section_vals_val_get(mixed_section, "LINEAR%MIXED_CDFT_WFN_OVERLAP", &
                                          l_val=mixed_cdft%wfn_overlap_method)
+               CALL section_vals_val_get(mixed_section, "LINEAR%MIXED_CDFT_LOWDIN", &
+                                         l_val=mixed_cdft%use_lowdin)
             END IF
             ! Inversion method
             CALL section_vals_val_get(mixed_section, "LINEAR%EPS_SVD", r_val=mixed_cdft%eps_svd)
@@ -872,6 +875,35 @@ CONTAINS
          CALL get_qs_env(qs_env_target, dft_control=dft_control_target, &
                          pw_env=pw_env_target)
          CALL pw_env_get(pw_env_target, auxbas_pw_pool=auxbas_pw_pool_target)
+         ! Sanity checks
+         DO igroup = 1, SIZE(dft_control_target%qs_control%becke_control%group)
+            IF (ASSOCIATED(dft_control_target%qs_control%becke_control%group(igroup)%atoms)) THEN
+               DO iatom = 1, SIZE(dft_control_target%qs_control%becke_control%group(igroup)%atoms)
+                  IF (dft_control_target%qs_control%becke_control%group(igroup)%atoms(iatom) /= &
+                      dft_control_source%qs_control%becke_control%group(igroup)%atoms(iatom)) &
+                     CALL cp_abort(__LOCATION__, &
+                                   "The constraint definitions of the two CDFT states are inconsistent. "// &
+                                   "Check that all ATOM_GROUP sections are identical and correctly ordered.")
+                  IF (dft_control_target%qs_control%becke_control%group(igroup)%coeff(iatom) /= &
+                      dft_control_source%qs_control%becke_control%group(igroup)%coeff(iatom)) &
+                     CALL cp_abort(__LOCATION__, &
+                                   "The constraint definitions of the two CDFT states are inconsistent. "// &
+                                   "Check that all ATOM_GROUP sections are identical and correctly ordered.")
+                  IF (dft_control_target%qs_control%becke_control%group(igroup)%is_charge_constraint .NEQV. &
+                      dft_control_source%qs_control%becke_control%group(igroup)%is_charge_constraint) &
+                     CALL cp_abort(__LOCATION__, &
+                                   "The constraint definitions of the two CDFT states are inconsistent. "// &
+                                   "Check that all ATOM_GROUP sections are identical and correctly ordered.")
+               END DO
+               ! Everything is order and some additional arrays can be deallocated
+               IF (.NOT. dft_control_target%qs_control%gapw) THEN
+                  DEALLOCATE (dft_control_target%qs_control%becke_control%group(igroup)%coeff)
+                  DEALLOCATE (dft_control_target%qs_control%becke_control%group(igroup)%atoms)
+                  IF (.NOT. dft_control_target%qs_control%becke_control%atomic_charges) &
+                     DEALLOCATE (dft_control_target%qs_control%becke_control%atoms)
+               END IF
+            END IF
+         END DO
          ! Weight function
          DO igroup = 1, SIZE(dft_control_target%qs_control%becke_control%group)
             CALL pw_pool_create_pw(auxbas_pw_pool_target, &
@@ -960,20 +992,21 @@ CONTAINS
          routineP = moduleN//':'//routineN
 
       CHARACTER(LEN=default_path_length)                 :: file_name
-      INTEGER                                            :: handle, i, iforce_eval, iounit, ispin, &
+      INTEGER                                            :: handle, iforce_eval, iounit, ispin, &
                                                             istate, ivar, j, jstate, k, nao, &
                                                             ncol_local, nforce_eval, nmo, &
                                                             nrow_local, nspins, nvar
       INTEGER, ALLOCATABLE, DIMENSION(:)                 :: ncol_mo, nrow_mo
-      LOGICAL                                            :: exist, natom_mismatch
-      REAL(KIND=dp)                                      :: coupling_wfn, energy_a, energy_b, &
-                                                            maxocc, RESULT(2), Sda, sum_a(2), &
-                                                            sum_b(2)
+      LOGICAL                                            :: exist, natom_mismatch, use_lowdin, &
+                                                            use_rotation
+      REAL(KIND=dp)                                      :: coupling_lowdin, coupling_rotation, &
+                                                            coupling_wfn, energy_a, energy_b, &
+                                                            maxocc, Sda, sum_a(2), sum_b(2)
       REAL(KIND=dp), ALLOCATABLE, DIMENSION(:)           :: evals, metric, S_det, strength_a, &
                                                             strength_b, Waa, Wbb, Wda
       REAL(KIND=dp), ALLOCATABLE, DIMENSION(:, :)        :: a, b, overlaps
       REAL(KIND=dp), DIMENSION(2)                        :: c, eigenv
-      REAL(KIND=dp), DIMENSION(2, 2)                     :: old_W_mat, S_mat, tmp_mat, U, W_mat
+      REAL(KIND=dp), DIMENSION(2, 2)                     :: H_mat, S_mat, tmp_mat, W_mat
       TYPE(atomic_kind_type), DIMENSION(:), POINTER      :: atomic_kind_set
       TYPE(cp_blacs_env_type), POINTER                   :: blacs_env
       TYPE(cp_fm_p_type), DIMENSION(:, :), POINTER       :: mixed_mo_coeff, w_matrix_mo
@@ -1018,6 +1051,17 @@ CONTAINS
       ! Get number of weight functions per state
       nvar = SIZE(w_matrix, 2)
       nspins = SIZE(mixed_mo_coeff, 2)
+      ! Decide which methods to use for computing the coupling
+      ! Default behavior is to use rotation when a single constraint is active, otherwise uses Lowdin orthogonalization
+      ! The latter can also be explicitly requested when a single constraint is active
+      ! Possibly computes the coupling additionally with the wavefunction overlap method
+      IF (nvar == 1) THEN
+         use_rotation = .TRUE.
+         use_lowdin = mixed_cdft%use_lowdin
+      ELSE
+         use_rotation = .FALSE.
+         use_lowdin = .TRUE.
+      END IF
       ALLOCATE (w_matrix_mo(2, nvar), a(nspins, nvar), b(nspins, nvar), S_det(nspins))
       ALLOCATE (nrow_mo(nspins), ncol_mo(nspins))
       ALLOCATE (Wda(nvar))
@@ -1122,7 +1166,7 @@ CONTAINS
       IF (nspins == 2) THEN
          Sda = ABS(S_det(1)*S_det(2)) ! The sign might be wrong on some processors (used to be?)
          DO ivar = 1, nvar
-            Wda(ivar) = (SUM(a(:, ivar))+SUM(b(:, ivar)))*Sda/REAL(nspins*nvar, dp)
+            Wda(ivar) = (SUM(a(:, ivar))+SUM(b(:, ivar)))*Sda/2.0_dp
          END DO
       ELSE
          Sda = S_det(1)**2
@@ -1178,7 +1222,7 @@ CONTAINS
          END DO
          CALL dbcsr_release(e_vectors)
          DEALLOCATE (density_matrix)
-         metric = metric/4.0_dp
+         metric(:) = metric(:)/4.0_dp
       END IF
       ! Compute coupling also with the wavefunction overlap method, see Migliore2009
       ! Requires the unconstrained KS ground state wavefunction as input
@@ -1301,99 +1345,105 @@ CONTAINS
       DEALLOCATE (w_matrix)
       CALL dbcsr_release_p(mixed_matrix_s)
       DEALLOCATE (mixed_mo_coeff, w_matrix_mo)
-      ! construct S and W
-      DO i = 1, 2
-         S_mat(1, 1) = 1.0_dp
-         S_mat(2, 2) = 1.0_dp
-         S_mat(2, 1) = Sda
-         S_mat(1, 2) = Sda
-         IF (i == 2) THEN
-            W_mat(1, 1) = SUM(Wbb)
-            W_mat(2, 2) = SUM(Waa)
-         ELSE
-            W_mat(1, 1) = 0.0_dp
-            W_mat(2, 2) = 0.0_dp
-         END IF
-         W_mat(1, 2) = 0.0_dp
-         W_mat(2, 1) = 0.0_dp
-         old_W_mat = W_mat
-         old_W_mat(1, 2) = SUM(Wda)
-         old_W_mat(2, 1) = SUM(Wda)
-         DO ivar = 1, nvar
-            W_mat(1, 2) = W_mat(1, 2)+strength_a(ivar)*Wda(ivar)
-            W_mat(2, 1) = W_mat(2, 1)+strength_b(ivar)*Wda(ivar)
-            IF (i == 1) THEN
-               W_mat(1, 1) = W_mat(1, 1)+strength_a(ivar)*Waa(ivar)
-               W_mat(2, 2) = W_mat(2, 2)+strength_b(ivar)*Wbb(ivar)
-            END IF
-         END DO
-         W_mat(1, 2) = (W_mat(1, 2)+W_mat(2, 1))/2.0_dp
-         W_mat(2, 1) = W_mat(1, 2)
-         IF (i == 2) W_mat = old_W_mat
-         IF (force_env%para_env%mepos == force_env%para_env%source) THEN
-            PRINT*, 'W_mat', ivar, W_mat(1, 1), W_mat(1, 2), W_mat(2, 1), W_mat(2, 2)
-         END IF
-         !! Invert S via eigendecomposition and compute S^-(1/2)
-         CALL diamat_all(S_mat, eigenv, .TRUE.)
-         IF (eigenv(1) .LT. 1.0e-14_dp) eigenv(1) = 1.0e-14_dp ! Safeguard against division with 0 and negative numbers
-         IF (eigenv(2) .LT. 1.0e-14_dp) eigenv(2) = 1.0e-14_dp
-         U = 0.0_dp
-         U(1, 1) = 1.0_dp/SQRT(eigenv(1))
-         U(2, 2) = 1.0_dp/SQRT(eigenv(2))
-         tmp_mat = MATMUL(U, TRANSPOSE(S_mat))
-         U = MATMUL(S_mat, tmp_mat) ! S^(-1/2)
-         ! Orthogonalize states i.e. solve generalized eigenvalue eq WV = SVL
-         ! Convert to standard eigenvalue problem via symmetric orthogonalisation
-         tmp_mat = MATMUL(W_mat, U) ! W * S^(-1/2)
-         W_mat = MATMUL(U, tmp_mat) ! W' = S^(-1/2) * W * S^(-1/2)
-         CALL diamat_all(W_mat, eigenv, .TRUE.) ! Solve W'V' = AV'
-         tmp_mat = MATMUL(U, W_mat) ! Reverse transformation V = S^(-1/2) V
-         ! Construct final, orthogonal diabatic Hamiltonian matrix H
-         W_mat(1, 1) = energy_b
-         W_mat(2, 2) = energy_a
-         sum_a = 0.0_dp
-         sum_b = 0.0_dp
-         DO ivar = 1, nvar
-            sum_b(1) = sum_b(1)+strength_b(ivar)*Wbb(ivar)
-            sum_b(2) = sum_b(2)+strength_b(ivar)*Wda(ivar)
-            sum_a(1) = sum_a(1)+strength_a(ivar)*Waa(ivar)
-            sum_a(2) = sum_a(2)+strength_a(ivar)*Wda(ivar)
-         END DO
-         c(1) = (energy_b+sum_b(1))*Sda-sum_b(2) ! H_AB = F_B*S_AB - V_B * W_AB
-         c(2) = (energy_a+sum_a(1))*Sda-sum_a(2) ! H_BA = F_A*S_BA - V_A * W_BA
-         W_mat(1, 2) = (c(1)+c(2))*0.5_dp ! H''(1,2) = 0.5*(H_AB+H_AB) = H''(2,1)
-         W_mat(2, 1) = W_mat(1, 2)
-         S_mat = MATMUL(W_mat, (tmp_mat)) ! H'' * V
-         W_mat = MATMUL(TRANSPOSE(tmp_mat), S_mat) ! H = V^T * H'' * V
-         RESULT(i) = W_mat(1, 2)
+      ! Construct S
+      S_mat(1, 1) = 1.0_dp
+      S_mat(2, 2) = 1.0_dp
+      S_mat(2, 1) = Sda
+      S_mat(1, 2) = Sda
+      ! Invert S via eigendecomposition and compute S^-(1/2)
+      CALL diamat_all(S_mat, eigenv, .TRUE.)
+      IF (eigenv(1) .LT. 1.0e-14_dp) eigenv(1) = 1.0e-14_dp ! Safeguard against division with 0 and negative numbers
+      IF (eigenv(2) .LT. 1.0e-14_dp) eigenv(2) = 1.0e-14_dp
+      tmp_mat = 0.0_dp
+      tmp_mat(1, 1) = 1.0_dp/SQRT(eigenv(1))
+      tmp_mat(2, 2) = 1.0_dp/SQRT(eigenv(2))
+      tmp_mat = MATMUL(tmp_mat, TRANSPOSE(S_mat))
+      S_mat = MATMUL(S_mat, tmp_mat) ! S^(-1/2)
+      ! Construct nonorthogonal diabatic Hamiltonian matrix H''
+      H_mat(1, 1) = energy_b
+      H_mat(2, 2) = energy_a
+      sum_a = 0.0_dp
+      sum_b = 0.0_dp
+      DO ivar = 1, nvar
+         sum_b(1) = sum_b(1)+strength_b(ivar)*Wbb(ivar)
+         sum_b(2) = sum_b(2)+strength_b(ivar)*Wda(ivar)
+         sum_a(1) = sum_a(1)+strength_a(ivar)*Waa(ivar)
+         sum_a(2) = sum_a(2)+strength_a(ivar)*Wda(ivar)
       END DO
+      c(1) = (energy_b+sum_b(1))*Sda-sum_b(2) ! H_AB = F_B*S_AB - V_B * W_AB
+      c(2) = (energy_a+sum_a(1))*Sda-sum_a(2) ! H_BA = F_A*S_BA - V_A * W_BA
+      H_mat(1, 2) = (c(1)+c(2))*0.5_dp ! H''(1,2) = 0.5*(H_AB+H_AB) = H''(2,1)
+      H_mat(2, 1) = H_mat(1, 2)
+      ! Calculate coupling by rotating the CDFT states to eigenstates of the weight matrix W (single constraint only)
+      IF (use_rotation) THEN
+         ! Construct W
+         ! W_mat(i, i) = N_i where N_i is the value of the constraint in state i, i=1,2
+         W_mat(1, 1) = SUM(Waa)
+         W_mat(2, 2) = SUM(Wbb)
+         ! W_mat(i, j) = <Psi_i|w(r)|Psi_j>
+         W_mat(1, 2) = SUM(Wda)
+         W_mat(2, 1) = SUM(Wda)
+         ! Solve generalized eigenvalue equation WV = SVL
+         ! Convert to standard eigenvalue problem via symmetric orthogonalisation
+         tmp_mat = MATMUL(W_mat, S_mat) ! W * S^(-1/2)
+         W_mat = MATMUL(S_mat, tmp_mat) ! W' = S^(-1/2) * W * S^(-1/2)
+         CALL diamat_all(W_mat, eigenv, .TRUE.) ! Solve W'V' = AV'
+         tmp_mat = MATMUL(S_mat, W_mat) ! Reverse transformation V = S^(-1/2) V'
+         ! Construct final, orthogonal diabatic Hamiltonian matrix H
+         W_mat = MATMUL(H_mat, tmp_mat) ! H'' * V
+         W_mat = MATMUL(TRANSPOSE(tmp_mat), W_mat) ! H = V^T * H'' * V
+         coupling_rotation = W_mat(1, 2)
+      END IF
+      ! Calculate coupling by Lowdin orthogonalization
+      IF (use_lowdin) THEN
+         tmp_mat = MATMUL(H_mat, S_mat) ! H'' * S^(-1/2)
+         ! Final orthogonal diabatic Hamiltonian matrix H
+         tmp_mat = MATMUL(S_mat, tmp_mat) ! H = S^(-1/2) * H'' * S^(-1/2)
+         coupling_lowdin = tmp_mat(1, 2)
+      END IF
       IF (iounit > 0) THEN
          WRITE (iounit, '(/,T3,A,T66)') &
             '------------------------- CDFT coupling information --------------------------'
          WRITE (iounit, '(T3,A,T66,(3X,F12.2))') &
-            'Information at step (fs)                   :', mixed_cdft%sim_step*mixed_cdft%sim_dt
+            'Information at step (fs)              :', mixed_cdft%sim_step*mixed_cdft%sim_dt
          DO ivar = 1, nvar
             IF (ivar > 1) &
                WRITE (iounit, '(A)') ''
-            WRITE (iounit, '(T3,A,T60,(3X,I18))') 'Atomic group                               :', ivar
-            WRITE (iounit, '(T3,A,T60,(3X,F18.12))') 'Strength of constraint A                   :', strength_a(ivar)
-            WRITE (iounit, '(T3,A,T60,(3X,F18.12))') 'Strength of constraint B                   :', strength_b(ivar)
-            WRITE (iounit, '(T3,A,T60,(3X,F18.12))') 'Final value of constraint A                :', Waa(ivar)
-            WRITE (iounit, '(T3,A,T60,(3X,F18.12))') 'Final value of constraint B                :', Wbb(ivar)
+            WRITE (iounit, '(T3,A,T60,(3X,I18))') 'Atomic group                          :', ivar
+            WRITE (iounit, '(T3,A,T60,(3X,F18.12))') 'Strength of constraint A              :', strength_a(ivar)
+            WRITE (iounit, '(T3,A,T60,(3X,F18.12))') 'Strength of constraint B              :', strength_b(ivar)
+            WRITE (iounit, '(T3,A,T60,(3X,F18.12))') 'Final value of constraint A           :', Waa(ivar)
+            WRITE (iounit, '(T3,A,T60,(3X,F18.12))') 'Final value of constraint B           :', Wbb(ivar)
          END DO
-         WRITE (iounit, '(T3,A,T60,(3X,F18.12))') 'Overlap between states A and B             :', Sda
-         WRITE (iounit, '(T3,A,T60,(3X,F18.12))') 'Charge transfer energy (B-A) (Hartree)     :', (energy_b-energy_a)
+         WRITE (iounit, '(/,T3,A,T60,(3X,F18.12))') 'Overlap between states A and B        :', Sda
+         WRITE (iounit, '(T3,A,T60,(3X,F18.12))') 'Charge transfer energy (B-A) (Hartree):', (energy_b-energy_a)
          WRITE (iounit, *)
-         IF (ABS(RESULT(1))*1.0E3_dp .GE. 0.1_dp) THEN
-            WRITE (iounit, '(T3,A,T60,(3X,F18.12))') &
-               'Diabatic electronic coupling (mHartree)    :', ABS(RESULT(1)*1.0E3_dp)
-            WRITE (iounit, '(T3,A,T60,(3X,F18.12))') &
-               'Diabatic coupling old def (mHartree):', ABS(RESULT(2)*1.0E3_dp)
-         ELSE
-            WRITE (iounit, '(T3,A,T60,(3X,F18.12))') &
-               'Diabatic electronic coupling (microHartree):', ABS(RESULT(1)*1.0E6_dp)
-            WRITE (iounit, '(T3,A,T60,(3X,F18.12))') &
-               'Diabatic coupling old def (microHartree):', ABS(RESULT(2)*1.0E6_dp)
+         IF (use_rotation) THEN
+            IF (ABS(coupling_rotation)*1.0E3_dp .GE. 0.1_dp) THEN
+               WRITE (iounit, '(T3,A,T60,(3X,F18.12))') &
+                  'Diabatic electronic coupling (rotation, mHartree)       :', ABS(coupling_rotation*1.0E3_dp)
+            ELSE
+               WRITE (iounit, '(T3,A,T60,(3X,F18.12))') &
+                  'Diabatic electronic coupling (rotation, microHartree)   :', ABS(coupling_rotation*1.0E6_dp)
+            END IF
+         END IF
+         IF (use_lowdin) THEN
+            IF (ABS(coupling_lowdin)*1.0E3_dp .GE. 0.1_dp) THEN
+               WRITE (iounit, '(T3,A,T60,(3X,F18.12))') &
+                  'Diabatic electronic coupling (Lowdin, mHartree)         :', ABS(coupling_lowdin*1.0E3_dp)
+            ELSE
+               WRITE (iounit, '(T3,A,T60,(3X,F18.12))') &
+                  'Diabatic electronic coupling (Lowdin, microHartree)     :', ABS(coupling_lowdin*1.0E6_dp)
+            END IF
+         END IF
+         IF (mixed_cdft%wfn_overlap_method) THEN
+            IF (coupling_wfn*1.0E3_dp .GE. 0.1_dp) THEN
+               WRITE (iounit, '(T3,A,T60,(3X,F18.12))') &
+                  'Diabatic electronic coupling (wfn overlap, mHartree)    :', coupling_wfn*1.0E3_dp
+            ELSE
+               WRITE (iounit, '(T3,A,T60,(3X,F18.12))') &
+                  'Diabatic electronic coupling (wfn overlap, microHartree):', coupling_wfn*1.0E6_dp
+            END IF
          END IF
          IF (mixed_cdft%calculate_metric) THEN
             WRITE (iounit, *)
@@ -1402,16 +1452,6 @@ CONTAINS
             ELSE
                WRITE (iounit, '(T3,A,T54,(3X,2F12.6))') &
                   'Coupling reliability metric (0 is ideal):', metric(1), metric(2)
-            END IF
-         END IF
-         IF (mixed_cdft%wfn_overlap_method) THEN
-            WRITE (iounit, *)
-            IF (coupling_wfn*1.0E3_dp .GE. 0.1_dp) THEN
-               WRITE (iounit, '(T3,A,T60,(3X,F18.12))') &
-                  'Diabatic coupling (wfn overlap method, mHartree):', coupling_wfn*1.0E3_dp
-            ELSE
-               WRITE (iounit, '(T3,A,T60,(3X,F18.12))') &
-                  'Diabatic coupling (wfn overlap method, microHartree):', coupling_wfn*1.0E6_dp
             END IF
          END IF
          WRITE (iounit, '(T3,A)') &

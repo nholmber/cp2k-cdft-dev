@@ -1428,7 +1428,11 @@ CONTAINS
             CALL cp_rm_default_logger()
             CALL cp_logger_release(tmp_logger)
             ! Finalize and invert Jacobian
-            jacobian = jacobian/dh
+            DO j = 1, nvar
+               DO i = 1, nvar
+                  jacobian(i, j) = jacobian(i, j)/dh
+               END DO
+            END DO
             IF (.NOT. ASSOCIATED(scf_env%outer_scf%inv_jacobian)) &
                ALLOCATE (scf_env%outer_scf%inv_jacobian(nvar, nvar))
             inv_jacobian => scf_env%outer_scf%inv_jacobian
