@@ -499,19 +499,28 @@ CONTAINS
          jj = 0
          DO j = 1, n_rep
             CALL section_vals_val_get(group_section, "ATOMS", i_rep_section=k, i_rep_val=j, i_vals=tmplist)
-            CALL section_vals_val_get(group_section, "COEFF", i_rep_section=k, i_rep_val=j, r_vals=rtmplist)
-            CALL section_vals_val_get(group_section, "CHARGE_CONSTRAINT", i_rep_section=k, &
-                                      l_val=qs_control%becke_control%group(k)%is_charge_constraint)
-            IF (SIZE(tmplist) /= SIZE(rtmplist)) &
-               CPABORT("Length of keywords ATOMS and COEFF must match.")
             DO i = 1, SIZE(tmplist)
                jj = jj+1
                qs_control%becke_control%group(k)%atoms(jj) = tmplist(i)
+            END DO
+         END DO
+         CALL section_vals_val_get(group_section, "COEFF", i_rep_section=k, n_rep_val=n_rep)
+         jj = 0
+         DO j = 1, n_rep
+            CALL section_vals_val_get(group_section, "COEFF", i_rep_section=k, i_rep_val=j, r_vals=rtmplist)
+            DO i = 1, SIZE(rtmplist)
+               jj = jj+1
+               IF (jj > natoms) &
+                  CPABORT("Length of keywords ATOMS and COEFF must match.")
                IF (ABS(rtmplist(i)) /= 1.0_dp) &
                   CPABORT("Keyword COEFF accepts only values +/-1.0")
                qs_control%becke_control%group(k)%coeff(jj) = rtmplist(i)
             END DO
          END DO
+         IF (jj < natoms) &
+            CPABORT("Length of keywords ATOMS and COEFF must match.")
+         CALL section_vals_val_get(group_section, "CHARGE_CONSTRAINT", i_rep_section=k, &
+                                   l_val=qs_control%becke_control%group(k)%is_charge_constraint)
       END DO
       ! Create a list containing all constraint atoms
       ALLOCATE (atomlist(tot_natoms))
