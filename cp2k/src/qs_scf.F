@@ -1051,6 +1051,7 @@ CONTAINS
             CALL dbcsr_init_p(cdft_control%matrix_s%matrix)
             CALL dbcsr_copy(cdft_control%matrix_s%matrix, matrix_s(1)%matrix, &
                             name="OVERLAP")
+            ! Molecular orbital coefficients
             NULLIFY (cdft_control%mo_coeff)
             ALLOCATE (cdft_control%mo_coeff(dft_control%nspins))
             DO ispin = 1, dft_control%nspins

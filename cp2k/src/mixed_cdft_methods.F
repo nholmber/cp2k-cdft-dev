@@ -995,7 +995,7 @@ CONTAINS
       INTEGER                                            :: handle, iforce_eval, iounit, ispin, &
                                                             istate, ivar, j, jstate, k, nao, &
                                                             ncol_local, nforce_eval, nmo, &
-                                                            nrow_local, nspins, nvar
+                                                            nrow_local, nspins, nvar, info, work_array_size
       INTEGER, ALLOCATABLE, DIMENSION(:)                 :: ncol_mo, nrow_mo
       LOGICAL                                            :: exist, natom_mismatch, use_lowdin, &
                                                             use_rotation
@@ -1003,10 +1003,10 @@ CONTAINS
                                                             coupling_wfn, energy_a, energy_b, &
                                                             maxocc, Sda, sum_a(2), sum_b(2)
       REAL(KIND=dp), ALLOCATABLE, DIMENSION(:)           :: evals, metric, S_det, strength_a, &
-                                                            strength_b, Waa, Wbb, Wda
+                                                            strength_b, Waa, Wbb, Wda, work
       REAL(KIND=dp), ALLOCATABLE, DIMENSION(:, :)        :: a, b, overlaps
       REAL(KIND=dp), DIMENSION(2)                        :: c, eigenv
-      REAL(KIND=dp), DIMENSION(2, 2)                     :: H_mat, S_mat, tmp_mat, W_mat
+      REAL(KIND=dp), DIMENSION(2, 2)                     :: H_mat, S_mat, tmp_mat, W_mat, H_mat_copy, S_mat_copy
       TYPE(atomic_kind_type), DIMENSION(:), POINTER      :: atomic_kind_set
       TYPE(cp_blacs_env_type), POINTER                   :: blacs_env
       TYPE(cp_fm_p_type), DIMENSION(:, :), POINTER       :: mixed_mo_coeff, w_matrix_mo
@@ -1401,6 +1401,35 @@ CONTAINS
          tmp_mat = MATMUL(S_mat, tmp_mat) ! H = S^(-1/2) * H'' * S^(-1/2)
          coupling_lowdin = tmp_mat(1, 2)
       END IF
+      ! CDFT Configuration Interaction
+      !IF (mixed_cdft%do_ci) THEN
+      ! Reconstruct S
+         S_mat(1, 1) = 1.0_dp
+         S_mat(2, 2) = 1.0_dp
+         S_mat(2, 1) = Sda
+         S_mat(1, 2) = Sda
+         print *, 'S_mat', S_mat
+         print *, 'H_mat', H_mat
+         ! Workspace query
+         ALLOCATE (work(1))
+         info = 0
+         H_mat_copy = H_mat ! Need explicit copies because dsygv destroys original values 
+         S_mat_copy = S_mat
+         CALL dsygv(1, 'V', 'U', 2, H_mat_copy, 2, S_mat_copy, 2, eigenv, work, -1, info)
+         work_array_size = NINT(work(1))
+         ! Allocate work array
+         DEALLOCATE (work)
+         ALLOCATE (work(work_array_size))
+         work = 0.0_dp
+         ! Solve Hc = eSc
+         info = 0
+         CALL dsygv(1, 'V', 'U', 2, H_mat, 2, S_mat, 2, eigenv, work, work_array_size, info)
+         IF (info /= 0) CPABORT("DSYVG of H matrix failed.")
+         print *, 'Eigenvectors', H_mat
+         print *, 'Eigenvalues', eigenv
+         DEALLOCATE(work)
+    !  END IF
+
       IF (iounit > 0) THEN
          WRITE (iounit, '(/,T3,A,T66)') &
             '------------------------- CDFT coupling information --------------------------'
