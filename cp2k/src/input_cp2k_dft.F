@@ -4043,12 +4043,12 @@ CONTAINS
       NULLIFY (keyword, print_key, group_section)
       CPASSERT(.NOT. ASSOCIATED(section))
       CALL section_create(section, TRIM(ADJUSTL(section_name)), &
-                          description="Use Becke weight population in a constraint ", &
+                          description="Use the Becke weight population in a constraint.", &
                           n_keywords=26, n_subsections=1, repeats=.FALSE., &
                           citations=(/Becke1988b/))
 
       CALL keyword_create(keyword, name="STRENGTH", &
-                          description="Force constants of the constraints. Give one value per constraint group", &
+                          description="Force constants of the constraints. Give one value per constraint group.", &
                           type_of_var=real_t, n_var=-1, &
                           default_r_val=0.0_dp)
       CALL section_add_keyword(section, keyword)
@@ -4083,7 +4083,7 @@ CONTAINS
 
       CALL keyword_create(keyword, name="SHOULD_SKIP", &
                           description="If grid point is farther than GLOBAL_CUTOFF from all constraint atoms, "// &
-                          " move directly to next grid point, thus saving computational resources.", &
+                          "move directly to next grid point, thus saving computational resources.", &
                           usage="SHOULD_SKIP", &
                           default_l_val=.FALSE., lone_keyword_l_val=.TRUE.)
       CALL section_add_keyword(section, keyword)
@@ -4113,18 +4113,18 @@ CONTAINS
                           enum_c_vals=s2a("DEFAULT", "SINGLE", "VDW", "COVALENT", "USER"), &
                           enum_i_vals=(/radius_default, radius_single, radius_vdw, radius_covalent, radius_user/), &
                           enum_desc=s2a("Use covalent radii (in angstrom) to construct Gaussians, but fixed"// &
-                                        " 1.0_dp radius for elements with a radius smaller than this value.", &
-                                        "Single Gaussian for all atom types with radius given by CAVITY_RADIUS", &
-                                        "Use van der Waals radii to construct Gaussians", &
-                                        "Use covalent radii to construct Gaussians", &
-                                        "Use user defined radii (keyword ATOMIC_RADII) to construct Gaussians"), &
+                                        " 1.0_dp radius for elements with a radius larger than this value.", &
+                                        "Single Gaussian for all atom types with radius given by CAVITY_RADIUS.", &
+                                        "Use van der Waals radii to construct Gaussians.", &
+                                        "Use covalent radii to construct Gaussians.", &
+                                        "Use user defined radii (keyword ATOMIC_RADII) to construct Gaussians."), &
                           default_i_val=radius_default)
       CALL section_add_keyword(section, keyword)
       CALL keyword_release(keyword)
 
       CALL keyword_create(keyword, name="CAVITY_USE_BOHR", &
                           description="Convert the cavity radius from angstrom to bohr. This results in a larger"// &
-                          "confinement cavity than without unit conversion.", &
+                          " confinement cavity than without unit conversion.", &
                           usage="CAVITY_USE_BOHR (SINGLE|VDW|COVALENT|USER)", &
                           default_l_val=.FALSE., lone_keyword_l_val=.TRUE.)
       CALL section_add_keyword(section, keyword)
@@ -4139,7 +4139,7 @@ CONTAINS
       CALL keyword_release(keyword)
 
       CALL keyword_create(keyword, name="CAVITY_RADIUS", &
-                          description="Parameter controlling the creation of Gaussian cavity confinement", &
+                          description="Parameter controlling the creation of Gaussian cavity confinement.", &
                           usage="CAVITY_RADIUS <REAL>", &
                           unit_str="angstrom", &
                           default_r_val=cp_unit_to_cp2k(3.0_dp, "angstrom"), &
@@ -4155,12 +4155,12 @@ CONTAINS
       CALL keyword_release(keyword)
 
       CALL keyword_create(keyword, name="CUTOFF_TYPE", &
-                          description="Specifies the type of cutoff used", &
+                          description="Specifies the type of cutoff used.", &
                           usage="CUTOFF_TYPE (GLOBAL|ELEMENT)", &
                           enum_c_vals=s2a("GLOBAL", "ELEMENT"), &
                           enum_i_vals=(/becke_cutoff_global, becke_cutoff_element/), &
                           enum_desc=s2a("Use a single value for all elements. Read from GLOBAL_CUTOFF.", &
-                                        "Use a different value for all elements. Values read from ELEMENT_CUTOFF"), &
+                                        "Use a different value for all elements. Values read from ELEMENT_CUTOFF."), &
                           default_i_val=becke_cutoff_global)
       CALL section_add_keyword(section, keyword)
       CALL keyword_release(keyword)
@@ -4176,8 +4176,8 @@ CONTAINS
       CALL keyword_release(keyword)
 
       CALL keyword_create(keyword, name="ELEMENT_CUTOFF", &
-                          description="Defines element specific cutoffs to elect which atoms contribute to the"// &
-                          " weight function at each real space grid point. Give one value per element in the same "// &
+                          description="Defines element specific cutoffs to decide which atoms contribute to the"// &
+                          " weight function at each real space grid point. Give one value per element in the same"// &
                           " order as they appear in the coordinates.", &
                           usage="ELEMENT_CUTOFF {real} {real} {real}", repeats=.FALSE., &
                           unit_str="angstrom", &
@@ -4197,7 +4197,7 @@ CONTAINS
 
       CALL keyword_create(keyword, name="FRAGMENT_DENSITIES", &
                           description="Use fragment densities as the target value of the constraint."// &
-                          " Takes as input the electron densities of two isolated fragments in the "// &
+                          " Takes as input the electron densities of two isolated fragments in the"// &
                           " same geometry that they have in the full system."// &
                           " The isolated fragment densities are read from cube files defined in FRAGMENT_{A,B}_FILE."// &
                           " With this keyword active, the constraint enforces that the number of electrons for both"// &
@@ -4237,7 +4237,7 @@ CONTAINS
                           n_keywords=3, n_subsections=0, repeats=.TRUE.)
 
       CALL keyword_create(keyword, name="ATOMS", &
-                          description="Specifies the list of atoms that are included in the constraint group", &
+                          description="Specifies the list of atoms that are included in the constraint group.", &
                           usage="ATOMS {integer} {integer} .. {integer}", &
                           n_var=-1, type_of_var=integer_t)
       CALL section_add_keyword(group_section, keyword)
@@ -4252,7 +4252,7 @@ CONTAINS
 
       CALL keyword_create(keyword, name="CHARGE_CONSTRAINT", &
                           description="Determines what type of constraint to apply. Default value (true) "// &
-                          "implies that a total charge density constraint (rho_alpha + rho_beta) "// &
+                          "implies that a total charge density constraint (rho_alpha + rho_beta)"// &
                           " is applied. Set to false to enable a magnetization density constraint "// &
                           "(rho_alpha - rho_beta)", &
                           usage="CHARGE_CONSTRAINT", &
@@ -4281,7 +4281,7 @@ CONTAINS
 
    END SUBROUTINE create_becke_constraint_section
 
-! *****************************************************************************
+! **************************************************************************************************
 !> \brief ...
 !> \param section ...
 ! **************************************************************************************************
@@ -4378,7 +4378,7 @@ CONTAINS
 
    END SUBROUTINE create_cdft_control_section
 
-! *****************************************************************************
+! **************************************************************************************************
 !> \brief ...
 !> \param section ...
 ! **************************************************************************************************

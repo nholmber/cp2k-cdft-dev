@@ -132,7 +132,7 @@ CONTAINS
                           "is calculated. Use a negative number to disable and 0 means every step. By default, "// &
                           "the coupling is calculated by rotating the CDFT states to eigenstates of the weight "// &
                           "function matrix when a single constraint is active. With multiple constraints, uses "// &
-                          "Lowdin orthogonalization. ", &
+                          "Lowdin orthogonalization.", &
                           usage="MIXED_CDFT_COUPLING <INT>", &
                           default_i_val=-1, &
                           type_of_var=integer_t, n_var=1)
@@ -178,7 +178,7 @@ CONTAINS
       CALL keyword_release(keyword)
 
       CALL keyword_create(keyword, name="WFN_RESTART_FILE_NAME", &
-                          description="Name of the wavefunction restart file that defines the unconstrained "// &
+                          description="Name of the wavefunction restart file that defines the unconstrained"// &
                           " KS ground state, which is used to compute the electronic coupling with"// &
                           " the wavefunction overlap method. May include a path.", &
                           usage="WFN_RESTART_FILE_NAME <FILENAME>", &
@@ -187,9 +187,9 @@ CONTAINS
       CALL keyword_release(keyword)
 
       CALL keyword_create(keyword, name="EPS_SVD", &
-                          description="Determines the matrix inversion solver needed by the orthogonalization procedure. "// &
-                          " Default value implies LU decomposition, while values between 0.0 and 1.0 "// &
-                          "imply SVD decomposition. For SVD, the value acts as a threshold"// &
+                          description="Determines the matrix inversion solver needed by to compute the coupling."// &
+                          " Default value implies LU decomposition, while values between 0.0 and 1.0"// &
+                          " imply SVD decomposition. For SVD, the value acts as a threshold"// &
                           " for screening singular values so that only values above it are included"// &
                           " in the matrix pseudoinverse.", &
                           usage="EPS_SVD <REAL>", type_of_var=real_t, &

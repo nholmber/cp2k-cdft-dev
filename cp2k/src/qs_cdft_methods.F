@@ -260,8 +260,6 @@ CONTAINS
          IF (becke_control%cavity_confine) THEN
             bo_conf(1, 3) = becke_control%confine_bounds(1)
             bo_conf(2, 3) = becke_control%confine_bounds(2)
-            !IF (bounds(2) .LT. bo(2, 3)) bo_conf(2, 3) = bounds(2)-1
-            !IF (bounds(1) .GT. bo(1, 3)) bo_conf(1, 3) = bounds(1)+1
          END IF
          ALLOCATE (atom_in_group(SIZE(group), natom))
          atom_in_group = .FALSE.
@@ -292,7 +290,7 @@ CONTAINS
       DO k = bo(1, 1), bo(2, 1)
          DO j = bo(1, 2), bo(2, 2)
             DO i = bo(1, 3), bo(2, 3)
-               ! If the grid point is too far from all constraint atoms and any confinement method is active,
+               ! If the grid point is too far from all constraint atoms and cavity confinement is active,
                ! we can skip this grid point as it does not contribute to the weight or gradients
                IF (becke_control%cavity_confine) THEN
                   IF (becke_control%cavity%pw%cr3d(k, j, i) < eps_cavity) CYCLE
