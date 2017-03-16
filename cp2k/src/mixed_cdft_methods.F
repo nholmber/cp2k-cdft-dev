@@ -1360,8 +1360,8 @@ CONTAINS
       tmp_mat = MATMUL(tmp_mat, TRANSPOSE(S_mat))
       S_mat = MATMUL(S_mat, tmp_mat) ! S^(-1/2)
       ! Construct nonorthogonal diabatic Hamiltonian matrix H''
-      H_mat(1, 1) = energy_b
-      H_mat(2, 2) = energy_a
+      H_mat(1, 1) = energy_a
+      H_mat(2, 2) = energy_b
       sum_a = 0.0_dp
       sum_b = 0.0_dp
       DO ivar = 1, nvar
@@ -1370,9 +1370,9 @@ CONTAINS
          sum_a(1) = sum_a(1)+strength_a(ivar)*Waa(ivar)
          sum_a(2) = sum_a(2)+strength_a(ivar)*Wda(ivar)
       END DO
-      c(1) = (energy_b+sum_b(1))*Sda-sum_b(2) ! H_AB = F_B*S_AB - V_B * W_AB
-      c(2) = (energy_a+sum_a(1))*Sda-sum_a(2) ! H_BA = F_A*S_BA - V_A * W_BA
-      H_mat(1, 2) = (c(1)+c(2))*0.5_dp ! H''(1,2) = 0.5*(H_AB+H_AB) = H''(2,1)
+      c(1) = (energy_b+sum_b(1))*Sda-sum_b(2) ! H_BA = F_A*S_BA - V_A * W_BA
+      c(2) = (energy_a+sum_a(1))*Sda-sum_a(2) ! H_AB = F_B*S_AB - V_B * W_AB
+      H_mat(1, 2) = (c(1)+c(2))*0.5_dp ! H''(1,2) = 0.5*(H_AB+H_BA) = H''(2,1)
       H_mat(2, 1) = H_mat(1, 2)
       ! Calculate coupling by rotating the CDFT states to eigenstates of the weight matrix W (single constraint only)
       IF (use_rotation) THEN
