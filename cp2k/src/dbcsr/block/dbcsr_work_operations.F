@@ -21,10 +21,10 @@ MODULE dbcsr_work_operations
                                               array_nullify,&
                                               array_release,&
                                               array_size
-   USE btree_I8_k_cp2d_v,               ONLY: btree_2d_data_c => cp2d
-   USE btree_I8_k_dp2d_v,               ONLY: btree_2d_data_d => dp2d
-   USE btree_I8_k_sp2d_v,               ONLY: btree_2d_data_s => sp2d
-   USE btree_I8_k_zp2d_v,               ONLY: btree_2d_data_z => zp2d
+   USE btree,                           ONLY: btree_data_cp2d,&
+                                              btree_data_dp2d,&
+                                              btree_data_sp2d,&
+                                              btree_data_zp2d
    USE dbcsr_block_operations,          ONLY: block_copy_c,&
                                               block_copy_d,&
                                               block_copy_s,&
@@ -1919,9 +1919,6 @@ CONTAINS
       CALL timestop(error_handle)
    END SUBROUTINE merge_index
 
-#include "dbcsr_work_operations_d.f90"
-#include "dbcsr_work_operations_z.f90"
-#include "dbcsr_work_operations_s.f90"
-#include "dbcsr_work_operations_c.f90"
+#:include "dbcsr_work_operations.f90"
 
 END MODULE dbcsr_work_operations

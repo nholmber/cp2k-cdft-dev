@@ -1257,11 +1257,13 @@ CONTAINS
 !$OMP END PARALLEL
 
       ! update capacity of memory-pools
-      IF (has_acc) THEN
+      IF (ASSOCIATED(memtype_abpanel_1%pool)) &
          CALL dbcsr_mempool_limit_capacity(memtype_abpanel_1%pool, &
                                            capacity=left_row_mult*left_col_nimages+right_row_nimages*right_col_mult)
+      IF (ASSOCIATED(memtype_abpanel_2%pool)) &
          CALL dbcsr_mempool_limit_capacity(memtype_abpanel_2%pool, &
                                            capacity=left_row_mult*left_col_nimages+right_row_nimages*right_col_mult)
+      IF (has_acc) THEN
          ! enumerate the blocksizes to keep the following 2D-arrays small.
          CALL enumerate_blk_sizes(array_data(right_set%mats(1, 1)%row_blk_size), &
                                   row_blk_sizes2enum, enum2row_blk_sizes)
@@ -1684,7 +1686,7 @@ CONTAINS
 
             IF (metronome == nsteps_k .AND. v_ki == min_nimages-1) &
                CALL dbcsr_mm_multrec_phaseout(multrec(ithread)%p)
-
+!$OMP BARRIER
             CALL timeset(routineN//"_multrec", handle2)
 
             CALL dbcsr_mm_multrec_multiply(multrec(ithread)%p, &
@@ -1718,7 +1720,7 @@ CONTAINS
                   CALL mp_testany(left_index_rr)
                END DO
             END IF
-
+!$OMP BARRIER
             CALL timestop(handle2)
 
 !$OMP END PARALLEL
