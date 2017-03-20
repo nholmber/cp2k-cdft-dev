@@ -1,7 +1,7 @@
 @SET RESTART_WFN          TRUE
 @SET WFN_FILE_1           HeH-cdft-state-1-1_0.wfn
 @SET WFN_FILE_2           HeH-cdft-state-2-1_0.wfn
-@SET PROJECT_NAME         HeH-mixed-cdft-11
+@SET PROJECT_NAME         HeH-mixed-cdft-12
 @SET NAME                 ${PROJECT_NAME}
 @SET WRITE_WFN            0
 @SET CHARGE               1
@@ -58,7 +58,7 @@
       LAMBDA 1.0
       MIXED_CDFT TRUE
       MIXED_CDFT_COUPLING 1
-      MIXED_CDFT_LOWDIN TRUE
+      MIXED_CDFT_CI TRUE
       @IF ( ${USE_DLB} == TRUE )
         ! Defaults to FALSE
         MIXED_CDFT_DLB TRUE

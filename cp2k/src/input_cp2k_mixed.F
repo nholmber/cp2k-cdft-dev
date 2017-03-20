@@ -177,6 +177,17 @@ CONTAINS
       CALL section_add_keyword(subsection, keyword)
       CALL keyword_release(keyword)
 
+      CALL keyword_create(keyword, name="MIXED_CDFT_CI", &
+                          description="Perform a CDFT configuration interaction calculation (CDFT-CI). "// &
+                          "The CI vector is expanded in the basis of the CDFT states. Diagonalizes the "// &
+                          "nonorthogonal diabatic CDFT Hamiltonian. The energies and expansion coefficients "// &
+                          "of the CDFT-CI states are outputted. Keyword MIXED_CDFT_COUPLING must be active "// &
+                          "to use this feature.", &
+                          usage="MIXED_CDFT_LOWDIN", type_of_var=logical_t, &
+                          default_l_val=.FALSE., lone_keyword_l_val=.TRUE.)
+      CALL section_add_keyword(subsection, keyword)
+      CALL keyword_release(keyword)
+
       CALL keyword_create(keyword, name="WFN_RESTART_FILE_NAME", &
                           description="Name of the wavefunction restart file that defines the unconstrained"// &
                           " KS ground state, which is used to compute the electronic coupling with"// &

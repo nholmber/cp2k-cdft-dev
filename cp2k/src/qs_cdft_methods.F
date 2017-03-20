@@ -754,8 +754,7 @@ CONTAINS
                                                             nvar, unit_nr
       INTEGER, DIMENSION(:), POINTER                     :: stride
       LOGICAL                                            :: paw_atom
-      LOGICAL, ALLOCATABLE, DIMENSION(:)                 :: is_constraint
-      REAL(kind=dp)                                      :: alpha, dvol, eps_cavity, nelectron_frag, &
+      REAL(kind=dp)                                      :: dvol, eps_cavity, nelectron_frag, &
                                                             sign, tc, zeff
       REAL(kind=dp), ALLOCATABLE, DIMENSION(:)           :: dE, strength, target_val
       REAL(kind=dp), ALLOCATABLE, DIMENSION(:, :)        :: electronic_charge, gapw_offset

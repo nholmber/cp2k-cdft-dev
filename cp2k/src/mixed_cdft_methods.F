@@ -269,10 +269,11 @@ CONTAINS
                CALL section_vals_val_get(mixed_section, "LINEAR%MORE_WORK", &
                                          i_val=mixed_cdft%dlb_control%more_work)
             END IF
-            ! Metric/Wavefunction overlap method/Lowdin orthoganlization
+            ! Metric/Wavefunction overlap method/Lowdin orthogonalization/CDFT-CI
             mixed_cdft%calculate_metric = .FALSE.
             mixed_cdft%wfn_overlap_method = .FALSE.
             mixed_cdft%use_lowdin = .FALSE.
+            mixed_cdft%do_ci = .FALSE.
             IF (mixed_env%do_mixed_et) THEN
                CALL section_vals_val_get(mixed_section, "LINEAR%MIXED_CDFT_METRIC", &
                                          l_val=mixed_cdft%calculate_metric)
@@ -280,6 +281,8 @@ CONTAINS
                                          l_val=mixed_cdft%wfn_overlap_method)
                CALL section_vals_val_get(mixed_section, "LINEAR%MIXED_CDFT_LOWDIN", &
                                          l_val=mixed_cdft%use_lowdin)
+               CALL section_vals_val_get(mixed_section, "LINEAR%MIXED_CDFT_CI", &
+                                         l_val=mixed_cdft%do_ci)               
             END IF
             ! Inversion method
             CALL section_vals_val_get(mixed_section, "LINEAR%EPS_SVD", r_val=mixed_cdft%eps_svd)
@@ -1004,9 +1007,10 @@ CONTAINS
                                                             maxocc, Sda, sum_a(2), sum_b(2)
       REAL(KIND=dp), ALLOCATABLE, DIMENSION(:)           :: evals, metric, S_det, strength_a, &
                                                             strength_b, Waa, Wbb, Wda, work
-      REAL(KIND=dp), ALLOCATABLE, DIMENSION(:, :)        :: a, b, overlaps
+      REAL(KIND=dp), ALLOCATABLE, DIMENSION(:, :)        :: a, b, overlaps, H_mat_copy, S_mat_copy
       REAL(KIND=dp), DIMENSION(2)                        :: c, eigenv
-      REAL(KIND=dp), DIMENSION(2, 2)                     :: H_mat, S_mat, tmp_mat, W_mat, H_mat_copy, S_mat_copy
+      REAL(KIND=dp), DIMENSION(2, 2)                     :: H_mat, S_mat, tmp_mat, W_mat
+      REAL(KIND=dp), EXTERNAL                            :: dnrm2
       TYPE(atomic_kind_type), DIMENSION(:), POINTER      :: atomic_kind_set
       TYPE(cp_blacs_env_type), POINTER                   :: blacs_env
       TYPE(cp_fm_p_type), DIMENSION(:, :), POINTER       :: mixed_mo_coeff, w_matrix_mo
@@ -1028,6 +1032,7 @@ CONTAINS
       TYPE(qs_kind_type), DIMENSION(:), POINTER          :: qs_kind_set
       TYPE(section_vals_type), POINTER                   :: force_env_section, linear_section, &
                                                             print_section
+      EXTERNAL                                           :: dsygv
 
       NULLIFY (subsys_mix, force_env_section, print_section, linear_section, &
                mixed_env, mixed_cdft, qs_env, dft_control, fm_struct_mo, &
@@ -1402,21 +1407,21 @@ CONTAINS
          coupling_lowdin = tmp_mat(1, 2)
       END IF
       ! CDFT Configuration Interaction
-      !IF (mixed_cdft%do_ci) THEN
-      ! Reconstruct S
+      IF (mixed_cdft%do_ci) THEN
+         ! Reconstruct S
          S_mat(1, 1) = 1.0_dp
          S_mat(2, 2) = 1.0_dp
          S_mat(2, 1) = Sda
          S_mat(1, 2) = Sda
-         print *, 'S_mat', S_mat
-         print *, 'H_mat', H_mat
          ! Workspace query
          ALLOCATE (work(1))
          info = 0
-         H_mat_copy = H_mat ! Need explicit copies because dsygv destroys original values 
-         S_mat_copy = S_mat
+         ALLOCATE (H_mat_copy(2, 2), S_mat_copy(2, 2))         
+         H_mat_copy(:, :) = H_mat(:, :) ! Need explicit copies because dsygv destroys original values 
+         S_mat_copy(:, :) = S_mat(:, :)
          CALL dsygv(1, 'V', 'U', 2, H_mat_copy, 2, S_mat_copy, 2, eigenv, work, -1, info)
          work_array_size = NINT(work(1))
+         DEALLOCATE (H_mat_copy, S_mat_copy)
          ! Allocate work array
          DEALLOCATE (work)
          ALLOCATE (work(work_array_size))
@@ -1424,51 +1429,53 @@ CONTAINS
          ! Solve Hc = eSc
          info = 0
          CALL dsygv(1, 'V', 'U', 2, H_mat, 2, S_mat, 2, eigenv, work, work_array_size, info)
-         IF (info /= 0) CPABORT("DSYVG of H matrix failed.")
-         print *, 'Eigenvectors', H_mat
-         print *, 'Eigenvalues', eigenv
+         IF (info /= 0) CPABORT("Diagonalization of H matrix failed.")
+         ! dsygvs returns eigenvectors (stored in columns of H_mat) that are normalized to H^T * S * H = I
+         ! Renormalize eigenvectors to H^T * H = I
+         DO ivar = 1, 2
+            H_mat(:, ivar) = H_mat(:, ivar)/dnrm2(2, H_mat(:, ivar), 1)
+         END DO
          DEALLOCATE(work)
-    !  END IF
-
+      END IF
       IF (iounit > 0) THEN
          WRITE (iounit, '(/,T3,A,T66)') &
             '------------------------- CDFT coupling information --------------------------'
          WRITE (iounit, '(T3,A,T66,(3X,F12.2))') &
-            'Information at step (fs)              :', mixed_cdft%sim_step*mixed_cdft%sim_dt
+            'Information at step (fs):', mixed_cdft%sim_step*mixed_cdft%sim_dt
          DO ivar = 1, nvar
             IF (ivar > 1) &
                WRITE (iounit, '(A)') ''
-            WRITE (iounit, '(T3,A,T60,(3X,I18))') 'Atomic group                          :', ivar
-            WRITE (iounit, '(T3,A,T60,(3X,F18.12))') 'Strength of constraint A              :', strength_a(ivar)
-            WRITE (iounit, '(T3,A,T60,(3X,F18.12))') 'Strength of constraint B              :', strength_b(ivar)
-            WRITE (iounit, '(T3,A,T60,(3X,F18.12))') 'Final value of constraint A           :', Waa(ivar)
-            WRITE (iounit, '(T3,A,T60,(3X,F18.12))') 'Final value of constraint B           :', Wbb(ivar)
+            WRITE (iounit, '(T3,A,T60,(3X,I18))') 'Atomic group:', ivar
+            WRITE (iounit, '(T3,A,T60,(3X,F18.12))') 'Strength of constraint A:', strength_a(ivar)
+            WRITE (iounit, '(T3,A,T60,(3X,F18.12))') 'Strength of constraint B:', strength_b(ivar)
+            WRITE (iounit, '(T3,A,T60,(3X,F18.12))') 'Final value of constraint A:', Waa(ivar)
+            WRITE (iounit, '(T3,A,T60,(3X,F18.12))') 'Final value of constraint B:', Wbb(ivar)
          END DO
-         WRITE (iounit, '(/,T3,A,T60,(3X,F18.12))') 'Overlap between states A and B        :', Sda
+         WRITE (iounit, '(/,T3,A,T60,(3X,F18.12))') 'Overlap between states A and B:', Sda
          WRITE (iounit, '(T3,A,T60,(3X,F18.12))') 'Charge transfer energy (B-A) (Hartree):', (energy_b-energy_a)
          WRITE (iounit, *)
          IF (use_rotation) THEN
             IF (ABS(coupling_rotation)*1.0E3_dp .GE. 0.1_dp) THEN
                WRITE (iounit, '(T3,A,T60,(3X,F18.12))') &
-                  'Diabatic electronic coupling (rotation, mHartree)       :', ABS(coupling_rotation*1.0E3_dp)
+                  'Diabatic electronic coupling (rotation, mHartree):', ABS(coupling_rotation*1.0E3_dp)
             ELSE
                WRITE (iounit, '(T3,A,T60,(3X,F18.12))') &
-                  'Diabatic electronic coupling (rotation, microHartree)   :', ABS(coupling_rotation*1.0E6_dp)
+                  'Diabatic electronic coupling (rotation, microHartree):', ABS(coupling_rotation*1.0E6_dp)
             END IF
          END IF
          IF (use_lowdin) THEN
             IF (ABS(coupling_lowdin)*1.0E3_dp .GE. 0.1_dp) THEN
                WRITE (iounit, '(T3,A,T60,(3X,F18.12))') &
-                  'Diabatic electronic coupling (Lowdin, mHartree)         :', ABS(coupling_lowdin*1.0E3_dp)
+                  'Diabatic electronic coupling (Lowdin, mHartree):', ABS(coupling_lowdin*1.0E3_dp)
             ELSE
                WRITE (iounit, '(T3,A,T60,(3X,F18.12))') &
-                  'Diabatic electronic coupling (Lowdin, microHartree)     :', ABS(coupling_lowdin*1.0E6_dp)
+                  'Diabatic electronic coupling (Lowdin, microHartree):', ABS(coupling_lowdin*1.0E6_dp)
             END IF
          END IF
          IF (mixed_cdft%wfn_overlap_method) THEN
             IF (coupling_wfn*1.0E3_dp .GE. 0.1_dp) THEN
                WRITE (iounit, '(T3,A,T60,(3X,F18.12))') &
-                  'Diabatic electronic coupling (wfn overlap, mHartree)    :', coupling_wfn*1.0E3_dp
+                  'Diabatic electronic coupling (wfn overlap, mHartree):', coupling_wfn*1.0E3_dp
             ELSE
                WRITE (iounit, '(T3,A,T60,(3X,F18.12))') &
                   'Diabatic electronic coupling (wfn overlap, microHartree):', coupling_wfn*1.0E6_dp
@@ -1485,6 +1492,19 @@ CONTAINS
          END IF
          WRITE (iounit, '(T3,A)') &
             '------------------------------------------------------------------------------'
+         IF (mixed_cdft%do_ci) THEN
+            WRITE (iounit, '(/,T3,A)') '------------------ CDFT Configuration Interaction (CDFT-CI) ------------------'
+            DO ivar = 1, 2
+               IF (ivar == 1) THEN
+                  WRITE (iounit, '(T3,A,T58,(3X,F20.14))') 'Ground state energy:', eigenv(ivar)
+               ELSE
+                  WRITE (iounit, '(/,T3,A,T58,(3X,F20.14))') 'Excited state energy:', eigenv(ivar)
+               END IF                  
+               WRITE (iounit, '(T3,A,T54,(3X,2F12.6))') 'Expansion coefficients:', H_mat(:, ivar)**2
+            END DO
+            WRITE (iounit, '(T3,A)') &
+            '------------------------------------------------------------------------------'
+         END IF
       END IF
       DEALLOCATE (a, b, S_det, Waa, Wbb)
       IF (mixed_cdft%calculate_metric) DEALLOCATE (metric)

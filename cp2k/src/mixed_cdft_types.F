@@ -128,7 +128,9 @@ MODULE mixed_cdft_types
 !> \param calculate_metric flag which determines if the coupling reliablity metric should be computed
 !> \param wnf_ovelap_method flag to enable the wavefunction overlap method for computing the coupling
 !> \param has_unit_metric flag to determine if the basis set has unit metric
-!> \param is_parallel flag which determine if the mixed CDFT calculation is parallel or serial mode
+!> \param is_parallel flag which determines if the mixed CDFT calculation is parallel or serial mode
+!> \param use_lowdin flag which determines if Lowdin orthogonalization is used to compute the coupling
+!> \param do_ci flag which determines if a CDFT-CI calculation was requested
 !> \param is_charge_constraint list of logicals which determine if the constraint should be applied
 !>                             to the total charge density or the magnetization density
 !> \param eps_rho_rspace threshold to determine when the realspace density can be considered zero
@@ -156,7 +158,8 @@ MODULE mixed_cdft_types
                                                           calculate_metric, &
                                                           wfn_overlap_method, &
                                                           has_unit_metric, &
-                                                          is_parallel, use_lowdin
+                                                          is_parallel, use_lowdin, &
+                                                          do_ci
       LOGICAL, DIMENSION(:), ALLOCATABLE               :: is_charge_constraint
       REAL(KIND=dp)                                    :: eps_rho_rspace, sim_dt, &
                                                           eps_svd
