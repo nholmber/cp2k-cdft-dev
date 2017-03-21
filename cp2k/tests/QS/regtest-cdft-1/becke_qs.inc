@@ -20,7 +20,11 @@
     @IF ( ${BECKE_ADJUST_SIZE} == TRUE )
       ! Defaults to false
       ADJUST_SIZE     TRUE
-      ATOMIC_RADII 0.630 0.320  
+      ATOMIC_RADII    0.630 0.320  
+    @ENDIF
+    @IF ( ${BECKE_ADJUST_SIZE_TIGHT} == TRUE)
+      ADJUST_SIZE     TRUE
+      ATOMIC_RADII    0.333837 0.169568
     @ENDIF
     @IF ( ${BECKE_ATOMIC_CHARGES} == TRUE )
       ! Defaults to false
