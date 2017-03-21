@@ -460,7 +460,7 @@ CONTAINS
       INTEGER                                            :: i, j, jj, k, n_rep, natoms, nvar, &
                                                             tot_natoms
       INTEGER, DIMENSION(:), POINTER                     :: atomlist, dummylist, tmplist
-      LOGICAL                                            :: exists, is_duplicate
+      LOGICAL                                            :: exists, is_duplicate, is_et_coupling
       REAL(KIND=dp), DIMENSION(:), POINTER               :: rtmplist
       TYPE(section_vals_type), POINTER                   :: group_section
 
@@ -469,14 +469,17 @@ CONTAINS
       group_section => section_vals_get_subs_vals(becke_section, "ATOM_GROUP")
       CALL section_vals_get(group_section, n_repetition=nvar, explicit=exists)
       IF (.NOT. exists) CPABORT("Section ATOM_GROUP is missing.")
-      ! Deallocate atoms/coeff in case ET_COUPLING calculation (in qs_energy_utils)
-      IF (ASSOCIATED(qs_control%becke_control%group)) THEN
+      ! Special considerations in case ET_COUPLING calculation (in qs_energy_utils)
+      is_et_coupling = .FALSE.
+      IF (ASSOCIATED(qs_control%becke_control%group)) &
+         is_et_coupling = .TRUE.
+      IF (is_et_coupling) THEN
          DO i = 1, SIZE(qs_control%becke_control%group)
             DEALLOCATE (qs_control%becke_control%group(i)%atoms)
             DEALLOCATE (qs_control%becke_control%group(i)%coeff)
          END DO
       END IF
-      IF (.NOT. ASSOCIATED(qs_control%becke_control%group)) &
+      IF (.NOT. is_et_coupling) &
          ALLOCATE (qs_control%becke_control%group(nvar))
       tot_natoms = 0
       ! Parse all ATOM_GROUP sections
@@ -492,9 +495,11 @@ CONTAINS
          END DO
          ALLOCATE (qs_control%becke_control%group(k)%atoms(natoms))
          ALLOCATE (qs_control%becke_control%group(k)%coeff(natoms))
-         NULLIFY (qs_control%becke_control%group(k)%weight%pw)
-         NULLIFY (qs_control%becke_control%group(k)%gradients)
-         NULLIFY (qs_control%becke_control%group(k)%integrated)
+         IF (.NOT. is_et_coupling) THEN
+            NULLIFY (qs_control%becke_control%group(k)%weight%pw)
+            NULLIFY (qs_control%becke_control%group(k)%gradients)
+            NULLIFY (qs_control%becke_control%group(k)%integrated)
+         END IF
          tot_natoms = tot_natoms+natoms
          ! Now parse
          jj = 0
