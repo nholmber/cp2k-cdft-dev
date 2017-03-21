@@ -1,6 +1,6 @@
 &DFT
   @IF ( ${BECKE_ACTIVE} == TRUE )
-    @include becke_qs.inc
+    @include becke_qs_gapw.inc
   @ENDIF
   @IF ( ${BECKE_ACTIVE} == FALSE )
     &QS
