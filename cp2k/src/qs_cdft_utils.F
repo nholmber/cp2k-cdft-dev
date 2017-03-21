@@ -469,14 +469,15 @@ CONTAINS
       group_section => section_vals_get_subs_vals(becke_section, "ATOM_GROUP")
       CALL section_vals_get(group_section, n_repetition=nvar, explicit=exists)
       IF (.NOT. exists) CPABORT("Section ATOM_GROUP is missing.")
+      ! Deallocate atoms/coeff in case ET_COUPLING calculation (in qs_energy_utils)
       IF (ASSOCIATED(qs_control%becke_control%group)) THEN
          DO i = 1, SIZE(qs_control%becke_control%group)
             DEALLOCATE (qs_control%becke_control%group(i)%atoms)
             DEALLOCATE (qs_control%becke_control%group(i)%coeff)
          END DO
-         DEALLOCATE (qs_control%becke_control%group)
       END IF
-      ALLOCATE (qs_control%becke_control%group(nvar))
+      IF (.NOT. ASSOCIATED(qs_control%becke_control%group)) &
+         ALLOCATE (qs_control%becke_control%group(nvar))
       tot_natoms = 0
       ! Parse all ATOM_GROUP sections
       DO k = 1, nvar
