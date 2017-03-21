@@ -1,4 +1,4 @@
-@SET RESTART_WFN          TRUE
+@SET RESTART_WFN          FALSE
 @SET WFN_FILE             water-noconstraint-1_0.wfn
 @SET PROJECT_NAME         water-cdft-9
 @SET WRITE_WFN            0
