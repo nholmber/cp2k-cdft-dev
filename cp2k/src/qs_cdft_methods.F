@@ -944,13 +944,13 @@ CONTAINS
          CALL get_qs_env(qs_env, rho0_mpole=rho0_mpole)
          CALL get_rho0_mpole(rho0_mpole, mp_rho=mp_rho)
          DO i = 1, dft_control%nspins
-            IF (i == 2 .AND. .NOT. group(igroup)%is_charge_constraint) THEN
-               sign = -1.0_dp
-            ELSE
-               sign = 1.0_dp
-            END IF
             DO igroup = 1, SIZE(group)
                DO iatom = 1, SIZE(group(igroup)%atoms)
+                  IF (i == 2 .AND. .NOT. group(igroup)%is_charge_constraint) THEN
+                     sign = -1.0_dp
+                  ELSE
+                     sign = 1.0_dp
+                  END IF
                   jatom = group(igroup)%atoms(iatom)
                   CALL get_atomic_kind(particle_set(jatom)%atomic_kind, kind_number=ikind)
                   CALL get_qs_kind(qs_kind_set(ikind), paw_atom=paw_atom)
