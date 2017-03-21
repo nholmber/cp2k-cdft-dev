@@ -74,17 +74,17 @@
       FRAGMENT_B_FILE_NAME H-noconstraint-ELECTRON_DENSITY-1_0.cube
     @ENDIF
     @IF ( ${BECKE_FRAGMENT} == FALSE )
-      &ATOM_GROUP
-        ATOMS           1..2
-        COEFF           1 -1
-        CHARGE_CONSTRAINT TRUE
-      &END ATOM_GROUP
-      ! Apply an additional spin constraint
+      ! Apply a spin constraint in addition to the charge difference constraint
       &ATOM_GROUP
         ATOMS          1
         COEFF          1
         CHARGE_CONSTRAINT FALSE
       &END 
+      &ATOM_GROUP
+        ATOMS           1..2
+        COEFF           1 -1
+        CHARGE_CONSTRAINT TRUE
+      &END ATOM_GROUP
     @ENDIF
     &PROGRAM_RUN_INFO ON
       &EACH
