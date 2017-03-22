@@ -754,8 +754,8 @@ CONTAINS
                                                             nvar, unit_nr
       INTEGER, DIMENSION(:), POINTER                     :: stride
       LOGICAL                                            :: paw_atom
-      REAL(kind=dp)                                      :: dvol, eps_cavity, nelectron_frag, &
-                                                            sign, tc, zeff
+      REAL(kind=dp)                                      :: dvol, eps_cavity, nelectron_frag, sign, &
+                                                            tc, zeff
       REAL(kind=dp), ALLOCATABLE, DIMENSION(:)           :: dE, strength, target_val
       REAL(kind=dp), ALLOCATABLE, DIMENSION(:, :)        :: electronic_charge, gapw_offset
       TYPE(becke_constraint_type), POINTER               :: becke_control
