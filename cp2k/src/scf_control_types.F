@@ -514,7 +514,7 @@ CONTAINS
          CALL section_vals_val_get(outer_scf_section, "EPS_SCF", &
                                    r_val=scf_control%outer_scf%eps_scf)
          CALL section_vals_val_get(outer_scf_section, "STEP_SIZE", &
-                                   r_val=scf_control%outer_scf%step_size)
+                                   r_val=scf_control%outer_scf%step_size, explicit=exists)
          CALL section_vals_val_get(outer_scf_section, "DIIS_BUFFER_LENGTH", &
                                    i_val=scf_control%outer_scf%diis_buffer_length)
          CALL section_vals_val_get(outer_scf_section, "BISECT_TRUST_COUNT", &
@@ -533,7 +533,7 @@ CONTAINS
                                    r_val=scf_control%outer_scf%jacobian_step)
          CALL section_vals_val_get(outer_scf_section, "BROYDEN_TYPE", &
                                    i_val=scf_control%outer_scf%broyden_type)
-         IF (ABS(scf_control%outer_scf%step_size) .LE. 1.0_dp) THEN
+         IF (exists .AND. ABS(scf_control%outer_scf%step_size) .LE. 1.0_dp) THEN
             scf_control%outer_scf%newton_step = ABS(scf_control%outer_scf%step_size)
             ! Permanent copy needed in case line search is performed
             scf_control%outer_scf%newton_step_save = scf_control%outer_scf%newton_step
