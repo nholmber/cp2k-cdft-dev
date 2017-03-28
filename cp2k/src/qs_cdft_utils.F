@@ -801,7 +801,13 @@ CONTAINS
                                 "Both values to keyword JACOBIAN_FREQ cannot be zero.")
                qs_control%cdft_control%constraint_control%jacobian_freq(:) = tmplist(1:2)
             END IF
-
+            IF (ABS(qs_control%cdft_control%constraint_control%step_size) .LE. 1.0_dp) THEN
+               qs_control%cdft_control%constraint_control%newton_step =&
+                  ABS(qs_control%cdft_control%constraint_control%step_size)
+               ! Permanent copy needed in case line search is performed
+               qs_control%cdft_control%constraint_control%newton_step_save =&
+                  scf_control%outer_scf%newton_step
+            END IF
             SELECT CASE (qs_control%cdft_control%type)
             CASE (outer_scf_hirshfeld_constraint)
                IF (qs_control%cdft_control%constraint_control%type == outer_scf_cdft_constraint) THEN

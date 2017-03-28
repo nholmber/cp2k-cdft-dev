@@ -576,7 +576,6 @@ CONTAINS
          ! Switch data in scf_control: first save values that might have changed
          cdft_control%constraint_control%broyden_update = scf_control%outer_scf%broyden_update
          cdft_control%constraint_control%newton_step = scf_control%outer_scf%newton_step
-         cdft_control%constraint_control%newton_step_save = scf_control%outer_scf%newton_step_save
          cdft_control%constraint_control%ijacobian = scf_control%outer_scf%ijacobian
          ! Now switch
          scf_control%outer_scf%have_scf = cdft_control%ot_control%have_scf
