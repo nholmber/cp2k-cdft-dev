@@ -87,7 +87,8 @@ MODULE scf_control_types
 !> \param build_jacobian logical which determines if the inverse Jacobian should be computed
 !> \param step_size the optimizer step size
 !> \param jacobian_step the step size for calculating the finite difference Jacobian
-!> \param newton_step the step size used by Newton optimizer the with values between 0 and 1
+!> \param newton_step the step size used by the Newton optimizer the with values between 0 and 1
+!> \param newton_step_save permanent copy of the above
 !> \param jacobian_type the finite difference scheme to compute the Jacobian
 !> \param broyden_type the variant of Broyden's method to use
 !> \param jacobian_freq control parameters defining how often the Jacobian is built
@@ -106,7 +107,8 @@ MODULE scf_control_types
       INTEGER       :: max_scf
       REAL(KIND=dp) :: eps_scf, step_size, &
                        jacobian_step, &
-                       newton_step
+                       newton_step, &
+                       newton_step_save
       INTEGER       :: TYPE
       INTEGER       :: optimizer
       INTEGER       :: diis_buffer_length
@@ -286,6 +288,7 @@ CONTAINS
       scf_control%outer_scf%jacobian_freq = 1
       scf_control%outer_scf%jacobian_step = 0.0_dp
       scf_control%outer_scf%newton_step = 1.0_dp
+      scf_control%outer_scf%newton_step_save = 1.0_dp
       scf_control%outer_scf%ijacobian = 0
       scf_control%outer_scf%build_jacobian = .FALSE.
       scf_control%outer_scf%broyden_update = .FALSE.
@@ -530,6 +533,11 @@ CONTAINS
                                    r_val=scf_control%outer_scf%jacobian_step)
          CALL section_vals_val_get(outer_scf_section, "BROYDEN_TYPE", &
                                    i_val=scf_control%outer_scf%broyden_type)
+         IF (ABS(scf_control%outer_scf%step_size) .LE. 1.0_dp) THEN
+            scf_control%outer_scf%newton_step = ABS(scf_control%outer_scf%step_size)
+            ! Permanent copy needed in case line search is performed
+            scf_control%outer_scf%newton_step_save = scf_control%outer_scf%newton_step
+         END IF
          CALL section_vals_val_get(outer_scf_section, "JACOBIAN_FREQ", explicit=exists)
          IF (exists) THEN
             CALL section_vals_val_get(outer_scf_section, "JACOBIAN_FREQ", &
