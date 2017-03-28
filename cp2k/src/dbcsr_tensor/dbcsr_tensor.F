@@ -160,7 +160,7 @@ CONTAINS
       CALL dbcsr_iterator_start(iter, matrix_in)
       DO WHILE (dbcsr_iterator_blocks_left(iter))
          CALL dbcsr_iterator_next_block(iter, ind_2d(1), ind_2d(2), block)
-         CALL allocate_any(SHAPE(block), block_arr, source=block)
+         CALL allocate_any(block_arr, source=block)
          CALL dbcsr_t_put_block(tensor_out, ind_2d, SHAPE(block_arr), block_arr)
          DEALLOCATE (block_arr)
       ENDDO
@@ -182,10 +182,10 @@ CONTAINS
 !> \param tensor_3 contracted tensor (out)
 !> \todo Generate input arguments (contract_*, notcontract_*, map_*) from Einstein notation
 ! **************************************************************************************************
-   SUBROUTINE dbcsr_t_contract(tensor_1, tensor_2, &
+   SUBROUTINE dbcsr_t_contract(tensor_1, tensor_2, tensor_3, &
                                contract_1, notcontract_1, &
                                contract_2, notcontract_2, &
-                               map_1, map_2, tensor_3)
+                               map_1, map_2)
       TYPE(dbcsr_t_type), INTENT(IN)                 :: tensor_1, tensor_2
       INTEGER, DIMENSION(:), INTENT(IN)              :: contract_1, contract_2, map_1, map_2
       INTEGER, DIMENSION(:), INTENT(IN)              :: notcontract_1, notcontract_2
@@ -249,17 +249,17 @@ CONTAINS
       CALL align_tensor(tensor_2, contract_2, notcontract_2, &
                         tensor_tmp_2, contract_2_mod, notcontract_2_mod)
 
-      CALL allocate_any(SHAPE(contract_1_mod), sort_indices)
+      CALL allocate_any(sort_indices, shape_spec=SHAPE(contract_1_mod))
       CALL sort(contract_1_mod, SIZE(contract_1_mod), sort_indices)
       contract_2_mod(:) = contract_2_mod(sort_indices)
       DEALLOCATE(sort_indices)
 
-      CALL allocate_any(SHAPE(notcontract_1_mod), sort_indices)
+      CALL allocate_any(sort_indices, shape_spec=SHAPE(notcontract_1_mod))
       CALL sort(notcontract_1_mod, SIZE(notcontract_1_mod), sort_indices)
       map_1_mod(:) = map_1(sort_indices)
       DEALLOCATE(sort_indices)
 
-      CALL allocate_any(SHAPE(notcontract_2_mod), sort_indices)
+      CALL allocate_any(sort_indices, shape_spec=SHAPE(notcontract_2_mod))
       CALL sort(notcontract_2_mod, SIZE(notcontract_2_mod), sort_indices)
       map_2_mod(:) = map_2(sort_indices)
       DEALLOCATE(sort_indices)
@@ -271,8 +271,12 @@ CONTAINS
       CALL dbcsr_t_destroy(tensor_tmp_2)
 
       ! create temporary tensor according to format of tensor 1, tensor 2
+      map_1_tmp(:) = (/(i, i=1,ndims_2d_3(1))/)
+      map_2_tmp(:) = (/(i, i=ndims_2d_3(1)+1,ndims_2d_3(1)+ndims_2d_3(2))/)
+
       CALL dbcsr_get_info(tensor_contr_1%matrix_rep, group=mp_comm_2d)
-      mp_comm_nd = dbcsr_t_nd_mp_comm(mp_comm_2d, map_1_mod, map_2_mod)
+      mp_comm_nd = dbcsr_t_nd_mp_comm(mp_comm_2d, map_1_tmp, map_2_tmp)
+
       ALLOCATE(pdims_3(SUM(ndims_2d_3)))
       ALLOCATE(myploc(SUM(ndims_2d_3)))
       ALLOCATE(periods(SUM(ndims_2d_3)))
@@ -292,9 +296,6 @@ CONTAINS
       ENDIF
 #:endfor
 
-      map_1_tmp(:) = (/(i, i=1,ndims_2d_3(1))/)
-      map_2_tmp(:) = (/(i, i=ndims_2d_3(1)+1,ndims_2d_3(1)+ndims_2d_3(2))/)
-
 #:for ndim in ndims
       IF (SUM(ndims_2d_3) == ${ndim}$) THEN
          CALL dbcsr_t_distribution_new(dist_3, mp_comm_nd, mp_comm_2d, &
@@ -311,7 +312,7 @@ CONTAINS
                           tensor_contr_1%matrix_rep, tensor_contr_2%matrix_rep, 0.0_real_8, &
                           tensor_3_tmp%matrix_rep)
 
-      order(:) = dbcsr_t_inverse_order([map_1_mod, map_2_mod])
+      order(:) = [map_1_mod, map_2_mod]
       CALL dbcsr_t_copy(tensor_3_tmp, tensor_3, order = order)
 
       CALL dbcsr_t_destroy(tensor_contr_1)
@@ -406,7 +407,7 @@ CONTAINS
 !> \param nd_index ...
 !> \param contract ...
 ! **************************************************************************************************
-      PURE FUNCTION compat_map(nd_index, contract)
+      FUNCTION compat_map(nd_index, contract)
          TYPE(nd_to_2d_mapping), INTENT(IN) :: nd_index
          INTEGER, DIMENSION(:), INTENT(IN)  :: contract
          INTEGER, DIMENSION(:), ALLOCATABLE :: map1, map2
@@ -451,9 +452,7 @@ CONTAINS
       INTEGER, INTENT(in)                             :: dist_size, nbins
       INTEGER                                         :: i
 
-      ALLOCATE (dist_array(dist_size))
-
-      dist_array(:) = (/(MODULO(nbins-i, nbins), i=1, dist_size)/)
+      CALL allocate_any(dist_array, source=(/(MODULO(nbins-i, nbins), i=1, dist_size)/))
 
    END SUBROUTINE cyclic_dist
 
