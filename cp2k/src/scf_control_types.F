@@ -827,7 +827,7 @@ CONTAINS
                      "The Jacobian is restarted every ", scf_control%outer_scf%jacobian_freq(2), " energy evaluation"
                   WRITE (output_unit, '(T25,A,I4,A)') &
                      " or if the number of SCF iterations exceeds ", scf_control%outer_scf%jacobian_freq(1)
-                  WRITE (output_unit, '(T25,A,I4)') &
+                  WRITE (output_unit, '(T25,A,F8.4)') &
                      "Optimizer step size: ", scf_control%outer_scf%newton_step_save
                CASE (outer_scf_optimizer_newton)
                   WRITE (output_unit, '(T25,A)') "Optimization with Newton's method"
@@ -835,7 +835,7 @@ CONTAINS
                      "The Jacobian is restarted every ", scf_control%outer_scf%jacobian_freq(2), " energy evaluation"
                   WRITE (output_unit, '(T25,A,I4,A)') &
                      " or if the number of SCF iterations exceeds ", scf_control%outer_scf%jacobian_freq(1)
-                  WRITE (output_unit, '(T25,A,I4)') &
+                  WRITE (output_unit, '(T25,A,F8.4)') &
                      "Optimizer step size: ", scf_control%outer_scf%newton_step_save
                CASE (outer_scf_optimizer_newton_ls)
                   WRITE (output_unit, '(T25,A)') "Optimization with Newton's method using backtracking line search"
@@ -843,7 +843,7 @@ CONTAINS
                      "The Jacobian is restarted every ", scf_control%outer_scf%jacobian_freq(2), " energy evaluation"
                   WRITE (output_unit, '(T25,A,I4,A)') &
                      " or if the number of SCF iterations exceeds ", scf_control%outer_scf%jacobian_freq(1)
-                  WRITE (output_unit, '(T25,A,I4)') &
+                  WRITE (output_unit, '(T25,A,F8.4)') &
                      "Optimizer step size: ", scf_control%outer_scf%newton_step_save
                CASE (outer_scf_optimizer_secant)
                   WRITE (output_unit, '(T25,A)') "Optimization with the secant method"
