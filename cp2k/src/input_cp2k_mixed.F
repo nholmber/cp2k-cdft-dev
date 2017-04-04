@@ -91,7 +91,7 @@ CONTAINS
                        "Defines a user-driven generica coupling (support for an unlimited number of force_eval)", &
                        "Consider each force env as a CDFT state (supports an unlimited number of force_eval " // &
                        "for calculation of CDFT properties, but only two states can be mixed for forces)."), &
-         enum_i_vals=(/mix_linear_combination, mix_minimum, mix_coupled, mix_restrained, mix_generic,
+         enum_i_vals=(/mix_linear_combination, mix_minimum, mix_coupled, mix_restrained, mix_generic, &
                        mix_cdft/))
       CALL section_add_keyword(section, keyword)
       CALL keyword_release(keyword)
