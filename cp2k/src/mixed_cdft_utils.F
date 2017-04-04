@@ -134,7 +134,7 @@ CONTAINS
       CHARACTER(len=*), PARAMETER :: routineN = 'mixed_cdft_parse_settings', &
          routineP = moduleN//':'//routineN
 
-      INTEGER                                            :: i, iforce_eval, nforce_eval, nkinds
+      INTEGER                                            :: i, iforce_eval, jforce_eval, nforce_eval, nkinds
       LOGICAL                                            :: is_match
       TYPE(atomic_kind_type), DIMENSION(:), POINTER      :: atomic_kind_set
       TYPE(dft_control_type), POINTER                    :: dft_control
@@ -193,7 +193,7 @@ CONTAINS
          IF (.NOT. dft_control%qs_control%becke_constraint) &
             CALL cp_abort(__LOCATION__, &
                           "Mixed CDFT currently only supports the Becke constraint."// &
-                          "Becke constraint must be active in QS section of both force_evals!")
+                          "Becke constraint must be active in the QS section of all force_evals!")
          CALL pw_env_get(pw_env, auxbas_pw_pool=auxbas_pw_pool)
          settings%bo = auxbas_pw_pool%pw_grid%bounds_local
          ! Only the rank 0 process collects info about pw_grid and becke
@@ -271,17 +271,19 @@ CONTAINS
       CALL mp_sum(settings%rs_dims, force_env%para_env%group)
       CALL mp_sum(settings%odd, force_env%para_env%group)
       is_match = .TRUE.
-      is_match = is_match .AND. (settings%grid_span(1) == settings%grid_span(2))
-      is_match = is_match .AND. (settings%npts(1, 1) == settings%npts(1, 2))
-      is_match = is_match .AND. (settings%cutoff(1) == settings%cutoff(2))
-      is_match = is_match .AND. (settings%rel_cutoff(1) == settings%rel_cutoff(2))
-      is_match = is_match .AND. (settings%spherical(1) == settings%spherical(2))
-      is_match = is_match .AND. (settings%rs_dims(1, 1) == settings%rs_dims(1, 2))
-      is_match = is_match .AND. (settings%rs_dims(2, 1) == settings%rs_dims(2, 2))
-      is_match = is_match .AND. (settings%odd(1) == settings%odd(2))
+      DO iforce_eval = 1, nforce_eval
+         is_match = is_match .AND. (settings%grid_span(1) == settings%grid_span(iforce_eval))
+         is_match = is_match .AND. (settings%npts(1, 1) == settings%npts(1, iforce_eval))
+         is_match = is_match .AND. (settings%cutoff(1) == settings%cutoff(iforce_eval))
+         is_match = is_match .AND. (settings%rel_cutoff(1) == settings%rel_cutoff(iforce_eval))
+         is_match = is_match .AND. (settings%spherical(1) == settings%spherical(iforce_eval))
+         is_match = is_match .AND. (settings%rs_dims(1, 1) == settings%rs_dims(1, iforce_eval))
+         is_match = is_match .AND. (settings%rs_dims(2, 1) == settings%rs_dims(2, iforce_eval))
+         is_match = is_match .AND. (settings%odd(1) == settings%odd(iforce_eval))
+      END DO
       IF (.NOT. is_match) &
          CALL cp_abort(__LOCATION__, &
-                       "Mismatch detected in the &MGRID settings of the two force_evals.")
+                       "Mismatch detected in the &MGRID settings of the CDFT force_evals.")
       IF (settings%spherical(1) == 1) settings%is_spherical = .TRUE.
       IF (settings%odd(1) == 1) settings%is_odd = .TRUE.
       ! Make sure Becke settings are consistent
@@ -290,31 +292,39 @@ CONTAINS
          CALL mp_sum(settings%coeffs, force_env%para_env%group)
       settings%nbecke = 0
       DO i = 1, SIZE(settings%atoms, 1)
-         IF (settings%atoms(i, 1) /= settings%atoms(i, 2)) is_match = .FALSE.
-         IF (mixed_cdft%is_parallel) THEN
-            IF (settings%coeffs(i, 1) /= settings%coeffs(i, 2)) is_match = .FALSE.
+         DO iforce_eval = 1, nforce_eval
+            IF (settings%atoms(i, 1) /= settings%atoms(i, iforce_eval)) is_match = .FALSE.
+            IF (mixed_cdft%is_parallel) THEN
+               IF (settings%coeffs(i, 1) /= settings%coeffs(i, iforce_eval)) is_match = .FALSE.
+            END IF
+            IF (settings%atoms(i, 1) /= 0) settings%nbecke = settings%nbecke+1
          END IF
-         IF (settings%atoms(i, 1) /= 0) settings%nbecke = settings%nbecke+1
       END DO
       IF (.NOT. is_match) &
          CALL cp_abort(__LOCATION__, &
-                       "Mismatch detected in the &BECKE_CONSTRAINT settings of the two force_evals.")
+                       "Mismatch detected in the &BECKE_CONSTRAINT settings of the CDFT force_evals.")
       CALL mp_sum(settings%si, force_env%para_env%group)
       CALL mp_sum(settings%sr, force_env%para_env%group)
       DO i = 1, SIZE(settings%sb, 1)
          CALL mp_sum(settings%sb(i, 1), force_env%para_env%group)
          CALL mp_sum(settings%sb(i, 2), force_env%para_env%group)
-         IF (settings%sb(i, 1) .NEQV. settings%sb(i, 2)) is_match = .FALSE.
+         DO iforce_eval = 1, nforce_eval
+            IF (settings%sb(i, 1) .NEQV. settings%sb(i, iforce_eval)) is_match = .FALSE.
+         END DO
       END DO
       DO i = 1, SIZE(settings%si, 1)
-         IF (settings%si(i, 1) /= settings%si(i, 2)) is_match = .FALSE.
+         DO iforce_eval = 1, nforce_eval
+            IF (settings%si(i, 1) /= settings%si(i, iforce_eval)) is_match = .FALSE.
+         END DO
       END DO
       DO i = 1, SIZE(settings%sr, 1)
-         IF (settings%sr(i, 1) /= settings%sr(i, 2)) is_match = .FALSE.
+         DO iforce_eval = 1, nforce_eval
+            IF (settings%sr(i, 1) /= settings%sr(i, iforce_eval)) is_match = .FALSE.
+         END DO
       END DO
       IF (.NOT. is_match) &
          CALL cp_abort(__LOCATION__, &
-                       "Mismatch detected in the &BECKE_CONSTRAINT settings of the two force_evals.")
+                       "Mismatch detected in the &BECKE_CONSTRAINT settings of the CDFT force_evals.")
       ! Some CDFT features are currently disabled for mixed calculations: check that these features were not requested
       IF (mixed_cdft%dlb .AND. .NOT. settings%sb(1, 1)) &
          CALL cp_abort(__LOCATION__, &
@@ -767,42 +777,45 @@ CONTAINS
             DEALLOCATE (bounds)
          END IF
       ELSE
-         ! Create a logger to redirect output of the second CDFT state to a different file than the first state
+         ! Create loggers to redirect the output of all CDFT state to different files than the first state
          ! even when the states are treated in serial (the initial print of QS data [basis set etc] for the
-         ! second state unfortunately goes to the first log file)
+         ! all states unfortunately goes to the first log file)
          CALL force_env_get(force_env, root_section=root_section)
-         IF (force_env%para_env%mepos == force_env%para_env%source) THEN
-            CALL section_vals_val_get(root_section, "GLOBAL%PROJECT_NAME", &
-                                      c_val=input_file_path)
-            lp = LEN_TRIM(input_file_path)
-            input_file_path(lp+1:LEN(input_file_path)) = "-r-2"
-            lp = LEN_TRIM(input_file_path)
-            output_file_path = input_file_path(1:lp)//".out"
-            CALL open_file(file_name=output_file_path, file_status="UNKNOWN", &
-                           file_action="WRITE", file_position="APPEND", &
-                           unit_number=unit_nr)
-         ELSE
-            unit_nr = -1
-         END IF
-         CALL cp_logger_create(mixed_cdft%sub_logger, &
-                               para_env=force_env%para_env, &
-                               default_global_unit_nr=unit_nr, &
-                               close_global_unit_on_dealloc=.FALSE.)
-         ! Try to use better names for the local log if it is not too late
-         CALL section_vals_val_get(root_section, "GLOBAL%OUTPUT_FILE_NAME", &
-                                   c_val=c_val)
-         IF (c_val /= "") THEN
-            CALL cp_logger_set(mixed_cdft%sub_logger, &
-                               local_filename=TRIM(c_val)//"_localLog")
-         END IF
-         CALL section_vals_val_get(root_section, "GLOBAL%PROJECT", c_val=c_val)
-         IF (c_val /= "") THEN
-            CALL cp_logger_set(mixed_cdft%sub_logger, &
-                               local_filename=TRIM(c_val)//"_localLog")
-         END IF
-         mixed_cdft%sub_logger%iter_info%project_name = c_val
-         CALL section_vals_val_get(root_section, "GLOBAL%PRINT_LEVEL", &
-                                   i_val=mixed_cdft%sub_logger%iter_info%print_level)
+         ALLOCATE (mixed_cdft%sub_logger(nforce_eval-1))
+         DO i = 1, nforce_eval-1
+            IF (force_env%para_env%mepos == force_env%para_env%source) THEN
+               CALL section_vals_val_get(root_section, "GLOBAL%PROJECT_NAME", &
+                                         c_val=input_file_path)
+               lp = LEN_TRIM(input_file_path)
+               input_file_path(lp+1:LEN(input_file_path)) = "-r-"//ADJUSTL(cp_to_string(i+1))
+               lp = LEN_TRIM(input_file_path)
+               output_file_path = input_file_path(1:lp)//".out"
+               CALL open_file(file_name=output_file_path, file_status="UNKNOWN", &
+                              file_action="WRITE", file_position="APPEND", &
+                              unit_number=unit_nr)
+            ELSE
+               unit_nr = -1
+            END IF
+            CALL cp_logger_create(mixed_cdft%sub_logger(i)%p, &
+                                  para_env=force_env%para_env, &
+                                  default_global_unit_nr=unit_nr, &
+                                  close_global_unit_on_dealloc=.FALSE.)
+            ! Try to use better names for the local log if it is not too late
+            CALL section_vals_val_get(root_section, "GLOBAL%OUTPUT_FILE_NAME", &
+                                      c_val=c_val)
+            IF (c_val /= "") THEN
+               CALL cp_logger_set(mixed_cdft%sub_logger(i)%p, &
+                                  local_filename=TRIM(c_val)//"_localLog")
+            END IF
+            CALL section_vals_val_get(root_section, "GLOBAL%PROJECT", c_val=c_val)
+            IF (c_val /= "") THEN
+               CALL cp_logger_set(mixed_cdft%sub_logger(i)%p, &
+                                  local_filename=TRIM(c_val)//"_localLog")
+            END IF
+            mixed_cdft%sub_logger(i)%p%iter_info%project_name = c_val
+            CALL section_vals_val_get(root_section, "GLOBAL%PRINT_LEVEL", &
+                                      i_val=mixed_cdft%sub_logger(i)%p%iter_info%print_level)
+         END DO
          IF (mixed_cdft%wfn_overlap_method) THEN
             ! qs_kind_set
             NULLIFY (root_section, force_env_section, force_env_sections, rs_grid_section)
@@ -927,14 +940,15 @@ CONTAINS
             mixed_cdft%is_charge_constraint(ivar) = dft_control%qs_control%becke_control%group(ivar)%is_charge_constraint
          END DO
       END IF
-      ALLOCATE (mixed_mo_coeff(2, nspins))
-      ALLOCATE (w_matrix(2, nvar))
+      ALLOCATE (mixed_mo_coeff(nforce_eval, nspins))
+      ALLOCATE (w_matrix(nforce_eval, nvar))
       CALL dbcsr_init_p(mixed_matrix_s)
       IF (mixed_cdft%calculate_metric) &
-         ALLOCATE (density_matrix(2, nspins))
+         ALLOCATE (density_matrix(nforce_eval, nspins))
       ! Transfer data from sub_force_envs to temporaries
-      ALLOCATE (mo_coeff_tmp(2, nspins), wmat_tmp(2, nvar), matrix_s_tmp, nrow_mo(nspins), ncol_mo(nspins))
-      IF (mixed_cdft%calculate_metric) ALLOCATE (matrix_p_tmp(2, nspins))
+      ALLOCATE (mo_coeff_tmp(nforce_eval, nspins), wmat_tmp(nforce_eval, nvar),
+      ALLOCATE (matrix_s_tmp, nrow_mo(nspins), ncol_mo(nspins))
+      IF (mixed_cdft%calculate_metric) ALLOCATE (matrix_p_tmp(nforce_eval, nspins))
       NULLIFY (matrix_s_tmp%matrix)
       DO iforce_eval = 1, nforce_eval
          ! Temporary arrays need to be nulled on every process
@@ -986,7 +1000,7 @@ CONTAINS
          END DO
          DEALLOCATE (dft_control%qs_control%cdft_control%wmat)
          CALL cp_fm_struct_release(fm_struct_tmp)
-         ! Overlap matrix is the same for both sub_force_envs, so we just copy the first one (dbcsr -> fm)
+         ! Overlap matrix is the same for all sub_force_envs, so we just copy the first one (dbcsr -> fm)
          IF (iforce_eval == 1) THEN
             CALL cp_fm_struct_create(fm_struct_tmp, nrow_global=nrow_overlap, &
                                      ncol_global=ncol_overlap, context=blacs_env, &
@@ -1023,9 +1037,9 @@ CONTAINS
       ! Redistribute arrays with copy_general (this is not optimal for dbcsr matrices but...)
       ! We use this method for the serial case (mixed_cdft%is_parallel = .FALSE.) as well to move the arrays to the
       ! correct blacs_env, which is impossible using a simple copy of the arrays
-      ALLOCATE (mixed_wmat_tmp(2, nvar), mixed_matrix_s_tmp)
+      ALLOCATE (mixed_wmat_tmp(nforce_eval, nvar), mixed_matrix_s_tmp)
       IF (mixed_cdft%calculate_metric) &
-         ALLOCATE (mixed_matrix_p_tmp(2, nspins))
+         ALLOCATE (mixed_matrix_p_tmp(nforce_eval, nspins))
       DO iforce_eval = 1, nforce_eval
          ! MO coefficients
          DO ispin = 1, nspins

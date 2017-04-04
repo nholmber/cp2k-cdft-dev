@@ -184,10 +184,11 @@ CONTAINS
          mixed_env%do_mixed_cdft = .TRUE.
          IF (mixed_env%do_mixed_cdft) THEN
             ! Enforce some limitations
-            IF (.NOT. nforce_eval == 2) &
-               CPABORT("Mixed CDFT calculation requires exactly 2 force_evals")
             IF (mixed_env%ngroups == 2) THEN
                is_parallel = .TRUE.
+               IF (.NOT. nforce_eval == 2) &
+                  CALL cp_abort(__LOCATION__, &
+                               "Parallel mode mixed CDFT calculation requires supports only 2 force_evals")
             ELSE IF (mixed_env%ngroups == 1) THEN
                is_parallel = .FALSE.
             ELSE
@@ -293,7 +294,7 @@ CONTAINS
             CALL section_vals_val_get(md_section, "STEP_START_VAL", i_val=mixed_cdft%sim_step)
             mixed_cdft%sim_step = mixed_cdft%sim_step-1 ! to get the first step correct
             mixed_cdft%sim_dt = cp_unit_from_cp2k(mixed_cdft%sim_dt, "fs")
-            ! Parse constraint settings from individual force_eval and check consistency
+            ! Parse constraint settings from the individual force_evals and check consistency
             CALL mixed_cdft_parse_settings(force_env, mixed_env, mixed_cdft, &
                                            settings, natom=SIZE(particles_mix%els))
             ! Transfer settings to mixed_cdft
@@ -305,6 +306,8 @@ CONTAINS
                WRITE (iounit, *) ""
                WRITE (iounit, FMT="(T2,A,T71)") &
                   "MIXED_CDFT| Activating mixed CDFT calculation"
+               WRITE (iounit, FMT="(T2,A,T71,I10)") &
+                  "MIXED_CDFT| Number of CDFT states:                                  ", nforce_eval
                IF (mixed_cdft%is_parallel) THEN
                   WRITE (iounit, FMT="(T2,A,T71)") &
                      "MIXED_CDFT| CDFT states calculation mode: parallel"
@@ -318,10 +321,13 @@ CONTAINS
                   WRITE (iounit, FMT="(T2,A,T71)") &
                      "MIXED_CDFT| Becke constraint is built before the SCF procedure of the first"
                   WRITE (iounit, FMT="(T2,A,T71)") &
-                     "            CDFT state and subsequently copied to the second state"
+                     "            CDFT state and subsequently copied to other states"
+
                END IF
                WRITE (iounit, FMT="(T2,A,T71,L10)") &
                   "MIXED_CDFT| Calculating electronic coupling between states:         ", mixed_env%do_mixed_et
+               WRITE (iounit, FMT="(T2,A,T71,L10)") &
+                  "MIXED_CDFT| Configuration interaction (CDFT-CI) was requested:      ", mixed_cdft%do_ci
                WRITE (iounit, FMT="(T2,A,T71,L10)") &
                   "MIXED_CDFT| Dynamic load balancing enabled:                         ", mixed_cdft%dlb
                IF (mixed_cdft%dlb) THEN
@@ -828,7 +834,7 @@ CONTAINS
       CHARACTER(len=*), PARAMETER :: routineN = 'mixed_cdft_transfer_weight', &
          routineP = moduleN//':'//routineN
 
-      INTEGER                                            :: bounds_of(8), handle, iatom, igroup
+      INTEGER                                            :: bounds_of(8), handle, iatom, igroup, jforce_eval
       TYPE(dft_control_type), POINTER                    :: dft_control_source, dft_control_target
       TYPE(force_env_type), POINTER                      :: force_env_qs_source, force_env_qs_target
       TYPE(mixed_cdft_type), POINTER                     :: mixed_cdft
@@ -844,10 +850,15 @@ CONTAINS
       mixed_env => force_env%mixed_env
       CALL get_mixed_env(mixed_env, cdft_control=mixed_cdft)
       CALL timeset(routineN, handle)
-      SELECT CASE (force_env%sub_force_env (1)%force_env%in_use)
+      IF (iforce_eval == 1) THEN
+         jforce_eval = 1
+      ELSE
+         jforce_eval = iforce_eval-1
+      END IF
+      SELECT CASE (force_env%sub_force_env(jforce_eval)%force_env%in_use)
       CASE (use_qs_force, use_qmmm)
-         force_env_qs_source => force_env%sub_force_env(1)%force_env
-         force_env_qs_target => force_env%sub_force_env(2)%force_env
+         force_env_qs_source => force_env%sub_force_env(jforce_eval)%force_env
+         force_env_qs_target => force_env%sub_force_env(iforce_eval)%force_env
       CASE DEFAULT
          CPASSERT(.FALSE.)
       END SELECT
@@ -869,7 +880,7 @@ CONTAINS
          dft_control_source%qs_control%becke_control%transfer_pot = .TRUE.
          mixed_cdft%sim_step = mixed_cdft%sim_step+1
       ELSE
-         ! Transfer the constraint from the first force_eval to the second
+         ! Transfer the constraint from the ith force_eval to the i+1th
          CALL get_qs_env(qs_env_source, dft_control=dft_control_source, &
                          pw_env=pw_env_source)
          CALL pw_env_get(pw_env_source, auxbas_pw_pool=auxbas_pw_pool_source)
@@ -883,17 +894,17 @@ CONTAINS
                   IF (dft_control_target%qs_control%becke_control%group(igroup)%atoms(iatom) /= &
                       dft_control_source%qs_control%becke_control%group(igroup)%atoms(iatom)) &
                      CALL cp_abort(__LOCATION__, &
-                                   "The constraint definitions of the two CDFT states are inconsistent. "// &
+                                   "The constraint definitions of the CDFT states are inconsistent. "// &
                                    "Check that all ATOM_GROUP sections are identical and correctly ordered.")
                   IF (dft_control_target%qs_control%becke_control%group(igroup)%coeff(iatom) /= &
                       dft_control_source%qs_control%becke_control%group(igroup)%coeff(iatom)) &
                      CALL cp_abort(__LOCATION__, &
-                                   "The constraint definitions of the two CDFT states are inconsistent. "// &
+                                   "The constraint definitions of the CDFT states are inconsistent. "// &
                                    "Check that all ATOM_GROUP sections are identical and correctly ordered.")
                   IF (dft_control_target%qs_control%becke_control%group(igroup)%is_charge_constraint .NEQV. &
                       dft_control_source%qs_control%becke_control%group(igroup)%is_charge_constraint) &
                      CALL cp_abort(__LOCATION__, &
-                                   "The constraint definitions of the two CDFT states are inconsistent. "// &
+                                   "The constraint definitions of the CDFT states are inconsistent. "// &
                                    "Check that all ATOM_GROUP sections are identical and correctly ordered.")
                END DO
                ! Everything is order and some additional arrays can be deallocated
@@ -961,7 +972,11 @@ CONTAINS
          ! Set some flags so the weight is not rebuilt during SCF
          dft_control_target%qs_control%becke_control%external_control = .FALSE.
          dft_control_target%qs_control%becke_control%need_pot = .FALSE.
-         dft_control_target%qs_control%becke_control%transfer_pot = .FALSE.
+         IF (iforce_eval == SIZE(force_env%sub_force_env)) THEN
+            dft_control_target%qs_control%becke_control%transfer_pot = .FALSE.
+         ELSE
+            dft_control_target%qs_control%becke_control%transfer_pot = .FALSE.
+         END IF
          dft_control_target%qs_control%becke_control%first_iteration = .FALSE.
       END IF
       ! Set flags for ET coupling calculation
@@ -994,24 +1009,26 @@ CONTAINS
 
       CHARACTER(LEN=default_path_length)                 :: file_name
       INTEGER :: handle, iforce_eval, info, iounit, ispin, istate, ivar, j, jstate, k, nao, &
-         ncol_local, nforce_eval, nmo, nrow_local, nspins, nvar, work_array_size
+         ncol_local, nforce_eval, nmo, nrow_local, nspins, nvar, work_array_size, npermutations, ipermutation
       INTEGER, ALLOCATABLE, DIMENSION(:)                 :: ncol_mo, nrow_mo
       LOGICAL                                            :: exist, natom_mismatch, use_lowdin, &
                                                             use_rotation
       REAL(KIND=dp)                                      :: coupling_lowdin, coupling_rotation, &
                                                             coupling_wfn, energy_a, energy_b, &
-                                                            maxocc, Sda, sum_a(2), sum_b(2)
+                                                            maxocc, Sda, sum_a(2), sum_b(2), check_mo(2), check_ao(2)
       REAL(KIND=dp), ALLOCATABLE, DIMENSION(:)           :: evals, metric, S_det, strength_a, &
-                                                            strength_b, Waa, Wbb, Wda, work
-      REAL(KIND=dp), ALLOCATABLE, DIMENSION(:, :)        :: a, b, H_mat_copy, overlaps, S_mat_copy
-      REAL(KIND=dp), DIMENSION(2)                        :: c, eigenv
-      REAL(KIND=dp), DIMENSION(2, 2)                     :: H_mat, S_mat, tmp_mat, W_mat
-      REAL(KIND=dp), EXTERNAL                            :: dnrm2
+                                                            strength_b, Waa, Wbb, Wda, work, c, eigenv
+      REAL(KIND=dp), ALLOCATABLE, DIMENSION(:, :)        :: H_mat, H_mat_copy, overlaps, S_mat, S_mat_copy, &
+                                                            tmp_mat, W_mat
+      REAL(KIND=dp), ALLOCATABLE, DIMENSION(:, :, :)     :: a, b
+      REAL(KIND=dp), EXTERNAL                            :: dnrm2, dfac
       TYPE(atomic_kind_type), DIMENSION(:), POINTER      :: atomic_kind_set
       TYPE(cp_blacs_env_type), POINTER                   :: blacs_env
-      TYPE(cp_fm_p_type), DIMENSION(:, :), POINTER       :: mixed_mo_coeff, w_matrix_mo
+      TYPE(cp_fm_p_type), DIMENSION(:), POINTER          :: mo_overlap
+      TYPE(cp_fm_p_type), DIMENSION(:, :), POINTER       :: mixed_mo_coeff
+      TYPE(cp_fm_p_type), DIMENSION(:, :, :), POINTER    :: w_matrix_mo
       TYPE(cp_fm_struct_type), POINTER                   :: fm_struct_mo, mo_mo_fmstruct
-      TYPE(cp_fm_type), POINTER                          :: inverse_mat, mo_overlap, mo_overlap_wfn, &
+      TYPE(cp_fm_type), POINTER                          :: inverse_mat, mo_overlap_wfn, &
                                                             mo_tmp, Tinverse, tmp2
       TYPE(cp_logger_type), POINTER                      :: logger
       TYPE(cp_subsys_type), POINTER                      :: subsys_mix
@@ -1063,9 +1080,30 @@ CONTAINS
          use_rotation = .FALSE.
          use_lowdin = .TRUE.
       END IF
-      ALLOCATE (w_matrix_mo(2, nvar), a(nspins, nvar), b(nspins, nvar), S_det(nspins))
+      ALLOCATE (w_matrix_mo(nforce_eval, nforce_eval, nvar), a(nspins, nvar, nforce_eval))
+      ALLOCATE (b(nspins, nvar, nforce_eval))
+      a = 0.0_dp
+      b = 0.0_dp
       ALLOCATE (nrow_mo(nspins), ncol_mo(nspins))
-      ALLOCATE (Wda(nvar))
+      ALLOCATE (Wda(nforce_eval, nvar))
+      ! Check that the number of MOs/AOs is equal in every CDFT state
+      DO ispin = 1, nspins
+         CALL cp_fm_get_info(1, ispin)%matrix, ncol_global=check_mo(1), nrow_global=check_ao(1))
+         DO iforce_eval = 2, nforce_eval
+            CALL cp_fm_get_info(j, ispin)%matrix, ncol_global=check_mo(2), nrow_global=check_ao(2))
+            IF (check_ao(1) /= check_ao(2)) &
+               CALL cp_abort(__LOCATION__, &
+                             "The number of atomic orbitals must be the same in every CDFT state.")
+            IF (check_mo(1) /= check_mo(2)) &
+               CALL cp_abort(__LOCATION__, &
+                             "The number of molecular orbitals must be the same in every CDFT state.")
+         END DO
+      END DO
+      npermutations = dfac(nforce_eval)
+      ALLOCATE (mo_overlap(npermutations), S_det(npermutations, nspins))
+      DO istate = 1, npermutations
+         NULLIFY (mo_overlap(istate)%matrix)
+      END DO
       DO ispin = 1, nspins
          ! Create the MOxMO fm struct (mo_mo_fm_pools%struct)
          ! The number of MOs/AOs is equal to the number of columns/rows of mo_coeff(:,:)%matrix
@@ -1077,6 +1115,7 @@ CONTAINS
                                   context=mixed_cdft%blacs_env, para_env=force_env%para_env)
          CALL cp_fm_struct_create(mo_mo_fmstruct, nrow_global=nmo, ncol_global=nmo, &
                                   context=mixed_cdft%blacs_env, para_env=force_env%para_env)
+         ! Allocate work
          CALL cp_fm_create(matrix=tmp2, matrix_struct=fm_struct_mo, &
                            name="ET_TMP_"//TRIM(ADJUSTL(cp_to_string(ispin)))//"_MATRIX")
          CALL cp_fm_struct_release(fm_struct_mo)
@@ -1084,74 +1123,93 @@ CONTAINS
                            name="INVERSE_"//TRIM(ADJUSTL(cp_to_string(ispin)))//"_MATRIX")
          CALL cp_fm_create(matrix=Tinverse, matrix_struct=mo_mo_fmstruct, &
                            name="T_INVERSE_"//TRIM(ADJUSTL(cp_to_string(ispin)))//"_MATRIX")
-         CALL cp_fm_create(matrix=mo_overlap, matrix_struct=mo_mo_fmstruct, &
-                           name="MO_OVERLAP_"//TRIM(ADJUSTL(cp_to_string(ispin)))//"_MATRIX")
+         DO istate = 1, npermutations
+            CALL cp_fm_create(matrix=mo_overlap(istate)%matrix, matrix_struct=mo_mo_fmstruct, &
+                              name="MO_OVERLAP_"//TRIM(ADJUSTL(cp_to_string(istate)))//"_"// &
+                              TRIM(ADJUSTL(cp_to_string(ispin)))//"_MATRIX")
+         END DO
          DO ivar = 1, nvar
-            DO istate = 1, 2
-               NULLIFY (w_matrix_mo(istate, ivar)%matrix)
-               CALL cp_fm_create(matrix=w_matrix_mo(istate, ivar)%matrix, matrix_struct=mo_mo_fmstruct, &
-                                 name="W_"//TRIM(ADJUSTL(cp_to_string(istate)))//"_"// &
-                                 TRIM(ADJUSTL(cp_to_string(ivar)))//"_MATRIX")
+            DO istate = 1, nforce_eval
+               DO jstate = 1, nforce_eval
+                  NULLIFY (w_matrix_mo(istate, jstate, ivar)%matrix)
+                  IF (istate == jstate) CYCLE
+                  CALL cp_fm_create(matrix=w_matrix_mo(istate, jstate, ivar)%matrix, matrix_struct=mo_mo_fmstruct, &
+                                    name="W_"//TRIM(ADJUSTL(cp_to_string(istate)))//"_"// &
+                                    TRIM(ADJUSTL(cp_to_string(jstate)))//"_"// &
+                                    TRIM(ADJUSTL(cp_to_string(ivar)))//"_MATRIX")
             END DO
          END DO
          CALL cp_fm_struct_release(mo_mo_fmstruct)
-         ! calculate the MO overlap  (C_d)^T S C_a
-         CALL cp_dbcsr_sm_fm_multiply(mixed_matrix_s, mixed_mo_coeff(1, ispin)%matrix, &
-                                      tmp2, nmo, 1.0_dp, 0.0_dp)
-         CALL cp_gemm('T', 'N', nmo, nmo, nao, 1.0_dp, &
-                      mixed_mo_coeff(2, ispin)%matrix, &
-                      tmp2, 0.0_dp, mo_overlap)
-         ! calculate the MO-representations of the restraint matrices of both CDFT states
-         DO ivar = 1, nvar
-            DO istate = 1, 2
-               jstate = 1+MOD(istate, 2)
-               ! State i: (C_j)^T W_i C_i
-               CALL cp_dbcsr_sm_fm_multiply(w_matrix(istate, ivar)%matrix, &
-                                            mixed_mo_coeff(istate, ispin)%matrix, &
+         ! calculate the MO overlaps (C_j)^T S C_i
+         ipermutation = 0
+         DO istate = 1, nforce_eval
+            DO jstate = istate+1, nforce_eval
+               ipermutation = ipermutation + 1
+               CALL cp_dbcsr_sm_fm_multiply(mixed_matrix_s, mixed_mo_coeff(istate, ispin)%matrix, &
                                             tmp2, nmo, 1.0_dp, 0.0_dp)
                CALL cp_gemm('T', 'N', nmo, nmo, nao, 1.0_dp, &
-                            mixed_mo_coeff(jstate, ispin)%matrix, &
-                            tmp2, 0.0_dp, w_matrix_mo(istate, ivar)%matrix)
+                            mixed_mo_coeff(2, ispin)%matrix, &
+                            tmp2, 0.0_dp, mo_overlap(ipermutation)%matrix)
             END DO
          END DO
-         ! Invert and calculate determinant of MO overlap
-         CALL cp_fm_invert(mo_overlap, inverse_mat, S_det(ispin), eps_svd=mixed_cdft%eps_svd)
-         CALL cp_fm_get_info(inverse_mat, nrow_local=nrow_local, ncol_local=ncol_local)
-         !
-         b(ispin, :) = 0.0_dp
-         DO j = 1, ncol_local
-            DO k = 1, nrow_local
-               DO ivar = 1, nvar
-                  b(ispin, ivar) = b(ispin, ivar)+w_matrix_mo(2, ivar)%matrix%local_data(k, j)*inverse_mat%local_data(k, j)
+         ! calculate the MO-representations of the restraint matrices of all CDFT states
+         DO ivar = 1, nvar
+            DO istate = 1, nforce_eval
+               DO jstate = 1, nforce_eval
+                  IF (istate == jstate) CYCLE
+                  ! State i: (C_j)^T W_i C_i
+                  CALL cp_dbcsr_sm_fm_multiply(w_matrix(istate, ivar)%matrix, &
+                                               mixed_mo_coeff(istate, ispin)%matrix, &
+                                               tmp2, nmo, 1.0_dp, 0.0_dp)
+                  CALL cp_gemm('T', 'N', nmo, nmo, nao, 1.0_dp, &
+                               mixed_mo_coeff(jstate, ispin)%matrix, &
+                               tmp2, 0.0_dp, w_matrix_mo(istate, jstate, ivar)%matrix)
                END DO
             END DO
          END DO
-         !
-         CALL cp_fm_transpose(inverse_mat, Tinverse)
-         a(ispin, :) = 0.0_dp
-         DO j = 1, ncol_local
-            DO k = 1, nrow_local
-               DO ivar = 1, nvar
-                  a(ispin, ivar) = a(ispin, ivar)+w_matrix_mo(1, ivar)%matrix%local_data(k, j)*Tinverse%local_data(k, j)
+         DO ipermutation = 1, npermutations
+            ! Invert and calculate determinant of MO overlaps
+            CALL map_permutation_to_states(nforce_eval, iforce_eval, istate, jstate)
+            CALL cp_fm_invert(mo_overlap(ipermutation), inverse_mat, S_det(ipermutation, ispin), eps_svd=mixed_cdft%eps_svd)
+            CALL cp_fm_get_info(inverse_mat, nrow_local=nrow_local, ncol_local=ncol_local)
+            ! Calculate <Psi_i | w_ivar(r) | Psi_j>
+            DO j = 1, ncol_local
+               DO k = 1, nrow_local
+                  DO ivar = 1, nvar
+                     b(ispin, ivar, ipermutation) = b(ispin, ivar, ipermutation)+ &
+                                                      w_matrix_mo(jstate, istate, ivar)%matrix%local_data(k, j)*&
+                                                      inverse_mat%local_data(k, j)
+                  END DO
                END DO
             END DO
-         END DO
-         IF (ispin == 2) THEN
-            DO ivar = 1, nvar
-               IF (.NOT. mixed_cdft%is_charge_constraint(ivar)) THEN
-                  a(ispin, ivar) = -a(ispin, ivar)
-                  b(ispin, ivar) = -b(ispin, ivar)
-               END IF
+            !
+            CALL cp_fm_transpose(inverse_mat, Tinverse)
+            DO j = 1, ncol_local
+               DO k = 1, nrow_local
+                  DO ivar = 1, nvar
+                     a(ispin, ivar, ipermutation) = a(ispin, ivar, ipermutation)+&
+                                                      w_matrix_mo(istate, jstate, ivar)%matrix%local_data(k, j)*&
+                                                      Tinverse%local_data(k, j)
+                  END DO
+               END DO
             END DO
-         END IF
-         ! Compute density matrix difference P = P_D - P_A
-         IF (mixed_cdft%calculate_metric) THEN
-            CALL dbcsr_add(density_matrix(1, ispin)%matrix, density_matrix(2, ispin)%matrix, -1.0_dp, 1.0_dp)
-            CALL dbcsr_release_p(density_matrix(2, ispin)%matrix)
-         END IF
-         !
-         CALL mp_sum(a(ispin, :), force_env%para_env%group)
-         CALL mp_sum(b(ispin, :), force_env%para_env%group)
+            IF (ispin == 2) THEN
+               DO ivar = 1, nvar
+                  IF (.NOT. mixed_cdft%is_charge_constraint(ivar)) THEN
+                     a(ispin, ivar, ipermutation) = -a(ispin, ivar, ipermutation)
+                     b(ispin, ivar, ipermutation) = -b(ispin, ivar, ipermutation)
+                  END IF
+               END DO
+            END IF
+            ! Compute density matrix difference P = P_D - P_A
+            IF (mixed_cdft%calculate_metric) THEN
+               CALL dbcsr_add(density_matrix(1, ispin)%matrix, density_matrix(2, ispin)%matrix, -1.0_dp, 1.0_dp)
+               CALL dbcsr_release_p(density_matrix(2, ispin)%matrix)
+            END IF
+            !
+            CALL mp_sum(a(ispin, :, ipermutation), force_env%para_env%group)
+            CALL mp_sum(b(ispin, :, ipermutation), force_env%para_env%group)
+         END DO
          ! Release work
          CALL cp_fm_release(tmp2)
          DO ivar = 1, nvar
