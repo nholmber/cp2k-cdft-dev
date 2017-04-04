@@ -145,7 +145,8 @@ MODULE message_passing
    PUBLIC :: mp_probe
 
    ! message passing
-   PUBLIC :: mp_bcast, mp_sum, mp_sum_partial, mp_max, mp_maxloc, mp_minloc, mp_min, mp_sync, mp_isum
+   PUBLIC :: mp_bcast, mp_sum, mp_sum_partial, mp_max, mp_maxloc, mp_minloc, mp_min, mp_sync
+   PUBLIC :: mp_isync, mp_isum
    PUBLIC :: mp_gather, mp_alltoall, mp_sendrecv, mp_allgather, mp_iallgather
    PUBLIC :: mp_isend, mp_irecv, mp_ibcast
    PUBLIC :: mp_shift, mp_isendrecv, mp_wait, mp_waitall, mp_waitany, mp_testany
@@ -765,7 +766,7 @@ CONTAINS
 #if defined(__parallel)
       t_start = m_walltime()
 
-      CALL mpi_comm_group(mp_comm, oldgroup, ierr); 
+      CALL mpi_comm_group(mp_comm, oldgroup, ierr);
       IF (ierr /= 0) CALL mp_stop(ierr, "mpi_comm_group @ mp_reordering")
       CALL mpi_group_incl(oldgroup, SIZE(ranks_order), ranks_order, newgroup, ierr)
       IF (ierr /= 0) CALL mp_stop(ierr, "mpi_group_incl @ mp_reordering")
@@ -1115,6 +1116,39 @@ CONTAINS
       CALL mp_timestop(handle)
 
    END SUBROUTINE mp_sync
+
+! **************************************************************************************************
+!> \brief synchronizes with a barrier a given group of mpi tasks
+!> \param group mpi communicator
+!> \param request ...
+! **************************************************************************************************
+   SUBROUTINE mp_isync(group, request)
+      INTEGER, INTENT(IN)                                :: group
+      INTEGER, INTENT(OUT)                               :: request
+
+      CHARACTER(len=*), PARAMETER :: routineN = 'mp_isync', routineP = moduleN//':'//routineN
+
+      INTEGER                                            :: handle, ierr
+
+      ierr = 0
+      CALL mp_timeset(routineN, handle)
+
+#if defined(__parallel)
+#if __MPI_VERSION > 2
+      CALL mpi_ibarrier(group, request, ierr)
+      IF (ierr /= 0) CALL mp_stop(ierr, "mpi_ibarrier @ mp_isync")
+#else
+      MARK_USED(group)
+      MARK_USED(request)
+      CPABORT("mp_isum requires MPI-3 standard")
+#endif
+#else
+      MARK_USED(group)
+      request = mp_request_null
+#endif
+      CALL mp_timestop(handle)
+
+   END SUBROUTINE mp_isync
 
 ! **************************************************************************************************
 !> \brief returns number of tasks and task id for a given mpi group
@@ -3773,12 +3807,7 @@ CONTAINS
       CALL mp_timestop(handle)
    END SUBROUTINE mp_win_unlock_all
 
-#include "message_passing_i.f90"
-#include "message_passing_l.f90"
-#include "message_passing_r.f90"
-#include "message_passing_d.f90"
-#include "message_passing_c.f90"
-#include "message_passing_z.f90"
+#:include 'message_passing.f90'
 
 ! **************************************************************************************************
 !> \brief Tests the MPI library

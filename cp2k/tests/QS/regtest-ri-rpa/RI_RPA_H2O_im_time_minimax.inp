@@ -39,10 +39,7 @@
       &WF_CORRELATION
         METHOD  RI_RPA_GPW
         RI OVERLAP
-        &WFC_GPW
-          OBARA_SAIKA_OVERLAP TRUE
-        &END
-        ERI_METHOD MME
+        ERI_METHOD OS
         &RI_RPA
           RPA_NUM_QUAD_POINTS  6
           MINIMAX

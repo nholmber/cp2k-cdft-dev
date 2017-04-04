@@ -216,6 +216,7 @@ $: "#endif"
       MARK_USED(use_qr)
       MARK_USED(use_qr_unsafe)
       elpa_qr = .FALSE.
+      elpa_qr_unsafe = .FALSE.
 #endif
 
    END SUBROUTINE set_elpa_qr
@@ -327,7 +328,7 @@ $: "#endif"
          check_eigenvalues = .TRUE.
       CALL mp_bcast(check_eigenvalues, logger%para_env%source, logger%para_env%group)
       IF (check_eigenvalues) THEN
-         ! Allocate and initialize needed tempories to compute eigenvalues without ELPA QR
+         ! Allocate and initialize needed temporaries to compute eigenvalues without ELPA QR
          ALLOCATE(eval_noqr(n))
          CALL cp_fm_create(matrix=matrix_noqr, matrix_struct=matrix%matrix_struct)
          CALL cp_fm_to_fm(matrix, matrix_noqr)

@@ -46,6 +46,10 @@ Flag __CRAY_PM_FAKE_ENERGY not mentioned in INSTALL
 Flag __DATA_DIR not mentioned in cp2k_flags()
 Flag __FFTW3_UNALIGNED not mentioned in cp2k_flags()
 Flag __GRID_CORE not mentioned in cp2k_flags()
+Flag __HAS_smm_${nametype1}$nn not mentioned in INSTALL
+Flag __HAS_smm_${nametype1}$nn not mentioned in cp2k_flags()
+Flag ${xsmm_supported[n]}$ not mentioned in INSTALL
+Flag ${xsmm_supported[n]}$ not mentioned in cp2k_flags()
 Flag __HAS_smm_cnt not mentioned in INSTALL
 Flag __HAS_smm_ctn not mentioned in INSTALL
 Flag __HAS_smm_ctt not mentioned in INSTALL
@@ -438,4 +442,4 @@ xyz_to_vab_optimised.F: Routine XYZ_TO_VAB_4_1 called with an implicit interface
 xyz_to_vab_optimised.F: Routine XYZ_TO_VAB_4_2 called with an implicit interface.
 xyz_to_vab_optimised.F: Routine XYZ_TO_VAB_4_3 called with an implicit interface.
 xyz_to_vab_optimised.F: Routine XYZ_TO_VAB_4_4 called with an implicit interface.
-dbcsr_tensor_test.F: Found CALL RANDOM_NUMBER in procedure "random_dist"
+dbcsr_tensor_test.F: Found CALL RANDOM_NUMBER in procedure "dbcsr_t_random_dist"

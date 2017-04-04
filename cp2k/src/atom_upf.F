@@ -17,10 +17,13 @@ MODULE atom_upf
 
    IMPLICIT NONE
 
+   ! use same value as in atom_types!
+   INTEGER, PARAMETER                                :: lmat = 3
+
    TYPE atom_upfpot_type
       CHARACTER(LEN=2)                               :: symbol
       CHARACTER(LEN=default_string_length)           :: pname
-      INTEGER, DIMENSION(0:3)                        :: econf
+      INTEGER, DIMENSION(0:lmat)                     :: econf
       REAL(dp)                                       :: zion
       CHARACTER(LEN=default_string_length)           :: version
       ! <INFO>
@@ -838,8 +841,7 @@ CONTAINS
          CALL parser_get_next_line(parser, 1, at_end)
          CPASSERT(.NOT. at_end)
          CALL parser_get_object(parser, string, lower_to_upper=.TRUE.)
-         SELECT CASE (string)
-         CASE ("<PP_VNL")
+         IF (string(1:7) == "<PP_VNL") THEN
             ms = m
             ib = ib+1
             i1 = ib
@@ -888,11 +890,11 @@ CONTAINS
                END IF
                IF (icount > ms) EXIT
             END DO
-         CASE ("</PP_SEMILOCAL>")
+         ELSEIF (string(1:15) == "</PP_SEMILOCAL>") THEN
             EXIT
-         CASE DEFAULT
+         ELSE
             !
-         END SELECT
+         END IF
       END DO
       ! Ry -> Hartree
       pot%vsemi = 0.5_dp*pot%vsemi

@@ -52,7 +52,8 @@ MODULE dbcsr_mm
                                               dbcsr_make_buffers,&
                                               make_layers_3D_C_reduction,&
                                               multiply_3D,&
-                                              release_layers_3D_C_reduction
+                                              release_layers_3D_C_reduction,&
+                                              request_sync_mult
    USE dbcsr_mm_cannon,                 ONLY: make_m2s,&
                                               multiply_cannon
    USE dbcsr_mm_common,                 ONLY: &
@@ -93,10 +94,13 @@ MODULE dbcsr_mm
                                               real_8
    USE machine,                         ONLY: default_output_unit
    USE message_passing,                 ONLY: mp_get_library_version,&
+                                              mp_isync,&
                                               mp_max,&
                                               mp_max_library_version_string,&
                                               mp_min,&
-                                              mp_sum
+                                              mp_request_null,&
+                                              mp_sum,&
+                                              mp_wait
 #include "../../base/base_uses.f90"
 
 !$ USE OMP_LIB, ONLY: omp_get_thread_num, omp_get_num_threads
@@ -439,9 +443,6 @@ CONTAINS
             CALL dbcsr_mempool_limit_capacity(memtype_trsbuffer_1%pool, capacity=1)
             CALL dbcsr_mempool_limit_capacity(memtype_trsbuffer_2%pool, capacity=1)
          ENDIF
-      ELSE
-         CALL dbcsr_memtype_setup(memtype_abpanel_1, mpi=.TRUE.)
-         CALL dbcsr_memtype_setup(memtype_abpanel_2, mpi=.TRUE.)
       ENDIF
 
       CALL dbcsr_memtype_setup(memtype_mpi_buffer, mpi=.TRUE.)
@@ -574,6 +575,11 @@ CONTAINS
          ENDIF
       ENDIF
       ab_dense = use_dense_mult
+      ! Use memory pools when no dense
+      IF (.NOT. has_acc) THEN
+         CALL dbcsr_memtype_setup(memtype_abpanel_1, has_pool=.NOT. ab_dense, mpi=.TRUE.)
+         CALL dbcsr_memtype_setup(memtype_abpanel_2, has_pool=.NOT. ab_dense, mpi=.TRUE.)
+      ENDIF
       !
       ! Submatrix selection
       f_row = 1
@@ -789,18 +795,23 @@ CONTAINS
       ENDIF
       !
       IF (dbcsr_cfg%use_mpi_rma) THEN
+         ! Check for previous multiplication completeness
+         IF (request_sync_mult .NE. mp_request_null) THEN
+            CALL timeset(routineN//"_sync_mult", handle2)
+            CALL mp_wait(request_sync_mult)
+            CALL timestop(handle2)
+            request_sync_mult = mp_request_null
+         ENDIF
          !
          ! Left buffer images
          CALL dbcsr_make_buffers(matrix_left, rdist_left, .TRUE., &
                                  f_row, l_row, f_k, l_k, &
-                                 PRESENT(filter_eps), &
-                                 transpose_left)
+                                 PRESENT(filter_eps))
          !
          ! Right buffer images
          CALL dbcsr_make_buffers(matrix_right, rdist_right, .FALSE., &
                                  f_k, l_k, f_col, l_col, &
                                  PRESENT(filter_eps), &
-                                 transpose_right, &
                                  alpha)
       ELSE
          product_matrix%nblks = 0
@@ -853,17 +864,19 @@ CONTAINS
       ENDIF
       !
       ! RMA implementation algorithm has to synchronize at the end of each multiplication
-      IF (PRESENT(flop) .OR. dbcsr_cfg%use_mpi_rma) THEN
+      comm = dbcsr_mp_group(dbcsr_distribution_mp(dbcsr_distribution(matrix_c)))
+      IF (PRESENT(flop)) THEN
          ! return the average number of flops per MPI rank.
          ! Variance (which is fairly large) could be computed as well.
          CALL timeset(routineN//"_mpsum_flop", handle2)
-         comm = dbcsr_mp_group(dbcsr_distribution_mp(dbcsr_distribution(matrix_c)))
          numnodes = dbcsr_mp_numnodes(dbcsr_distribution_mp(dbcsr_distribution(matrix_c)))
          CALL mp_sum(my_flop, comm)
          IF (PRESENT(flop)) THEN
             flop = (my_flop+numnodes-1)/numnodes
          ENDIF
          CALL timestop(handle2)
+      ELSEIF (dbcsr_cfg%use_mpi_rma) THEN
+         CALL mp_isync(comm, request_sync_mult)
       ENDIF
       !
       IF (transpose_left) CALL dbcsr_release(matrix_left)

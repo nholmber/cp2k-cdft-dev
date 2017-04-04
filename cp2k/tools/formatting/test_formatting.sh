@@ -1,6 +1,6 @@
-#!/bin/bash -e 
+#!/bin/bash -e
 
-# Test if all templates are instantiated and prettify was run
+# Test if prettify was run
 # author: Ole Schuett
 
 echo -n "Date: "
@@ -16,7 +16,6 @@ find ./src/ -type f -not -path "*/preprettify/*" -not -path "*/.svn/*" -print0 |
 md5sum ./data/POTENTIAL >> checksums.md5
 
 cd makefiles
-make --jobs=20 templates
 make --jobs=20 pretty
 make --jobs=20 pretty  # run twice to ensure consistency with doxify
 cd ..
@@ -42,7 +41,7 @@ fi
 
 echo "Comparing MD5-sums ..."
 if ! md5sum --quiet --check checksums.md5 ; then
-  summary='Code not invariant under "make templates pretty; make pretty"'
+  summary='Code not invariant under "make pretty"'
   status="FAILED"
 fi
 

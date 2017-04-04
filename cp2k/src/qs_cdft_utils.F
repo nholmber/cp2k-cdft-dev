@@ -460,7 +460,7 @@ CONTAINS
       INTEGER                                            :: i, j, jj, k, n_rep, natoms, nvar, &
                                                             tot_natoms
       INTEGER, DIMENSION(:), POINTER                     :: atomlist, dummylist, tmplist
-      LOGICAL                                            :: exists, is_duplicate
+      LOGICAL                                            :: exists, is_duplicate, is_et_coupling
       REAL(KIND=dp), DIMENSION(:), POINTER               :: rtmplist
       TYPE(section_vals_type), POINTER                   :: group_section
 
@@ -469,14 +469,18 @@ CONTAINS
       group_section => section_vals_get_subs_vals(becke_section, "ATOM_GROUP")
       CALL section_vals_get(group_section, n_repetition=nvar, explicit=exists)
       IF (.NOT. exists) CPABORT("Section ATOM_GROUP is missing.")
-      IF (ASSOCIATED(qs_control%becke_control%group)) THEN
+      ! Special considerations in case ET_COUPLING calculation (in qs_energy_utils)
+      is_et_coupling = .FALSE.
+      IF (ASSOCIATED(qs_control%becke_control%group)) &
+         is_et_coupling = .TRUE.
+      IF (is_et_coupling) THEN
          DO i = 1, SIZE(qs_control%becke_control%group)
             DEALLOCATE (qs_control%becke_control%group(i)%atoms)
             DEALLOCATE (qs_control%becke_control%group(i)%coeff)
          END DO
-         DEALLOCATE (qs_control%becke_control%group)
       END IF
-      ALLOCATE (qs_control%becke_control%group(nvar))
+      IF (.NOT. is_et_coupling) &
+         ALLOCATE (qs_control%becke_control%group(nvar))
       tot_natoms = 0
       ! Parse all ATOM_GROUP sections
       DO k = 1, nvar
@@ -491,9 +495,11 @@ CONTAINS
          END DO
          ALLOCATE (qs_control%becke_control%group(k)%atoms(natoms))
          ALLOCATE (qs_control%becke_control%group(k)%coeff(natoms))
-         NULLIFY (qs_control%becke_control%group(k)%weight%pw)
-         NULLIFY (qs_control%becke_control%group(k)%gradients)
-         NULLIFY (qs_control%becke_control%group(k)%integrated)
+         IF (.NOT. is_et_coupling) THEN
+            NULLIFY (qs_control%becke_control%group(k)%weight%pw)
+            NULLIFY (qs_control%becke_control%group(k)%gradients)
+            NULLIFY (qs_control%becke_control%group(k)%integrated)
+         END IF
          tot_natoms = tot_natoms+natoms
          ! Now parse
          jj = 0
@@ -763,7 +769,7 @@ CONTAINS
             CALL section_vals_val_get(outer_scf_section, "EPS_SCF", &
                                       r_val=qs_control%cdft_control%constraint_control%eps_scf)
             CALL section_vals_val_get(outer_scf_section, "STEP_SIZE", &
-                                      r_val=qs_control%cdft_control%constraint_control%step_size)
+                                      r_val=qs_control%cdft_control%constraint_control%step_size, explicit=exists)
             CALL section_vals_val_get(outer_scf_section, "DIIS_BUFFER_LENGTH", &
                                       i_val=qs_control%cdft_control%constraint_control%diis_buffer_length)
             CALL section_vals_val_get(outer_scf_section, "BISECT_TRUST_COUNT", &
@@ -780,6 +786,13 @@ CONTAINS
                                       r_val=qs_control%cdft_control%constraint_control%jacobian_step)
             CALL section_vals_val_get(outer_scf_section, "BROYDEN_TYPE", &
                                       i_val=qs_control%cdft_control%constraint_control%broyden_type)
+            IF (exists .AND. ABS(qs_control%cdft_control%constraint_control%step_size) .LE. 1.0_dp) THEN
+               qs_control%cdft_control%constraint_control%newton_step = &
+                  ABS(qs_control%cdft_control%constraint_control%step_size)
+               ! Permanent copy needed in case line search is performed
+               qs_control%cdft_control%constraint_control%newton_step_save = &
+                  qs_control%cdft_control%constraint_control%newton_step
+            END IF
             CALL section_vals_val_get(outer_scf_section, "JACOBIAN_FREQ", explicit=exists)
             IF (exists) THEN
                CALL section_vals_val_get(outer_scf_section, "JACOBIAN_FREQ", &
@@ -795,7 +808,6 @@ CONTAINS
                                 "Both values to keyword JACOBIAN_FREQ cannot be zero.")
                qs_control%cdft_control%constraint_control%jacobian_freq(:) = tmplist(1:2)
             END IF
-
             SELECT CASE (qs_control%cdft_control%type)
             CASE (outer_scf_hirshfeld_constraint)
                IF (qs_control%cdft_control%constraint_control%type == outer_scf_cdft_constraint) THEN

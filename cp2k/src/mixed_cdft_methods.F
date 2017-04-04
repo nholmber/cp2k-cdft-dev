@@ -282,7 +282,7 @@ CONTAINS
                CALL section_vals_val_get(mixed_section, "LINEAR%MIXED_CDFT_LOWDIN", &
                                          l_val=mixed_cdft%use_lowdin)
                CALL section_vals_val_get(mixed_section, "LINEAR%MIXED_CDFT_CI", &
-                                         l_val=mixed_cdft%do_ci)               
+                                         l_val=mixed_cdft%do_ci)
             END IF
             ! Inversion method
             CALL section_vals_val_get(mixed_section, "LINEAR%EPS_SVD", r_val=mixed_cdft%eps_svd)
@@ -995,10 +995,8 @@ CONTAINS
          routineP = moduleN//':'//routineN
 
       CHARACTER(LEN=default_path_length)                 :: file_name
-      INTEGER                                            :: handle, iforce_eval, iounit, ispin, &
-                                                            istate, ivar, j, jstate, k, nao, &
-                                                            ncol_local, nforce_eval, nmo, &
-                                                            nrow_local, nspins, nvar, info, work_array_size
+      INTEGER :: handle, iforce_eval, info, iounit, ispin, istate, ivar, j, jstate, k, nao, &
+         ncol_local, nforce_eval, nmo, nrow_local, nspins, nvar, work_array_size
       INTEGER, ALLOCATABLE, DIMENSION(:)                 :: ncol_mo, nrow_mo
       LOGICAL                                            :: exist, natom_mismatch, use_lowdin, &
                                                             use_rotation
@@ -1007,7 +1005,7 @@ CONTAINS
                                                             maxocc, Sda, sum_a(2), sum_b(2)
       REAL(KIND=dp), ALLOCATABLE, DIMENSION(:)           :: evals, metric, S_det, strength_a, &
                                                             strength_b, Waa, Wbb, Wda, work
-      REAL(KIND=dp), ALLOCATABLE, DIMENSION(:, :)        :: a, b, overlaps, H_mat_copy, S_mat_copy
+      REAL(KIND=dp), ALLOCATABLE, DIMENSION(:, :)        :: a, b, H_mat_copy, overlaps, S_mat_copy
       REAL(KIND=dp), DIMENSION(2)                        :: c, eigenv
       REAL(KIND=dp), DIMENSION(2, 2)                     :: H_mat, S_mat, tmp_mat, W_mat
       REAL(KIND=dp), EXTERNAL                            :: dnrm2
@@ -1032,6 +1030,8 @@ CONTAINS
       TYPE(qs_kind_type), DIMENSION(:), POINTER          :: qs_kind_set
       TYPE(section_vals_type), POINTER                   :: force_env_section, linear_section, &
                                                             print_section
+      EXTERNAL                                           :: dsygv
+
       EXTERNAL                                           :: dsygv
 
       NULLIFY (subsys_mix, force_env_section, print_section, linear_section, &
@@ -1416,8 +1416,8 @@ CONTAINS
          ! Workspace query
          ALLOCATE (work(1))
          info = 0
-         ALLOCATE (H_mat_copy(2, 2), S_mat_copy(2, 2))         
-         H_mat_copy(:, :) = H_mat(:, :) ! Need explicit copies because dsygv destroys original values 
+         ALLOCATE (H_mat_copy(2, 2), S_mat_copy(2, 2))
+         H_mat_copy(:, :) = H_mat(:, :) ! Need explicit copies because dsygv destroys original values
          S_mat_copy(:, :) = S_mat(:, :)
          CALL dsygv(1, 'V', 'U', 2, H_mat_copy, 2, S_mat_copy, 2, eigenv, work, -1, info)
          work_array_size = NINT(work(1))
@@ -1435,7 +1435,7 @@ CONTAINS
          DO ivar = 1, 2
             H_mat(:, ivar) = H_mat(:, ivar)/dnrm2(2, H_mat(:, ivar), 1)
          END DO
-         DEALLOCATE(work)
+         DEALLOCATE (work)
       END IF
       IF (iounit > 0) THEN
          WRITE (iounit, '(/,T3,A,T66)') &
@@ -1499,11 +1499,11 @@ CONTAINS
                   WRITE (iounit, '(T3,A,T58,(3X,F20.14))') 'Ground state energy:', eigenv(ivar)
                ELSE
                   WRITE (iounit, '(/,T3,A,T58,(3X,F20.14))') 'Excited state energy:', eigenv(ivar)
-               END IF                  
+               END IF
                WRITE (iounit, '(T3,A,T54,(3X,2F12.6))') 'Expansion coefficients:', H_mat(:, ivar)**2
             END DO
             WRITE (iounit, '(T3,A)') &
-            '------------------------------------------------------------------------------'
+               '------------------------------------------------------------------------------'
          END IF
       END IF
       DEALLOCATE (a, b, S_det, Waa, Wbb)

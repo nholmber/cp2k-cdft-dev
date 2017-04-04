@@ -82,7 +82,7 @@ CONTAINS
          END IF
       CASE (outer_scf_basis_center_opt)
          res = 1
-      CASE (outer_scf_none) ! just needed to communicate the gradient criterium
+      CASE (outer_scf_none) ! just needed to communicate the gradient criterion
          res = 1
       CASE DEFAULT
          res = 0
@@ -127,7 +127,7 @@ CONTAINS
 
       SELECT CASE (scf_control%outer_scf%type)
       CASE (outer_scf_none)
-         ! just pass the inner loop scf criterium to the outer loop one
+         ! just pass the inner loop scf criterion to the outer loop one
          scf_env%outer_scf%variables(1, ihistory) = scf_env%iter_delta
          scf_env%outer_scf%gradient(1, ihistory) = scf_env%iter_delta
       CASE (outer_scf_ddapc_constraint)
@@ -590,6 +590,7 @@ CONTAINS
          scf_control%outer_scf%jacobian_step = cdft_control%ot_control%jacobian_step
          scf_control%outer_scf%jacobian_freq = cdft_control%ot_control%jacobian_freq
          scf_control%outer_scf%newton_step = cdft_control%ot_control%newton_step
+         scf_control%outer_scf%newton_step_save = cdft_control%ot_control%newton_step_save
          scf_control%outer_scf%ijacobian = cdft_control%ot_control%ijacobian
          scf_control%outer_scf%build_jacobian = cdft_control%ot_control%build_jacobian
          scf_control%outer_scf%broyden_type = cdft_control%ot_control%broyden_type
@@ -646,6 +647,7 @@ CONTAINS
          scf_control%outer_scf%broyden_type = cdft_control%constraint_control%broyden_type
          scf_control%outer_scf%broyden_update = cdft_control%constraint_control%broyden_update
          scf_control%outer_scf%newton_step = cdft_control%constraint_control%newton_step
+         scf_control%outer_scf%newton_step_save = cdft_control%constraint_control%newton_step_save
          nvariables = SIZE(cdft_control%constraint%variables, 1)
          IF (ASSOCIATED(scf_env%outer_scf%energy)) &
             DEALLOCATE (scf_env%outer_scf%energy)

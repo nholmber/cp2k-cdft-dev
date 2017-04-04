@@ -20,7 +20,7 @@
     @IF ( ${BECKE_ADJUST_SIZE} == TRUE )
       ! Defaults to false
       ADJUST_SIZE     TRUE
-      ATOMIC_RADII 0.630 0.320  
+      ATOMIC_RADII    0.630 0.320  
     @ENDIF
     @IF ( ${BECKE_ATOMIC_CHARGES} == TRUE )
       ! Defaults to false
@@ -48,7 +48,7 @@
       CAVITY_SHAPE    ${BECKE_CAVITY_SHAPE}
       ! For shape single
       CAVITY_RADIUS   1.3
-      CAVITY_USE_BOHR FALSE    
+      CAVITY_USE_BOHR ${BECKE_USE_BOHR}
     @ENDIF
     @IF ( ${BECKE_SHOULD_SKIP} == TRUE )
       ! Defaults to false

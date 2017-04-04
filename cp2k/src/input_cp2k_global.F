@@ -129,7 +129,7 @@ CONTAINS
                           description="For ELPA, enable a blocked QR step when reducing the input matrix "// &
                           "to banded form in preparation for the actual diagonalization step. "// &
                           "See implementation paper for more details. Requires ELPA version 201505 or newer, "// &
-                          "automatically deactived otherwise. If true, QR is activated only when the "// &
+                          "automatically deactivated otherwise. If true, QR is activated only when the "// &
                           "the size of the diagonalized matrix is suitable. Print key PRINT_ELPA is "// &
                           "useful in determining which matrices are suitable for QR. Might accelerate the "// &
                           "diagonalization of suitable matrices.", &
@@ -172,8 +172,8 @@ CONTAINS
          default_i_val=do_fft_fftw3, &
          enum_i_vals=(/do_fft_sg, do_fft_fftw3, do_fft_fftw3/), &
          enum_c_vals=s2a("FFTSG", "FFTW3", "FFTW"), &
-         enum_desc=s2a("Stefan Goedecker''s FFT (FFTSG), always available,"// &
-                       "will be used in case a FFT lib is specified and not available", &
+         enum_desc=s2a("Stefan Goedecker's FFT (FFTSG), always available, "// &
+                       "will be used in case a FFT library is specified and not available.", &
                        "a fast portable FFT library. Recommended."// &
                        "See also the FFTW_PLAN_TYPE, and FFTW_WISDOM_FILE_NAME keywords.", &
                        "Same as FFTW3 (for compatability with CP2K 2.3)"))

@@ -704,7 +704,7 @@ CONTAINS
                IF (scf_converged) EXIT
             END IF
          ELSE
-            ! exit criterium on the energy only for the time being
+            ! exit criterion on the energy only for the time being
             IF (check_convergence .AND. ABS(energy_diff) < ls_scf_env%eps_scf*ls_scf_env%nelectron_total) EXIT
          END IF
 
@@ -1123,7 +1123,7 @@ CONTAINS
          WRITE (unit_nr, '(T2,A)') "Sparsity for : "//TRIM(title)
       ENDIF
 
-      eps_local = eps
+      eps_local = MAX(eps, 10E-14_dp)
       DO
          IF (eps_local > 1.1_dp) EXIT
          CALL dbcsr_filter(matrix_tmp, eps_local)

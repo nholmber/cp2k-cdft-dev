@@ -16,13 +16,10 @@
 !>  - 2013-01    reorganized code (Ole Schuett)
 ! **************************************************************************************************
 MODULE dbcsr_mm_cannon
-   USE acc_event,                       ONLY: acc_event_record,&
-                                              acc_event_synchronize,&
-                                              acc_stream_wait_event
+   USE acc_event,                       ONLY: acc_event_synchronize
    USE array_types,                     ONLY: array_data,&
                                               array_exists,&
                                               array_i1d_obj
-   USE dbcsr_acc_operations,            ONLY: dbcsr_acc_transpose
    USE dbcsr_block_operations,          ONLY: dbcsr_block_conjg,&
                                               dbcsr_block_copy_aa,&
                                               dbcsr_block_real_neg,&
@@ -34,8 +31,7 @@ MODULE dbcsr_mm_cannon
         dbcsr_data_clear_pointer, dbcsr_data_ensure_size, dbcsr_data_get_size, &
         dbcsr_data_get_size_referenced, dbcsr_data_hold, dbcsr_data_host2dev, dbcsr_data_init, &
         dbcsr_data_new, dbcsr_data_release, dbcsr_data_set_pointer, &
-        dbcsr_data_set_size_referenced, dbcsr_get_data_p_c, dbcsr_get_data_p_d, &
-        dbcsr_get_data_p_s, dbcsr_get_data_p_z, dbcsr_scalar_are_equal, dbcsr_scalar_negative, &
+        dbcsr_data_set_size_referenced, dbcsr_scalar_are_equal, dbcsr_scalar_negative, &
         dbcsr_scalar_one
    USE dbcsr_data_types,                ONLY: dbcsr_datatype_sizeof
    USE dbcsr_dist_methods,              ONLY: dbcsr_distribution_col_dist,&
@@ -60,9 +56,10 @@ MODULE dbcsr_mm_cannon
         dbcsr_image_dist_release, dbcsr_nblkcols_local, dbcsr_nblkrows_local, &
         dbcsr_nblkrows_total, dbcsr_release, dbcsr_valid_index
    USE dbcsr_mm_common,                 ONLY: &
-        count_mpi_statistics, dbcsr_mm_multrec_type_p, dbcsr_mpi_statistics, enumerate_blk_sizes, &
-        max_memory, memtype_abpanel_1, memtype_abpanel_2, memtype_mpi_buffer, memtype_trsbuffer_1, &
-        memtype_trsbuffer_2, product_matrix_size_guess, rec_sort_index, setup_buffer_matrix
+        acc_transpose_blocks, calculate_norms, count_mpi_statistics, dbcsr_mm_multrec_type_p, &
+        dbcsr_mpi_statistics, enumerate_blk_sizes, huge_norm, max_memory, memtype_abpanel_1, &
+        memtype_abpanel_2, memtype_mpi_buffer, memtype_trsbuffer_1, memtype_trsbuffer_2, &
+        product_matrix_size_guess, rec_sort_index, setup_buffer_matrix
    USE dbcsr_mm_dist_operations,        ONLY: dbcsr_get_local_vcols,&
                                               dbcsr_get_local_vrows,&
                                               dbcsr_reset_vlocals,&
@@ -97,7 +94,6 @@ MODULE dbcsr_mm_cannon
                                               dbcsr_work_create
    USE kinds,                           ONLY: dp,&
                                               int_8,&
-                                              real_4,&
                                               real_8,&
                                               sp
    USE machine,                         ONLY: default_output_unit,&
@@ -121,7 +117,6 @@ MODULE dbcsr_mm_cannon
    CHARACTER(len=*), PARAMETER, PRIVATE :: moduleN = 'dbcsr_mm_cannon'
    LOGICAL, PARAMETER :: debug_mod = .FALSE.
    LOGICAL, PARAMETER :: careful_mod = .FALSE.
-   REAL, PARAMETER :: huge_norm = HUGE(1.0)**(1.0/3.0)
 
    INTERFACE dbcsr_switch
       MODULE PROCEDURE dbcsr_switch_sets
@@ -1262,11 +1257,13 @@ CONTAINS
 !$OMP END PARALLEL
 
       ! update capacity of memory-pools
-      IF (has_acc) THEN
+      IF (ASSOCIATED(memtype_abpanel_1%pool)) &
          CALL dbcsr_mempool_limit_capacity(memtype_abpanel_1%pool, &
                                            capacity=left_row_mult*left_col_nimages+right_row_nimages*right_col_mult)
+      IF (ASSOCIATED(memtype_abpanel_2%pool)) &
          CALL dbcsr_mempool_limit_capacity(memtype_abpanel_2%pool, &
                                            capacity=left_row_mult*left_col_nimages+right_row_nimages*right_col_mult)
+      IF (has_acc) THEN
          ! enumerate the blocksizes to keep the following 2D-arrays small.
          CALL enumerate_blk_sizes(array_data(right_set%mats(1, 1)%row_blk_size), &
                                   row_blk_sizes2enum, enum2row_blk_sizes)
@@ -1634,7 +1631,6 @@ CONTAINS
             ENDDO
          ENDIF xfer_left
          ! Do multiplication
-         CALL timeset(routineN//"_multrec", handle2)
          DO v_ki = 0, min_nimages-1
             IF (debug_mod) THEN
                CALL dbcsr_print(left_buffer_calc%mats(1, v_ki+1), nodata=.TRUE.)
@@ -1675,7 +1671,7 @@ CONTAINS
 
 !$OMP PARALLEL DEFAULT (NONE) &
 !$OMP SHARED (left_buffer_calc, right_buffer_calc, &
-!$OMP         v_ki, &
+!$OMP         v_ki, handle2, &
 !$OMP         product_matrix, multrec,&
 !$OMP         filter_eps, right_norms, left_norms, row_max_epss, &
 !$OMP         keep_sparsity,threads_finished, &
@@ -1690,6 +1686,8 @@ CONTAINS
 
             IF (metronome == nsteps_k .AND. v_ki == min_nimages-1) &
                CALL dbcsr_mm_multrec_phaseout(multrec(ithread)%p)
+!$OMP BARRIER
+            CALL timeset(routineN//"_multrec", handle2)
 
             CALL dbcsr_mm_multrec_multiply(multrec(ithread)%p, &
                                            left=left_buffer_calc%mats(1, v_ki+1), &
@@ -1722,11 +1720,12 @@ CONTAINS
                   CALL mp_testany(left_index_rr)
                END DO
             END IF
+!$OMP BARRIER
+            CALL timestop(handle2)
+
 !$OMP END PARALLEL
             flop_total = flop_total+flop_single
          ENDDO
-
-         CALL timestop(handle2)
 
          CALL dbcsr_switch(left_buffer_calc, left_buffer_comm)
          CALL dbcsr_switch(right_buffer_calc, right_buffer_comm)
@@ -1952,17 +1951,9 @@ CONTAINS
       INTEGER, INTENT(IN)                                :: m, n, nblks
       INTEGER, DIMENSION(3, 1:nblks), INTENT(INOUT)      :: idx
 
-      CHARACTER(len=*), PARAMETER :: routineN = 'call_rec_sort_index', &
-         routineP = moduleN//':'//routineN
-
-      INTEGER                                            :: handle
-
 !   ---------------------------------------------------------------------------
 
-      CALL timeset(routineN, handle)
-      IF (.FALSE.) WRITE (*, *) " Calling rec_sort_index, size", nblks
       CALL rec_sort_index(1, m, 1, n, nblks, idx, 0)
-      CALL timestop(handle)
    END SUBROUTINE call_rec_sort_index
 
 ! **************************************************************************************************
@@ -1997,238 +1988,5 @@ CONTAINS
       area1p => area2p
       area2p => tmp_p
    END SUBROUTINE dbcsr_switch_d_ptrs
-
-! **************************************************************************************************
-!> \brief Calculates per-block norms.
-!>
-!> Rewritten to be very low-level.
-!> \param[in,out] matrix     DBCSR matrix for which to calculate norms
-!> \param[out] norms         Block norms
-! **************************************************************************************************
-   SUBROUTINE calculate_norms(matrix, norms)
-      TYPE(dbcsr_type), INTENT(IN)                       :: matrix
-      REAL(kind=sp), DIMENSION(:), INTENT(OUT)           :: norms
-
-      CHARACTER(len=*), PARAMETER :: routineN = 'calculate_norms', &
-         routineP = moduleN//':'//routineN
-
-      INTEGER                                            :: data_type, handle, nblks, nrows
-      INTEGER, DIMENSION(:), POINTER                     :: local_cols, local_rows
-
-!   ---------------------------------------------------------------------------
-
-      CALL timeset(routineN, handle)
-      ! Checks for validity
-      IF (.NOT. dbcsr_valid_index(matrix)) &
-         CPABORT("The matrix must be valid.")
-      data_type = dbcsr_get_data_type(matrix)
-      IF (careful_mod .AND. .NOT. array_exists(matrix%local_rows)) &
-         CPABORT("Global row mapping should exist")
-      local_rows => array_data(matrix%local_rows)
-      nrows = SIZE(local_rows)
-      local_cols => array_data(matrix%local_cols)
-      nblks = matrix%nblks
-      SELECT CASE (data_type)
-      CASE (dbcsr_type_real_4)
-         CALL calc_norms_list_s(norms, nblks, &
-                                matrix%coo_l, &
-                                array_data(matrix%row_blk_size), &
-                                array_data(matrix%col_blk_size), &
-                                dbcsr_get_data_p_s(matrix%data_area), &
-                                local2global_rows=local_rows, &
-                                local2global_cols=local_cols)
-      CASE (dbcsr_type_real_8)
-         CALL calc_norms_list_d(norms, nblks, &
-                                matrix%coo_l, &
-                                array_data(matrix%row_blk_size), &
-                                array_data(matrix%col_blk_size), &
-                                dbcsr_get_data_p_d(matrix%data_area), &
-                                local2global_rows=local_rows, &
-                                local2global_cols=local_cols)
-      CASE (dbcsr_type_complex_4)
-         CALL calc_norms_list_c(norms, nblks, &
-                                matrix%coo_l, &
-                                array_data(matrix%row_blk_size), &
-                                array_data(matrix%col_blk_size), &
-                                dbcsr_get_data_p_c(matrix%data_area), &
-                                local2global_rows=local_rows, &
-                                local2global_cols=local_cols)
-      CASE (dbcsr_type_complex_8)
-         CALL calc_norms_list_z(norms, nblks, &
-                                matrix%coo_l, &
-                                array_data(matrix%row_blk_size), &
-                                array_data(matrix%col_blk_size), &
-                                dbcsr_get_data_p_z(matrix%data_area), &
-                                local2global_rows=local_rows, &
-                                local2global_cols=local_cols)
-      CASE DEFAULT
-         CPABORT("Invalid data type.")
-      END SELECT
-      !
-      CALL timestop(handle)
-   END SUBROUTINE calculate_norms
-
-! **************************************************************************************************
-!> \brief write out a stack for transposing the blocks
-!> \param matrix ...
-!> \param trs_stackbuf ...
-!> \param row_blk_sizes2enum ...
-!> \param enum2row_blk_sizes ...
-!> \param col_blk_sizes2enum ...
-!> \param enum2col_blk_sizes ...
-!> \author Ole Schuett
-! **************************************************************************************************
-   SUBROUTINE acc_transpose_blocks(matrix, trs_stackbuf, &
-                                   row_blk_sizes2enum, enum2row_blk_sizes, col_blk_sizes2enum, enum2col_blk_sizes)
-      TYPE(dbcsr_type), INTENT(IN)                       :: matrix
-      TYPE(dbcsr_data_obj), INTENT(INOUT)                :: trs_stackbuf
-      INTEGER, DIMENSION(:), INTENT(IN), POINTER         :: row_blk_sizes2enum, enum2row_blk_sizes, &
-                                                            col_blk_sizes2enum, enum2col_blk_sizes
-
-      CHARACTER(len=*), PARAMETER :: routineN = 'acc_transpose_blocks', &
-         routineP = moduleN//':'//routineN
-
-      INTEGER                                            :: blk_p, col, handle, handle1, i, m, mi, &
-                                                            mi_max, n, nblks, ni, ni_max, offset, &
-                                                            row, x
-      INTEGER, ALLOCATABLE, DIMENSION(:, :)              :: counters, filled, offsets
-      INTEGER, DIMENSION(:), POINTER                     :: blk_index, col_blk_sizes, &
-                                                            local2global_cols, local2global_rows, &
-                                                            row_blk_sizes, trs_stack
-      INTEGER, DIMENSION(3, matrix%nblks)                :: tmp_stack
-
-      CALL timeset(routineN, handle)
-
-      NULLIFY (local2global_rows, local2global_cols, trs_stack)
-
-      IF (.NOT. matrix%list_indexing) &
-         CPABORT("build_trs_stack: only list_indexing supported.")
-      IF (.NOT. matrix%local_indexing) &
-         CPABORT("build_trs_stack: only local_indexing supported.")
-      IF (trs_stackbuf%d%data_type /= dbcsr_type_int_4) &
-         CPABORT("build_trs_stack: stac_buf has wrong datatype")
-      blk_index => matrix%coo_l
-      nblks = matrix%nblks
-
-      ! make sure buffer from previous cannon-tick was uploaded
-      CALL timeset(routineN//"_sync", handle1)
-      CALL acc_event_synchronize(trs_stackbuf%d%acc_ready)
-      CALL timestop(handle1)
-
-      CALL timeset(routineN//"_ensure", handle1)
-      CALL dbcsr_data_ensure_size(trs_stackbuf, data_size=nblks, nocopy=.TRUE.)
-      trs_stack => trs_stackbuf%d%i4
-      CALL timestop(handle1)
-
-      mi_max = SIZE(enum2row_blk_sizes); ni_max = SIZE(enum2col_blk_sizes)
-      ALLOCATE (counters(mi_max, ni_max), offsets(mi_max, ni_max))
-      counters(:, :) = 0; offsets(:, :) = 0
-
-      CALL timeset(routineN//"_comp", handle1)
-
-      ! Simplified algorithm for single size blocks
-      IF (mi_max .EQ. 1 .AND. ni_max .EQ. 1) THEN
-         DO i = 1, nblks
-            blk_p = blk_index(3*(i-1)+3)
-            IF (blk_p == 0) CYCLE
-            counters(1, 1) = counters(1, 1)+1
-            trs_stack(counters(1, 1)) = blk_p-1
-         ENDDO
-      ELSE
-         row_blk_sizes => array_data(matrix%row_blk_size)
-         col_blk_sizes => array_data(matrix%col_blk_size)
-         local2global_rows => array_data(matrix%local_rows)
-         local2global_cols => array_data(matrix%local_cols)
-
-         ! collect block addresses and dimensions in a temporary stack
-         ! while doing so, also count number of blocks per block-dimensions
-         DO i = 1, nblks
-            row = blk_index(3*(i-1)+1)
-            col = blk_index(3*(i-1)+2)
-            blk_p = blk_index(3*(i-1)+3)
-            IF (blk_p == 0) CYCLE
-            row = local2global_rows(row)
-            col = local2global_cols(col)
-            m = row_blk_sizes(row)
-            n = col_blk_sizes(col)
-            mi = row_blk_sizes2enum(m)
-            ni = col_blk_sizes2enum(n)
-            tmp_stack(1, i) = mi
-            tmp_stack(2, i) = ni
-            tmp_stack(3, i) = blk_p-1
-            counters(mi, ni) = counters(mi, ni)+1
-         ENDDO
-         ! calculate offsets for first element of each sub-stack
-         offset = 0
-         DO mi = 1, mi_max
-            DO ni = 1, ni_max
-               offsets(mi, ni) = offset
-               offset = offset+counters(mi, ni)
-            ENDDO
-         ENDDO
-         ! write all sub-stacks into the host-pinned buffer
-         ALLOCATE (filled(mi_max, ni_max))
-         filled(:, :) = 0
-         DO i = 1, nblks
-            mi = tmp_stack(1, i)
-            ni = tmp_stack(2, i)
-            blk_p = tmp_stack(3, i)
-            x = offsets(mi, ni)+filled(mi, ni)+1
-            trs_stack(x) = blk_p
-            filled(mi, ni) = filled(mi, ni)+1
-         ENDDO
-         !sanity check
-         DO ni = 1, ni_max
-            DO mi = 1, mi_max
-               IF (filled(mi, ni) /= counters(mi, ni)) &
-                  CPABORT("acc_transpose_blocks: bug")
-            END DO
-         END DO
-      ENDIF
-      CALL timestop(handle1)
-
-      CALL timeset(routineN//"_sync", handle1)
-      !transfer all stacks
-      CALL dbcsr_data_host2dev(trs_stackbuf)
-
-      ! make sure block-buffer is uploaded befor running the kernels
-      CALL acc_stream_wait_event(trs_stackbuf%d%memory_type%acc_stream, matrix%data_area%d%acc_ready)
-      CALL timestop(handle1)
-
-      CALL timeset(routineN//"_kernels", handle1)
-
-      ! launch kernels
-      DO ni = 1, ni_max
-         DO mi = 1, mi_max
-            IF (counters(mi, ni) > 0) THEN
-               m = enum2row_blk_sizes(mi)
-               n = enum2col_blk_sizes(ni)
-               CALL dbcsr_acc_transpose( &
-                  trs_stack=trs_stackbuf%d%acc_devmem, &
-                  offset=offsets(mi, ni), &
-                  nblks=counters(mi, ni), &
-                  datatype=matrix%data_type, &
-                  buffer=matrix%data_area%d%acc_devmem, &
-                  m=m, n=n, &
-                  stream=trs_stackbuf%d%memory_type%acc_stream)
-            END IF
-         ENDDO
-      ENDDO
-      CALL timestop(handle1)
-
-      CALL timeset(routineN//"_sync", handle1)
-      ! make sure block-buffer are not used until transpose kernels finnished
-      CALL acc_event_record(trs_stackbuf%d%acc_ready, trs_stackbuf%d%memory_type%acc_stream)
-      CALL acc_stream_wait_event(matrix%data_area%d%memory_type%acc_stream, trs_stackbuf%d%acc_ready)
-      CALL acc_event_record(matrix%data_area%d%acc_ready, matrix%data_area%d%memory_type%acc_stream)
-      CALL timestop(handle1)
-
-      CALL timestop(handle)
-   END SUBROUTINE acc_transpose_blocks
-
-#include "dbcsr_mm_cannon_d.f90"
-#include "dbcsr_mm_cannon_z.f90"
-#include "dbcsr_mm_cannon_s.f90"
-#include "dbcsr_mm_cannon_c.f90"
 
 END MODULE dbcsr_mm_cannon

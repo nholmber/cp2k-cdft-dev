@@ -13,8 +13,8 @@ MODULE qs_linres_types
                                               get_atomic_kind_set
    USE basis_set_types,                 ONLY: get_gto_basis_set,&
                                               gto_basis_set_type
-   USE cp_array_utils_i,                ONLY: cp_2d_i_p_type
-   USE cp_array_utils_r,                ONLY: cp_2d_r_p_type
+   USE cp_array_utils,                  ONLY: cp_2d_i_p_type,&
+                                              cp_2d_r_p_type
    USE cp_fm_types,                     ONLY: cp_fm_p_type
    USE dbcsr_api,                       ONLY: dbcsr_p_type
    USE kinds,                           ONLY: dp
@@ -44,7 +44,7 @@ MODULE qs_linres_types
 !> \param preconditioner which kind of preconditioner should be used, if any
 !> \param localized_psi 0 : don't use the canonical psi0, but the maximally localized wavefunctions
 !> \param do_kernel the kernel is zero if the rho1 is zero as for the magnetic field perturbation
-!> \param tolerance convergence criterium for the optimization of the psi1
+!> \param tolerance convergence criterion for the optimization of the psi1
 !> \author MI
 ! **************************************************************************************************
    TYPE linres_control_type

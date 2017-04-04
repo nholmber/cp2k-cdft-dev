@@ -13,11 +13,11 @@ MODULE input_cp2k_dft
    USE bibliography,                    ONLY: &
         Andermatt2016, Andreussi2012, Avezac2005, BaniHashemian2016, Becke1988b, Bengtsson1999, &
         Blochl1995, Brelaz1979, Dewar1977, Dewar1985, Dudarev1997, Dudarev1998, Ehrhardt1985, &
-        Elstner1998, Fattebert2002, Guidon2010, Heinzmann1976, Holmberg2017, Hu2007, Hunt2003, &
-        Iannuzzi2005, Iannuzzi2006, Iannuzzi2007, Kolafa2004, Krack2000, Krack2002, Kunert2003, &
-        Lippert1997, Lippert1999, Lu2004, Perdew1981, Porezag1995, Repasky2002, Rocha2006, &
-        Schenter2008, Schiffmann2015, Seifert1996, Stewart1982, Stewart1989, Stewart2007, &
-        Thiel1992, Tozer1996, VandeVondele2003, VandeVondele2005a, VandeVondele2005b, &
+        Elstner1998, Fattebert2002, Golze2017, Guidon2010, Heinzmann1976, Holmberg2017, Hu2007, &
+        Hunt2003, Iannuzzi2005, Iannuzzi2006, Iannuzzi2007, Kolafa2004, Krack2000, Krack2002, &
+        Kunert2003, Lippert1997, Lippert1999, Lu2004, Perdew1981, Porezag1995, Repasky2002, &
+        Rocha2006, Schenter2008, Schiffmann2015, Seifert1996, Stewart1982, Stewart1989, &
+        Stewart2007, Thiel1992, Tozer1996, VandeVondele2003, VandeVondele2005a, VandeVondele2005b, &
         VandeVondele2006, Weber2008, Zhao1994, Zhechkov2005
    USE cp_output_handling,              ONLY: add_last_numeric,&
                                               cp_print_key_section_create,&
@@ -627,7 +627,7 @@ CONTAINS
       CALL keyword_release(keyword)
 
       CALL keyword_create(keyword, name="EPS_LOCALIZATION", &
-                          description="Tolerance used in the convergence criterium of the localization methods.", &
+                          description="Tolerance used in the convergence criterion of the localization methods.", &
                           usage="EPS_LOCALIZATION 1.0E-2", default_r_val=1.0E-4_dp)
       CALL section_add_keyword(section, keyword)
       CALL keyword_release(keyword)
@@ -5433,7 +5433,8 @@ CONTAINS
       CALL keyword_create(keyword, name="STEP_SIZE", &
                           description="The initial step_size used in the optimizer (currently steepest descent)."// &
                           "Note that in cases where a sadle point is sought for (DDAPC_CONSTRAINT),"// &
-                          " this can be negative", &
+                          " this can be negative. For Newton and Broyden optimizers, use a value less than "// &
+                          "the default 1.0 (in absolute value, the sign is not significant) to active a damped optimizer.", &
                           usage="STEP_SIZE -1.0", default_r_val=0.5_dp)
       CALL section_add_keyword(section, keyword)
       CALL keyword_release(keyword)
@@ -5712,7 +5713,8 @@ CONTAINS
                           description="Uses the SHG (solid harmonic Gaussian) integral "// &
                           "scheme instead of Obara-Saika", &
                           usage="SHG_LRI_INTEGRALS TRUE", &
-                          default_l_val=.FALSE., lone_keyword_l_val=.TRUE.)
+                          default_l_val=.TRUE., lone_keyword_l_val=.TRUE., &
+                          citations=(/Golze2017/))
       CALL section_add_keyword(section, keyword)
       CALL keyword_release(keyword)
 
@@ -6361,7 +6363,13 @@ CONTAINS
                           "Default settings already provide an efficient, yet robust method. "// &
                           "Most systems benefit from using the FULL_ALL preconditioner "// &
                           "combined with a small value (0.001) of ENERGY_GAP. "// &
-                          "Well-behaved systems might benefit from using a DIIS minimizer.", &
+                          "Well-behaved systems might benefit from using a DIIS minimizer. "// &
+                          "<u>Advantages:</u> "// &
+                          "It's fast, because no expensive diagonalisation is performed. "// &
+                          "If preconditioned correctly, method guaranteed to find minimum. "// &
+                          "<u>Disadvantages:</u> "// &
+                          "Sensitive to preconditioning. A good preconditioner can be expensive. "// &
+                          "No smearing, or advanced SCF mixing possible: POOR convergence for metalic systems.", &
                           n_keywords=27, n_subsections=0, repeats=.FALSE., &
                           citations=(/VandeVondele2003, Weber2008/))
 
@@ -7455,7 +7463,7 @@ CONTAINS
       CALL keyword_release(keyword)
 
       CALL keyword_create(keyword, name="EPS_ITER", &
-                          description="Convergence criterium for the self consistent propagator loop.", &
+                          description="Convergence criterion for the self consistent propagator loop.", &
                           usage="EPS_ITER 1.0E-5", &
                           default_r_val=1.0E-7_dp)
       CALL section_add_keyword(section, keyword)

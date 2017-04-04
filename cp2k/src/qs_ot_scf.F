@@ -10,7 +10,7 @@
 !> \author Joost VandeVondele (25.08.2002)
 ! **************************************************************************************************
 MODULE qs_ot_scf
-   USE cp_array_utils_r,                ONLY: cp_1d_r_p_type
+   USE cp_array_utils,                  ONLY: cp_1d_r_p_type
    USE cp_dbcsr_operations,             ONLY: copy_fm_to_dbcsr,&
                                               cp_dbcsr_m_by_n_from_row_template
    USE cp_fm_types,                     ONLY: cp_fm_type
@@ -264,7 +264,7 @@ CONTAINS
          CALL dbcsr_copy(matrix_dedc_scaled(ispin)%matrix, matrix_dedc(ispin)%matrix)
 
          ! as a preconditioner, one might want to scale only with a constant, not with f(i)
-         ! for the convergence criterium, maybe take it back out
+         ! for the convergence criterion, maybe take it back out
          IF (qs_ot_env(1)%settings%occupation_preconditioner) THEN
             scaling_factor(ispin)%array = 2.0_dp
          ENDIF

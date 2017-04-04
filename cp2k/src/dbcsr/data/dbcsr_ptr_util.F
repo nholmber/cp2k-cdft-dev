@@ -89,6 +89,18 @@ MODULE dbcsr_ptr_util
       MODULE PROCEDURE mem_dealloc_i_2d, mem_dealloc_l_2d, mem_dealloc_s_2d, mem_dealloc_d_2d, mem_dealloc_c_2d, mem_dealloc_z_2d
    END INTERFACE
 
+   TYPE dbcsr_data_allocation_type
+#if defined (__parallel)
+      LOGICAL :: use_mpi_allocator = .TRUE.
+#else
+      LOGICAL :: use_mpi_allocator = .FALSE.
+#endif
+   END TYPE dbcsr_data_allocation_type
+
+   PUBLIC :: dbcsr_data_allocation_type
+   TYPE(dbcsr_data_allocation_type), PUBLIC, SAVE :: dbcsr_data_allocation = dbcsr_data_allocation_type() ! defaults
+
+
 CONTAINS
 
 ! **************************************************************************************************
@@ -140,11 +152,6 @@ CONTAINS
       narea2 = new_area
    END FUNCTION pointer_view_a
 
-#include "dbcsr_ptr_util_i.f90"
-#include "dbcsr_ptr_util_l.f90"
-#include "dbcsr_ptr_util_d.f90"
-#include "dbcsr_ptr_util_z.f90"
-#include "dbcsr_ptr_util_s.f90"
-#include "dbcsr_ptr_util_c.f90"
+#:include "dbcsr_ptr_util.f90"
 
 END MODULE dbcsr_ptr_util

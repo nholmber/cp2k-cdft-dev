@@ -31,8 +31,8 @@ MODULE qs_cdft_methods
                                               ref_charge_mulliken
    USE input_section_types,             ONLY: section_vals_get_subs_vals,&
                                               section_vals_type
-   USE kahan_sum,                       ONLY: accurate_sum,&
-                                              accurate_sum_arrays_product
+   USE kahan_sum,                       ONLY: accurate_dot_product,&
+                                              accurate_sum
    USE kinds,                           ONLY: dp,&
                                               int_8
    USE message_passing,                 ONLY: mp_sum
@@ -754,8 +754,8 @@ CONTAINS
                                                             nvar, unit_nr
       INTEGER, DIMENSION(:), POINTER                     :: stride
       LOGICAL                                            :: paw_atom
-      REAL(kind=dp)                                      :: dvol, eps_cavity, nelectron_frag, &
-                                                            sign, tc, zeff
+      REAL(kind=dp)                                      :: dvol, eps_cavity, nelectron_frag, sign, &
+                                                            tc, zeff
       REAL(kind=dp), ALLOCATABLE, DIMENSION(:)           :: dE, strength, target_val
       REAL(kind=dp), ALLOCATABLE, DIMENSION(:, :)        :: electronic_charge, gapw_offset
       TYPE(becke_constraint_type), POINTER               :: becke_control
@@ -822,8 +822,8 @@ CONTAINS
                IF (igroup /= 1) &
                   CALL cp_abort(__LOCATION__, &
                                 "Multiple constraints not yet supported by parallel mixed calculations.")
-               dE(igroup) = dE(igroup)+sign*accurate_sum_arrays_product(group(igroup)%weight%pw%cr3d, rho_r(i)%pw%cr3d, &
-                                                                        becke_control%cavity_mat, eps_cavity)*dvol
+               dE(igroup) = dE(igroup)+sign*accurate_dot_product(group(igroup)%weight%pw%cr3d, rho_r(i)%pw%cr3d, &
+                                                                 becke_control%cavity_mat, eps_cavity)*dvol
             ELSE
                dE(igroup) = dE(igroup)+sign*accurate_sum(group(igroup)%weight%pw%cr3d*rho_r(i)%pw%cr3d)*dvol
             END IF
@@ -893,8 +893,8 @@ CONTAINS
                              "Absolute weight required for Becke deformation density.")
             IF (becke_control%external_control .AND. becke_control%cavity_confine) THEN
                becke_control%target(1) = becke_control%target(1)+ &
-                                         accurate_sum_arrays_product(group(1)%weight%pw%cr3d, rho_frag%pw%cr3d, &
-                                                                     becke_control%cavity_mat, eps_cavity)*dvol
+                                         accurate_dot_product(group(1)%weight%pw%cr3d, rho_frag%pw%cr3d, &
+                                                              becke_control%cavity_mat, eps_cavity)*dvol
             ELSE
                becke_control%target(1) = becke_control%target(1)+accurate_sum(group(1)%weight%pw%cr3d*rho_frag%pw%cr3d)*dvol
             END IF
@@ -944,13 +944,13 @@ CONTAINS
          CALL get_qs_env(qs_env, rho0_mpole=rho0_mpole)
          CALL get_rho0_mpole(rho0_mpole, mp_rho=mp_rho)
          DO i = 1, dft_control%nspins
-            IF (i == 2 .AND. .NOT. group(igroup)%is_charge_constraint) THEN
-               sign = -1.0_dp
-            ELSE
-               sign = 1.0_dp
-            END IF
             DO igroup = 1, SIZE(group)
                DO iatom = 1, SIZE(group(igroup)%atoms)
+                  IF (i == 2 .AND. .NOT. group(igroup)%is_charge_constraint) THEN
+                     sign = -1.0_dp
+                  ELSE
+                     sign = 1.0_dp
+                  END IF
                   jatom = group(igroup)%atoms(iatom)
                   CALL get_atomic_kind(particle_set(jatom)%atomic_kind, kind_number=ikind)
                   CALL get_qs_kind(qs_kind_set(ikind), paw_atom=paw_atom)
