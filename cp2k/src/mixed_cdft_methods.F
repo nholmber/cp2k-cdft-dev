@@ -1030,8 +1030,6 @@ CONTAINS
                                                             print_section
       EXTERNAL                                           :: dsygv
 
-      EXTERNAL                                           :: dsygv
-
       NULLIFY (subsys_mix, force_env_section, print_section, linear_section, &
                mixed_env, mixed_cdft, qs_env, dft_control, fm_struct_mo, &
                mo_mo_fmstruct, inverse_mat, mo_overlap, Tinverse, tmp2, mo_overlap_wfn, &
