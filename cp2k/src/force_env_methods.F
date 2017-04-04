@@ -80,6 +80,7 @@ MODULE force_env_methods
                                               mix_linear_combination,&
                                               mix_minimum,&
                                               mix_restrained,&
+                                              mix_cdft,&
                                               use_bazant_eip,&
                                               use_lenosky_eip
    USE input_section_types,             ONLY: section_vals_get_subs_vals,&
@@ -776,8 +777,8 @@ CONTAINS
       CHARACTER(LEN=default_string_length)               :: def_error, description, this_error
       INTEGER                                            :: iforce_eval, iparticle, jparticle, &
                                                             mixing_type, my_group, natom, &
-                                                            nforce_eval, source, unit_nr
-      INTEGER, DIMENSION(:), POINTER                     :: glob_natoms, map_index
+                                                            nforce_eval, source, unit_nr, istate(2)
+      INTEGER, DIMENSION(:), POINTER                     :: glob_natoms, map_index, itmplist
       LOGICAL                                            :: dip_exists
       REAL(KIND=dp)                                      :: coupling_parameter, dedf, der_1, der_2, &
                                                             dx, energy, err, lambda, lerr, &
@@ -813,7 +814,7 @@ CONTAINS
                          particles=particles_mix, &
                          virial=virial_mix, &
                          results=results_mix)
-      NULLIFY (map_index, glob_natoms, global_forces)
+      NULLIFY (map_index, glob_natoms, global_forces, itmplist)
 
       nforce_eval = SIZE(force_env%sub_force_env)
       mixed_section => section_vals_get_subs_vals(force_env_section, "MIXED")
@@ -1035,6 +1036,25 @@ CONTAINS
          force_env%mixed_env%lerr = lerr
          force_env%mixed_env%coupling_function = TRIM(coupling_function)
          CALL finalizef()
+      CASE (mix_cdft)
+         ! Supports any number of force_evals for calculation of CDFT properties, but forces from only two
+         CALL section_vals_val_get(mixed_section, "MIXED_CDFT%LAMBDA", r_val=lambda)
+         ! Get the states which determine the forces
+         CALL section_vals_val_get(mixed_section, "MIXED_CDFT%FORCE_STATES", i_val=itmplist)
+         IF (SIZE(itmplist) /= 2) &
+            CALL cp_abort(__LOCATION__, &
+                          "Keyword FORCE_STATES takes exactly two input values.")
+         IF (ANY(itmplist .LT. 0)) &
+            CPABORT("Invalid force_eval index.")
+         istate = itmplist
+         IF (istate(1) > nforce_eval .OR. istate(2) > nforce_eval) &
+            CPABORT("Invalid force_eval index.")
+         mixed_energy%pot = lambda*energies(istate(1))+(1.0_dp-lambda)*energies(istate(2))
+         ! General Mapping of forces...
+         CALL mixed_map_forces(particles_mix, virial_mix, results_mix, global_forces, virials, results, &
+                               der_1, istate(1), nforce_eval, map_index, mapping_section, .TRUE.)
+         CALL mixed_map_forces(particles_mix, virial_mix, results_mix, global_forces, virials, results, &
+                               der_2, istate(2), nforce_eval, map_index, mapping_section, .FALSE.)
       CASE DEFAULT
          CPABORT("")
       END SELECT

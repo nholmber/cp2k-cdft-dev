@@ -55,7 +55,7 @@ MODULE mixed_cdft_methods
    USE hirshfeld_types,                 ONLY: hirshfeld_type
    USE input_constants,                 ONLY: becke_cutoff_element,&
                                               becke_cutoff_global,&
-                                              mix_linear_combination
+                                              mix_cdft
    USE input_section_types,             ONLY: section_vals_get,&
                                               section_vals_get_subs_vals,&
                                               section_vals_type,&
@@ -180,10 +180,8 @@ CONTAINS
       iounit = cp_print_key_unit_nr(logger, print_section, '', extension='.mixedLog')
       ! Check if a mixed CDFT calculation is requested
       CALL section_vals_val_get(mixed_section, "MIXING_TYPE", i_val=mixing_type)
-      IF (mixing_type == mix_linear_combination .AND. &
-          .NOT. ASSOCIATED(mixed_env%cdft_control)) THEN
-         CALL section_vals_val_get(mixed_section, "LINEAR%MIXED_CDFT", &
-                                   l_val=mixed_env%do_mixed_cdft)
+      IF (mixing_type == mix_cdft .AND. .NOT. ASSOCIATED(mixed_env%cdft_control)) THEN
+         mixed_env%do_mixed_cdft = .TRUE.
          IF (mixed_env%do_mixed_cdft) THEN
             ! Enforce some limitations
             IF (.NOT. nforce_eval == 2) &
@@ -202,7 +200,7 @@ CONTAINS
             ! The sub_force_envs must share the same geometrical structure
             IF (explicit) &
                CPABORT("Please disable section &MAPPING for mixed CDFT calculations")
-            CALL section_vals_val_get(mixed_section, "LINEAR%MIXED_CDFT_COUPLING", i_val=et_freq)
+            CALL section_vals_val_get(mixed_section, "MIXED_CDFT%COUPLING", i_val=et_freq)
             IF (et_freq .LT. 0) THEN
                mixed_env%do_mixed_et = .FALSE.
             ELSE
@@ -251,7 +249,7 @@ CONTAINS
             ! Store QMMM flag
             mixed_env%do_mixed_qmmm_cdft = is_qmmm
             ! Setup dynamic load balancing
-            CALL section_vals_val_get(mixed_section, "LINEAR%MIXED_CDFT_DLB", l_val=mixed_cdft%dlb)
+            CALL section_vals_val_get(mixed_section, "MIXED_CDFT%DLB", l_val=mixed_cdft%dlb)
             mixed_cdft%dlb = mixed_cdft%dlb .AND. calculate_forces ! disable if forces are not needed
             mixed_cdft%dlb = mixed_cdft%dlb .AND. mixed_cdft%is_parallel ! disable if not parallel
             IF (mixed_cdft%dlb) THEN
@@ -262,11 +260,11 @@ CONTAINS
                         mixed_cdft%dlb_control%prediction_error, mixed_cdft%dlb_control%sendbuff, &
                         mixed_cdft%dlb_control%recvbuff, mixed_cdft%dlb_control%recv_work_repl, &
                         mixed_cdft%dlb_control%recv_info)
-               CALL section_vals_val_get(mixed_section, "LINEAR%LOAD_SCALE", &
+               CALL section_vals_val_get(mixed_section, "MIXED_CDFT%LOAD_SCALE", &
                                          r_val=mixed_cdft%dlb_control%load_scale)
-               CALL section_vals_val_get(mixed_section, "LINEAR%VERY_OVERLOADED", &
+               CALL section_vals_val_get(mixed_section, "MIXED_CDFT%VERY_OVERLOADED", &
                                          r_val=mixed_cdft%dlb_control%very_overloaded)
-               CALL section_vals_val_get(mixed_section, "LINEAR%MORE_WORK", &
+               CALL section_vals_val_get(mixed_section, "MIXED_CDFT%MORE_WORK", &
                                          i_val=mixed_cdft%dlb_control%more_work)
             END IF
             ! Metric/Wavefunction overlap method/Lowdin orthogonalization/CDFT-CI
@@ -275,17 +273,17 @@ CONTAINS
             mixed_cdft%use_lowdin = .FALSE.
             mixed_cdft%do_ci = .FALSE.
             IF (mixed_env%do_mixed_et) THEN
-               CALL section_vals_val_get(mixed_section, "LINEAR%MIXED_CDFT_METRIC", &
+               CALL section_vals_val_get(mixed_section, "MIXED_CDFT%METRIC", &
                                          l_val=mixed_cdft%calculate_metric)
-               CALL section_vals_val_get(mixed_section, "LINEAR%MIXED_CDFT_WFN_OVERLAP", &
+               CALL section_vals_val_get(mixed_section, "MIXED_CDFT%WFN_OVERLAP", &
                                          l_val=mixed_cdft%wfn_overlap_method)
-               CALL section_vals_val_get(mixed_section, "LINEAR%MIXED_CDFT_LOWDIN", &
+               CALL section_vals_val_get(mixed_section, "MIXED_CDFT%LOWDIN", &
                                          l_val=mixed_cdft%use_lowdin)
-               CALL section_vals_val_get(mixed_section, "LINEAR%MIXED_CDFT_CI", &
+               CALL section_vals_val_get(mixed_section, "MIXED_CDFT%CI", &
                                          l_val=mixed_cdft%do_ci)
             END IF
             ! Inversion method
-            CALL section_vals_val_get(mixed_section, "LINEAR%EPS_SVD", r_val=mixed_cdft%eps_svd)
+            CALL section_vals_val_get(mixed_section, "MIXED_CDFT%EPS_SVD", r_val=mixed_cdft%eps_svd)
             IF (mixed_cdft%eps_svd .LT. 0.0_dp .OR. mixed_cdft%eps_svd .GT. 1.0_dp) &
                CPABORT("Illegal value for EPS_SVD. Value must be between 0.0 and 1.0.")
             ! MD related settings
