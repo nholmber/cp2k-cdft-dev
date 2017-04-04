@@ -1037,10 +1037,10 @@ CONTAINS
          force_env%mixed_env%coupling_function = TRIM(coupling_function)
          CALL finalizef()
       CASE (mix_cdft)
-         ! Supports any number of force_evals for calculation of CDFT properties, but forces from only two
+         ! Supports any number of force_evals for calculation of CDFT properties, but forces only from two
          CALL section_vals_val_get(mixed_section, "MIXED_CDFT%LAMBDA", r_val=lambda)
          ! Get the states which determine the forces
-         CALL section_vals_val_get(mixed_section, "MIXED_CDFT%FORCE_STATES", i_val=itmplist)
+         CALL section_vals_val_get(mixed_section, "MIXED_CDFT%FORCE_STATES", i_vals=itmplist)
          IF (SIZE(itmplist) /= 2) &
             CALL cp_abort(__LOCATION__, &
                           "Keyword FORCE_STATES takes exactly two input values.")
