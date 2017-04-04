@@ -1,5 +1,5 @@
 &GLOBAL                                                                                           
-  PROJECT  RI_RPA_H2O_minimax
+  PROJECT  RI_RPA_H2O
   PRINT_LEVEL MEDIUM
   RUN_TYPE ENERGY
   &TIMINGS
@@ -38,12 +38,11 @@
       &END XC_FUNCTIONAL
       &WF_CORRELATION
         METHOD  RI_RPA_GPW
-        RI OVERLAP
+        ! no WFC_GPW section, difference to RI_RPA_H2O.inp due to 
+        ! low cutoffs in WFC_GPW in RI_RPA_H2O.inp
         ERI_METHOD OS
         &RI_RPA
-          RPA_NUM_QUAD_POINTS  6
-          MINIMAX
-          IM_TIME
+          RPA_NUM_QUAD_POINTS 40
           &HF
             FRACTION 1.0000000
             &SCREENING

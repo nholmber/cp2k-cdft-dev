@@ -11,7 +11,7 @@ MODULE atom_admm_methods
    USE atom_output,                     ONLY: atom_print_basis
    USE atom_types,                      ONLY: &
         atom_basis_type, atom_integrals, atom_orbitals, atom_p_type, atom_type, create_atom_orbs, &
-        init_atom_basis, release_atom_basis, release_atom_orbs
+        init_atom_basis, lmat, release_atom_basis, release_atom_orbs
    USE atom_utils,                      ONLY: atom_consistent_method,&
                                               atom_denmat,&
                                               atom_trace,&
@@ -70,7 +70,7 @@ CONTAINS
          dfexc_admmq, dxc, dxk, el1, el2, elq, elref, fexc_optx_admm1, fexc_optx_admm2, &
          fexc_optx_admmq, fexc_optx_ref, fexc_pbex_admm1, fexc_pbex_admm2, fexc_pbex_admmq, &
          fexc_pbex_ref, ref_energy, xsi
-      REAL(KIND=dp), ALLOCATABLE, DIMENSION(:, :)        :: lmat
+      REAL(KIND=dp), ALLOCATABLE, DIMENSION(:, :)        :: lamat
       REAL(KIND=dp), ALLOCATABLE, DIMENSION(:, :, :) :: admm1_k, admm2_k, admm_xcmat, admm_xcmata, &
          admm_xcmatb, admmq_k, ovlap, ref_k, ref_xcmat, ref_xcmata, ref_xcmatb, sinv, siref, tmat
       TYPE(atom_basis_type), POINTER                     :: admm_basis, ref_basis
@@ -133,7 +133,7 @@ CONTAINS
       ALLOCATE (ref_int, admm_int)
       CALL atom_int_setup(ref_int, ref_basis, eri_exchange=.TRUE.)
       CALL atom_int_setup(admm_int, admm_basis, eri_exchange=.TRUE.)
-      DO l = 0, 3
+      DO l = 0, lmat
          IF (admm_int%n(l) /= admm_int%nne(l)) THEN
             IF (iw > 0) WRITE (iw, *) "ADMM Basis is linear dependent ", l, admm_int%n(l), admm_int%nne(l)
             CPABORT("ADMM basis is linear dependent")
@@ -142,27 +142,27 @@ CONTAINS
       ! mixed overlap
       na = MAXVAL(admm_basis%nbas(:))
       nb = MAXVAL(ref_basis%nbas(:))
-      ALLOCATE (ovlap(1:na, 1:nb, 0:3))
+      ALLOCATE (ovlap(1:na, 1:nb, 0:lmat))
       CALL atom_basis_projection_overlap(ovlap, admm_basis, ref_basis)
       ! Inverse of ADMM overlap matrix
-      ALLOCATE (sinv(1:na, 1:na, 0:3))
-      DO l = 0, 3
+      ALLOCATE (sinv(1:na, 1:na, 0:lmat))
+      DO l = 0, lmat
          n = admm_basis%nbas(l)
          IF (n < 1) CYCLE
          sinv(1:n, 1:n, l) = admm_int%ovlp(1:n, 1:n, l)
          CALL invmat_symm(sinv(1:n, 1:n, l))
       END DO
       ! ADMM transformation matrix
-      ALLOCATE (tmat(1:na, 1:nb, 0:3))
-      DO l = 0, 3
+      ALLOCATE (tmat(1:na, 1:nb, 0:lmat))
+      DO l = 0, lmat
          n = admm_basis%nbas(l)
          m = ref_basis%nbas(l)
          IF (n < 1 .OR. m < 1) CYCLE
          tmat(1:n, 1:m, l) = MATMUL(sinv(1:n, 1:n, l), ovlap(1:n, 1:m, l))
       END DO
       ! Inverse of REF overlap matrix
-      ALLOCATE (siref(1:nb, 1:nb, 0:3))
-      DO l = 0, 3
+      ALLOCATE (siref(1:nb, 1:nb, 0:lmat))
+      DO l = 0, lmat
          n = ref_basis%nbas(l)
          IF (n < 1) CYCLE
          siref(1:n, 1:n, l) = ref_int%ovlp(1:n, 1:n, l)
@@ -174,7 +174,7 @@ CONTAINS
             atom => atom_info(i, j)%atom
             IF (atom_consistent_method(atom%method_type, atom%state%multiplicity)) THEN
                ref_orbs => atom%orbitals
-               ALLOCATE (ref_k(1:nb, 1:nb, 0:3))
+               ALLOCATE (ref_k(1:nb, 1:nb, 0:lmat))
                SELECT CASE (atom%method_type)
                CASE (do_rks_atom, do_rhf_atom)
                   ! restricted
@@ -205,19 +205,19 @@ CONTAINS
                CALL create_atom_orbs(admm1_orbs, na, mo)
                CALL create_atom_orbs(admm2_orbs, na, mo)
                CALL create_atom_orbs(admmq_orbs, na, mo)
-               ALLOCATE (lmat(1:mo, 1:mo))
-               ALLOCATE (admm1_k(1:na, 1:na, 0:3))
-               ALLOCATE (admm2_k(1:na, 1:na, 0:3))
-               ALLOCATE (admmq_k(1:na, 1:na, 0:3))
+               ALLOCATE (lamat(1:mo, 1:mo))
+               ALLOCATE (admm1_k(1:na, 1:na, 0:lmat))
+               ALLOCATE (admm2_k(1:na, 1:na, 0:lmat))
+               ALLOCATE (admmq_k(1:na, 1:na, 0:lmat))
                IF (rhf) THEN
-                  DO l = 0, 3
+                  DO l = 0, lmat
                      n = admm_basis%nbas(l)
                      m = ref_basis%nbas(l)
                      mo = atom%state%maxn_calc(l)
                      IF (n < 1 .OR. m < 1 .OR. mo < 1) CYCLE
                      admm2_orbs%wfn(1:n, 1:mo, l) = MATMUL(tmat(1:n, 1:m, l), ref_orbs%wfn(1:m, 1:mo, l))
-                     CALL lowdin_matrix(admm2_orbs%wfn(1:n, 1:mo, l), lmat(1:mo, 1:mo), admm_int%ovlp(1:n, 1:n, l))
-                     admm1_orbs%wfn(1:n, 1:mo, l) = MATMUL(admm2_orbs%wfn(1:n, 1:mo, l), lmat(1:mo, 1:mo))
+                     CALL lowdin_matrix(admm2_orbs%wfn(1:n, 1:mo, l), lamat(1:mo, 1:mo), admm_int%ovlp(1:n, 1:n, l))
+                     admm1_orbs%wfn(1:n, 1:mo, l) = MATMUL(admm2_orbs%wfn(1:n, 1:mo, l), lamat(1:mo, 1:mo))
                   END DO
                   CALL atom_denmat(admm1_orbs%pmat, admm1_orbs%wfn, admm_basis%nbas, atom%state%occupation, &
                                    atom%state%maxl_occ, atom%state%maxn_occ)
@@ -240,17 +240,17 @@ CONTAINS
                   CALL eeri_contract(admmq_k, admm_int%eeri, admmq_orbs%pmat, admm_basis%nbas)
                   admmq_k_energy = 0.5_dp*atom_trace(admmq_k, admmq_orbs%pmat)
                ELSE
-                  DO l = 0, 3
+                  DO l = 0, lmat
                      n = admm_basis%nbas(l)
                      m = ref_basis%nbas(l)
                      mo = atom%state%maxn_calc(l)
                      IF (n < 1 .OR. m < 1 .OR. mo < 1) CYCLE
                      admm2_orbs%wfna(1:n, 1:mo, l) = MATMUL(tmat(1:n, 1:m, l), ref_orbs%wfna(1:m, 1:mo, l))
-                     CALL lowdin_matrix(admm2_orbs%wfna(1:n, 1:mo, l), lmat, admm_int%ovlp(1:n, 1:n, l))
-                     admm1_orbs%wfna(1:n, 1:mo, l) = MATMUL(admm2_orbs%wfna(1:n, 1:mo, l), lmat(1:mo, 1:mo))
+                     CALL lowdin_matrix(admm2_orbs%wfna(1:n, 1:mo, l), lamat, admm_int%ovlp(1:n, 1:n, l))
+                     admm1_orbs%wfna(1:n, 1:mo, l) = MATMUL(admm2_orbs%wfna(1:n, 1:mo, l), lamat(1:mo, 1:mo))
                      admm2_orbs%wfnb(1:n, 1:mo, l) = MATMUL(tmat(1:n, 1:m, l), ref_orbs%wfnb(1:m, 1:mo, l))
-                     CALL lowdin_matrix(admm2_orbs%wfnb(1:n, 1:mo, l), lmat, admm_int%ovlp(1:n, 1:n, l))
-                     admm1_orbs%wfnb(1:n, 1:mo, l) = MATMUL(admm2_orbs%wfnb(1:n, 1:mo, l), lmat(1:mo, 1:mo))
+                     CALL lowdin_matrix(admm2_orbs%wfnb(1:n, 1:mo, l), lamat, admm_int%ovlp(1:n, 1:n, l))
+                     admm1_orbs%wfnb(1:n, 1:mo, l) = MATMUL(admm2_orbs%wfnb(1:n, 1:mo, l), lamat(1:mo, 1:mo))
                   END DO
                   CALL atom_denmat(admm1_orbs%pmata, admm1_orbs%wfna, admm_basis%nbas, atom%state%occa, &
                                    atom%state%maxl_occ, atom%state%maxn_occ)
@@ -297,13 +297,13 @@ CONTAINS
                   CALL eeri_contract(admmq_k, admm_int%eeri, admmq_orbs%pmatb, admm_basis%nbas)
                   admmq_k_energy = admmq_k_energy+atom_trace(admmq_k, admmq_orbs%pmatb)
                END IF
-               DEALLOCATE (lmat)
+               DEALLOCATE (lamat)
                !
                ! ADMM correction terms
                maxl = atom%state%maxl_occ
                IF (rhf) THEN
-                  ALLOCATE (ref_xcmat(1:nb, 1:nb, 0:3))
-                  ALLOCATE (admm_xcmat(1:na, 1:na, 0:3))
+                  ALLOCATE (ref_xcmat(1:nb, 1:nb, 0:lmat))
+                  ALLOCATE (admm_xcmat(1:na, 1:na, 0:lmat))
                   ! PBEX
                   CALL atom_vxc_lda(ref_basis, ref_orbs%pmat, maxl, xc_pbex, fexc_pbex_ref, ref_xcmat)
                   CALL atom_vxc_lda(admm_basis, admm1_orbs%pmat, maxl, xc_pbex, fexc_pbex_admm1, admm_xcmat)
@@ -323,10 +323,10 @@ CONTAINS
                                      maxl, "LINX", dfexc_admmq)
                   DEALLOCATE (ref_xcmat, admm_xcmat)
                ELSE
-                  ALLOCATE (ref_xcmata(1:nb, 1:nb, 0:3))
-                  ALLOCATE (ref_xcmatb(1:nb, 1:nb, 0:3))
-                  ALLOCATE (admm_xcmata(1:na, 1:na, 0:3))
-                  ALLOCATE (admm_xcmatb(1:na, 1:na, 0:3))
+                  ALLOCATE (ref_xcmata(1:nb, 1:nb, 0:lmat))
+                  ALLOCATE (ref_xcmatb(1:nb, 1:nb, 0:lmat))
+                  ALLOCATE (admm_xcmata(1:na, 1:na, 0:lmat))
+                  ALLOCATE (admm_xcmatb(1:na, 1:na, 0:lmat))
                   ! PBEX
                   CALL atom_vxc_lsd(ref_basis, ref_orbs%pmata, ref_orbs%pmatb, maxl, xc_pbex, fexc_pbex_ref, &
                                     ref_xcmata, ref_xcmatb)
@@ -434,12 +434,12 @@ CONTAINS
 ! **************************************************************************************************
 !> \brief ...
 !> \param wfn ...
-!> \param lmat ...
+!> \param lamat ...
 !> \param ovlp ...
 ! **************************************************************************************************
-   SUBROUTINE lowdin_matrix(wfn, lmat, ovlp)
+   SUBROUTINE lowdin_matrix(wfn, lamat, ovlp)
       REAL(KIND=dp), DIMENSION(:, :), INTENT(IN)         :: wfn
-      REAL(KIND=dp), DIMENSION(:, :), INTENT(OUT)        :: lmat
+      REAL(KIND=dp), DIMENSION(:, :), INTENT(OUT)        :: lamat
       REAL(KIND=dp), DIMENSION(:, :), INTENT(IN)         :: ovlp
 
       INTEGER                                            :: i, j, k, n
@@ -448,15 +448,15 @@ CONTAINS
 
       n = SIZE(wfn, 2)
       IF (n > 0) THEN
-         lmat = MATMUL(TRANSPOSE(wfn), MATMUL(ovlp, wfn))
+         lamat = MATMUL(TRANSPOSE(wfn), MATMUL(ovlp, wfn))
          ALLOCATE (w(n), vmat(n, n))
-         CALL jacobi(lmat(1:n, 1:n), w(1:n), vmat(1:n, 1:n))
+         CALL jacobi(lamat(1:n, 1:n), w(1:n), vmat(1:n, 1:n))
          w(1:n) = 1.0_dp/SQRT(w(1:n))
          DO i = 1, n
             DO j = 1, n
-               lmat(i, j) = 0.0_dp
+               lamat(i, j) = 0.0_dp
                DO k = 1, n
-                  lmat(i, j) = lmat(i, j)+vmat(i, k)*w(k)*vmat(j, k)
+                  lamat(i, j) = lamat(i, j)+vmat(i, k)*w(k)*vmat(j, k)
                END DO
             END DO
          END DO

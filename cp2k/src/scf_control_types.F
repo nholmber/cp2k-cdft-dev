@@ -87,7 +87,7 @@ MODULE scf_control_types
 !> \param build_jacobian logical which determines if the inverse Jacobian should be computed
 !> \param step_size the optimizer step size
 !> \param jacobian_step the step size for calculating the finite difference Jacobian
-!> \param newton_step the step size used by the Newton optimizer the with values between 0 and 1
+!> \param newton_step the step size used by the Newton optimizer with values between 0 and 1
 !> \param newton_step_save permanent copy of the above
 !> \param jacobian_type the finite difference scheme to compute the Jacobian
 !> \param broyden_type the variant of Broyden's method to use

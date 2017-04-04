@@ -54,6 +54,9 @@ MODULE atom_types
 
    CHARACTER(len=*), PARAMETER, PRIVATE :: moduleN = 'atom_types'
 
+   ! maximum l-quantum number considered in atomic code/basis
+   INTEGER, PARAMETER                                 :: lmat = 5
+
    INTEGER, PARAMETER                                 :: GTO_BASIS = 100, &
                                                          CGTO_BASIS = 101, &
                                                          STO_BASIS = 102, &
@@ -63,8 +66,8 @@ MODULE atom_types
 ! **************************************************************************************************
    TYPE atom_basis_type
       INTEGER                                       :: basis_type
-      INTEGER, DIMENSION(0:3)                       :: nbas
-      INTEGER, DIMENSION(0:3)                       :: nprim
+      INTEGER, DIMENSION(0:lmat)                    :: nbas
+      INTEGER, DIMENSION(0:lmat)                    :: nprim
       REAL(KIND=dp), DIMENSION(:, :), POINTER       :: am !GTO exponents
       REAL(KIND=dp), DIMENSION(:, :, :), POINTER    :: cm !Contraction coeffs
       REAL(KIND=dp), DIMENSION(:, :), POINTER       :: as !STO exponents
@@ -76,7 +79,7 @@ MODULE atom_types
       TYPE(grid_atom_type), POINTER                 :: grid
       LOGICAL                                       :: geometrical
       REAL(KIND=dp)                                 :: aval, cval
-      INTEGER, DIMENSION(0:3)                       :: start
+      INTEGER, DIMENSION(0:lmat)                    :: start
    END TYPE atom_basis_type
 
 !> \brief Provides all information about a pseudopotential
@@ -84,14 +87,14 @@ MODULE atom_types
    TYPE atom_gthpot_type
       CHARACTER(LEN=2)                              :: symbol
       CHARACTER(LEN=default_string_length)          :: pname
-      INTEGER, DIMENSION(0:3)                       :: econf
+      INTEGER, DIMENSION(0:lmat)                    :: econf
       REAL(dp)                                      :: zion
       REAL(dp)                                      :: rc
       INTEGER                                       :: ncl
       REAL(dp), DIMENSION(5)                        :: cl
-      INTEGER, DIMENSION(0:3)                       :: nl
-      REAL(dp), DIMENSION(0:3)                      :: rcnl
-      REAL(dp), DIMENSION(4, 4, 0:3)                :: hnl
+      INTEGER, DIMENSION(0:lmat)                    :: nl
+      REAL(dp), DIMENSION(0:lmat)                   :: rcnl
+      REAL(dp), DIMENSION(4, 4, 0:lmat)             :: hnl
       ! type extensions
       ! NLCC
       LOGICAL                                       :: nlcc
@@ -116,7 +119,7 @@ MODULE atom_types
    TYPE atom_ecppot_type
       CHARACTER(LEN=2)                              :: symbol
       CHARACTER(LEN=default_string_length)          :: pname
-      INTEGER, DIMENSION(0:3)                       :: econf
+      INTEGER, DIMENSION(0:lmat)                    :: econf
       REAL(dp)                                      :: zion
       INTEGER                                       :: lmax
       INTEGER                                       :: nloc ! # terms
@@ -144,15 +147,15 @@ MODULE atom_types
 !> \brief Provides all information on states and occupation
 ! **************************************************************************************************
    TYPE atom_state
-      REAL(KIND=dp), DIMENSION(0:3, 10)             :: occ
-      REAL(KIND=dp), DIMENSION(0:3, 10)             :: core
-      REAL(KIND=dp), DIMENSION(0:3, 10)             :: occupation
+      REAL(KIND=dp), DIMENSION(0:lmat, 10)          :: occ
+      REAL(KIND=dp), DIMENSION(0:lmat, 10)          :: core
+      REAL(KIND=dp), DIMENSION(0:lmat, 10)          :: occupation
       INTEGER                                       :: maxl_occ
-      INTEGER, DIMENSION(0:3)                       :: maxn_occ
+      INTEGER, DIMENSION(0:lmat)                    :: maxn_occ
       INTEGER                                       :: maxl_calc
-      INTEGER, DIMENSION(0:3)                       :: maxn_calc
+      INTEGER, DIMENSION(0:lmat)                    :: maxn_calc
       INTEGER                                       :: multiplicity
-      REAL(KIND=dp), DIMENSION(0:3, 10)             :: occa, occb
+      REAL(KIND=dp), DIMENSION(0:lmat, 10)          :: occa, occb
    END TYPE atom_state
 
 !> \brief Holds atomic integrals
@@ -167,13 +170,13 @@ MODULE atom_types
       LOGICAL                                       :: eri_coulomb
       LOGICAL                                       :: eri_exchange
       LOGICAL                                       :: all_nu
-      INTEGER, DIMENSION(0:3)                       :: n, nne
+      INTEGER, DIMENSION(0:lmat)                    :: n, nne
       REAL(KIND=dp), DIMENSION(:, :, :), POINTER    :: ovlp, kin, core, clsd
       REAL(KIND=dp), DIMENSION(:, :, :), POINTER    :: utrans, uptrans
       REAL(KIND=dp), DIMENSION(:, :, :), POINTER    :: hnl
       REAL(KIND=dp), DIMENSION(:, :, :), POINTER    :: conf
-      TYPE(eri), DIMENSION(20)                      :: ceri
-      TYPE(eri), DIMENSION(20)                      :: eeri
+      TYPE(eri), DIMENSION(100)                     :: ceri
+      TYPE(eri), DIMENSION(100)                     :: eeri
       INTEGER                                       :: dkhstat = 0
       INTEGER                                       :: zorastat = 0
       REAL(KIND=dp), DIMENSION(:, :, :), POINTER    :: tzora
@@ -197,7 +200,7 @@ MODULE atom_types
 !> \brief Operator matrices
 ! **************************************************************************************************
    TYPE opmat_type
-      INTEGER, DIMENSION(0:3)                       :: n
+      INTEGER, DIMENSION(0:lmat)                    :: n
       REAL(KIND=dp), DIMENSION(:, :, :), POINTER    :: op
    END TYPE opmat_type
 
@@ -271,8 +274,10 @@ MODULE atom_types
       TYPE(atom_type), POINTER                      :: atom
    END TYPE atom_p_type
 
+   PUBLIC :: lmat
    PUBLIC :: atom_p_type, atom_type, atom_basis_type, atom_state, atom_integrals
-   PUBLIC :: atom_orbitals, eri, atom_potential_type, atom_gthpot_type
+   PUBLIC :: atom_orbitals, eri, atom_potential_type
+   PUBLIC :: atom_gthpot_type, atom_ecppot_type, atom_upfpot_type
    PUBLIC :: atom_optimization_type
    PUBLIC :: atom_compare_grids
    PUBLIC :: create_atom_type, release_atom_type, set_atom
@@ -340,7 +345,7 @@ CONTAINS
       CHARACTER(LEN=default_string_length)               :: basis_fn, basis_name
       INTEGER                                            :: basistype, i, j, k, l, ll, m, ngp, nl, &
                                                             nr, nu, quadtype
-      INTEGER, DIMENSION(0:3)                            :: starti
+      INTEGER, DIMENSION(0:lmat)                         :: starti
       INTEGER, DIMENSION(:), POINTER                     :: nqm, num_gto, num_slater, sindex
       REAL(KIND=dp)                                      :: al, amax, aval, cval, ear, pf, rk
       REAL(KIND=dp), DIMENSION(:), POINTER               :: expo
@@ -386,11 +391,10 @@ CONTAINS
             ENDIF
             basis%nbas = nu
             basis%nprim = nu
-            ALLOCATE (basis%am(nu, 0:3))
-            basis%am(1:nu, 0) = ugbs(1:nu)
-            basis%am(1:nu, 1) = ugbs(1:nu)
-            basis%am(1:nu, 2) = ugbs(1:nu)
-            basis%am(1:nu, 3) = ugbs(1:nu)
+            ALLOCATE (basis%am(nu, 0:lmat))
+            DO i = 0, lmat
+               basis%am(1:nu, i) = ugbs(1:nu)
+            END DO
          ELSE
             basis%nbas = 0
             DO i = 1, SIZE(num_gto)
@@ -398,51 +402,40 @@ CONTAINS
             END DO
             basis%nprim = basis%nbas
             m = MAXVAL(basis%nbas)
-            ALLOCATE (basis%am(m, 0:3))
+            ALLOCATE (basis%am(m, 0:lmat))
             basis%am = 0._dp
-            IF (basis%nbas(0) > 0) THEN
-               NULLIFY (expo)
-               CALL section_vals_val_get(basis_section, "S_EXPONENTS", r_vals=expo)
-               CPASSERT(SIZE(expo) >= basis%nbas(0))
-               DO i = 1, basis%nbas(0)
-                  basis%am(i, 0) = expo(i)
-               END DO
-            END IF
-            IF (basis%nbas(1) > 0) THEN
-               NULLIFY (expo)
-               CALL section_vals_val_get(basis_section, "P_EXPONENTS", r_vals=expo)
-               CPASSERT(SIZE(expo) >= basis%nbas(1))
-               DO i = 1, basis%nbas(1)
-                  basis%am(i, 1) = expo(i)
-               END DO
-            END IF
-            IF (basis%nbas(2) > 0) THEN
-               NULLIFY (expo)
-               CALL section_vals_val_get(basis_section, "D_EXPONENTS", r_vals=expo)
-               CPASSERT(SIZE(expo) >= basis%nbas(2))
-               DO i = 1, basis%nbas(2)
-                  basis%am(i, 2) = expo(i)
-               END DO
-            END IF
-            IF (basis%nbas(3) > 0) THEN
-               NULLIFY (expo)
-               CALL section_vals_val_get(basis_section, "F_EXPONENTS", r_vals=expo)
-               CPASSERT(SIZE(expo) >= basis%nbas(3))
-               DO i = 1, basis%nbas(3)
-                  basis%am(i, 3) = expo(i)
-               END DO
-            END IF
+            DO l = 0, lmat
+               IF (basis%nbas(l) > 0) THEN
+                  NULLIFY (expo)
+                  SELECT CASE (l)
+                  CASE DEFAULT
+                     CPABORT("Atom Basis")
+                  CASE (0)
+                     CALL section_vals_val_get(basis_section, "S_EXPONENTS", r_vals=expo)
+                  CASE (1)
+                     CALL section_vals_val_get(basis_section, "P_EXPONENTS", r_vals=expo)
+                  CASE (2)
+                     CALL section_vals_val_get(basis_section, "D_EXPONENTS", r_vals=expo)
+                  CASE (3)
+                     CALL section_vals_val_get(basis_section, "F_EXPONENTS", r_vals=expo)
+                  END SELECT
+                  CPASSERT(SIZE(expo) >= basis%nbas(l))
+                  DO i = 1, basis%nbas(l)
+                     basis%am(i, l) = expo(i)
+                  END DO
+               END IF
+            END DO
          END IF
          ! initialize basis function on a radial grid
          nr = basis%grid%nr
          m = MAXVAL(basis%nbas)
-         ALLOCATE (basis%bf(nr, m, 0:3))
-         ALLOCATE (basis%dbf(nr, m, 0:3))
-         ALLOCATE (basis%ddbf(nr, m, 0:3))
+         ALLOCATE (basis%bf(nr, m, 0:lmat))
+         ALLOCATE (basis%dbf(nr, m, 0:lmat))
+         ALLOCATE (basis%ddbf(nr, m, 0:lmat))
          basis%bf = 0._dp
          basis%dbf = 0._dp
          basis%ddbf = 0._dp
-         DO l = 0, 3
+         DO l = 0, lmat
             DO i = 1, basis%nbas(l)
                al = basis%am(i, l)
                DO k = 1, nr
@@ -475,6 +468,7 @@ CONTAINS
                basis%nbas(1) = basis%nbas(0)-4
                basis%nbas(2) = basis%nbas(0)-8
                basis%nbas(3) = basis%nbas(0)-12
+               IF (lmat > 3) basis%nbas(4:lmat) = 0
             ELSEIF (btyp == "AP") THEN
                CALL Clementi_geobas(zval, cval, aval, basis%nbas, starti)
                amax = 500._dp/aval
@@ -503,9 +497,9 @@ CONTAINS
             CALL section_vals_val_get(basis_section, "GEO_START_VALUE", r_val=aval)
          END IF
          m = MAXVAL(basis%nbas)
-         ALLOCATE (basis%am(m, 0:3))
+         ALLOCATE (basis%am(m, 0:lmat))
          basis%am = 0._dp
-         DO l = 0, 3
+         DO l = 0, lmat
             DO i = 1, basis%nbas(l)
                ll = i-1+starti(l)
                basis%am(i, l) = aval*cval**(ll)
@@ -520,13 +514,13 @@ CONTAINS
          ! initialize basis function on a radial grid
          nr = basis%grid%nr
          m = MAXVAL(basis%nbas)
-         ALLOCATE (basis%bf(nr, m, 0:3))
-         ALLOCATE (basis%dbf(nr, m, 0:3))
-         ALLOCATE (basis%ddbf(nr, m, 0:3))
+         ALLOCATE (basis%bf(nr, m, 0:lmat))
+         ALLOCATE (basis%dbf(nr, m, 0:lmat))
+         ALLOCATE (basis%ddbf(nr, m, 0:lmat))
          basis%bf = 0._dp
          basis%dbf = 0._dp
          basis%ddbf = 0._dp
-         DO l = 0, 3
+         DO l = 0, lmat
             DO i = 1, basis%nbas(l)
                al = basis%am(i, l)
                DO k = 1, nr
@@ -550,13 +544,13 @@ CONTAINS
          ! initialize basis function on a radial grid
          nr = basis%grid%nr
          m = MAXVAL(basis%nbas)
-         ALLOCATE (basis%bf(nr, m, 0:3))
-         ALLOCATE (basis%dbf(nr, m, 0:3))
-         ALLOCATE (basis%ddbf(nr, m, 0:3))
+         ALLOCATE (basis%bf(nr, m, 0:lmat))
+         ALLOCATE (basis%dbf(nr, m, 0:lmat))
+         ALLOCATE (basis%ddbf(nr, m, 0:lmat))
          basis%bf = 0._dp
          basis%dbf = 0._dp
          basis%ddbf = 0._dp
-         DO l = 0, 3
+         DO l = 0, lmat
             DO i = 1, basis%nprim(l)
                al = basis%am(i, l)
                DO k = 1, nr
@@ -586,76 +580,58 @@ CONTAINS
             END DO
             basis%nprim = basis%nbas
             m = MAXVAL(basis%nbas)
-            ALLOCATE (basis%as(m, 0:3), basis%ns(m, 0:3))
+            ALLOCATE (basis%as(m, 0:lmat), basis%ns(m, 0:lmat))
             basis%as = 0._dp
             basis%ns = 0
-            IF (basis%nbas(0) > 0) THEN
-               NULLIFY (expo)
-               CALL section_vals_val_get(basis_section, "S_EXPONENTS", r_vals=expo)
-               CPASSERT(SIZE(expo) >= basis%nbas(0))
-               DO i = 1, basis%nbas(0)
-                  basis%as(i, 0) = expo(i)
-               END DO
-               NULLIFY (nqm)
-               CALL section_vals_val_get(basis_section, "S_QUANTUM_NUMBERS", i_vals=nqm)
-               CPASSERT(SIZE(nqm) >= basis%nbas(0))
-               DO i = 1, basis%nbas(0)
-                  basis%ns(i, 0) = nqm(i)
-               END DO
-            END IF
-            IF (basis%nbas(1) > 0) THEN
-               NULLIFY (expo)
-               CALL section_vals_val_get(basis_section, "P_EXPONENTS", r_vals=expo)
-               CPASSERT(SIZE(expo) >= basis%nbas(1))
-               DO i = 1, basis%nbas(1)
-                  basis%as(i, 1) = expo(i)
-               END DO
-               NULLIFY (nqm)
-               CALL section_vals_val_get(basis_section, "P_QUANTUM_NUMBERS", i_vals=nqm)
-               CPASSERT(SIZE(nqm) >= basis%nbas(1))
-               DO i = 1, basis%nbas(1)
-                  basis%ns(i, 1) = nqm(i)
-               END DO
-            END IF
-            IF (basis%nbas(2) > 0) THEN
-               NULLIFY (expo)
-               CALL section_vals_val_get(basis_section, "D_EXPONENTS", r_vals=expo)
-               CPASSERT(SIZE(expo) >= basis%nbas(2))
-               DO i = 1, basis%nbas(2)
-                  basis%as(i, 2) = expo(i)
-               END DO
-               NULLIFY (nqm)
-               CALL section_vals_val_get(basis_section, "D_QUANTUM_NUMBERS", i_vals=nqm)
-               CPASSERT(SIZE(nqm) >= basis%nbas(2))
-               DO i = 1, basis%nbas(2)
-                  basis%ns(i, 2) = nqm(i)
-               END DO
-            END IF
-            IF (basis%nbas(3) > 0) THEN
-               NULLIFY (expo)
-               CALL section_vals_val_get(basis_section, "F_EXPONENTS", r_vals=expo)
-               CPASSERT(SIZE(expo) >= basis%nbas(3))
-               DO i = 1, basis%nbas(3)
-                  basis%as(i, 3) = expo(i)
-               END DO
-               NULLIFY (nqm)
-               CALL section_vals_val_get(basis_section, "F_QUANTUM_NUMBERS", i_vals=nqm)
-               CPASSERT(SIZE(nqm) >= basis%nbas(3))
-               DO i = 1, basis%nbas(3)
-                  basis%ns(i, 3) = nqm(i)
-               END DO
-            END IF
+            DO l = 0, lmat
+               IF (basis%nbas(l) > 0) THEN
+                  NULLIFY (expo)
+                  SELECT CASE (l)
+                  CASE DEFAULT
+                     CPABORT("Atom Basis")
+                  CASE (0)
+                     CALL section_vals_val_get(basis_section, "S_EXPONENTS", r_vals=expo)
+                  CASE (1)
+                     CALL section_vals_val_get(basis_section, "P_EXPONENTS", r_vals=expo)
+                  CASE (2)
+                     CALL section_vals_val_get(basis_section, "D_EXPONENTS", r_vals=expo)
+                  CASE (3)
+                     CALL section_vals_val_get(basis_section, "F_EXPONENTS", r_vals=expo)
+                  END SELECT
+                  CPASSERT(SIZE(expo) >= basis%nbas(l))
+                  DO i = 1, basis%nbas(l)
+                     basis%as(i, l) = expo(i)
+                  END DO
+                  NULLIFY (nqm)
+                  SELECT CASE (l)
+                  CASE DEFAULT
+                     CPABORT("Atom Basis")
+                  CASE (0)
+                     CALL section_vals_val_get(basis_section, "S_QUANTUM_NUMBERS", i_vals=nqm)
+                  CASE (1)
+                     CALL section_vals_val_get(basis_section, "P_QUANTUM_NUMBERS", i_vals=nqm)
+                  CASE (2)
+                     CALL section_vals_val_get(basis_section, "D_QUANTUM_NUMBERS", i_vals=nqm)
+                  CASE (3)
+                     CALL section_vals_val_get(basis_section, "F_QUANTUM_NUMBERS", i_vals=nqm)
+                  END SELECT
+                  CPASSERT(SIZE(nqm) >= basis%nbas(l))
+                  DO i = 1, basis%nbas(l)
+                     basis%ns(i, l) = nqm(i)
+                  END DO
+               END IF
+            END DO
          END IF
          ! initialize basis function on a radial grid
          nr = basis%grid%nr
          m = MAXVAL(basis%nbas)
-         ALLOCATE (basis%bf(nr, m, 0:3))
-         ALLOCATE (basis%dbf(nr, m, 0:3))
-         ALLOCATE (basis%ddbf(nr, m, 0:3))
+         ALLOCATE (basis%bf(nr, m, 0:lmat))
+         ALLOCATE (basis%dbf(nr, m, 0:lmat))
+         ALLOCATE (basis%ddbf(nr, m, 0:lmat))
          basis%bf = 0._dp
          basis%dbf = 0._dp
          basis%ddbf = 0._dp
-         DO l = 0, 3
+         DO l = 0, lmat
             DO i = 1, basis%nbas(l)
                al = basis%as(i, l)
                nl = basis%ns(i, l)
@@ -700,8 +676,8 @@ CONTAINS
 
       ! copy basis info
       gbasis%basis_type = basis%basis_type
-      gbasis%nbas(0:3) = basis%nbas(0:3)
-      gbasis%nprim(0:3) = basis%nprim(0:3)
+      gbasis%nbas(0:lmat) = basis%nbas(0:lmat)
+      gbasis%nprim(0:lmat) = basis%nprim(0:lmat)
       IF (ASSOCIATED(basis%am)) THEN
          n1 = SIZE(basis%am, 1)
          n2 = SIZE(basis%am, 2)
@@ -731,7 +707,7 @@ CONTAINS
       gbasis%geometrical = basis%geometrical
       gbasis%aval = basis%aval
       gbasis%cval = basis%cval
-      gbasis%start(0:3) = basis%start(0:3)
+      gbasis%start(0:lmat) = basis%start(0:lmat)
 
       ! get information on quadrature type and number of grid points
       ! allocate and initialize the atomic grid
@@ -750,9 +726,9 @@ CONTAINS
       ! initialize basis function on a radial grid
       nr = gbasis%grid%nr
       m = MAXVAL(gbasis%nbas)
-      ALLOCATE (gbasis%bf(nr, m, 0:3))
-      ALLOCATE (gbasis%dbf(nr, m, 0:3))
-      ALLOCATE (gbasis%ddbf(nr, m, 0:3))
+      ALLOCATE (gbasis%bf(nr, m, 0:lmat))
+      ALLOCATE (gbasis%dbf(nr, m, 0:lmat))
+      ALLOCATE (gbasis%ddbf(nr, m, 0:lmat))
       gbasis%bf = 0._dp
       gbasis%dbf = 0._dp
       gbasis%ddbf = 0._dp
@@ -761,7 +737,7 @@ CONTAINS
       CASE DEFAULT
          CPABORT("")
       CASE (GTO_BASIS)
-         DO l = 0, 3
+         DO l = 0, lmat
             DO i = 1, gbasis%nbas(l)
                al = gbasis%am(i, l)
                DO k = 1, nr
@@ -775,7 +751,7 @@ CONTAINS
             END DO
          END DO
       CASE (CGTO_BASIS)
-         DO l = 0, 3
+         DO l = 0, lmat
             DO i = 1, gbasis%nprim(l)
                al = gbasis%am(i, l)
                DO k = 1, nr
@@ -793,7 +769,7 @@ CONTAINS
             END DO
          END DO
       CASE (STO_BASIS)
-         DO l = 0, 3
+         DO l = 0, lmat
             DO i = 1, gbasis%nbas(l)
                al = gbasis%as(i, l)
                nl = gbasis%ns(i, l)
@@ -983,39 +959,39 @@ CONTAINS
 
       ALLOCATE (orbs)
 
-      ALLOCATE (orbs%wfn(mbas, mo, 0:3), orbs%wfna(mbas, mo, 0:3), orbs%wfnb(mbas, mo, 0:3))
+      ALLOCATE (orbs%wfn(mbas, mo, 0:lmat), orbs%wfna(mbas, mo, 0:lmat), orbs%wfnb(mbas, mo, 0:lmat))
       orbs%wfn = 0._dp
       orbs%wfna = 0._dp
       orbs%wfnb = 0._dp
 
-      ALLOCATE (orbs%pmat(mbas, mbas, 0:3), orbs%pmata(mbas, mbas, 0:3), orbs%pmatb(mbas, mbas, 0:3))
+      ALLOCATE (orbs%pmat(mbas, mbas, 0:lmat), orbs%pmata(mbas, mbas, 0:lmat), orbs%pmatb(mbas, mbas, 0:lmat))
       orbs%pmat = 0._dp
       orbs%pmata = 0._dp
       orbs%pmatb = 0._dp
 
-      ALLOCATE (orbs%ener(mo, 0:3), orbs%enera(mo, 0:3), orbs%enerb(mo, 0:3))
+      ALLOCATE (orbs%ener(mo, 0:lmat), orbs%enera(mo, 0:lmat), orbs%enerb(mo, 0:lmat))
       orbs%ener = 0._dp
       orbs%enera = 0._dp
       orbs%enerb = 0._dp
 
-      ALLOCATE (orbs%refene(mo, 0:3, 2), orbs%refchg(mo, 0:3, 2), orbs%refnod(mo, 0:3, 2))
+      ALLOCATE (orbs%refene(mo, 0:lmat, 2), orbs%refchg(mo, 0:lmat, 2), orbs%refnod(mo, 0:lmat, 2))
       orbs%refene = 0._dp
       orbs%refchg = 0._dp
       orbs%refnod = 0._dp
-      ALLOCATE (orbs%wrefene(mo, 0:3, 2), orbs%wrefchg(mo, 0:3, 2), orbs%wrefnod(mo, 0:3, 2))
+      ALLOCATE (orbs%wrefene(mo, 0:lmat, 2), orbs%wrefchg(mo, 0:lmat, 2), orbs%wrefnod(mo, 0:lmat, 2))
       orbs%wrefene = 0._dp
       orbs%wrefchg = 0._dp
       orbs%wrefnod = 0._dp
-      ALLOCATE (orbs%crefene(mo, 0:3, 2), orbs%crefchg(mo, 0:3, 2), orbs%crefnod(mo, 0:3, 2))
+      ALLOCATE (orbs%crefene(mo, 0:lmat, 2), orbs%crefchg(mo, 0:lmat, 2), orbs%crefnod(mo, 0:lmat, 2))
       orbs%crefene = 0._dp
       orbs%crefchg = 0._dp
       orbs%crefnod = 0._dp
-      ALLOCATE (orbs%rcmax(mo, 0:3, 2))
+      ALLOCATE (orbs%rcmax(mo, 0:lmat, 2))
       orbs%rcmax = 0._dp
       ALLOCATE (orbs%wpsir0(mo, 2), orbs%tpsir0(mo, 2))
       orbs%wpsir0 = 0._dp
       orbs%tpsir0 = 0._dp
-      ALLOCATE (orbs%reftype(mo, 0:3, 2))
+      ALLOCATE (orbs%reftype(mo, 0:lmat, 2))
       orbs%reftype = "XX"
 
    END SUBROUTINE create_atom_orbs
@@ -1089,23 +1065,30 @@ CONTAINS
 !> \brief ...
 !> \param opmat ...
 !> \param n ...
+!> \param lmax ...
 ! **************************************************************************************************
-   SUBROUTINE create_opmat(opmat, n)
+   SUBROUTINE create_opmat(opmat, n, lmax)
       TYPE(opmat_type), POINTER                          :: opmat
-      INTEGER, DIMENSION(0:3), INTENT(IN)                :: n
+      INTEGER, DIMENSION(0:lmat), INTENT(IN)             :: n
+      INTEGER, INTENT(IN), OPTIONAL                      :: lmax
 
       CHARACTER(len=*), PARAMETER :: routineN = 'create_opmat', routineP = moduleN//':'//routineN
 
-      INTEGER                                            :: m
+      INTEGER                                            :: lm, m
 
       m = MAXVAL(n)
+      IF (PRESENT(lmax)) THEN
+         lm = lmax
+      ELSE
+         lm = lmat
+      END IF
 
       CPASSERT(.NOT. ASSOCIATED(opmat))
 
       ALLOCATE (opmat)
 
       opmat%n = n
-      ALLOCATE (opmat%op(m, m, 0:3))
+      ALLOCATE (opmat%op(m, m, 0:lm))
       opmat%op = 0._dp
 
    END SUBROUTINE create_opmat
@@ -1183,7 +1166,7 @@ CONTAINS
    SUBROUTINE Clementi_geobas(zval, cval, aval, ngto, ival)
       INTEGER, INTENT(IN)                                :: zval
       REAL(dp), INTENT(OUT)                              :: cval, aval
-      INTEGER, DIMENSION(0:3), INTENT(OUT)               :: ngto, ival
+      INTEGER, DIMENSION(0:lmat), INTENT(OUT)            :: ngto, ival
 
       CHARACTER(len=*), PARAMETER :: routineN = 'Clementi_geobas', &
          routineP = moduleN//':'//routineN
@@ -1918,7 +1901,7 @@ CONTAINS
          ival(1) = 0
          ival(2) = 3
          ival(3) = 6
-      CASE (87:106) ! these numbers are a educated guess
+      CASE (87:106) ! these numbers are an educated guess
          cval = 1.98000000_dp
          aval = 0.01400000_dp
          ngto(0) = 34
@@ -2093,23 +2076,23 @@ CONTAINS
       basis%nprim = 0
       basis%nbas = 0
       DO i = 1, nset
-         DO j = lmin(i), MIN(lmax(i), 3)
+         DO j = lmin(i), MIN(lmax(i), lmat)
             basis%nprim(j) = basis%nprim(j)+npgf(i)
          END DO
          DO j = 1, nshell(i)
             k = l(j, i)
-            IF (k <= 3) basis%nbas(k) = basis%nbas(k)+1
+            IF (k <= lmat) basis%nbas(k) = basis%nbas(k)+1
          END DO
       END DO
 
       nj = MAXVAL(basis%nprim)
       ns = MAXVAL(basis%nbas)
-      ALLOCATE (basis%am(nj, 0:3))
+      ALLOCATE (basis%am(nj, 0:lmat))
       basis%am = 0._dp
-      ALLOCATE (basis%cm(nj, ns, 0:3))
+      ALLOCATE (basis%cm(nj, ns, 0:lmat))
       basis%cm = 0._dp
 
-      DO j = 0, 3
+      DO j = 0, lmat
          nj = 0
          ns = 0
          DO i = 1, nset
@@ -2131,7 +2114,7 @@ CONTAINS
       END DO
 
       ! Normalization
-      DO j = 0, 3
+      DO j = 0, lmat
          expzet = 0.25_dp*REAL(2*j+3, dp)
          prefac = SQRT(SQRT(pi)/2._dp**(j+2)*dfac(2*j+1))
          DO ipgf = 1, basis%nprim(j)
@@ -2317,7 +2300,7 @@ CONTAINS
       CHARACTER(LEN=LEN(pseudo_name)+2)                  :: apname2
       INTEGER                                            :: i, ic, ipot, j, l, nlmax, strlen1, &
                                                             strlen2
-      INTEGER, DIMENSION(0:4)                            :: elec_conf
+      INTEGER, DIMENSION(0:lmat)                         :: elec_conf
       LOGICAL                                            :: found, is_ok, match, read_from_input
       TYPE(cp_parser_type), POINTER                      :: parser
       TYPE(cp_sll_val_type), POINTER                     :: list
@@ -2363,7 +2346,7 @@ CONTAINS
             READ (line_att, *) elec_conf(l)
             CALL remove_word(line_att)
          END DO
-         potential%econf(0:3) = elec_conf(0:3)
+         potential%econf(0:lmat) = elec_conf(0:lmat)
          potential%zion = REAL(SUM(elec_conf), dp)
          ! Read r(loc) to define the exponent of the core charge
          is_ok = cp_sll_val_next(list, val)
@@ -2503,7 +2486,7 @@ CONTAINS
                      l = l+1
                      CALL parser_get_object(parser, elec_conf(l))
                   END DO
-                  potential%econf(0:3) = elec_conf(0:3)
+                  potential%econf(0:lmat) = elec_conf(0:lmat)
                   potential%zion = REAL(SUM(elec_conf), dp)
                   ! Read r(loc) to define the exponent of the core charge
                   CALL parser_get_object(parser, potential%rc, newline=.TRUE.)
