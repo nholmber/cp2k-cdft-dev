@@ -1377,6 +1377,7 @@ CONTAINS
          ! Calculate MO overlaps between reference state (R) and CDFT state pairs I/J
          ALLOCATE (coupling_wfn(npermutations))
          ALLOCATE (overlaps(2, npermutations, nspins))
+         overlaps = 0.0_dp
          DO ispin = 1, nspins
             ! Allocate work
             nao = nrow_mo(ispin)
@@ -1392,7 +1393,6 @@ CONTAINS
                               matrix_struct=mixed_mo_coeff(1, ispin)%matrix%matrix_struct, &
                               name="OVERLAP_MO_COEFF_WFN")
             DO ipermutation = 1, npermutations
-               overlaps = 0.0_dp
                CALL map_permutation_to_states(nforce_eval, ipermutation, istate, jstate)
                ! S*C_r
                CALL cp_dbcsr_sm_fm_multiply(mixed_matrix_s, mo_set(ispin)%mo_set%mo_coeff, &
@@ -1574,7 +1574,7 @@ CONTAINS
             CALL map_permutation_to_states(nforce_eval, ipermutation, istate, jstate)
             WRITE (iounit, '(/,T3,A)') REPEAT('#', 44)
             WRITE (iounit, '(T3,A,I3,A,I3,A)') '###### CDFT states I =', istate, ' and J = ', jstate, ' ######'
-            WRITE (iounit, '(T3,A)') REPEAT('#', 44)   
+            WRITE (iounit, '(T3,A)') REPEAT('#', 44)
             DO ivar = 1, nvar
                IF (ivar > 1) &
                   WRITE (iounit, '(A)') ''
