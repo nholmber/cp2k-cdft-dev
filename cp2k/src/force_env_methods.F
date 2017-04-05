@@ -1046,9 +1046,9 @@ CONTAINS
          mixed_energy%pot = lambda*energies(istate(1))+(1.0_dp-lambda)*energies(istate(2))
          ! General Mapping of forces...
          CALL mixed_map_forces(particles_mix, virial_mix, results_mix, global_forces, virials, results, &
-                               der_1, istate(1), nforce_eval, map_index, mapping_section, .TRUE.)
+                               lambda, istate(1), nforce_eval, map_index, mapping_section, .TRUE.)
          CALL mixed_map_forces(particles_mix, virial_mix, results_mix, global_forces, virials, results, &
-                               der_2, istate(2), nforce_eval, map_index, mapping_section, .FALSE.)
+                               (1.0_dp-lambda), istate(2), nforce_eval, map_index, mapping_section, .FALSE.)
       CASE DEFAULT
          CPABORT("")
       END SELECT
