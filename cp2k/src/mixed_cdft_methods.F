@@ -39,13 +39,9 @@ MODULE mixed_cdft_methods
    USE cp_subsys_types,                 ONLY: cp_subsys_get,&
                                               cp_subsys_type
    USE cp_units,                        ONLY: cp_unit_from_cp2k
-   USE dbcsr_api,                       ONLY: dbcsr_add,&
-                                              dbcsr_create,&
-                                              dbcsr_p_type,&
-                                              dbcsr_release,&
-                                              dbcsr_release_p,&
-                                              dbcsr_scale,&
-                                              dbcsr_type
+   USE dbcsr_api,                       ONLY: &
+        dbcsr_add, dbcsr_copy, dbcsr_create, dbcsr_init_p, dbcsr_p_type, dbcsr_release, &
+        dbcsr_release_p, dbcsr_scale, dbcsr_type
    USE force_env_types,                 ONLY: force_env_get,&
                                               force_env_type,&
                                               use_qmmm,&
@@ -64,6 +60,7 @@ MODULE mixed_cdft_methods
                                               dp,&
                                               int_8
    USE machine,                         ONLY: m_walltime
+   USE mathconstants,                   ONLY: fac
    USE mathlib,                         ONLY: diamat_all
    USE memory_utilities,                ONLY: reallocate
    USE message_passing,                 ONLY: mp_bcast,&
@@ -78,6 +75,7 @@ MODULE mixed_cdft_methods
                                               mixed_cdft_type,&
                                               mixed_cdft_type_create
    USE mixed_cdft_utils,                ONLY: hfun_zero,&
+                                              map_permutation_to_states,&
                                               mixed_cdft_init_structures,&
                                               mixed_cdft_parse_settings,&
                                               mixed_cdft_redistribute_arrays,&
@@ -184,11 +182,14 @@ CONTAINS
          mixed_env%do_mixed_cdft = .TRUE.
          IF (mixed_env%do_mixed_cdft) THEN
             ! Enforce some limitations
+            IF (nforce_eval .LT. 2) &
+               CALL cp_abort(__LOCATION__, &
+                             "Mixed CDFT calculation requires at least 2 force_evals")
             IF (mixed_env%ngroups == 2) THEN
                is_parallel = .TRUE.
                IF (.NOT. nforce_eval == 2) &
                   CALL cp_abort(__LOCATION__, &
-                               "Parallel mode mixed CDFT calculation requires supports only 2 force_evals")
+                                "Parallel mode mixed CDFT calculation requires supports only 2 force_evals")
             ELSE IF (mixed_env%ngroups == 1) THEN
                is_parallel = .FALSE.
             ELSE
@@ -834,7 +835,8 @@ CONTAINS
       CHARACTER(len=*), PARAMETER :: routineN = 'mixed_cdft_transfer_weight', &
          routineP = moduleN//':'//routineN
 
-      INTEGER                                            :: bounds_of(8), handle, iatom, igroup, jforce_eval
+      INTEGER                                            :: bounds_of(8), handle, iatom, igroup, &
+                                                            jforce_eval
       TYPE(dft_control_type), POINTER                    :: dft_control_source, dft_control_target
       TYPE(force_env_type), POINTER                      :: force_env_qs_source, force_env_qs_target
       TYPE(mixed_cdft_type), POINTER                     :: mixed_cdft
@@ -855,7 +857,7 @@ CONTAINS
       ELSE
          jforce_eval = iforce_eval-1
       END IF
-      SELECT CASE (force_env%sub_force_env(jforce_eval)%force_env%in_use)
+      SELECT CASE (force_env%sub_force_env (jforce_eval)%force_env%in_use)
       CASE (use_qs_force, use_qmmm)
          force_env_qs_source => force_env%sub_force_env(jforce_eval)%force_env
          force_env_qs_target => force_env%sub_force_env(iforce_eval)%force_env
@@ -1008,31 +1010,33 @@ CONTAINS
          routineP = moduleN//':'//routineN
 
       CHARACTER(LEN=default_path_length)                 :: file_name
-      INTEGER :: handle, iforce_eval, info, iounit, ispin, istate, ivar, j, jstate, k, nao, &
-         ncol_local, nforce_eval, nmo, nrow_local, nspins, nvar, work_array_size, npermutations, ipermutation
+      INTEGER :: check_ao(2), check_mo(2), handle, iforce_eval, info, iounit, ipermutation, ispin, &
+         istate, ivar, j, jstate, k, nao, ncol_local, nforce_eval, nmo, npermutations, nrow_local, &
+         nspins, nvar, work_array_size
       INTEGER, ALLOCATABLE, DIMENSION(:)                 :: ncol_mo, nrow_mo
       LOGICAL                                            :: exist, natom_mismatch, use_lowdin, &
                                                             use_rotation
-      REAL(KIND=dp)                                      :: coupling_lowdin, coupling_rotation, &
-                                                            coupling_wfn, energy_a, energy_b, &
-                                                            maxocc, Sda, sum_a(2), sum_b(2), check_mo(2), check_ao(2)
-      REAL(KIND=dp), ALLOCATABLE, DIMENSION(:)           :: evals, metric, S_det, strength_a, &
-                                                            strength_b, Waa, Wbb, Wda, work, c, eigenv
-      REAL(KIND=dp), ALLOCATABLE, DIMENSION(:, :)        :: H_mat, H_mat_copy, overlaps, S_mat, S_mat_copy, &
-                                                            tmp_mat, W_mat
-      REAL(KIND=dp), ALLOCATABLE, DIMENSION(:, :, :)     :: a, b
-      REAL(KIND=dp), EXTERNAL                            :: dnrm2, dfac
+      REAL(KIND=dp)                                      :: maxocc, sum_a(2), sum_b(2), c(2)
+      REAL(KIND=dp), ALLOCATABLE, DIMENSION(:)           :: coupling_lowdin, coupling_rotation, &
+                                                            coupling_wfn, eigenv, energy, evals, &
+                                                            Sda, work
+      REAL(KIND=dp), ALLOCATABLE, DIMENSION(:, :)        :: H_mat, H_mat_copy, metric, S_det, S_mat, &
+                                                            S_mat_copy, strength, tmp_mat, &
+                                                            W_diagonal, W_mat, Wda
+      REAL(KIND=dp), ALLOCATABLE, DIMENSION(:, :, :)     :: a, b, overlaps
+      REAL(KIND=dp), EXTERNAL                            :: dnrm2
       TYPE(atomic_kind_type), DIMENSION(:), POINTER      :: atomic_kind_set
       TYPE(cp_blacs_env_type), POINTER                   :: blacs_env
       TYPE(cp_fm_p_type), DIMENSION(:), POINTER          :: mo_overlap
       TYPE(cp_fm_p_type), DIMENSION(:, :), POINTER       :: mixed_mo_coeff
       TYPE(cp_fm_p_type), DIMENSION(:, :, :), POINTER    :: w_matrix_mo
       TYPE(cp_fm_struct_type), POINTER                   :: fm_struct_mo, mo_mo_fmstruct
-      TYPE(cp_fm_type), POINTER                          :: inverse_mat, mo_overlap_wfn, &
-                                                            mo_tmp, Tinverse, tmp2
+      TYPE(cp_fm_type), POINTER                          :: inverse_mat, mo_overlap_wfn, mo_tmp, &
+                                                            Tinverse, tmp2
       TYPE(cp_logger_type), POINTER                      :: logger
       TYPE(cp_subsys_type), POINTER                      :: subsys_mix
-      TYPE(dbcsr_p_type), DIMENSION(:, :), POINTER       :: density_matrix, w_matrix
+      TYPE(dbcsr_p_type), DIMENSION(:, :), POINTER       :: density_matrix, density_matrix_diff, &
+                                                            w_matrix
       TYPE(dbcsr_type)                                   :: e_vectors
       TYPE(dbcsr_type), POINTER                          :: mixed_matrix_s
       TYPE(dft_control_type), POINTER                    :: dft_control
@@ -1040,18 +1044,19 @@ CONTAINS
       TYPE(mixed_environment_type), POINTER              :: mixed_env
       TYPE(mo_set_p_type), DIMENSION(:), POINTER         :: mo_set
       TYPE(particle_type), DIMENSION(:), POINTER         :: particle_set
-      TYPE(qs_energy_type), POINTER                      :: energy
+      TYPE(qs_energy_type), POINTER                      :: energy_qs
       TYPE(qs_environment_type), POINTER                 :: qs_env
       TYPE(qs_kind_type), DIMENSION(:), POINTER          :: qs_kind_set
-      TYPE(section_vals_type), POINTER                   :: force_env_section, linear_section, &
+      TYPE(section_vals_type), POINTER                   :: force_env_section, mixed_cdft_section, &
                                                             print_section
+
       EXTERNAL                                           :: dsygv
 
-      NULLIFY (subsys_mix, force_env_section, print_section, linear_section, &
-               mixed_env, mixed_cdft, qs_env, dft_control, fm_struct_mo, &
+      NULLIFY (subsys_mix, force_env_section, print_section, mixed_cdft_section, &
+               mixed_env, mixed_cdft, qs_env, dft_control, fm_struct_mo, density_matrix_diff, &
                mo_mo_fmstruct, inverse_mat, mo_overlap, Tinverse, tmp2, mo_overlap_wfn, &
                w_matrix_mo, mixed_mo_coeff, mixed_matrix_s, density_matrix, blacs_env, &
-               energy, mo_set, particle_set, qs_kind_set, atomic_kind_set, w_matrix)
+               energy_qs, mo_set, particle_set, qs_kind_set, atomic_kind_set, w_matrix)
       logger => cp_get_default_logger()
       CPASSERT(ASSOCIATED(force_env))
       CALL timeset(routineN, handle)
@@ -1085,12 +1090,11 @@ CONTAINS
       a = 0.0_dp
       b = 0.0_dp
       ALLOCATE (nrow_mo(nspins), ncol_mo(nspins))
-      ALLOCATE (Wda(nforce_eval, nvar))
       ! Check that the number of MOs/AOs is equal in every CDFT state
       DO ispin = 1, nspins
-         CALL cp_fm_get_info(1, ispin)%matrix, ncol_global=check_mo(1), nrow_global=check_ao(1))
+         CALL cp_fm_get_info(mixed_mo_coeff(1, ispin)%matrix, ncol_global=check_mo(1), nrow_global=check_ao(1))
          DO iforce_eval = 2, nforce_eval
-            CALL cp_fm_get_info(j, ispin)%matrix, ncol_global=check_mo(2), nrow_global=check_ao(2))
+            CALL cp_fm_get_info(mixed_mo_coeff(iforce_eval, ispin)%matrix, ncol_global=check_mo(2), nrow_global=check_ao(2))
             IF (check_ao(1) /= check_ao(2)) &
                CALL cp_abort(__LOCATION__, &
                              "The number of atomic orbitals must be the same in every CDFT state.")
@@ -1099,11 +1103,27 @@ CONTAINS
                              "The number of molecular orbitals must be the same in every CDFT state.")
          END DO
       END DO
-      npermutations = dfac(nforce_eval)
+      IF (nforce_eval-1 > 30) &
+         CALL cp_abort(__LOCATION__, &
+                       "Number of CDFT states exceeds hardcoded limit in factorial function.")
+      npermutations = INT(fac(nforce_eval-1))
       ALLOCATE (mo_overlap(npermutations), S_det(npermutations, nspins))
+      ALLOCATE (Wda(npermutations, nvar))
       DO istate = 1, npermutations
          NULLIFY (mo_overlap(istate)%matrix)
       END DO
+      IF (mixed_cdft%calculate_metric) THEN
+         ALLOCATE (density_matrix_diff(npermutations, nspins))
+         DO ispin = 1, nspins
+            DO ipermutation = 1, npermutations
+               NULLIFY (density_matrix_diff(ipermutation, ispin)%matrix)
+               CALL dbcsr_init_p(density_matrix_diff(ipermutation, ispin)%matrix)
+               CALL map_permutation_to_states(nforce_eval, ipermutation, istate, jstate)
+               CALL dbcsr_copy(density_matrix_diff(ipermutation, ispin)%matrix, &
+                               density_matrix(istate, ispin)%matrix, name="DENSITY_MATRIX")
+            END DO
+         END DO
+      END IF
       DO ispin = 1, nspins
          ! Create the MOxMO fm struct (mo_mo_fm_pools%struct)
          ! The number of MOs/AOs is equal to the number of columns/rows of mo_coeff(:,:)%matrix
@@ -1137,6 +1157,7 @@ CONTAINS
                                     name="W_"//TRIM(ADJUSTL(cp_to_string(istate)))//"_"// &
                                     TRIM(ADJUSTL(cp_to_string(jstate)))//"_"// &
                                     TRIM(ADJUSTL(cp_to_string(ivar)))//"_MATRIX")
+               END DO
             END DO
          END DO
          CALL cp_fm_struct_release(mo_mo_fmstruct)
@@ -1144,7 +1165,7 @@ CONTAINS
          ipermutation = 0
          DO istate = 1, nforce_eval
             DO jstate = istate+1, nforce_eval
-               ipermutation = ipermutation + 1
+               ipermutation = ipermutation+1
                CALL cp_dbcsr_sm_fm_multiply(mixed_matrix_s, mixed_mo_coeff(istate, ispin)%matrix, &
                                             tmp2, nmo, 1.0_dp, 0.0_dp)
                CALL cp_gemm('T', 'N', nmo, nmo, nao, 1.0_dp, &
@@ -1154,8 +1175,8 @@ CONTAINS
          END DO
          ! calculate the MO-representations of the restraint matrices of all CDFT states
          DO ivar = 1, nvar
-            DO istate = 1, nforce_eval
-               DO jstate = 1, nforce_eval
+            DO jstate = 1, nforce_eval
+               DO istate = 1, nforce_eval
                   IF (istate == jstate) CYCLE
                   ! State i: (C_j)^T W_i C_i
                   CALL cp_dbcsr_sm_fm_multiply(w_matrix(istate, ivar)%matrix, &
@@ -1169,27 +1190,27 @@ CONTAINS
          END DO
          DO ipermutation = 1, npermutations
             ! Invert and calculate determinant of MO overlaps
-            CALL map_permutation_to_states(nforce_eval, iforce_eval, istate, jstate)
-            CALL cp_fm_invert(mo_overlap(ipermutation), inverse_mat, S_det(ipermutation, ispin), eps_svd=mixed_cdft%eps_svd)
+            CALL map_permutation_to_states(nforce_eval, ipermutation, istate, jstate)
+            CALL cp_fm_invert(mo_overlap(ipermutation)%matrix, inverse_mat, &
+                              S_det(ipermutation, ispin), eps_svd=mixed_cdft%eps_svd)
             CALL cp_fm_get_info(inverse_mat, nrow_local=nrow_local, ncol_local=ncol_local)
             ! Calculate <Psi_i | w_ivar(r) | Psi_j>
             DO j = 1, ncol_local
                DO k = 1, nrow_local
                   DO ivar = 1, nvar
                      b(ispin, ivar, ipermutation) = b(ispin, ivar, ipermutation)+ &
-                                                      w_matrix_mo(jstate, istate, ivar)%matrix%local_data(k, j)*&
-                                                      inverse_mat%local_data(k, j)
+                                                    w_matrix_mo(jstate, istate, ivar)%matrix%local_data(k, j)* &
+                                                    inverse_mat%local_data(k, j)
                   END DO
                END DO
             END DO
-            !
             CALL cp_fm_transpose(inverse_mat, Tinverse)
             DO j = 1, ncol_local
                DO k = 1, nrow_local
                   DO ivar = 1, nvar
-                     a(ispin, ivar, ipermutation) = a(ispin, ivar, ipermutation)+&
-                                                      w_matrix_mo(istate, jstate, ivar)%matrix%local_data(k, j)*&
-                                                      Tinverse%local_data(k, j)
+                     a(ispin, ivar, ipermutation) = a(ispin, ivar, ipermutation)+ &
+                                                    w_matrix_mo(istate, jstate, ivar)%matrix%local_data(k, j)* &
+                                                    Tinverse%local_data(k, j)
                   END DO
                END DO
             END DO
@@ -1201,11 +1222,10 @@ CONTAINS
                   END IF
                END DO
             END IF
-            ! Compute density matrix difference P = P_D - P_A
-            IF (mixed_cdft%calculate_metric) THEN
-               CALL dbcsr_add(density_matrix(1, ispin)%matrix, density_matrix(2, ispin)%matrix, -1.0_dp, 1.0_dp)
-               CALL dbcsr_release_p(density_matrix(2, ispin)%matrix)
-            END IF
+            ! Compute density matrix difference P = P_j - P_i
+            IF (mixed_cdft%calculate_metric) &
+               CALL dbcsr_add(density_matrix_diff(ipermutation, ispin)%matrix, &
+                              density_matrix(jstate, ispin)%matrix, -1.0_dp, 1.0_dp)
             !
             CALL mp_sum(a(ispin, :, ipermutation), force_env%para_env%group)
             CALL mp_sum(b(ispin, :, ipermutation), force_env%para_env%group)
@@ -1213,32 +1233,46 @@ CONTAINS
          ! Release work
          CALL cp_fm_release(tmp2)
          DO ivar = 1, nvar
-            DO istate = 1, 2
-               CALL cp_fm_release(w_matrix_mo(istate, ivar)%matrix)
+            DO jstate = 1, nforce_eval
+               DO istate = 1, nforce_eval
+                  IF (istate == jstate) CYCLE
+                  CALL cp_fm_release(w_matrix_mo(istate, jstate, ivar)%matrix)
+               END DO
             END DO
          END DO
-         CALL cp_fm_release(mo_overlap)
+         IF (mixed_cdft%calculate_metric) THEN
+            DO istate = 1, nforce_eval
+               CALL dbcsr_release_p(density_matrix(istate, ispin)%matrix)
+            END DO
+         END IF
+         DO ipermutation = 1, npermutations
+            CALL cp_fm_release(mo_overlap(ipermutation)%matrix)
+         END DO
          CALL cp_fm_release(Tinverse)
          CALL cp_fm_release(inverse_mat)
       END DO
+      DEALLOCATE (mo_overlap)
+      IF (mixed_cdft%calculate_metric) &
+         DEALLOCATE (density_matrix)
       ! solve eigenstates for the projector matrix
-      IF (nspins == 2) THEN
-         Sda = ABS(S_det(1)*S_det(2)) ! The sign might be wrong on some processors (used to be?)
+      ALLOCATE(Sda(npermutations))
+      DO ipermutation = 1, npermutations
+         IF (nspins == 2) THEN
+            Sda(ipermutation) = ABS(S_det(ipermutation, 1)*S_det(ipermutation, 2)) ! The sign might be wrong on some processors (used to be?)
+         ELSE
+            Sda(ipermutation) = S_det(ipermutation, 2)**2
+         END IF
          DO ivar = 1, nvar
-            Wda(ivar) = (SUM(a(:, ivar))+SUM(b(:, ivar)))*Sda/2.0_dp
+            Wda(ivar, ipermutation) = (SUM(a(:, ivar, ipermutation))+SUM(b(:, ivar, ipermutation)))*Sda(ipermutation)/2.0_dp
          END DO
-      ELSE
-         Sda = S_det(1)**2
-         Wda(1) = (a(1, 1)+b(1, 1))*Sda
-      END IF
+      END DO
       ! Transfer info about the constraint calculations
-      ALLOCATE (Waa(nvar), Wbb(nvar), strength_a(nvar), strength_b(nvar))
-      Waa(:) = 0.0_dp
-      Wbb(:) = 0.0_dp
-      strength_a(:) = mixed_env%strength(1, :)
-      strength_b(:) = mixed_env%strength(2, :)
-      energy_a = 0.0_dp
-      energy_b = 0.0_dp
+      ALLOCATE (W_diagonal(nvar, nforce_eval), strength(nvar, nforce_eval), energy(nforce_eval))
+      W_diagonal = 0.0_dp
+      DO iforce_eval = 1, nforce_eval
+         strength(:, iforce_eval) = mixed_env%strength(iforce_eval, :)
+      END DO
+      energy = 0.0_dp
       DO iforce_eval = 1, nforce_eval
          IF (.NOT. ASSOCIATED(force_env%sub_force_env(iforce_eval)%force_env)) CYCLE
          IF (force_env%mixed_env%do_mixed_qmmm_cdft) THEN
@@ -1246,42 +1280,39 @@ CONTAINS
          ELSE
             CALL force_env_get(force_env%sub_force_env(iforce_eval)%force_env, qs_env=qs_env)
          END IF
-         CALL get_qs_env(qs_env, energy=energy, dft_control=dft_control)
+         CALL get_qs_env(qs_env, energy=energy_qs, dft_control=dft_control)
          IF (force_env%sub_force_env(iforce_eval)%force_env%para_env%mepos == &
              force_env%sub_force_env(iforce_eval)%force_env%para_env%source) THEN
-            IF (iforce_eval == 1) THEN
-               Waa(:) = dft_control%qs_control%cdft_control%value(:)
-               energy_a = energy%total
-            ELSE
-               Wbb(:) = dft_control%qs_control%cdft_control%value(:)
-               energy_b = energy%total
-            END IF
+            W_diagonal(:, iforce_eval) = dft_control%qs_control%cdft_control%value(:)
+            energy(iforce_eval) = energy_qs%total
          END IF
       END DO
-      CALL mp_sum(Waa, force_env%para_env%group)
-      CALL mp_sum(Wbb, force_env%para_env%group)
-      CALL mp_sum(energy_a, force_env%para_env%group)
-      CALL mp_sum(energy_b, force_env%para_env%group)
+      CALL mp_sum(W_diagonal, force_env%para_env%group)
+      CALL mp_sum(energy, force_env%para_env%group)
       ! Compute metric to assess reliability of coupling
       IF (mixed_cdft%calculate_metric) THEN
-         ALLOCATE (metric(nspins))
+         ALLOCATE (metric(npermutations, nspins))
          metric = 0.0_dp
-         CALL dbcsr_create(e_vectors, template=density_matrix(1, 1)%matrix)
-         ! Take into account doubly occupied orbitals without LSD
-         IF (nspins == 1) CALL dbcsr_scale(density_matrix(1, 1)%matrix, alpha_scalar=0.5_dp)
+         CALL dbcsr_create(e_vectors, template=density_matrix_diff(1, 1)%matrix)
          DO ispin = 1, nspins
             ALLOCATE (evals(ncol_mo(ispin)))
-            CALL cp_dbcsr_syevd(density_matrix(1, ispin)%matrix, e_vectors, evals, &
-                                para_env=force_env%para_env, blacs_env=mixed_cdft%blacs_env)
-            CALL dbcsr_release_p(density_matrix(1, ispin)%matrix)
-            DO j = 1, ncol_mo(ispin)
-               metric(ispin) = metric(ispin)+(evals(j)**2-evals(j)**4)
+            DO ipermutation = 1, npermutations
+               ! Take into account doubly occupied orbitals without LSD
+               IF (nspins == 1) &
+                  CALL dbcsr_scale(density_matrix(ipermutation, 1)%matrix, alpha_scalar=0.5_dp)
+               ! Diagonalize difference density matrix
+               CALL cp_dbcsr_syevd(density_matrix_diff(ipermutation, ispin)%matrix, e_vectors, evals, &
+                                   para_env=force_env%para_env, blacs_env=mixed_cdft%blacs_env)
+               CALL dbcsr_release_p(density_matrix_diff(ipermutation, ispin)%matrix)
+               DO j = 1, ncol_mo(ispin)
+                  metric(ipermutation, ispin) = metric(ipermutation, ispin)+(evals(j)**2-evals(j)**4)
+               END DO
             END DO
             DEALLOCATE (evals)
          END DO
          CALL dbcsr_release(e_vectors)
-         DEALLOCATE (density_matrix)
-         metric(:) = metric(:)/4.0_dp
+         DEALLOCATE (density_matrix_diff)
+         metric(:, :) = metric(:, :)/4.0_dp
       END IF
       ! Compute coupling also with the wavefunction overlap method, see Migliore2009
       ! Requires the unconstrained KS ground state wavefunction as input
@@ -1314,11 +1345,11 @@ CONTAINS
             CALL cp_abort(__LOCATION__, &
                           "QMMM + wavefunction overlap method not supported.")
          CALL force_env_get(force_env=force_env, subsys=subsys_mix)
-         linear_section => section_vals_get_subs_vals(force_env_section, "MIXED%LINEAR")
+         mixed_cdft_section => section_vals_get_subs_vals(force_env_section, "MIXED%MIXED_CDFT")
          CALL cp_subsys_get(subsys_mix, atomic_kind_set=atomic_kind_set, particle_set=particle_set)
          CPASSERT(ASSOCIATED(mixed_cdft%qs_kind_set))
          IF (force_env%para_env%ionode) &
-            CALL wfn_restart_file_name(file_name, exist, linear_section, logger)
+            CALL wfn_restart_file_name(file_name, exist, mixed_cdft_section, logger)
          CALL mp_bcast(exist, force_env%para_env%source, force_env%para_env%group)
          CALL mp_bcast(file_name, force_env%para_env%source, force_env%para_env%group)
          IF (.NOT. exist) &
@@ -1326,11 +1357,11 @@ CONTAINS
                           "User requested to restart the wavefunction from the file named: "// &
                           TRIM(file_name)//". This file does not exist. Please check the existence of"// &
                           " the file or change properly the value of the keyword WFN_RESTART_FILE_NAME in"// &
-                          " section FORCE_EVAL\MIXED\LINEAR.")
+                          " section FORCE_EVAL\MIXED\MIXED_CDFT.")
          CALL read_mo_set(mo_array=mo_set, atomic_kind_set=atomic_kind_set, &
                           qs_kind_set=mixed_cdft%qs_kind_set, particle_set=particle_set, &
                           para_env=force_env%para_env, id_nr=0, multiplicity=mixed_cdft%multiplicity, &
-                          dft_section=linear_section, natom_mismatch=natom_mismatch, &
+                          dft_section=mixed_cdft_section, natom_mismatch=natom_mismatch, &
                           cdft=.TRUE.)
          IF (natom_mismatch) &
             CALL cp_abort(__LOCATION__, &
@@ -1343,10 +1374,11 @@ CONTAINS
                CALL make_basis_sm(mo_set(ispin)%mo_set%mo_coeff, ncol_mo(ispin), mixed_matrix_s)
             END IF
          END DO
-         ! Calculate MO overlaps between reference state (R) and CDFT states A/D
-         ALLOCATE (overlaps(2, nspins))
-         overlaps = 0.0_dp
+         ! Calculate MO overlaps between reference state (R) and CDFT state pairs I/J
+         ALLOCATE (coupling_wfn(npermutations))
+         ALLOCATE (overlaps(2, npermutations, nspins))
          DO ispin = 1, nspins
+            ! Allocate work
             nao = nrow_mo(ispin)
             nmo = ncol_mo(ispin)
             CALL cp_fm_struct_create(mo_mo_fmstruct, nrow_global=nmo, ncol_global=nmo, &
@@ -1359,16 +1391,24 @@ CONTAINS
             CALL cp_fm_create(matrix=mo_tmp, &
                               matrix_struct=mixed_mo_coeff(1, ispin)%matrix%matrix_struct, &
                               name="OVERLAP_MO_COEFF_WFN")
-            ! S*C_r
-            CALL cp_dbcsr_sm_fm_multiply(mixed_matrix_s, mo_set(ispin)%mo_set%mo_coeff, &
-                                         mo_tmp, nmo, 1.0_dp, 0.0_dp)
-            DO istate = 1, 2
+            DO ipermutation = 1, npermutations
+               overlaps = 0.0_dp
+               CALL map_permutation_to_states(nforce_eval, ipermutation, istate, jstate)
+               ! S*C_r
+               CALL cp_dbcsr_sm_fm_multiply(mixed_matrix_s, mo_set(ispin)%mo_set%mo_coeff, &
+                                            mo_tmp, nmo, 1.0_dp, 0.0_dp)
                ! C_i^T * (S*C_r)
                CALL cp_fm_set_all(mo_overlap_wfn, alpha=0.0_dp)
                CALL cp_gemm('T', 'N', nmo, nmo, nao, 1.0_dp, &
                             mixed_mo_coeff(istate, ispin)%matrix, &
                             mo_tmp, 0.0_dp, mo_overlap_wfn)
-               CALL cp_fm_invert(mo_overlap_wfn, inverse_mat, overlaps(istate, ispin), eps_svd=mixed_cdft%eps_svd)
+               CALL cp_fm_invert(mo_overlap_wfn, inverse_mat, overlaps(1, ipermutation, ispin), eps_svd=mixed_cdft%eps_svd)
+               ! C_j^T * (S*C_r)
+               CALL cp_fm_set_all(mo_overlap_wfn, alpha=0.0_dp)
+               CALL cp_gemm('T', 'N', nmo, nmo, nao, 1.0_dp, &
+                            mixed_mo_coeff(jstate, ispin)%matrix, &
+                            mo_tmp, 0.0_dp, mo_overlap_wfn)
+               CALL cp_fm_invert(mo_overlap_wfn, inverse_mat, overlaps(2, ipermutation, ispin), eps_svd=mixed_cdft%eps_svd)
             END DO
             CALL cp_fm_release(mo_overlap_wfn)
             CALL cp_fm_release(inverse_mat)
@@ -1376,28 +1416,34 @@ CONTAINS
             CALL deallocate_mo_set(mo_set(ispin)%mo_set)
          END DO
          DEALLOCATE (mo_set)
-         IF (nspins == 2) THEN
-            overlaps(1, 1) = ABS(overlaps(1, 1)*overlaps(1, 2)) ! A in eq. 12c
-            overlaps(2, 1) = ABS(overlaps(2, 1)*overlaps(2, 2)) ! B in eq. 12c
-         ELSE
-            overlaps(1, 1) = overlaps(1, 1)**2
-            overlaps(2, 1) = overlaps(2, 1)**2
-         END IF
-         ! Calculate coupling using eq. 12c
-         coupling_wfn = ABS((overlaps(1, 1)*overlaps(2, 1)/(overlaps(1, 1)**2-overlaps(2, 1)**2))* &
-                            (energy_b-energy_a)/(1.0_dp-Sda**2)* &
-                            (1.0_dp-(overlaps(1, 1)**2+overlaps(2, 1)**2)/(2.0_dp*overlaps(1, 1)*overlaps(2, 1))*Sda))
+         DO ipermutation = 1, npermutations
+            CALL map_permutation_to_states(nforce_eval, ipermutation, istate, jstate)
+            IF (nspins == 2) THEN
+               overlaps(1, ipermutation, 1) = ABS(overlaps(1, ipermutation, 1)*overlaps(1, ipermutation, 2)) ! A in eq. 12c
+               overlaps(2, ipermutation, 1) = ABS(overlaps(2, ipermutation, 1)*overlaps(2, ipermutation, 2)) ! B in eq. 12c
+            ELSE
+               overlaps(1, ipermutation, 1) = overlaps(1, ipermutation, 1)**2
+               overlaps(2, ipermutation, 1) = overlaps(2, ipermutation, 1)**2
+            END IF
+            ! Calculate coupling using eq. 12c
+            coupling_wfn(ipermutation) = ABS((overlaps(1, ipermutation, 1)*overlaps(2, ipermutation, 1)/ &
+                                              (overlaps(1, ipermutation, 1)**2-overlaps(2, ipermutation, 1)**2))* &
+                                             (energy(jstate)-energy(istate))/(1.0_dp-Sda(ipermutation)**2)* &
+                                             (1.0_dp-(overlaps(1, ipermutation, 1)**2+overlaps(2, ipermutation, 1)**2)/ &
+                                              (2.0_dp*overlaps(1, ipermutation, 1)*overlaps(2, ipermutation, 1))* &
+                                              Sda(ipermutation)))
+         END DO
          DEALLOCATE (overlaps)
       END IF
       ! Release remaining work
       DEALLOCATE (nrow_mo, ncol_mo)
-      DO iforce_eval = 1, nforce_eval
-         DO ispin = 1, nspins
+      DO ispin = 1, nspins
+         DO iforce_eval = 1, nforce_eval
             CALL cp_fm_release(mixed_mo_coeff(iforce_eval, ispin)%matrix)
          END DO
       END DO
       DO ivar = 1, nvar
-         DO istate = 1, 2
+         DO istate = 1, nforce_eval
             CALL dbcsr_release_p(w_matrix(istate, ivar)%matrix)
          END DO
       END DO
@@ -1405,75 +1451,103 @@ CONTAINS
       CALL dbcsr_release_p(mixed_matrix_s)
       DEALLOCATE (mixed_mo_coeff, w_matrix_mo)
       ! Construct S
-      S_mat(1, 1) = 1.0_dp
-      S_mat(2, 2) = 1.0_dp
-      S_mat(2, 1) = Sda
-      S_mat(1, 2) = Sda
-      ! Invert S via eigendecomposition and compute S^-(1/2)
-      CALL diamat_all(S_mat, eigenv, .TRUE.)
-      IF (eigenv(1) .LT. 1.0e-14_dp) eigenv(1) = 1.0e-14_dp ! Safeguard against division with 0 and negative numbers
-      IF (eigenv(2) .LT. 1.0e-14_dp) eigenv(2) = 1.0e-14_dp
-      tmp_mat = 0.0_dp
-      tmp_mat(1, 1) = 1.0_dp/SQRT(eigenv(1))
-      tmp_mat(2, 2) = 1.0_dp/SQRT(eigenv(2))
-      tmp_mat = MATMUL(tmp_mat, TRANSPOSE(S_mat))
-      S_mat = MATMUL(S_mat, tmp_mat) ! S^(-1/2)
-      ! Construct nonorthogonal diabatic Hamiltonian matrix H''
-      H_mat(1, 1) = energy_a
-      H_mat(2, 2) = energy_b
-      sum_a = 0.0_dp
-      sum_b = 0.0_dp
-      DO ivar = 1, nvar
-         sum_b(1) = sum_b(1)+strength_b(ivar)*Wbb(ivar)
-         sum_b(2) = sum_b(2)+strength_b(ivar)*Wda(ivar)
-         sum_a(1) = sum_a(1)+strength_a(ivar)*Waa(ivar)
-         sum_a(2) = sum_a(2)+strength_a(ivar)*Wda(ivar)
+      ALLOCATE (S_mat(nforce_eval, nforce_eval))
+      DO istate = 1, nforce_eval
+         S_mat(istate, istate) = 1.0_dp
       END DO
-      c(1) = (energy_b+sum_b(1))*Sda-sum_b(2) ! H_BA = F_A*S_BA - V_A * W_BA
-      c(2) = (energy_a+sum_a(1))*Sda-sum_a(2) ! H_AB = F_B*S_AB - V_B * W_AB
-      H_mat(1, 2) = (c(1)+c(2))*0.5_dp ! H''(1,2) = 0.5*(H_AB+H_BA) = H''(2,1)
-      H_mat(2, 1) = H_mat(1, 2)
+      DO ipermutation = 1, npermutations
+         CALL map_permutation_to_states(nforce_eval, ipermutation, istate, jstate)
+         S_mat(istate, jstate) = Sda(ipermutation)
+         S_mat(jstate, istate) = Sda(ipermutation)
+      END DO
+      ! Invert S via eigendecomposition and compute S^-(1/2)
+      ALLOCATE (eigenv(nforce_eval), tmp_mat(nforce_eval, nforce_eval))
+      CALL diamat_all(S_mat, eigenv, .TRUE.)
+      tmp_mat = 0.0_dp
+      DO istate = 1, nforce_eval
+         IF (eigenv(istate) .LT. 1.0e-14_dp) eigenv(istate) = 1.0e-14_dp ! Safeguard against division with 0 and negative numbers
+         tmp_mat(istate, istate) = 1.0_dp/SQRT(eigenv(istate))
+      END DO
+      tmp_mat(:, :) = MATMUL(tmp_mat, TRANSPOSE(S_mat))
+      S_mat(:, :) = MATMUL(S_mat, tmp_mat) ! S^(-1/2)
+      ! Construct nonorthogonal diabatic Hamiltonian matrix H''
+      ALLOCATE (H_mat(nforce_eval, nforce_eval))
+      DO istate = 1, nforce_eval
+         H_mat(istate, istate) = energy(istate)
+      END DO
+      DO ipermutation = 1, npermutations
+         CALL map_permutation_to_states(nforce_eval, ipermutation, istate, jstate)
+         sum_a = 0.0_dp
+         sum_b = 0.0_dp
+         DO ivar = 1, nvar
+            sum_b(1) = sum_b(1)+strength(ivar, jstate)*W_diagonal(ivar, jstate)
+            sum_b(2) = sum_b(2)+strength(ivar, jstate)*Wda(ivar, ipermutation)
+            sum_a(1) = sum_a(1)+strength(ivar, istate)*W_diagonal(ivar, istate)
+            sum_a(2) = sum_a(2)+strength(ivar, istate)*Wda(ivar, ipermutation)
+         END DO
+         c(1) = (energy(jstate)+sum_b(1))*Sda(ipermutation)-sum_b(2) ! H_BA = F_A*S_BA - V_A * W_BA
+         c(2) = (energy(istate)+sum_a(1))*Sda(ipermutation)-sum_a(2) ! H_AB = F_B*S_AB - V_B * W_AB
+         H_mat(istate, jstate) = (c(1)+c(2))*0.5_dp ! H''(1,2) = 0.5*(H_AB+H_BA) = H''(2,1)
+         H_mat(jstate, istate) = H_mat(istate, jstate)
+      END DO
       ! Calculate coupling by rotating the CDFT states to eigenstates of the weight matrix W (single constraint only)
       IF (use_rotation) THEN
          ! Construct W
-         ! W_mat(i, i) = N_i where N_i is the value of the constraint in state i, i=1,2
-         W_mat(1, 1) = SUM(Waa)
-         W_mat(2, 2) = SUM(Wbb)
+         ALLOCATE (W_mat(nforce_eval, nforce_eval), coupling_rotation(npermutations))
+         ! W_mat(i, i) = N_i where N_i is the value of the constraint in state i
+         DO istate = 1, nforce_eval
+            W_mat(istate, istate) = SUM(W_diagonal(:, istate))
+         END DO
          ! W_mat(i, j) = <Psi_i|w(r)|Psi_j>
-         W_mat(1, 2) = SUM(Wda)
-         W_mat(2, 1) = SUM(Wda)
+         DO ipermutation = 1, npermutations
+            CALL map_permutation_to_states(nforce_eval, ipermutation, istate, jstate)
+            W_mat(istate, jstate) = SUM(Wda(:, ipermutation))
+            W_mat(jstate, istate) = W_mat(istate, jstate)
+         END DO
          ! Solve generalized eigenvalue equation WV = SVL
          ! Convert to standard eigenvalue problem via symmetric orthogonalisation
-         tmp_mat = MATMUL(W_mat, S_mat) ! W * S^(-1/2)
-         W_mat = MATMUL(S_mat, tmp_mat) ! W' = S^(-1/2) * W * S^(-1/2)
+         tmp_mat(:, :) = MATMUL(W_mat, S_mat) ! W * S^(-1/2)
+         W_mat(:, :) = MATMUL(S_mat, tmp_mat) ! W' = S^(-1/2) * W * S^(-1/2)
          CALL diamat_all(W_mat, eigenv, .TRUE.) ! Solve W'V' = AV'
-         tmp_mat = MATMUL(S_mat, W_mat) ! Reverse transformation V = S^(-1/2) V'
+         tmp_mat(:, :) = MATMUL(S_mat, W_mat) ! Reverse transformation V = S^(-1/2) V'
          ! Construct final, orthogonal diabatic Hamiltonian matrix H
-         W_mat = MATMUL(H_mat, tmp_mat) ! H'' * V
-         W_mat = MATMUL(TRANSPOSE(tmp_mat), W_mat) ! H = V^T * H'' * V
-         coupling_rotation = W_mat(1, 2)
+         W_mat(:, :) = MATMUL(H_mat, tmp_mat) ! H'' * V
+         W_mat(:, :) = MATMUL(TRANSPOSE(tmp_mat), W_mat) ! H = V^T * H'' * V
+         DO ipermutation = 1, npermutations
+            CALL map_permutation_to_states(nforce_eval, ipermutation, istate, jstate)
+            coupling_rotation(ipermutation) = W_mat(istate, jstate)
+         END DO
+         DEALLOCATE (W_mat)
       END IF
       ! Calculate coupling by Lowdin orthogonalization
       IF (use_lowdin) THEN
-         tmp_mat = MATMUL(H_mat, S_mat) ! H'' * S^(-1/2)
+         ALLOCATE (coupling_lowdin(npermutations))
+         tmp_mat(:, :) = MATMUL(H_mat, S_mat) ! H'' * S^(-1/2)
          ! Final orthogonal diabatic Hamiltonian matrix H
-         tmp_mat = MATMUL(S_mat, tmp_mat) ! H = S^(-1/2) * H'' * S^(-1/2)
-         coupling_lowdin = tmp_mat(1, 2)
+         tmp_mat(:, :) = MATMUL(S_mat, tmp_mat) ! H = S^(-1/2) * H'' * S^(-1/2)
+         DO ipermutation = 1, npermutations
+            CALL map_permutation_to_states(nforce_eval, ipermutation, istate, jstate)
+            coupling_lowdin = tmp_mat(istate, jstate)
+         END DO
       END IF
       ! CDFT Configuration Interaction
       IF (mixed_cdft%do_ci) THEN
          ! Reconstruct S
-         S_mat(1, 1) = 1.0_dp
-         S_mat(2, 2) = 1.0_dp
-         S_mat(2, 1) = Sda
-         S_mat(1, 2) = Sda
+         DO istate = 1, nforce_eval
+            S_mat(istate, istate) = 1.0_dp
+         END DO
+         DO ipermutation = 1, npermutations
+            CALL map_permutation_to_states(nforce_eval, ipermutation, istate, jstate)
+            S_mat(istate, jstate) = Sda(ipermutation)
+            S_mat(jstate, istate) = Sda(ipermutation)
+         END DO
          ! Workspace query
          ALLOCATE (work(1))
          info = 0
-         ALLOCATE (H_mat_copy(2, 2), S_mat_copy(2, 2))
+         ALLOCATE (H_mat_copy(nforce_eval, nforce_eval), S_mat_copy(nforce_eval, nforce_eval))
          H_mat_copy(:, :) = H_mat(:, :) ! Need explicit copies because dsygv destroys original values
          S_mat_copy(:, :) = S_mat(:, :)
-         CALL dsygv(1, 'V', 'U', 2, H_mat_copy, 2, S_mat_copy, 2, eigenv, work, -1, info)
+         CALL dsygv(1, 'V', 'U', nforce_eval, H_mat_copy, nforce_eval, S_mat_copy, nforce_eval, eigenv, work, -1, info)
          work_array_size = NINT(work(1))
          DEALLOCATE (H_mat_copy, S_mat_copy)
          ! Allocate work array
@@ -1482,12 +1556,12 @@ CONTAINS
          work = 0.0_dp
          ! Solve Hc = eSc
          info = 0
-         CALL dsygv(1, 'V', 'U', 2, H_mat, 2, S_mat, 2, eigenv, work, work_array_size, info)
+         CALL dsygv(1, 'V', 'U', nforce_eval, H_mat, nforce_eval, S_mat, nforce_eval, eigenv, work, work_array_size, info)
          IF (info /= 0) CPABORT("Diagonalization of H matrix failed.")
          ! dsygvs returns eigenvectors (stored in columns of H_mat) that are normalized to H^T * S * H = I
          ! Renormalize eigenvectors to H^T * H = I
-         DO ivar = 1, 2
-            H_mat(:, ivar) = H_mat(:, ivar)/dnrm2(2, H_mat(:, ivar), 1)
+         DO ivar = 1, nforce_eval
+            H_mat(:, ivar) = H_mat(:, ivar)/dnrm2(nforce_eval, H_mat(:, ivar), 1)
          END DO
          DEALLOCATE (work)
       END IF
@@ -1496,71 +1570,92 @@ CONTAINS
             '------------------------- CDFT coupling information --------------------------'
          WRITE (iounit, '(T3,A,T66,(3X,F12.2))') &
             'Information at step (fs):', mixed_cdft%sim_step*mixed_cdft%sim_dt
-         DO ivar = 1, nvar
-            IF (ivar > 1) &
-               WRITE (iounit, '(A)') ''
-            WRITE (iounit, '(T3,A,T60,(3X,I18))') 'Atomic group:', ivar
-            WRITE (iounit, '(T3,A,T60,(3X,F18.12))') 'Strength of constraint A:', strength_a(ivar)
-            WRITE (iounit, '(T3,A,T60,(3X,F18.12))') 'Strength of constraint B:', strength_b(ivar)
-            WRITE (iounit, '(T3,A,T60,(3X,F18.12))') 'Final value of constraint A:', Waa(ivar)
-            WRITE (iounit, '(T3,A,T60,(3X,F18.12))') 'Final value of constraint B:', Wbb(ivar)
-         END DO
-         WRITE (iounit, '(/,T3,A,T60,(3X,F18.12))') 'Overlap between states A and B:', Sda
-         WRITE (iounit, '(T3,A,T60,(3X,F18.12))') 'Charge transfer energy (B-A) (Hartree):', (energy_b-energy_a)
-         WRITE (iounit, *)
-         IF (use_rotation) THEN
-            IF (ABS(coupling_rotation)*1.0E3_dp .GE. 0.1_dp) THEN
-               WRITE (iounit, '(T3,A,T60,(3X,F18.12))') &
-                  'Diabatic electronic coupling (rotation, mHartree):', ABS(coupling_rotation*1.0E3_dp)
-            ELSE
-               WRITE (iounit, '(T3,A,T60,(3X,F18.12))') &
-                  'Diabatic electronic coupling (rotation, microHartree):', ABS(coupling_rotation*1.0E6_dp)
-            END IF
-         END IF
-         IF (use_lowdin) THEN
-            IF (ABS(coupling_lowdin)*1.0E3_dp .GE. 0.1_dp) THEN
-               WRITE (iounit, '(T3,A,T60,(3X,F18.12))') &
-                  'Diabatic electronic coupling (Lowdin, mHartree):', ABS(coupling_lowdin*1.0E3_dp)
-            ELSE
-               WRITE (iounit, '(T3,A,T60,(3X,F18.12))') &
-                  'Diabatic electronic coupling (Lowdin, microHartree):', ABS(coupling_lowdin*1.0E6_dp)
-            END IF
-         END IF
-         IF (mixed_cdft%wfn_overlap_method) THEN
-            IF (coupling_wfn*1.0E3_dp .GE. 0.1_dp) THEN
-               WRITE (iounit, '(T3,A,T60,(3X,F18.12))') &
-                  'Diabatic electronic coupling (wfn overlap, mHartree):', coupling_wfn*1.0E3_dp
-            ELSE
-               WRITE (iounit, '(T3,A,T60,(3X,F18.12))') &
-                  'Diabatic electronic coupling (wfn overlap, microHartree):', coupling_wfn*1.0E6_dp
-            END IF
-         END IF
-         IF (mixed_cdft%calculate_metric) THEN
+         DO ipermutation = 1, npermutations
+            CALL map_permutation_to_states(nforce_eval, ipermutation, istate, jstate)
+            WRITE (iounit, '(/,T3,A)') REPEAT('#', 44)
+            WRITE (iounit, '(T3,A,I3,A,I3,A)') '###### CDFT states I =', istate, ' and J = ', jstate, ' ######'
+            WRITE (iounit, '(T3,A)') REPEAT('#', 44)   
+            DO ivar = 1, nvar
+               IF (ivar > 1) &
+                  WRITE (iounit, '(A)') ''
+               WRITE (iounit, '(T3,A,T60,(3X,I18))') 'Atomic group:', ivar
+               WRITE (iounit, '(T3,A,T60,(3X,F18.12))') 'Strength of constraint I:', strength(ivar, istate)
+               WRITE (iounit, '(T3,A,T60,(3X,F18.12))') 'Strength of constraint J:', strength(ivar, jstate)
+               WRITE (iounit, '(T3,A,T60,(3X,F18.12))') 'Final value of constraint I:', W_diagonal(ivar, istate)
+               WRITE (iounit, '(T3,A,T60,(3X,F18.12))') 'Final value of constraint J:', W_diagonal(ivar, jstate)
+            END DO
+            WRITE (iounit, '(/,T3,A,T60,(3X,F18.12))') 'Overlap between states I and J:', Sda(ipermutation)
+            WRITE (iounit, '(T3,A,T60,(3X,F18.12))') 'Charge transfer energy (J-I) (Hartree):', (energy(jstate)-energy(istate))
             WRITE (iounit, *)
-            IF (nspins == 1) THEN
-               WRITE (iounit, '(T3,A,T66,(3X,F12.6))') 'Coupling reliability metric (0 is ideal):', metric
-            ELSE
-               WRITE (iounit, '(T3,A,T54,(3X,2F12.6))') &
-                  'Coupling reliability metric (0 is ideal):', metric(1), metric(2)
+            IF (use_rotation) THEN
+               IF (ABS(coupling_rotation(ipermutation))*1.0E3_dp .GE. 0.1_dp) THEN
+                  WRITE (iounit, '(T3,A,T60,(3X,F18.12))') &
+                     'Diabatic electronic coupling (rotation, mHartree):', ABS(coupling_rotation(ipermutation)*1.0E3_dp)
+               ELSE
+                  WRITE (iounit, '(T3,A,T60,(3X,F18.12))') &
+                     'Diabatic electronic coupling (rotation, microHartree):', ABS(coupling_rotation(ipermutation)*1.0E6_dp)
+               END IF
             END IF
-         END IF
+            IF (use_lowdin) THEN
+               IF (ABS(coupling_lowdin(ipermutation))*1.0E3_dp .GE. 0.1_dp) THEN
+                  WRITE (iounit, '(T3,A,T60,(3X,F18.12))') &
+                     'Diabatic electronic coupling (Lowdin, mHartree):', ABS(coupling_lowdin(ipermutation)*1.0E3_dp)
+               ELSE
+                  WRITE (iounit, '(T3,A,T60,(3X,F18.12))') &
+                     'Diabatic electronic coupling (Lowdin, microHartree):', ABS(coupling_lowdin(ipermutation)*1.0E6_dp)
+               END IF
+            END IF
+            IF (mixed_cdft%wfn_overlap_method) THEN
+               IF (coupling_wfn(ipermutation)*1.0E3_dp .GE. 0.1_dp) THEN
+                  WRITE (iounit, '(T3,A,T60,(3X,F18.12))') &
+                     'Diabatic electronic coupling (wfn overlap, mHartree):', coupling_wfn(ipermutation)*1.0E3_dp
+               ELSE
+                  WRITE (iounit, '(T3,A,T60,(3X,F18.12))') &
+                     'Diabatic electronic coupling (wfn overlap, microHartree):', coupling_wfn(ipermutation)*1.0E6_dp
+               END IF
+            END IF
+            IF (mixed_cdft%calculate_metric) THEN
+               WRITE (iounit, *)
+               IF (nspins == 1) THEN
+                  WRITE (iounit, '(T3,A,T66,(3X,F12.6))') 'Coupling reliability metric (0 is ideal):', metric(ipermutation, 1)
+               ELSE
+                  WRITE (iounit, '(T3,A,T54,(3X,2F12.6))') &
+                     'Coupling reliability metric (0 is ideal):', metric(ipermutation, 1), metric(ipermutation, 2)
+               END IF
+            END IF
+         END DO
          WRITE (iounit, '(T3,A)') &
             '------------------------------------------------------------------------------'
          IF (mixed_cdft%do_ci) THEN
             WRITE (iounit, '(/,T3,A)') '------------------ CDFT Configuration Interaction (CDFT-CI) ------------------'
-            DO ivar = 1, 2
+            DO ivar = 1, nforce_eval
                IF (ivar == 1) THEN
                   WRITE (iounit, '(T3,A,T58,(3X,F20.14))') 'Ground state energy:', eigenv(ivar)
                ELSE
-                  WRITE (iounit, '(/,T3,A,T58,(3X,F20.14))') 'Excited state energy:', eigenv(ivar)
+                  WRITE (iounit, '(/,T3,A,I3,A,T58,(3X,F20.14))') 'Excited state (', ivar-1, ')energy:', eigenv(ivar)
                END IF
-               WRITE (iounit, '(T3,A,T54,(3X,2F12.6))') 'Expansion coefficients:', H_mat(:, ivar)**2
+               DO istate = 1, nforce_eval, 2
+                  IF (istate == 1) THEN
+                     WRITE (iounit, '(T3,A,T54,(3X,2F12.6))') 'Expansion coefficients:', H_mat(:, istate), H_mat(:, istate+1)
+                  ELSE IF (istate .LT. nforce_eval) THEN
+                     WRITE (iounit, '(T80,(3X,2F12.6))') H_mat(:, istate), H_mat(:, istate+1)
+                  ELSE
+                     WRITE (iounit, '(T80,(3X,F12.6))') H_mat(:, istate)
+                  END IF
+               END DO
             END DO
             WRITE (iounit, '(T3,A)') &
                '------------------------------------------------------------------------------'
          END IF
       END IF
-      DEALLOCATE (a, b, S_det, Waa, Wbb)
+      DEALLOCATE (energy, strength, a, b, S_det, W_diagonal, Wda)
+      DEALLOCATE (S_mat, H_mat, tmp_mat, eigenv, Sda)
+      IF (ALLOCATED(coupling_rotation)) &
+         DEALLOCATE (coupling_rotation)
+      IF (ALLOCATED(coupling_lowdin)) &
+         DEALLOCATE (coupling_lowdin)
+      IF (ALLOCATED(coupling_wfn)) &
+         DEALLOCATE (coupling_wfn)
       IF (mixed_cdft%calculate_metric) DEALLOCATE (metric)
 
       CALL cp_print_key_finished_output(iounit, logger, force_env_section, &

@@ -17,12 +17,12 @@ MODULE input_cp2k_mixed
                                               cp_print_key_section_create,&
                                               low_print_level,&
                                               medium_print_level
-   USE input_constants,                 ONLY: mix_coupled,&
+   USE input_constants,                 ONLY: mix_cdft,&
+                                              mix_coupled,&
                                               mix_generic,&
                                               mix_linear_combination,&
                                               mix_minimum,&
-                                              mix_restrained,&
-                                              mix_cdft
+                                              mix_restrained
    USE input_keyword_types,             ONLY: keyword_create,&
                                               keyword_release,&
                                               keyword_type
@@ -89,7 +89,7 @@ CONTAINS
                        "Use the difference between the energy of the force envs as a"// &
                        " restraint on the first (support only 2 force_evals)", &
                        "Defines a user-driven generica coupling (support for an unlimited number of force_eval)", &
-                       "Consider each force env as a CDFT state (supports an unlimited number of force_eval " // &
+                       "Consider each force env as a CDFT state (supports an unlimited number of force_eval "// &
                        "for calculation of CDFT properties, but only two states can be mixed for forces)."), &
          enum_i_vals=(/mix_linear_combination, mix_minimum, mix_coupled, mix_restrained, mix_generic, &
                        mix_cdft/))
@@ -129,7 +129,7 @@ CONTAINS
       CALL section_create(subsection, name="MIXED_CDFT", &
                           description="Calculate properties involving multiple charge constrained states. "// &
                           "The system can be propagated using only two of the CDFT states selected by the "// &
-                          "keyword FORCE_STATES. The forces are then determined by a linear combination " // &
+                          "keyword FORCE_STATES. The forces are then determined by a linear combination "// &
                           "between these two force_eval: F= lambda F1 + (1-lambda) F2.", &
                           n_keywords=11, n_subsections=0, repeats=.FALSE., citations=(/Holmberg2017/))
 
@@ -215,7 +215,6 @@ CONTAINS
                           default_l_val=.FALSE., lone_keyword_l_val=.TRUE.)
       CALL section_add_keyword(subsection, keyword)
       CALL keyword_release(keyword)
-
 
       CALL keyword_create(keyword, name="WFN_RESTART_FILE_NAME", &
                           description="Name of the wavefunction restart file that defines the unconstrained"// &

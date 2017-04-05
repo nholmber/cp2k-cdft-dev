@@ -66,6 +66,7 @@ MODULE mixed_cdft_utils
                                               section_vals_val_get
    USE kinds,                           ONLY: default_path_length,&
                                               dp
+   USE mathconstants,                   ONLY: fac
    USE message_passing,                 ONLY: mp_irecv,&
                                               mp_isend,&
                                               mp_sum,&
@@ -107,7 +108,7 @@ MODULE mixed_cdft_utils
 
    PUBLIC :: mixed_cdft_parse_settings, mixed_cdft_transfer_settings, &
              mixed_cdft_init_structures, mixed_cdft_redistribute_arrays, &
-             hfun_zero
+             map_permutation_to_states, hfun_zero
 
    CHARACTER(len=*), PARAMETER, PRIVATE :: moduleN = 'mixed_cdft_utils'
 
@@ -134,7 +135,7 @@ CONTAINS
       CHARACTER(len=*), PARAMETER :: routineN = 'mixed_cdft_parse_settings', &
          routineP = moduleN//':'//routineN
 
-      INTEGER                                            :: i, iforce_eval, jforce_eval, nforce_eval, nkinds
+      INTEGER                                            :: i, iforce_eval, nforce_eval, nkinds
       LOGICAL                                            :: is_match
       TYPE(atomic_kind_type), DIMENSION(:), POINTER      :: atomic_kind_set
       TYPE(dft_control_type), POINTER                    :: dft_control
@@ -297,8 +298,8 @@ CONTAINS
             IF (mixed_cdft%is_parallel) THEN
                IF (settings%coeffs(i, 1) /= settings%coeffs(i, iforce_eval)) is_match = .FALSE.
             END IF
-            IF (settings%atoms(i, 1) /= 0) settings%nbecke = settings%nbecke+1
-         END IF
+         END DO
+         IF (settings%atoms(i, 1) /= 0) settings%nbecke = settings%nbecke+1
       END DO
       IF (.NOT. is_match) &
          CALL cp_abort(__LOCATION__, &
@@ -476,7 +477,8 @@ CONTAINS
 
       CHARACTER(len=default_path_length)                 :: c_val, input_file_path, output_file_path
       INTEGER                                            :: i, imap, iounit, j, lp, n_force_eval, &
-                                                            ncpu, ntargets, offset, req(3), unit_nr
+                                                            ncpu, nforce_eval, ntargets, offset, &
+                                                            req(3), unit_nr
       INTEGER, ALLOCATABLE, DIMENSION(:, :)              :: bounds
       INTEGER, DIMENSION(2, 3)                           :: bo, bo_mixed
       INTEGER, DIMENSION(3)                              :: higher_grid_layout
@@ -513,6 +515,7 @@ CONTAINS
       print_section => section_vals_get_subs_vals(force_env_section, "MIXED%PRINT%PROGRAM_RUN_INFO")
       iounit = cp_print_key_unit_nr(logger, print_section, '', extension='.mixedLog')
       is_match = .TRUE.
+      nforce_eval = SIZE(force_env%sub_force_env)
       ncpu = force_env%para_env%num_pe
       ! Get infos about the mixed subsys
       IF (.NOT. mixed_env%do_mixed_qmmm_cdft) THEN
@@ -777,7 +780,7 @@ CONTAINS
             DEALLOCATE (bounds)
          END IF
       ELSE
-         ! Create loggers to redirect the output of all CDFT state to different files than the first state
+         ! Create loggers to redirect the output of all CDFT states to different files
          ! even when the states are treated in serial (the initial print of QS data [basis set etc] for the
          ! all states unfortunately goes to the first log file)
          CALL force_env_get(force_env, root_section=root_section)
@@ -946,7 +949,7 @@ CONTAINS
       IF (mixed_cdft%calculate_metric) &
          ALLOCATE (density_matrix(nforce_eval, nspins))
       ! Transfer data from sub_force_envs to temporaries
-      ALLOCATE (mo_coeff_tmp(nforce_eval, nspins), wmat_tmp(nforce_eval, nvar),
+      ALLOCATE (mo_coeff_tmp(nforce_eval, nspins), wmat_tmp(nforce_eval, nvar))
       ALLOCATE (matrix_s_tmp, nrow_mo(nspins), ncol_mo(nspins))
       IF (mixed_cdft%calculate_metric) ALLOCATE (matrix_p_tmp(nforce_eval, nspins))
       NULLIFY (matrix_s_tmp%matrix)
@@ -1116,6 +1119,44 @@ CONTAINS
       DEALLOCATE (ncol_mo, nrow_mo)
 
    END SUBROUTINE mixed_cdft_redistribute_arrays
+
+! **************************************************************************************************
+!> \brief Given the size of a symmetric matrix and a permutation index, returns indices (i, j) of the
+!>        off-diagonal element that corresponds to the permutation index. Assumes that the permutation
+!>        index was computed by going through the upper triangular part of the input matrix row-by-row.
+!> \param n the size of the symmetric matrix
+!> \param ipermutation the permutation index
+!> \param i the row index corresponding to ipermutation
+!> \param j the column index corresponding to ipermutation
+! **************************************************************************************************
+   SUBROUTINE map_permutation_to_states(n, ipermutation, i, j)
+      INTEGER                                            :: n, ipermutation, i, j
+
+      CHARACTER(len=*), PARAMETER :: routineN = 'map_permutation_to_states', &
+         routineP = moduleN//':'//routineN
+
+      INTEGER                                            :: kcol, kpermutation, krow, npermutations
+
+      IF (n-1 > 30) &
+         CALL cp_abort(__LOCATION__, &
+                       "Size of input matrix exceeds hardcoded limit in factorial function.")
+      npermutations = INT(fac(n-1))
+      IF (ipermutation > npermutations) &
+         CPABORT("Permutation index out of bounds")
+      kpermutation = 0
+      DO krow = 1, n
+         DO kcol = krow+1, n
+            kpermutation = kpermutation+1
+            IF (kpermutation == ipermutation) THEN
+               i = krow
+               j = kcol
+               RETURN
+            END IF
+         END DO
+      END DO
+
+
+   END SUBROUTINE map_permutation_to_states
 
 ! **************************************************************************************************
 !> \brief Determine confinement bounds along confinement dir (hardcoded to be z)

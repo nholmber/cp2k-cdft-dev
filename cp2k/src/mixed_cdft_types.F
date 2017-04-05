@@ -12,8 +12,8 @@
 MODULE mixed_cdft_types
    USE cp_blacs_env,                    ONLY: cp_blacs_env_release,&
                                               cp_blacs_env_type
-   USE cp_log_handling,                 ONLY: cp_logger_release,&
-                                              cp_logger_p_type
+   USE cp_log_handling,                 ONLY: cp_logger_p_type,&
+                                              cp_logger_release
    USE kinds,                           ONLY: dp
    USE pw_env_types,                    ONLY: pw_env_release,&
                                               pw_env_type
@@ -291,7 +291,7 @@ CONTAINS
          DO i = 1, SIZE(cdft_control%sub_logger)
             CALL cp_logger_release(cdft_control%sub_logger(i)%p)
          END DO
-         DEALLOCATE(cdft_control%sub_logger)
+         DEALLOCATE (cdft_control%sub_logger)
       END IF
       DEALLOCATE (cdft_control)
 
