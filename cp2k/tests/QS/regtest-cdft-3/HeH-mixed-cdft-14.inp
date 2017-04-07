@@ -57,7 +57,6 @@
     &MIXED_CDFT
       LAMBDA 1.0
       COUPLING 1
-      CI TRUE
       NONORTHOGONAL_COUPLING TRUE
       @IF ( ${USE_DLB} == TRUE )
         ! Defaults to FALSE
