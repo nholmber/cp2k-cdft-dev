@@ -811,7 +811,7 @@ CONTAINS
             dft_control%qs_control%cdft_control%calculate_metric = mixed_cdft%calculate_metric
          ELSE
             dft_control%qs_control%cdft_control%do_et = .FALSE.
-            dft_control%qs_control%cdft_control%calculate_metric = mixed_cdft%calculate_metric
+            dft_control%qs_control%cdft_control%calculate_metric = .FALSE.
          END IF
       END IF
       t2 = m_walltime()
