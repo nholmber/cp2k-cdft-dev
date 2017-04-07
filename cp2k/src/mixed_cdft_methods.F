@@ -1121,10 +1121,7 @@ CONTAINS
          use_rotation = .FALSE.
          use_lowdin = .TRUE.
       END IF
-      ALLOCATE (w_matrix_mo(nforce_eval, nforce_eval, nvar), a(nspins, nvar, npermutations))
-      ALLOCATE (b(nspins, nvar, npermutations))
-      a = 0.0_dp
-      b = 0.0_dp
+      ALLOCATE (w_matrix_mo(nforce_eval, nforce_eval, nvar))
       ALLOCATE (nrow_mo(nspins), ncol_mo(nspins))
       ! Check that the number of MOs/AOs is equal in every CDFT state
       DO ispin = 1, nspins
@@ -1142,6 +1139,9 @@ CONTAINS
       npermutations = nforce_eval*(nforce_eval-1)/2 ! Size of upper triangular part
       ALLOCATE (mo_overlap(npermutations), S_det(npermutations, nspins))
       ALLOCATE (Wda(nvar, npermutations))
+      ALLOCATE (a(nspins, nvar, npermutations), b(nspins, nvar, npermutations))
+      a = 0.0_dp
+      b = 0.0_dp
       DO istate = 1, npermutations
          NULLIFY (mo_overlap(istate)%matrix)
       END DO
