@@ -1538,7 +1538,7 @@ CONTAINS
          c(2) = (energy(istate)+sum_a(1))*Sda(ipermutation)-sum_a(2) ! H_AB = F_B*S_AB - V_B * W_AB
          H_mat(istate, jstate) = (c(1)+c(2))*0.5_dp ! H''(1,2) = 0.5*(H_AB+H_BA) = H''(2,1)
          H_mat(jstate, istate) = H_mat(istate, jstate)
-         coupling_nonortho(ipermutation) = H_mat(istate, jstate)
+         IF (mixed_cdft%nonortho_coupling) coupling_nonortho(ipermutation) = H_mat(istate, jstate)
       END DO
       ! Calculate coupling by rotating the CDFT states to eigenstates of the weight matrix W (single constraint only)
       IF (use_rotation) THEN
