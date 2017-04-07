@@ -1121,8 +1121,8 @@ CONTAINS
          use_rotation = .FALSE.
          use_lowdin = .TRUE.
       END IF
-      ALLOCATE (w_matrix_mo(nforce_eval, nforce_eval, nvar), a(nspins, nvar, nforce_eval))
-      ALLOCATE (b(nspins, nvar, nforce_eval))
+      ALLOCATE (w_matrix_mo(nforce_eval, nforce_eval, nvar), a(nspins, nvar, npermutations))
+      ALLOCATE (b(nspins, nvar, npermutations))
       a = 0.0_dp
       b = 0.0_dp
       ALLOCATE (nrow_mo(nspins), ncol_mo(nspins))
