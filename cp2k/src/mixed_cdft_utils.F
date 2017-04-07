@@ -66,7 +66,6 @@ MODULE mixed_cdft_utils
                                               section_vals_val_get
    USE kinds,                           ONLY: default_path_length,&
                                               dp
-   USE mathconstants,                   ONLY: fac
    USE message_passing,                 ONLY: mp_irecv,&
                                               mp_isend,&
                                               mp_sum,&
@@ -272,7 +271,7 @@ CONTAINS
       CALL mp_sum(settings%rs_dims, force_env%para_env%group)
       CALL mp_sum(settings%odd, force_env%para_env%group)
       is_match = .TRUE.
-      DO iforce_eval = 1, nforce_eval
+      DO iforce_eval = 2, nforce_eval
          is_match = is_match .AND. (settings%grid_span(1) == settings%grid_span(iforce_eval))
          is_match = is_match .AND. (settings%npts(1, 1) == settings%npts(1, iforce_eval))
          is_match = is_match .AND. (settings%cutoff(1) == settings%cutoff(iforce_eval))
@@ -293,7 +292,7 @@ CONTAINS
          CALL mp_sum(settings%coeffs, force_env%para_env%group)
       settings%nbecke = 0
       DO i = 1, SIZE(settings%atoms, 1)
-         DO iforce_eval = 1, nforce_eval
+         DO iforce_eval = 2, nforce_eval
             IF (settings%atoms(i, 1) /= settings%atoms(i, iforce_eval)) is_match = .FALSE.
             IF (mixed_cdft%is_parallel) THEN
                IF (settings%coeffs(i, 1) /= settings%coeffs(i, iforce_eval)) is_match = .FALSE.
@@ -308,18 +307,18 @@ CONTAINS
       CALL mp_sum(settings%sr, force_env%para_env%group)
       DO i = 1, SIZE(settings%sb, 1)
          CALL mp_sum(settings%sb(i, 1), force_env%para_env%group)
-         CALL mp_sum(settings%sb(i, 2), force_env%para_env%group)
-         DO iforce_eval = 1, nforce_eval
+         DO iforce_eval = 2, nforce_eval
+            CALL mp_sum(settings%sb(i, iforce_eval), force_env%para_env%group)
             IF (settings%sb(i, 1) .NEQV. settings%sb(i, iforce_eval)) is_match = .FALSE.
          END DO
       END DO
       DO i = 1, SIZE(settings%si, 1)
-         DO iforce_eval = 1, nforce_eval
+         DO iforce_eval = 2, nforce_eval
             IF (settings%si(i, 1) /= settings%si(i, iforce_eval)) is_match = .FALSE.
          END DO
       END DO
       DO i = 1, SIZE(settings%sr, 1)
-         DO iforce_eval = 1, nforce_eval
+         DO iforce_eval = 2, nforce_eval
             IF (settings%sr(i, 1) /= settings%sr(i, iforce_eval)) is_match = .FALSE.
          END DO
       END DO
@@ -917,7 +916,7 @@ CONTAINS
                fm_struct_wmat, fm_struct_overlap, fm_struct_tmp, &
                mixed_matrix_s_tmp, matrix_s_tmp, mixed_wmat_tmp, &
                wmat_tmp, mixed_mo_coeff, matrix_p_tmp, mixed_matrix_p_tmp, &
-               mixed_matrix_s, density_matrix, blacs_env)
+               mixed_matrix_s, density_matrix, blacs_env, w_matrix)
 
       CPASSERT(ASSOCIATED(force_env))
       mixed_env => force_env%mixed_env
@@ -933,6 +932,7 @@ CONTAINS
             CALL force_env_get(force_env%sub_force_env(iforce_eval)%force_env, qs_env=qs_env)
          END IF
          CALL get_qs_env(qs_env, dft_control=dft_control)
+         CPASSERT(ASSOCIATED(dft_control))
          nspins = dft_control%nspins
       END DO
       ! Get number of weight functions per state as well as the type of each constraint
@@ -960,7 +960,10 @@ CONTAINS
          END DO
          DO ispin = 1, nspins
             NULLIFY (mo_coeff_tmp(iforce_eval, ispin)%matrix)
-            IF (mixed_cdft%calculate_metric) &
+            ! Valgrind 3.12/gfortran 4.8.4 oddly complains here (unconditional jump)
+            ! if mixed_cdft%calculate_metric = .FALSE. and the need to null the array
+            ! is queried with IF (mixed_cdft%calculate_metric) &
+            IF (ASSOCIATED(matrix_p_tmp)) &
                NULLIFY (matrix_p_tmp(iforce_eval, ispin)%matrix)
          END DO
          IF (.NOT. ASSOCIATED(force_env%sub_force_env(iforce_eval)%force_env)) CYCLE
@@ -1130,17 +1133,15 @@ CONTAINS
 !> \param j the column index corresponding to ipermutation
 ! **************************************************************************************************
    SUBROUTINE map_permutation_to_states(n, ipermutation, i, j)
-      INTEGER                                            :: n, ipermutation, i, j
+      INTEGER, INTENT(INOUT)                             :: n, ipermutation
+      INTEGER, INTENT(OUT)                               :: i, j
 
       CHARACTER(len=*), PARAMETER :: routineN = 'map_permutation_to_states', &
          routineP = moduleN//':'//routineN
 
       INTEGER                                            :: kcol, kpermutation, krow, npermutations
 
-      IF (n-1 > 30) &
-         CALL cp_abort(__LOCATION__, &
-                       "Size of input matrix exceeds hardcoded limit in factorial function.")
-      npermutations = INT(fac(n-1))
+      npermutations = n*(n-1)/2 ! Size of upper triangular part
       IF (ipermutation > npermutations) &
          CPABORT("Permutation index out of bounds")
       kpermutation = 0
@@ -1154,7 +1155,6 @@ CONTAINS
             END IF
          END DO
       END DO
-
 
    END SUBROUTINE map_permutation_to_states
 

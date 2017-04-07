@@ -127,7 +127,7 @@ CONTAINS
       CALL section_release(subsection)
       ! Mixed CDFT section
       CALL section_create(subsection, name="MIXED_CDFT", &
-                          description="Calculate properties involving multiple charge constrained states. "// &
+                          description="Calculate properties involving multiple constrained states. "// &
                           "The system can be propagated using only two of the CDFT states selected by the "// &
                           "keyword FORCE_STATES. The forces are then determined by a linear combination "// &
                           "between these two force_eval: F= lambda F1 + (1-lambda) F2.", &
@@ -151,7 +151,9 @@ CONTAINS
                           "is calculated. Use a negative number to disable and 0 means every step. By default, "// &
                           "the coupling is calculated by rotating the CDFT states to eigenstates of the weight "// &
                           "function matrix when a single constraint is active. With multiple constraints, uses "// &
-                          "Lowdin orthogonalization.", &
+                          "Lowdin orthogonalization. For more than two CDFT states, the couplings are not computed "// &
+                          "pairwise and the values might deviate from values computed separately for each unique "// &
+                          "CDFT state pair.", &
                           usage="COUPLING <INT>", &
                           default_i_val=-1, &
                           type_of_var=integer_t, n_var=1)
@@ -166,7 +168,7 @@ CONTAINS
       CALL section_add_keyword(subsection, keyword)
       CALL keyword_release(keyword)
 
-      CALL keyword_create(keyword, name="METRIC", &
+      CALL keyword_create(keyword, name="METRIC", variants=(/"COUPLING_METRIC"/), &
                           description="Compute reliability metric for the CDFT electronic coupling element by diagonalizing"// &
                           "the difference density matrix.", &
                           usage="METRIC", type_of_var=logical_t, &
@@ -179,7 +181,8 @@ CONTAINS
                           description="Compute the CDFT electronic coupling element using the wavefunction overlap "// &
                           "method in addition to the standard method defined by the keyword COUPLING. "// &
                           "In this method, the unconstrained KS ground state wavefunction (WFN_RESTART_FILE_NAME) "// &
-                          "is represented as a linear combination of the CDFT states. Supports only two states.", &
+                          "is represented as a linear combination of the CDFT states. For more than two CDFT states, "// &
+                          "the coupling is computed for unique state pairs (contrary to other coupling methods).", &
                           usage="WFN_OVERLAP", type_of_var=logical_t, &
                           default_l_val=.FALSE., lone_keyword_l_val=.TRUE., &
                           citations=(/Migliore2009/))
@@ -207,10 +210,11 @@ CONTAINS
       CALL section_add_keyword(subsection, keyword)
       CALL keyword_release(keyword)
 
-      CALL keyword_create(keyword, name="NONORTHOGONAL_COUPLING", &
+      CALL keyword_create(keyword, name="NONORTHOGONAL_COUPLING", variants=(/"NONORTHO_COUPLING"/), &
                           description="Print out the nonorthogonal diabatic CDFT coupling between states, "// &
                           "as it appears in the mixed CDFT Hamiltonian before orthogonalization (coupling "// &
-                          "calculations) and CDFT-CI.", &
+                          "calculations) and CDFT-CI. Useful for (re)constructing the Hamiltonian for additional"// &
+                          "analysis. This is the CDFT interaction energy between states.", &
                           usage="NONORTHOGONAL_COUPLING", type_of_var=logical_t, &
                           default_l_val=.FALSE., lone_keyword_l_val=.TRUE.)
       CALL section_add_keyword(subsection, keyword)

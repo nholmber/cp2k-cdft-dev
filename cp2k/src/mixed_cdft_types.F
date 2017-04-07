@@ -159,7 +159,7 @@ MODULE mixed_cdft_types
                                                           wfn_overlap_method, &
                                                           has_unit_metric, &
                                                           is_parallel, use_lowdin, &
-                                                          do_ci
+                                                          do_ci, nonortho_coupling
       LOGICAL, DIMENSION(:), ALLOCATABLE               :: is_charge_constraint
       REAL(KIND=dp)                                    :: eps_rho_rspace, sim_dt, &
                                                           eps_svd
