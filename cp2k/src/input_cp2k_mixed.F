@@ -130,7 +130,11 @@ CONTAINS
                           description="Calculate properties involving multiple constrained states. "// &
                           "The system can be propagated using only two of the CDFT states selected by the "// &
                           "keyword FORCE_STATES. The forces are then determined by a linear combination "// &
-                          "between these two force_eval: F= lambda F1 + (1-lambda) F2.", &
+                          "between these two force_eval: F= lambda F1 + (1-lambda) F2. When the keyword "// &
+                          "MIXED&NGROUPS is set to 2, the CDFT states are solved in parallel (supports "// &
+                          "only two states with identical constraint definitions), whereas when it is set "// &
+                          "to 1, the states are solved in serial (supports any number of states and nonequal "// &
+                          "constraint definitions but the number of constraints must be the same across states).", &
                           n_keywords=11, n_subsections=0, repeats=.FALSE., citations=(/Holmberg2017/))
 
       CALL keyword_create(keyword, name="LAMBDA", &
@@ -150,10 +154,10 @@ CONTAINS
                           description="Parameter determining how often the CDFT electronic coupling element "// &
                           "is calculated. Use a negative number to disable and 0 means every step. By default, "// &
                           "the coupling is calculated by rotating the CDFT states to eigenstates of the weight "// &
-                          "function matrix when a single constraint is active. With multiple constraints, uses "// &
-                          "Lowdin orthogonalization. For more than two CDFT states, the couplings are not computed "// &
-                          "pairwise and the values might deviate from values computed separately for each unique "// &
-                          "CDFT state pair.", &
+                          "function matrix when a single constraint is active and the constraint definitions are "// &
+                          "identical in both CDFT states. Otherwise uses Lowdin orthogonalization. For more than "// &
+                          "two CDFT states, the couplings are not computed pairwise and the values might "// &
+                          "deviate from values computed separately for each unique CDFT state pair.", &
                           usage="COUPLING <INT>", &
                           default_i_val=-1, &
                           type_of_var=integer_t, n_var=1)
@@ -182,7 +186,7 @@ CONTAINS
                           "method in addition to the standard method defined by the keyword COUPLING. "// &
                           "In this method, the unconstrained KS ground state wavefunction (WFN_RESTART_FILE_NAME) "// &
                           "is represented as a linear combination of the CDFT states. For more than two CDFT states, "// &
-                          "the coupling is computed for unique state pairs (contrary to other coupling methods).", &
+                          "the coupling is computed pairwise for every state pair (contrary to other coupling methods).", &
                           usage="WFN_OVERLAP", type_of_var=logical_t, &
                           default_l_val=.FALSE., lone_keyword_l_val=.TRUE., &
                           citations=(/Migliore2009/))
@@ -191,7 +195,7 @@ CONTAINS
 
       CALL keyword_create(keyword, name="LOWDIN", &
                           description="Compute the CDFT electronic coupling element using Lowdin orthogonalization. "// &
-                          "This is the default behavior with multiple constraints. "// &
+                          "This is the default behavior with multiple constraints and nonidentical constraints. "// &
                           "By activating this keyword, this method is also used to compute the the coupling "// &
                           "when a single constraint is active in addition to the standard method.", &
                           usage="LOWDIN", type_of_var=logical_t, &
