@@ -902,7 +902,7 @@ CONTAINS
          ! Check if the constraint defitions are identical in both CDFT states
          IF (first_call .AND. mixed_cdft%identical_constraints) THEN
             DO igroup = 1, SIZE(dft_control_target%qs_control%becke_control%group)
-               IF (SIZE(dft_control_target%qs_control%becke_control%group) =/ &
+               IF (SIZE(dft_control_target%qs_control%becke_control%group) /= &
                    SIZE(dft_control_source%qs_control%becke_control%group)) &
                   CALL cp_abort(__LOCATION__, &
                                 "The number of constraints must be the same in all CDFT states.")
