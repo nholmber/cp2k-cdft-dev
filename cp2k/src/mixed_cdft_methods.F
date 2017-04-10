@@ -1280,7 +1280,8 @@ CONTAINS
             ELSE
                Wda(ivar, ipermutation) = SUM(a(:, ivar, ipermutation))*Sda(ipermutation)
                Wad(ivar, ipermutation) = SUM(b(:, ivar, ipermutation))*Sda(ipermutation)
-               print *, 'Wda and Wad', Wda(ivar, ipermutation), Wad(ivar, ipermutation), Sda(ipermutation)
+               print *, 'Wda and Wad', a(:, ivar, ipermutation), b(:, ivar, ipermutation), &
+                  Wda(ivar, ipermutation), Wad(ivar, ipermutation), Sda(ipermutation)
             END IF
          END DO
       END DO
