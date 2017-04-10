@@ -993,6 +993,7 @@ CONTAINS
             dft_control_target%qs_control%becke_control%external_control = .FALSE.
             dft_control_target%qs_control%becke_control%need_pot = .TRUE.
             dft_control_target%qs_control%becke_control%transfer_pot = .FALSE.
+            dft_control_target%qs_control%becke_control%first_iteration = .TRUE.
             ! Also deallocate the constraint of the previous state if it is still allocated
             DO igroup = 1, SIZE(dft_control_source%qs_control%becke_control%group)
                IF (ASSOCIATED(dft_control_source%qs_control%becke_control%group(igroup)%weight)) &
