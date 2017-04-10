@@ -1333,6 +1333,7 @@ CONTAINS
             ELSE
                Wda(ivar, ipermutation) = SUM(a(:, ivar, ipermutation))*Sda(ipermutation)
                Wad(ivar, ipermutation) = SUM(b(:, ivar, ipermutation))*Sda(ipermutation)
+            END IF
          END DO
       END DO
       ! Transfer info about the constraint calculations
