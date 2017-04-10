@@ -134,10 +134,10 @@ CONTAINS
       CHARACTER(len=*), PARAMETER :: routineN = 'mixed_cdft_parse_settings', &
          routineP = moduleN//':'//routineN
 
-      INTEGER                                            :: i, iforce_eval, nforce_eval, nkinds, jforce_eval
+      INTEGER                                            :: i, iforce_eval, nforce_eval, nkinds, jforce_eval, igroup
       LOGICAL                                            :: is_match
       TYPE(atomic_kind_type), DIMENSION(:), POINTER      :: atomic_kind_set
-      TYPE(dft_control_type), POINTER                    :: dft_control
+      TYPE(dft_control_type), POINTER                    :: dft_control, dft_control_source, dft_control_target
       TYPE(force_env_type), POINTER                      :: force_env_qs
       TYPE(pw_env_type), POINTER                         :: pw_env
       TYPE(pw_pool_type), POINTER                        :: auxbas_pw_pool
@@ -962,7 +962,7 @@ CONTAINS
       TYPE(cp_fm_struct_type), POINTER                   :: fm_struct_mo, fm_struct_overlap, &
                                                             fm_struct_tmp, fm_struct_wmat
       TYPE(dbcsr_type)                                   :: desymm_tmp
-      TYPE(dft_control_type), POINTER                    :: dft_control, dft_control_source, dft_control_target
+      TYPE(dft_control_type), POINTER                    :: dft_control
       TYPE(mixed_cdft_type), POINTER                     :: mixed_cdft
       TYPE(mixed_environment_type), POINTER              :: mixed_env
       TYPE(qs_environment_type), POINTER                 :: qs_env
