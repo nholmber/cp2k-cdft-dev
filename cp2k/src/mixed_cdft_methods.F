@@ -1273,8 +1273,10 @@ CONTAINS
          ! Finalize <Psi_j | w_i(r) | Psi_i> by multiplication with Sda
          DO ivar = 1, nvar
             IF (mixed_cdft%identical_constraints) THEN
-               Wda(ivar, ipermutation) = (SUM(a(:, ivar, ipermutation))+SUM(b(:, ivar, ipermutation)))*Sda(ipermutation)/2.0_dp
-               print *, 'Symmetric Wda', a(:, ivar, ipermutation), b(:, ivar, ipermutation), Wda(ivar, ipermutation), Sda(ipermutation)
+               Wda(ivar, ipermutation) = (SUM(a(:, ivar, ipermutation))+SUM(b(:, ivar, ipermutation)))*&
+                                          Sda(ipermutation)/2.0_dp
+               print *, 'Symmetric Wda', a(:, ivar, ipermutation), b(:, ivar, ipermutation), &
+                  Wda(ivar, ipermutation), Sda(ipermutation)
             ELSE
                Wda(ivar, ipermutation) = SUM(a(:, ivar, ipermutation))*Sda(ipermutation)
                Wad(ivar, ipermutation) = SUM(b(:, ivar, ipermutation))*Sda(ipermutation)
