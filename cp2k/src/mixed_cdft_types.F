@@ -131,6 +131,10 @@ MODULE mixed_cdft_types
 !> \param is_parallel flag which determines if the mixed CDFT calculation is parallel or serial mode
 !> \param use_lowdin flag which determines if Lowdin orthogonalization is used to compute the coupling
 !> \param do_ci flag which determines if a CDFT-CI calculation was requested
+!> \param nonortho_coupling flag which determines if the nonorthogonal CDFT interaction energies
+!>                          should be printed out
+!> \param identical_constraints flag which determines if the constraint definitions are identical
+!>                               across all CDFT states
 !> \param is_charge_constraint list of logicals which determine if the constraint should be applied
 !>                             to the total charge density or the magnetization density
 !> \param eps_rho_rspace threshold to determine when the realspace density can be considered zero
@@ -159,7 +163,8 @@ MODULE mixed_cdft_types
                                                           wfn_overlap_method, &
                                                           has_unit_metric, &
                                                           is_parallel, use_lowdin, &
-                                                          do_ci, nonortho_coupling
+                                                          do_ci, nonortho_coupling, &
+                                                          identical_constraints
       LOGICAL, DIMENSION(:), ALLOCATABLE               :: is_charge_constraint
       REAL(KIND=dp)                                    :: eps_rho_rspace, sim_dt, &
                                                           eps_svd

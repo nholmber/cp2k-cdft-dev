@@ -274,6 +274,7 @@ CONTAINS
             mixed_cdft%use_lowdin = .FALSE.
             mixed_cdft%do_ci = .FALSE.
             mixed_cdft%nonortho_coupling = .FALSE.
+            mixed_cdft%identical_constraints = .TRUE.
             IF (mixed_env%do_mixed_et) THEN
                CALL section_vals_val_get(mixed_section, "MIXED_CDFT%METRIC", &
                                          l_val=mixed_cdft%calculate_metric)
@@ -898,93 +899,118 @@ CONTAINS
          CALL get_qs_env(qs_env_target, dft_control=dft_control_target, &
                          pw_env=pw_env_target)
          CALL pw_env_get(pw_env_target, auxbas_pw_pool=auxbas_pw_pool_target)
-         ! Sanity checks
-         IF (first_call) THEN
+         ! Check if the constraint defitions are identical in both CDFT states
+         IF (first_call .AND. mixed_cdft%identical_constraints) THEN
             DO igroup = 1, SIZE(dft_control_target%qs_control%becke_control%group)
+               IF (SIZE(dft_control_target%qs_control%becke_control%group) =/ &
+                   SIZE(dft_control_source%qs_control%becke_control%group))
+                  CALL cp_abort(__LOCATION__, &
+                                "The number of constraints must be the same in all CDFT states.")
                IF (ASSOCIATED(dft_control_target%qs_control%becke_control%group(igroup)%atoms)) THEN
                   DO iatom = 1, SIZE(dft_control_target%qs_control%becke_control%group(igroup)%atoms)
                      IF (dft_control_target%qs_control%becke_control%group(igroup)%atoms(iatom) /= &
                          dft_control_source%qs_control%becke_control%group(igroup)%atoms(iatom)) &
-                        CALL cp_abort(__LOCATION__, &
-                                      "The constraint definitions of the CDFT states are inconsistent. "// &
-                                      "Check that all ATOM_GROUP sections are identical and correctly ordered.")
+                        mixed_cdft%identical_constraints = .FALSE.
                      IF (dft_control_target%qs_control%becke_control%group(igroup)%coeff(iatom) /= &
                          dft_control_source%qs_control%becke_control%group(igroup)%coeff(iatom)) &
-                        CALL cp_abort(__LOCATION__, &
-                                      "The constraint definitions of the CDFT states are inconsistent. "// &
-                                      "Check that all ATOM_GROUP sections are identical and correctly ordered.")
+                        mixed_cdft%identical_constraints = .FALSE.
                      IF (dft_control_target%qs_control%becke_control%group(igroup)%is_charge_constraint .NEQV. &
                          dft_control_source%qs_control%becke_control%group(igroup)%is_charge_constraint) &
-                        CALL cp_abort(__LOCATION__, &
-                                      "The constraint definitions of the CDFT states are inconsistent. "// &
-                                      "Check that all ATOM_GROUP sections are identical and correctly ordered.")
+                        mixed_cdft%identical_constraints = .FALSE.
+                     IF (.NOT. mixed_cdft%identical_constraints) EXIT
+                  END DO
+               END IF
+               IF (.NOT. mixed_cdft%identical_constraints) EXIT
+            END DO
+         END IF
+         IF (mixed_cdft%identical_constraints) THEN
+            ! The constraint can be transfered only when the constraint defitions are identical in both CDFT states
+            ! Weight function
+            DO igroup = 1, SIZE(dft_control_target%qs_control%becke_control%group)
+               CALL pw_pool_create_pw(auxbas_pw_pool_target, &
+                                      dft_control_target%qs_control%becke_control%group(igroup)%weight%pw, &
+                                      use_data=REALDATA3D, in_space=REALSPACE)
+               ! We have ensured that the grids are consistent => no danger in using explicit copy
+               dft_control_target%qs_control%becke_control%group(igroup)%weight%pw%cr3d(:, :, :) = &
+                  dft_control_source%qs_control%becke_control%group(igroup)%weight%pw%cr3d
+               CALL pw_pool_give_back_pw(auxbas_pw_pool_source, &
+                                         dft_control_source%qs_control%becke_control%group(igroup)%weight%pw)
+            END DO
+            ! Cavity
+            IF (dft_control_source%qs_control%becke_control%cavity_confine) THEN
+               CALL pw_pool_create_pw(auxbas_pw_pool_target, dft_control_target%qs_control%becke_control%cavity%pw, &
+                                      use_data=REALDATA3D, in_space=REALSPACE)
+               dft_control_target%qs_control%becke_control%cavity%pw%cr3d(:, :, :) = &
+                  dft_control_source%qs_control%becke_control%cavity%pw%cr3d
+               CALL pw_pool_give_back_pw(auxbas_pw_pool_source, dft_control_source%qs_control%becke_control%cavity%pw)
+            END IF
+            ! Gradients
+            IF (calculate_forces) THEN
+               DO igroup = 1, SIZE(dft_control_source%qs_control%becke_control%group)
+                  bounds_of = (/LBOUND(dft_control_source%qs_control%becke_control%group(igroup)%gradients, 1), &
+                                UBOUND(dft_control_source%qs_control%becke_control%group(igroup)%gradients, 1), &
+                                LBOUND(dft_control_source%qs_control%becke_control%group(igroup)%gradients, 2), &
+                                UBOUND(dft_control_source%qs_control%becke_control%group(igroup)%gradients, 2), &
+                                LBOUND(dft_control_source%qs_control%becke_control%group(igroup)%gradients, 3), &
+                                UBOUND(dft_control_source%qs_control%becke_control%group(igroup)%gradients, 3), &
+                                LBOUND(dft_control_source%qs_control%becke_control%group(igroup)%gradients, 4), &
+                                UBOUND(dft_control_source%qs_control%becke_control%group(igroup)%gradients, 4)/)
+                  ALLOCATE (dft_control_target%qs_control%becke_control%group(igroup)% &
+                            gradients(bounds_of(1):bounds_of(2), bounds_of(3):bounds_of(4), &
+                                      bounds_of(5):bounds_of(6), bounds_of(7):bounds_of(8)))
+                  dft_control_target%qs_control%becke_control%group(igroup)%gradients = &
+                     dft_control_source%qs_control%becke_control%group(igroup)%gradients
+                  DEALLOCATE (dft_control_source%qs_control%becke_control%group(igroup)%gradients)
+               END DO
+            END IF
+            ! Atomic weight functions needed for Becke charges
+            IF (dft_control_source%qs_control%becke_control%atomic_charges) THEN
+               IF (.NOT. ASSOCIATED(dft_control_target%qs_control%becke_control%charge)) &
+                  ALLOCATE (dft_control_target%qs_control%becke_control% &
+                            charge(dft_control_target%qs_control%becke_control%natoms))
+               DO iatom = 1, dft_control_target%qs_control%becke_control%natoms
+                  CALL pw_pool_create_pw(auxbas_pw_pool_target, &
+                                         dft_control_target%qs_control%becke_control%charge(iatom)%pw, &
+                                         use_data=REALDATA3D, in_space=REALSPACE)
+                  dft_control_target%qs_control%becke_control%charge(iatom)%pw%cr3d = &
+                     dft_control_source%qs_control%becke_control%charge(iatom)%pw%cr3d
+                  CALL pw_pool_give_back_pw(auxbas_pw_pool_source, &
+                                            dft_control_source%qs_control%becke_control%charge(iatom)%pw)
+               END DO
+            END IF
+            ! Set some flags so the weight is not rebuilt during SCF
+            dft_control_target%qs_control%becke_control%external_control = .FALSE.
+            dft_control_target%qs_control%becke_control%need_pot = .FALSE.
+            ! For states i+1 < nforce_eval, prevent deallocation of constraint
+            IF (iforce_eval == nforce_eval) THEN
+               dft_control_target%qs_control%becke_control%transfer_pot = .FALSE.
+            ELSE
+               dft_control_target%qs_control%becke_control%transfer_pot = .TRUE.
+            END IF
+            dft_control_target%qs_control%becke_control%first_iteration = .FALSE.
+         ELSE
+            ! Force rebuild of constraint and dont save it
+            dft_control_target%qs_control%becke_control%external_control = .FALSE.
+            dft_control_target%qs_control%becke_control%need_pot = .TRUE.
+            dft_control_target%qs_control%becke_control%transfer_pot = .FALSE.
+            ! Also deallocate the constraint of the previous state if it is still allocated
+            DO igroup = 1, SIZE(dft_control_source%qs_control%becke_control%group)
+               IF (ASSOCIATED(dft_control_source%qs_control%becke_control%group(igroup)%weight)) &
+                  CALL pw_pool_give_back_pw(auxbas_pw_pool_source, &
+                                            dft_control_source%qs_control%becke_control%group(igroup)%weight%pw)
+               IF (ASSOCIATED(dft_control_source%qs_control%becke_control%group(igroup)%cavity)) &
+                  CALL pw_pool_give_back_pw(auxbas_pw_pool_source, dft_control_source%qs_control%becke_control%cavity%pw)
+               IF (ASSOCIATED(dft_control_source%qs_control%becke_control%group(igroup)%gradients)) &
+                  DEALLOCATE (dft_control_source%qs_control%becke_control%group(igroup)%gradients)
+               IF (dft_control_source%qs_control%becke_control%atomic_charges) THEN
+                  DO iatom = 1, dft_control_target%qs_control%becke_control%natoms
+                     IF (ASSOCIATED(dft_control_source%qs_control%becke_control%charge(iatom))) &
+                        CALL pw_pool_give_back_pw(auxbas_pw_pool_source, &
+                                                  dft_control_source%qs_control%becke_control%charge(iatom)%pw)
                   END DO
                END IF
             END DO
          END IF
-         ! Weight function
-         DO igroup = 1, SIZE(dft_control_target%qs_control%becke_control%group)
-            CALL pw_pool_create_pw(auxbas_pw_pool_target, &
-                                   dft_control_target%qs_control%becke_control%group(igroup)%weight%pw, &
-                                   use_data=REALDATA3D, in_space=REALSPACE)
-            ! We have ensured that the grids are consistent => no danger in using explicit copy
-            dft_control_target%qs_control%becke_control%group(igroup)%weight%pw%cr3d(:, :, :) = &
-               dft_control_source%qs_control%becke_control%group(igroup)%weight%pw%cr3d
-            CALL pw_pool_give_back_pw(auxbas_pw_pool_source, &
-                                      dft_control_source%qs_control%becke_control%group(igroup)%weight%pw)
-         END DO
-         ! Cavity
-         IF (dft_control_source%qs_control%becke_control%cavity_confine) THEN
-            CALL pw_pool_create_pw(auxbas_pw_pool_target, dft_control_target%qs_control%becke_control%cavity%pw, &
-                                   use_data=REALDATA3D, in_space=REALSPACE)
-            dft_control_target%qs_control%becke_control%cavity%pw%cr3d(:, :, :) = &
-               dft_control_source%qs_control%becke_control%cavity%pw%cr3d
-            CALL pw_pool_give_back_pw(auxbas_pw_pool_source, dft_control_source%qs_control%becke_control%cavity%pw)
-         END IF
-         ! Gradients
-         IF (calculate_forces) THEN
-            DO igroup = 1, SIZE(dft_control_source%qs_control%becke_control%group)
-               bounds_of = (/LBOUND(dft_control_source%qs_control%becke_control%group(igroup)%gradients, 1), &
-                             UBOUND(dft_control_source%qs_control%becke_control%group(igroup)%gradients, 1), &
-                             LBOUND(dft_control_source%qs_control%becke_control%group(igroup)%gradients, 2), &
-                             UBOUND(dft_control_source%qs_control%becke_control%group(igroup)%gradients, 2), &
-                             LBOUND(dft_control_source%qs_control%becke_control%group(igroup)%gradients, 3), &
-                             UBOUND(dft_control_source%qs_control%becke_control%group(igroup)%gradients, 3), &
-                             LBOUND(dft_control_source%qs_control%becke_control%group(igroup)%gradients, 4), &
-                             UBOUND(dft_control_source%qs_control%becke_control%group(igroup)%gradients, 4)/)
-               ALLOCATE (dft_control_target%qs_control%becke_control%group(igroup)% &
-                         gradients(bounds_of(1):bounds_of(2), bounds_of(3):bounds_of(4), &
-                                   bounds_of(5):bounds_of(6), bounds_of(7):bounds_of(8)))
-               dft_control_target%qs_control%becke_control%group(igroup)%gradients = &
-                  dft_control_source%qs_control%becke_control%group(igroup)%gradients
-               DEALLOCATE (dft_control_source%qs_control%becke_control%group(igroup)%gradients)
-            END DO
-         END IF
-         ! Atomic weight functions needed for Becke charges
-         IF (dft_control_source%qs_control%becke_control%atomic_charges) THEN
-            IF (.NOT. ASSOCIATED(dft_control_target%qs_control%becke_control%charge)) &
-               ALLOCATE (dft_control_target%qs_control%becke_control% &
-                         charge(dft_control_target%qs_control%becke_control%natoms))
-            DO iatom = 1, dft_control_target%qs_control%becke_control%natoms
-               CALL pw_pool_create_pw(auxbas_pw_pool_target, &
-                                      dft_control_target%qs_control%becke_control%charge(iatom)%pw, &
-                                      use_data=REALDATA3D, in_space=REALSPACE)
-               dft_control_target%qs_control%becke_control%charge(iatom)%pw%cr3d = &
-                  dft_control_source%qs_control%becke_control%charge(iatom)%pw%cr3d
-               CALL pw_pool_give_back_pw(auxbas_pw_pool_source, &
-                                         dft_control_source%qs_control%becke_control%charge(iatom)%pw)
-            END DO
-         END IF
-         ! Set some flags so the weight is not rebuilt during SCF
-         dft_control_target%qs_control%becke_control%external_control = .FALSE.
-         dft_control_target%qs_control%becke_control%need_pot = .FALSE.
-         ! For states i+1 < nforce_eval, prevent deallocation of constraint
-         IF (iforce_eval == nforce_eval) THEN
-            dft_control_target%qs_control%becke_control%transfer_pot = .FALSE.
-         ELSE
-            dft_control_target%qs_control%becke_control%transfer_pot = .TRUE.
-         END IF
-         dft_control_target%qs_control%becke_control%first_iteration = .FALSE.
       END IF
       ! Set flags for ET coupling calculation
       IF (mixed_env%do_mixed_et) THEN
@@ -1007,8 +1033,8 @@ CONTAINS
          END IF
       END IF
       ! All states have been cycled through and the constraint definitions are consistent across states
-      ! Disable sanity checks and deallocate some additional arrays
-      IF (iforce_eval == nforce_eval .AND. first_call) THEN
+      ! Disable consistency checks and deallocate some additional arrays
+      IF (iforce_eval == nforce_eval .AND. first_call .AND. mixed_cdft%identical_constraints) THEN
          first_call = .FALSE.
          DO jforce_eval = 2, nforce_eval
             force_env_qs_target => force_env%sub_force_env(jforce_eval)%force_env
@@ -1057,7 +1083,7 @@ CONTAINS
                                                             eigenv, energy, evals, Sda, work
       REAL(KIND=dp), ALLOCATABLE, DIMENSION(:, :)        :: H_mat, H_mat_copy, metric, S_det, S_mat, &
                                                             S_mat_copy, strength, tmp_mat, &
-                                                            W_diagonal, W_mat, Wda
+                                                            W_diagonal, W_mat, Wda, Wad
       REAL(KIND=dp), ALLOCATABLE, DIMENSION(:, :, :)     :: a, b, overlaps
       REAL(KIND=dp), EXTERNAL                            :: dnrm2
       TYPE(atomic_kind_type), DIMENSION(:), POINTER      :: atomic_kind_set
@@ -1114,7 +1140,7 @@ CONTAINS
       ! Default behavior is to use rotation when a single constraint is active, otherwise uses Lowdin orthogonalization
       ! The latter can also be explicitly requested when a single constraint is active
       ! Possibly computes the coupling additionally with the wavefunction overlap method
-      IF (nvar == 1) THEN
+      IF (nvar == 1 .AND. mixed_cdft%identical_constraints) THEN
          use_rotation = .TRUE.
          use_lowdin = mixed_cdft%use_lowdin
       ELSE
@@ -1139,6 +1165,7 @@ CONTAINS
       npermutations = nforce_eval*(nforce_eval-1)/2 ! Size of upper triangular part
       ALLOCATE (mo_overlap(npermutations), S_det(npermutations, nspins))
       ALLOCATE (Wda(nvar, npermutations))
+      IF (.NOT. mixed_cdft%identical_constraints) ALLOCATE(Wad(nvar, npermutations))
       ALLOCATE (a(nspins, nvar, npermutations), b(nspins, nvar, npermutations))
       a = 0.0_dp
       b = 0.0_dp
@@ -1227,7 +1254,7 @@ CONTAINS
             CALL cp_fm_invert(mo_overlap(ipermutation)%matrix, inverse_mat, &
                               S_det(ipermutation, ispin), eps_svd=mixed_cdft%eps_svd)
             CALL cp_fm_get_info(inverse_mat, nrow_local=nrow_local, ncol_local=ncol_local)
-            ! Calculate <Psi_i | w_ivar(r) | Psi_j>
+            ! Calculate <Psi_i | w_j(r) | Psi_j> for ivar:th constraint
             DO j = 1, ncol_local
                DO k = 1, nrow_local
                   DO ivar = 1, nvar
@@ -1237,6 +1264,7 @@ CONTAINS
                   END DO
                END DO
             END DO
+            ! Calculate <Psi_j | w_i(r) | Psi_i> for ivar:th constraint
             CALL cp_fm_transpose(inverse_mat, Tinverse)
             DO j = 1, ncol_local
                DO k = 1, nrow_local
@@ -1291,12 +1319,19 @@ CONTAINS
       ALLOCATE (Sda(npermutations))
       DO ipermutation = 1, npermutations
          IF (nspins == 2) THEN
-            Sda(ipermutation) = ABS(S_det(ipermutation, 1)*S_det(ipermutation, 2)) ! The sign might be wrong on some processors (used to be?)
+            Sda(ipermutation) = S_det(ipermutation, 1)*S_det(ipermutation, 2)
          ELSE
             Sda(ipermutation) = S_det(ipermutation, 2)**2
          END IF
+         ! Finalize <Psi_j | w_i(r) | Psi_i> by multiplication with Sda
          DO ivar = 1, nvar
-            Wda(ivar, ipermutation) = (SUM(a(:, ivar, ipermutation))+SUM(b(:, ivar, ipermutation)))*Sda(ipermutation)/2.0_dp
+            IF (mixed_cdft%identical_constraints) THEN
+               if (force_env%para_env%mepos == force_env%para_env%source) &
+                  print *, 'Wda ab', a(:, ivar, ipermutation), b(:, ivar, ipermutation)
+               Wda(ivar, ipermutation) = (SUM(a(:, ivar, ipermutation))+SUM(b(:, ivar, ipermutation)))*Sda(ipermutation)/2.0_dp
+            ELSE
+               Wda(ivar, ipermutation) = SUM(a(:, ivar, ipermutation))*Sda(ipermutation)
+               Wad(ivar, ipermutation) = SUM(b(:, ivar, ipermutation))*Sda(ipermutation)
          END DO
       END DO
       ! Transfer info about the constraint calculations
@@ -1529,14 +1564,25 @@ CONTAINS
          sum_a = 0.0_dp
          sum_b = 0.0_dp
          DO ivar = 1, nvar
+            ! State X = I, J: strength_X * <Psi_X | w_X(r) | Psi_X>
             sum_b(1) = sum_b(1)+strength(ivar, jstate)*W_diagonal(ivar, jstate)
-            sum_b(2) = sum_b(2)+strength(ivar, jstate)*Wda(ivar, ipermutation)
             sum_a(1) = sum_a(1)+strength(ivar, istate)*W_diagonal(ivar, istate)
-            sum_a(2) = sum_a(2)+strength(ivar, istate)*Wda(ivar, ipermutation)
+            IF (mixed_cdft%identical_constraints) THEN
+               ! V_J * W_JI
+               sum_b(2) = sum_b(2)+strength(ivar, jstate)*Wda(ivar, ipermutation)
+               ! V_I * W_IJ
+               sum_a(2) = sum_a(2)+strength(ivar, istate)*Wda(ivar, ipermutation)
+            ELSE
+               sum_b(2) = sum_b(2)+strength(ivar, jstate)*Wda(ivar, ipermutation)
+               sum_a(2) = sum_a(2)+strength(ivar, istate)*Wad(ivar, ipermutation)
+            END IF
          END DO
-         c(1) = (energy(jstate)+sum_b(1))*Sda(ipermutation)-sum_b(2) ! H_BA = F_A*S_BA - V_A * W_BA
-         c(2) = (energy(istate)+sum_a(1))*Sda(ipermutation)-sum_a(2) ! H_AB = F_B*S_AB - V_B * W_AB
-         H_mat(istate, jstate) = (c(1)+c(2))*0.5_dp ! H''(1,2) = 0.5*(H_AB+H_BA) = H''(2,1)
+         ! H_IJ = F_J*S_IJ - V_J * W_IJ
+         c(1) = (energy(jstate)+sum_b(1))*Sda(ipermutation)-sum_b(2)
+         ! H_JI = F_I*S_JI - V_I * W_JI
+         c(2) = (energy(istate)+sum_a(1))*Sda(ipermutation)-sum_a(2)
+         ! H''(I,J) = 0.5*(H_IJ+H_JI) = H''(J,I)
+         H_mat(istate, jstate) = (c(1)+c(2))*0.5_dp
          H_mat(jstate, istate) = H_mat(istate, jstate)
          IF (mixed_cdft%nonortho_coupling) coupling_nonortho(ipermutation) = H_mat(istate, jstate)
       END DO
@@ -1704,6 +1750,7 @@ CONTAINS
          END IF
       END IF
       DEALLOCATE (energy, strength, a, b, S_det, W_diagonal, Wda)
+      IF (ASSOCIATED(Wad)) DEALLOCATE (Wad)
       DEALLOCATE (S_mat, H_mat, tmp_mat, eigenv, Sda)
       IF (ALLOCATED(coupling_rotation)) &
          DEALLOCATE (coupling_rotation)
