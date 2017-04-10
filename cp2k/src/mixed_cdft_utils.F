@@ -134,7 +134,8 @@ CONTAINS
       CHARACTER(len=*), PARAMETER :: routineN = 'mixed_cdft_parse_settings', &
          routineP = moduleN//':'//routineN
 
-      INTEGER                                            :: i, iforce_eval, nforce_eval, nkinds, jforce_eval, igroup
+      INTEGER                                            :: i, iatom, iforce_eval, nforce_eval, &
+                                                            nkinds, jforce_eval, igroup
       LOGICAL                                            :: is_match
       TYPE(atomic_kind_type), DIMENSION(:), POINTER      :: atomic_kind_set
       TYPE(dft_control_type), POINTER                    :: dft_control, dft_control_source, dft_control_target
@@ -143,7 +144,7 @@ CONTAINS
       TYPE(pw_pool_type), POINTER                        :: auxbas_pw_pool
       TYPE(qs_environment_type), POINTER                 :: qs_env
 
-      NULLIFY (dft_control, qs_env, pw_env, auxbas_pw_pool, force_env_qs)
+      NULLIFY (dft_control, qs_env, pw_env, auxbas_pw_pool, force_env_qs, dft_control_target, dft_control_source)
       ! Allocate storage for temporaries used for checking settings consistency
       settings%max_nkinds = 30
       nforce_eval = SIZE(force_env%sub_force_env)
@@ -971,9 +972,7 @@ CONTAINS
                fm_struct_wmat, fm_struct_overlap, fm_struct_tmp, &
                mixed_matrix_s_tmp, matrix_s_tmp, mixed_wmat_tmp, &
                wmat_tmp, mixed_mo_coeff, matrix_p_tmp, mixed_matrix_p_tmp, &
-               mixed_matrix_s, density_matrix, blacs_env, w_matrix, &
-               dft_control_target, dft_control_source)
-
+               mixed_matrix_s, density_matrix, blacs_env, w_matrix)
       CPASSERT(ASSOCIATED(force_env))
       mixed_env => force_env%mixed_env
       nforce_eval = SIZE(force_env%sub_force_env)
