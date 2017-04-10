@@ -892,7 +892,7 @@ CONTAINS
          IF (mixed_cdft%identical_constraints) THEN
             dft_control_source%qs_control%becke_control%transfer_pot = .TRUE.
          ELSE
-            dft_control_source%qs_control%becke_control%transfer_pot = .TRUE.
+            dft_control_source%qs_control%becke_control%transfer_pot = .FALSE.
          END IF
          mixed_cdft%sim_step = mixed_cdft%sim_step+1
       ELSE
