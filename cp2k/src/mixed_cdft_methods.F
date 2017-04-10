@@ -999,13 +999,13 @@ CONTAINS
                CALL pw_pool_give_back_pw(auxbas_pw_pool_source, dft_control_source%qs_control%becke_control%cavity%pw)
             IF (dft_control_source%qs_control%becke_control%atomic_charges) THEN
                DO iatom = 1, dft_control_target%qs_control%becke_control%natoms
-                  IF (ASSOCIATED(dft_control_source%qs_control%becke_control%charge(iatom))) &
+                  IF (ASSOCIATED(dft_control_source%qs_control%becke_control%charge(iatom)%pw)) &
                      CALL pw_pool_give_back_pw(auxbas_pw_pool_source, &
                                                dft_control_source%qs_control%becke_control%charge(iatom)%pw)
                END DO
             END IF
             DO igroup = 1, SIZE(dft_control_source%qs_control%becke_control%group)
-               IF (ASSOCIATED(dft_control_source%qs_control%becke_control%group(igroup)%weight)) &
+               IF (ASSOCIATED(dft_control_source%qs_control%becke_control%group(igroup)%weight%pw)) &
                   CALL pw_pool_give_back_pw(auxbas_pw_pool_source, &
                                             dft_control_source%qs_control%becke_control%group(igroup)%weight%pw)
                IF (ASSOCIATED(dft_control_source%qs_control%becke_control%group(igroup)%gradients)) &
