@@ -976,7 +976,7 @@ CONTAINS
             IF (first_call) THEN
                dft_control_target%qs_control%becke_control%first_iteration = .TRUE.
             ELSE
-               dft_control_target%qs_control%becke_control%first_iteration = .TRUE.
+               dft_control_target%qs_control%becke_control%first_iteration = .FALSE.
             END IF
          END IF
       END IF
