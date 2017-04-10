@@ -134,7 +134,7 @@ CONTAINS
       CHARACTER(len=*), PARAMETER :: routineN = 'mixed_cdft_parse_settings', &
          routineP = moduleN//':'//routineN
 
-      INTEGER                                            :: i, iforce_eval, nforce_eval, nkinds
+      INTEGER                                            :: i, iforce_eval, nforce_eval, nkinds, jforce_eval
       LOGICAL                                            :: is_match
       TYPE(atomic_kind_type), DIMENSION(:), POINTER      :: atomic_kind_set
       TYPE(dft_control_type), POINTER                    :: dft_control
@@ -329,9 +329,8 @@ CONTAINS
       IF (mixed_cdft%dlb .AND. .NOT. settings%sb(1, 1)) &
          CALL cp_abort(__LOCATION__, &
                        "Parallel mode mixed CDFT load balancing requires Gaussian cavity confinement.")
-      ! Deallocate some arrays that are no longer neededd
+      ! Check if the constraint defitions are identical in all CDFT states
       DO iforce_eval = 1, nforce_eval
-         IF (.NOT. ASSOCIATED(force_env%sub_force_env(iforce_eval)%force_env)) CYCLE
          IF (mixed_env%do_mixed_qmmm_cdft) THEN
             force_env_qs => force_env%sub_force_env(iforce_eval)%force_env
             qs_env => force_env_qs%qmmm_env%qs_env
@@ -339,29 +338,85 @@ CONTAINS
             force_env_qs => force_env%sub_force_env(iforce_eval)%force_env
             CALL force_env_get(force_env_qs, qs_env=qs_env)
          END IF
-         CALL get_qs_env(qs_env, pw_env=pw_env, dft_control=dft_control)
-         IF (dft_control%qs_control%becke_control%cavity_confine) THEN
-            IF (.NOT. mixed_cdft%is_parallel .AND. iforce_eval /= 1) &
-               CALL release_hirshfeld_type(dft_control%qs_control%becke_control%cavity_env)
-         END IF
-         IF (.NOT. dft_control%qs_control%gapw) THEN
-            IF (mixed_cdft%is_parallel) THEN
-               DO i = 1, SIZE(dft_control%qs_control%becke_control%group)
-                  DEALLOCATE (dft_control%qs_control%becke_control%group(i)%coeff)
-                  DEALLOCATE (dft_control%qs_control%becke_control%group(i)%atoms)
-               END DO
-               IF (.NOT. settings%sb(6, 1)) DEALLOCATE (dft_control%qs_control%becke_control%atoms)
+         CALL get_qs_env(qs_env, dft_control=dft_control_source)
+         DO jforce_eval = 2, nforce_eval
+            IF (mixed_env%do_mixed_qmmm_cdft) THEN
+               force_env_qs => force_env%sub_force_env(jforce_eval)%force_env
+               qs_env => force_env_qs%qmmm_env%qs_env
+            ELSE
+               force_env_qs => force_env%sub_force_env(jforce_eval)%force_env
+               CALL force_env_get(force_env_qs, qs_env=qs_env)
             END IF
-         END IF
-         IF (dft_control%qs_control%becke_control%cutoff_type == becke_cutoff_element) THEN
-            IF (.NOT. mixed_cdft%is_parallel .AND. iforce_eval /= 1) &
-               DEALLOCATE (dft_control%qs_control%becke_control%cutoffs_tmp)
-         END IF
-         IF (dft_control%qs_control%becke_control%adjust) THEN
-            IF (.NOT. mixed_cdft%is_parallel .AND. iforce_eval /= 1) &
-               DEALLOCATE (dft_control%qs_control%becke_control%radii_tmp)
-         END IF
+            CALL get_qs_env(qs_env, dft_control=dft_control_target)
+            DO igroup = 1, SIZE(dft_control_target%qs_control%becke_control%group)
+               IF (SIZE(dft_control_target%qs_control%becke_control%group) /= &
+                   SIZE(dft_control_source%qs_control%becke_control%group)) &
+                  CALL cp_abort(__LOCATION__, &
+                                "The number of constraints must be the same in all CDFT states.")
+               IF (SIZE(dft_control_target%qs_control%becke_control%group(igroup)%atoms) /= &
+                   SIZE(dft_control_source%qs_control%becke_control%group(igroup)%atoms)) &
+                  mixed_cdft%identical_constraints = .FALSE.
+               IF (.NOT. mixed_cdft%identical_constraints) EXIT
+               DO iatom = 1, SIZE(dft_control_target%qs_control%becke_control%group(igroup)%atoms)
+                  IF (dft_control_target%qs_control%becke_control%group(igroup)%atoms(iatom) /= &
+                      dft_control_source%qs_control%becke_control%group(igroup)%atoms(iatom)) &
+                     mixed_cdft%identical_constraints = .FALSE.
+                  IF (dft_control_target%qs_control%becke_control%group(igroup)%coeff(iatom) /= &
+                      dft_control_source%qs_control%becke_control%group(igroup)%coeff(iatom)) &
+                     mixed_cdft%identical_constraints = .FALSE.
+                  IF (dft_control_target%qs_control%becke_control%group(igroup)%is_charge_constraint .NEQV. &
+                      dft_control_source%qs_control%becke_control%group(igroup)%is_charge_constraint) &
+                     mixed_cdft%identical_constraints = .FALSE.
+                  IF (.NOT. mixed_cdft%identical_constraints) EXIT
+               END DO
+               IF (.NOT. mixed_cdft%identical_constraints) EXIT
+            END DO
+            IF (.NOT. mixed_cdft%identical_constraints) EXIT
+         END DO
+         IF (.NOT. mixed_cdft%identical_constraints) EXIT
       END DO
+      IF (.NOT. mixed_cdft%identical_constraints .AND. mixed_cdft%is_parallel) &
+         CALL cp_abort(__LOCATION__, &
+                       "Parallel mode mixed CDFT requires identical constraint definitions in both CDFT states.")
+      ! Deallocate some arrays that are no longer needed
+      IF (mixed_cdft%identical_constraints) THEN
+         DO iforce_eval = 1, nforce_eval
+            IF (.NOT. ASSOCIATED(force_env%sub_force_env(iforce_eval)%force_env)) CYCLE
+            IF (mixed_env%do_mixed_qmmm_cdft) THEN
+               force_env_qs => force_env%sub_force_env(iforce_eval)%force_env
+               qs_env => force_env_qs%qmmm_env%qs_env
+            ELSE
+               force_env_qs => force_env%sub_force_env(iforce_eval)%force_env
+               CALL force_env_get(force_env_qs, qs_env=qs_env)
+            END IF
+            CALL get_qs_env(qs_env, dft_control=dft_control)
+            IF (mixed_cdft%is_parallel) THEN
+               IF (.NOT. dft_control%qs_control%gapw) THEN
+                     DO i = 1, SIZE(dft_control%qs_control%becke_control%group)
+                        DEALLOCATE (dft_control%qs_control%becke_control%group(i)%coeff)
+                        DEALLOCATE (dft_control%qs_control%becke_control%group(i)%atoms)
+                     END DO
+                     IF (.NOT. settings%sb(6, 1)) DEALLOCATE (dft_control%qs_control%becke_control%atoms)
+               END IF
+            ELSE
+               IF (iforce_eval == 1) CYCLE
+               DO igroup = 1, SIZE(dft_control%qs_control%becke_control%group)
+                  IF (.NOT. dft_control%qs_control%gapw) THEN
+                     DEALLOCATE (dft_control%qs_control%becke_control%group(igroup)%coeff)
+                     DEALLOCATE (dft_control%qs_control%becke_control%group(igroup)%atoms)
+                     IF (.NOT. dft_control%qs_control%becke_control%atomic_charges) &
+                        DEALLOCATE (dft_control%qs_control%becke_control%atoms)
+                  END IF
+               END DO
+               IF (dft_control%qs_control%becke_control%cavity_confine) &
+                     CALL release_hirshfeld_type(dft_control%qs_control%becke_control%cavity_env)
+               IF (dft_control%qs_control%becke_control%cutoff_type == becke_cutoff_element) &
+                  DEALLOCATE (dft_control%qs_control%becke_control%cutoffs_tmp)
+               IF (dft_control%qs_control%becke_control%adjust) &
+                  DEALLOCATE (dft_control%qs_control%becke_control%radii_tmp)
+            END IF
+         END DO
+      END IF
 
    END SUBROUTINE mixed_cdft_parse_settings
 
@@ -907,7 +962,7 @@ CONTAINS
       TYPE(cp_fm_struct_type), POINTER                   :: fm_struct_mo, fm_struct_overlap, &
                                                             fm_struct_tmp, fm_struct_wmat
       TYPE(dbcsr_type)                                   :: desymm_tmp
-      TYPE(dft_control_type), POINTER                    :: dft_control
+      TYPE(dft_control_type), POINTER                    :: dft_control, dft_control_source, dft_control_target
       TYPE(mixed_cdft_type), POINTER                     :: mixed_cdft
       TYPE(mixed_environment_type), POINTER              :: mixed_env
       TYPE(qs_environment_type), POINTER                 :: qs_env
@@ -916,7 +971,8 @@ CONTAINS
                fm_struct_wmat, fm_struct_overlap, fm_struct_tmp, &
                mixed_matrix_s_tmp, matrix_s_tmp, mixed_wmat_tmp, &
                wmat_tmp, mixed_mo_coeff, matrix_p_tmp, mixed_matrix_p_tmp, &
-               mixed_matrix_s, density_matrix, blacs_env, w_matrix)
+               mixed_matrix_s, density_matrix, blacs_env, w_matrix, &
+               dft_control_target, dft_control_source)
 
       CPASSERT(ASSOCIATED(force_env))
       mixed_env => force_env%mixed_env

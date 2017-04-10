@@ -188,7 +188,7 @@ CONTAINS
                is_parallel = .TRUE.
                IF (.NOT. nforce_eval == 2) &
                   CALL cp_abort(__LOCATION__, &
-                                "Parallel mode mixed CDFT calculation requires supports only 2 force_evals")
+                                "Parallel mode mixed CDFT calculation supports only 2 force_evals")
             ELSE IF (mixed_env%ngroups == 1) THEN
                is_parallel = .FALSE.
             ELSE
@@ -885,11 +885,15 @@ CONTAINS
       END IF
       IF (iforce_eval == 1) THEN
          ! The first force_eval builds the weight function and gradients in et_coupling.F
-         ! Set some flags so the constraint is saved
+         ! Set some flags so the constraint is saved if the constraint definitions are identical in all CDFT states
          CALL get_qs_env(qs_env_source, dft_control=dft_control_source)
          dft_control_source%qs_control%becke_control%external_control = .FALSE.
          dft_control_source%qs_control%becke_control%need_pot = .TRUE.
-         dft_control_source%qs_control%becke_control%transfer_pot = .TRUE.
+         IF (mixed_cdft%identical_constraints) THEN
+            dft_control_source%qs_control%becke_control%transfer_pot = .TRUE.
+         ELSE
+            dft_control_source%qs_control%becke_control%transfer_pot = .TRUE.
+         END IF
          mixed_cdft%sim_step = mixed_cdft%sim_step+1
       ELSE
          ! Transfer the constraint from the ith force_eval to the i+1th
@@ -899,32 +903,8 @@ CONTAINS
          CALL get_qs_env(qs_env_target, dft_control=dft_control_target, &
                          pw_env=pw_env_target)
          CALL pw_env_get(pw_env_target, auxbas_pw_pool=auxbas_pw_pool_target)
-         ! Check if the constraint defitions are identical in both CDFT states
-         IF (first_call .AND. mixed_cdft%identical_constraints) THEN
-            DO igroup = 1, SIZE(dft_control_target%qs_control%becke_control%group)
-               IF (SIZE(dft_control_target%qs_control%becke_control%group) /= &
-                   SIZE(dft_control_source%qs_control%becke_control%group)) &
-                  CALL cp_abort(__LOCATION__, &
-                                "The number of constraints must be the same in all CDFT states.")
-               IF (ASSOCIATED(dft_control_target%qs_control%becke_control%group(igroup)%atoms)) THEN
-                  DO iatom = 1, SIZE(dft_control_target%qs_control%becke_control%group(igroup)%atoms)
-                     IF (dft_control_target%qs_control%becke_control%group(igroup)%atoms(iatom) /= &
-                         dft_control_source%qs_control%becke_control%group(igroup)%atoms(iatom)) &
-                        mixed_cdft%identical_constraints = .FALSE.
-                     IF (dft_control_target%qs_control%becke_control%group(igroup)%coeff(iatom) /= &
-                         dft_control_source%qs_control%becke_control%group(igroup)%coeff(iatom)) &
-                        mixed_cdft%identical_constraints = .FALSE.
-                     IF (dft_control_target%qs_control%becke_control%group(igroup)%is_charge_constraint .NEQV. &
-                         dft_control_source%qs_control%becke_control%group(igroup)%is_charge_constraint) &
-                        mixed_cdft%identical_constraints = .FALSE.
-                     IF (.NOT. mixed_cdft%identical_constraints) EXIT
-                  END DO
-               END IF
-               IF (.NOT. mixed_cdft%identical_constraints) EXIT
-            END DO
-         END IF
+         ! The constraint can be transfered only when the constraint defitions are identical in all CDFT states
          IF (mixed_cdft%identical_constraints) THEN
-            ! The constraint can be transfered only when the constraint defitions are identical in both CDFT states
             ! Weight function
             DO igroup = 1, SIZE(dft_control_target%qs_control%becke_control%group)
                CALL pw_pool_create_pw(auxbas_pw_pool_target, &
@@ -993,24 +973,11 @@ CONTAINS
             dft_control_target%qs_control%becke_control%external_control = .FALSE.
             dft_control_target%qs_control%becke_control%need_pot = .TRUE.
             dft_control_target%qs_control%becke_control%transfer_pot = .FALSE.
-            dft_control_target%qs_control%becke_control%first_iteration = .TRUE.
-            ! Also deallocate the constraint of the previous state if it is still allocated
-            IF (ASSOCIATED(dft_control_source%qs_control%becke_control%cavity%pw)) &
-               CALL pw_pool_give_back_pw(auxbas_pw_pool_source, dft_control_source%qs_control%becke_control%cavity%pw)
-            IF (dft_control_source%qs_control%becke_control%atomic_charges) THEN
-               DO iatom = 1, dft_control_target%qs_control%becke_control%natoms
-                  IF (ASSOCIATED(dft_control_source%qs_control%becke_control%charge(iatom)%pw)) &
-                     CALL pw_pool_give_back_pw(auxbas_pw_pool_source, &
-                                               dft_control_source%qs_control%becke_control%charge(iatom)%pw)
-               END DO
+            IF (first_call) THEN
+               dft_control_target%qs_control%becke_control%first_iteration = .TRUE.
+            ELSE
+               dft_control_target%qs_control%becke_control%first_iteration = .TRUE.
             END IF
-            DO igroup = 1, SIZE(dft_control_source%qs_control%becke_control%group)
-               IF (ASSOCIATED(dft_control_source%qs_control%becke_control%group(igroup)%weight%pw)) &
-                  CALL pw_pool_give_back_pw(auxbas_pw_pool_source, &
-                                            dft_control_source%qs_control%becke_control%group(igroup)%weight%pw)
-               IF (ASSOCIATED(dft_control_source%qs_control%becke_control%group(igroup)%gradients)) &
-                  DEALLOCATE (dft_control_source%qs_control%becke_control%group(igroup)%gradients)
-            END DO
          END IF
       END IF
       ! Set flags for ET coupling calculation
@@ -1033,28 +1000,7 @@ CONTAINS
             END IF
          END IF
       END IF
-      ! All states have been cycled through and the constraint definitions are consistent across states
-      ! Disable consistency checks and deallocate some additional arrays
-      IF (iforce_eval == nforce_eval .AND. first_call .AND. mixed_cdft%identical_constraints) THEN
-         first_call = .FALSE.
-         DO jforce_eval = 2, nforce_eval
-            force_env_qs_target => force_env%sub_force_env(jforce_eval)%force_env
-            IF (.NOT. force_env%mixed_env%do_mixed_qmmm_cdft) THEN
-               CALL force_env_get(force_env=force_env_qs_target, qs_env=qs_env_target)
-            ELSE
-               qs_env_target => force_env_qs_target%qmmm_env%qs_env
-            END IF
-            CALL get_qs_env(qs_env_target, dft_control=dft_control_target)
-            DO igroup = 1, SIZE(dft_control_target%qs_control%becke_control%group)
-               IF (.NOT. dft_control_target%qs_control%gapw) THEN
-                  DEALLOCATE (dft_control_target%qs_control%becke_control%group(igroup)%coeff)
-                  DEALLOCATE (dft_control_target%qs_control%becke_control%group(igroup)%atoms)
-                  IF (.NOT. dft_control_target%qs_control%becke_control%atomic_charges) &
-                     DEALLOCATE (dft_control_target%qs_control%becke_control%atoms)
-               END IF
-            END DO
-         END DO
-      END IF
+      IF (iforce_eval == nforce_eval .AND. first_call) first_call = .FALSE.
       CALL timestop(handle)
 
    END SUBROUTINE mixed_cdft_transfer_weight
