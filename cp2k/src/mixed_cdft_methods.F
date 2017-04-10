@@ -1273,9 +1273,8 @@ CONTAINS
          ! Finalize <Psi_j | w_i(r) | Psi_i> by multiplication with Sda
          DO ivar = 1, nvar
             IF (mixed_cdft%identical_constraints) THEN
-               if (force_env%para_env%mepos == force_env%para_env%source) &
-                  print *, 'Wda ab', a(:, ivar, ipermutation), b(:, ivar, ipermutation)
                Wda(ivar, ipermutation) = (SUM(a(:, ivar, ipermutation))+SUM(b(:, ivar, ipermutation)))*Sda(ipermutation)/2.0_dp
+               print *, 'Symmetric Wda', a(:, ivar, ipermutation), b(:, ivar, ipermutation), Wda(ivar, ipermutation), Sda(ipermutation)
             ELSE
                Wda(ivar, ipermutation) = SUM(a(:, ivar, ipermutation))*Sda(ipermutation)
                Wad(ivar, ipermutation) = SUM(b(:, ivar, ipermutation))*Sda(ipermutation)
@@ -1530,6 +1529,7 @@ CONTAINS
          c(1) = (energy(jstate)+sum_b(1))*Sda(ipermutation)-sum_b(2)
          ! H_JI = F_I*S_JI - V_I * W_JI
          c(2) = (energy(istate)+sum_a(1))*Sda(ipermutation)-sum_a(2)
+         print *, 'C 1 and C 2', c(:)
          ! H''(I,J) = 0.5*(H_IJ+H_JI) = H''(J,I)
          H_mat(istate, jstate) = (c(1)+c(2))*0.5_dp
          H_mat(jstate, istate) = H_mat(istate, jstate)
