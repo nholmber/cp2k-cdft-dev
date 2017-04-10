@@ -995,7 +995,7 @@ CONTAINS
             dft_control_target%qs_control%becke_control%transfer_pot = .FALSE.
             dft_control_target%qs_control%becke_control%first_iteration = .TRUE.
             ! Also deallocate the constraint of the previous state if it is still allocated
-            IF (ASSOCIATED(dft_control_source%qs_control%becke_control%cavity)) &
+            IF (ASSOCIATED(dft_control_source%qs_control%becke_control%cavity%pw)) &
                CALL pw_pool_give_back_pw(auxbas_pw_pool_source, dft_control_source%qs_control%becke_control%cavity%pw)
             IF (dft_control_source%qs_control%becke_control%atomic_charges) THEN
                DO iatom = 1, dft_control_target%qs_control%becke_control%natoms
@@ -1752,7 +1752,7 @@ CONTAINS
          END IF
       END IF
       DEALLOCATE (energy, strength, a, b, S_det, W_diagonal, Wda)
-      IF (ASSOCIATED(Wad)) DEALLOCATE (Wad)
+      IF (ALLOCATED(Wad)) DEALLOCATE (Wad)
       DEALLOCATE (S_mat, H_mat, tmp_mat, eigenv, Sda)
       IF (ALLOCATED(coupling_rotation)) &
          DEALLOCATE (coupling_rotation)
