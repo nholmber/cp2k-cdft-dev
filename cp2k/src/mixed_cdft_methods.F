@@ -903,7 +903,7 @@ CONTAINS
          IF (first_call .AND. mixed_cdft%identical_constraints) THEN
             DO igroup = 1, SIZE(dft_control_target%qs_control%becke_control%group)
                IF (SIZE(dft_control_target%qs_control%becke_control%group) =/ &
-                   SIZE(dft_control_source%qs_control%becke_control%group))
+                   SIZE(dft_control_source%qs_control%becke_control%group)) &
                   CALL cp_abort(__LOCATION__, &
                                 "The number of constraints must be the same in all CDFT states.")
                IF (ASSOCIATED(dft_control_target%qs_control%becke_control%group(igroup)%atoms)) THEN
@@ -995,21 +995,21 @@ CONTAINS
             dft_control_target%qs_control%becke_control%transfer_pot = .FALSE.
             dft_control_target%qs_control%becke_control%first_iteration = .TRUE.
             ! Also deallocate the constraint of the previous state if it is still allocated
+            IF (ASSOCIATED(dft_control_source%qs_control%becke_control%cavity)) &
+               CALL pw_pool_give_back_pw(auxbas_pw_pool_source, dft_control_source%qs_control%becke_control%cavity%pw)
+            IF (dft_control_source%qs_control%becke_control%atomic_charges) THEN
+               DO iatom = 1, dft_control_target%qs_control%becke_control%natoms
+                  IF (ASSOCIATED(dft_control_source%qs_control%becke_control%charge(iatom))) &
+                     CALL pw_pool_give_back_pw(auxbas_pw_pool_source, &
+                                               dft_control_source%qs_control%becke_control%charge(iatom)%pw)
+               END DO
+            END IF
             DO igroup = 1, SIZE(dft_control_source%qs_control%becke_control%group)
                IF (ASSOCIATED(dft_control_source%qs_control%becke_control%group(igroup)%weight)) &
                   CALL pw_pool_give_back_pw(auxbas_pw_pool_source, &
                                             dft_control_source%qs_control%becke_control%group(igroup)%weight%pw)
-               IF (ASSOCIATED(dft_control_source%qs_control%becke_control%group(igroup)%cavity)) &
-                  CALL pw_pool_give_back_pw(auxbas_pw_pool_source, dft_control_source%qs_control%becke_control%cavity%pw)
                IF (ASSOCIATED(dft_control_source%qs_control%becke_control%group(igroup)%gradients)) &
                   DEALLOCATE (dft_control_source%qs_control%becke_control%group(igroup)%gradients)
-               IF (dft_control_source%qs_control%becke_control%atomic_charges) THEN
-                  DO iatom = 1, dft_control_target%qs_control%becke_control%natoms
-                     IF (ASSOCIATED(dft_control_source%qs_control%becke_control%charge(iatom))) &
-                        CALL pw_pool_give_back_pw(auxbas_pw_pool_source, &
-                                                  dft_control_source%qs_control%becke_control%charge(iatom)%pw)
-                  END DO
-               END IF
             END DO
          END IF
       END IF
