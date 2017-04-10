@@ -294,8 +294,8 @@ CONTAINS
       settings%nbecke = 0
       DO i = 1, SIZE(settings%atoms, 1)
          DO iforce_eval = 2, nforce_eval
-            IF (settings%atoms(i, 1) /= settings%atoms(i, iforce_eval)) is_match = .FALSE.
             IF (mixed_cdft%is_parallel) THEN
+               IF (settings%atoms(i, 1) /= settings%atoms(i, iforce_eval)) is_match = .FALSE.
                IF (settings%coeffs(i, 1) /= settings%coeffs(i, iforce_eval)) is_match = .FALSE.
             END IF
          END DO
@@ -303,7 +303,8 @@ CONTAINS
       END DO
       IF (.NOT. is_match) &
          CALL cp_abort(__LOCATION__, &
-                       "Mismatch detected in the &BECKE_CONSTRAINT settings of the CDFT force_evals.")
+                       "Mismatch detected in the &BECKE_CONSTRAINT settings of the CDFT force_evals. "// &
+                       "Parallel mode mixed CDFT requires identical constraint definitions in both CDFT states.")
       CALL mp_sum(settings%si, force_env%para_env%group)
       CALL mp_sum(settings%sr, force_env%para_env%group)
       DO i = 1, SIZE(settings%sb, 1)
@@ -330,55 +331,54 @@ CONTAINS
       IF (mixed_cdft%dlb .AND. .NOT. settings%sb(1, 1)) &
          CALL cp_abort(__LOCATION__, &
                        "Parallel mode mixed CDFT load balancing requires Gaussian cavity confinement.")
-      ! Check if the constraint defitions are identical in all CDFT states
-      DO iforce_eval = 1, nforce_eval
-         IF (mixed_env%do_mixed_qmmm_cdft) THEN
-            force_env_qs => force_env%sub_force_env(iforce_eval)%force_env
-            qs_env => force_env_qs%qmmm_env%qs_env
-         ELSE
-            force_env_qs => force_env%sub_force_env(iforce_eval)%force_env
-            CALL force_env_get(force_env_qs, qs_env=qs_env)
-         END IF
-         CALL get_qs_env(qs_env, dft_control=dft_control_source)
-         DO jforce_eval = 2, nforce_eval
+      ! Check if the constraint defitions are identical in all CDFT states (serial mode)
+      IF (.NOT. mixed_cdft%is_parallel) THEN
+         DO iforce_eval = 1, nforce_eval
             IF (mixed_env%do_mixed_qmmm_cdft) THEN
-               force_env_qs => force_env%sub_force_env(jforce_eval)%force_env
+               force_env_qs => force_env%sub_force_env(iforce_eval)%force_env
                qs_env => force_env_qs%qmmm_env%qs_env
             ELSE
-               force_env_qs => force_env%sub_force_env(jforce_eval)%force_env
+               force_env_qs => force_env%sub_force_env(iforce_eval)%force_env
                CALL force_env_get(force_env_qs, qs_env=qs_env)
             END IF
-            CALL get_qs_env(qs_env, dft_control=dft_control_target)
-            DO igroup = 1, SIZE(dft_control_target%qs_control%becke_control%group)
-               IF (SIZE(dft_control_target%qs_control%becke_control%group) /= &
-                   SIZE(dft_control_source%qs_control%becke_control%group)) &
-                  CALL cp_abort(__LOCATION__, &
-                                "The number of constraints must be the same in all CDFT states.")
-               IF (SIZE(dft_control_target%qs_control%becke_control%group(igroup)%atoms) /= &
-                   SIZE(dft_control_source%qs_control%becke_control%group(igroup)%atoms)) &
-                  mixed_cdft%identical_constraints = .FALSE.
-               IF (.NOT. mixed_cdft%identical_constraints) EXIT
-               DO iatom = 1, SIZE(dft_control_target%qs_control%becke_control%group(igroup)%atoms)
-                  IF (dft_control_target%qs_control%becke_control%group(igroup)%atoms(iatom) /= &
-                      dft_control_source%qs_control%becke_control%group(igroup)%atoms(iatom)) &
+            CALL get_qs_env(qs_env, dft_control=dft_control_source)
+            DO jforce_eval = 2, nforce_eval
+               IF (mixed_env%do_mixed_qmmm_cdft) THEN
+                  force_env_qs => force_env%sub_force_env(jforce_eval)%force_env
+                  qs_env => force_env_qs%qmmm_env%qs_env
+               ELSE
+                  force_env_qs => force_env%sub_force_env(jforce_eval)%force_env
+                  CALL force_env_get(force_env_qs, qs_env=qs_env)
+               END IF
+               CALL get_qs_env(qs_env, dft_control=dft_control_target)
+               DO igroup = 1, SIZE(dft_control_target%qs_control%becke_control%group)
+                  IF (SIZE(dft_control_target%qs_control%becke_control%group) /= &
+                      SIZE(dft_control_source%qs_control%becke_control%group)) &
+                     CALL cp_abort(__LOCATION__, &
+                                   "The number of constraints must be the same in all CDFT states.")
+                  IF (SIZE(dft_control_target%qs_control%becke_control%group(igroup)%atoms) /= &
+                      SIZE(dft_control_source%qs_control%becke_control%group(igroup)%atoms)) &
                      mixed_cdft%identical_constraints = .FALSE.
-                  IF (dft_control_target%qs_control%becke_control%group(igroup)%coeff(iatom) /= &
-                      dft_control_source%qs_control%becke_control%group(igroup)%coeff(iatom)) &
-                     mixed_cdft%identical_constraints = .FALSE.
-                  IF (dft_control_target%qs_control%becke_control%group(igroup)%is_charge_constraint .NEQV. &
-                      dft_control_source%qs_control%becke_control%group(igroup)%is_charge_constraint) &
-                     mixed_cdft%identical_constraints = .FALSE.
+                  IF (.NOT. mixed_cdft%identical_constraints) EXIT
+                  DO iatom = 1, SIZE(dft_control_target%qs_control%becke_control%group(igroup)%atoms)
+                     IF (dft_control_target%qs_control%becke_control%group(igroup)%atoms(iatom) /= &
+                         dft_control_source%qs_control%becke_control%group(igroup)%atoms(iatom)) &
+                        mixed_cdft%identical_constraints = .FALSE.
+                     IF (dft_control_target%qs_control%becke_control%group(igroup)%coeff(iatom) /= &
+                         dft_control_source%qs_control%becke_control%group(igroup)%coeff(iatom)) &
+                        mixed_cdft%identical_constraints = .FALSE.
+                     IF (dft_control_target%qs_control%becke_control%group(igroup)%is_charge_constraint .NEQV. &
+                         dft_control_source%qs_control%becke_control%group(igroup)%is_charge_constraint) &
+                        mixed_cdft%identical_constraints = .FALSE.
+                     IF (.NOT. mixed_cdft%identical_constraints) EXIT
+                  END DO
                   IF (.NOT. mixed_cdft%identical_constraints) EXIT
                END DO
                IF (.NOT. mixed_cdft%identical_constraints) EXIT
             END DO
             IF (.NOT. mixed_cdft%identical_constraints) EXIT
          END DO
-         IF (.NOT. mixed_cdft%identical_constraints) EXIT
-      END DO
-      IF (.NOT. mixed_cdft%identical_constraints .AND. mixed_cdft%is_parallel) &
-         CALL cp_abort(__LOCATION__, &
-                       "Parallel mode mixed CDFT requires identical constraint definitions in both CDFT states.")
+      END IF
       ! Deallocate some arrays that are no longer needed
       IF (mixed_cdft%identical_constraints) THEN
          DO iforce_eval = 1, nforce_eval
