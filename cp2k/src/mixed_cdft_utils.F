@@ -134,11 +134,12 @@ CONTAINS
       CHARACTER(len=*), PARAMETER :: routineN = 'mixed_cdft_parse_settings', &
          routineP = moduleN//':'//routineN
 
-      INTEGER                                            :: i, iatom, iforce_eval, nforce_eval, &
-                                                            nkinds, jforce_eval, igroup
+      INTEGER                                            :: i, iatom, iforce_eval, igroup, &
+                                                            jforce_eval, nforce_eval, nkinds
       LOGICAL                                            :: is_match
       TYPE(atomic_kind_type), DIMENSION(:), POINTER      :: atomic_kind_set
-      TYPE(dft_control_type), POINTER                    :: dft_control, dft_control_source, dft_control_target
+      TYPE(dft_control_type), POINTER                    :: dft_control, dft_control_source, &
+                                                            dft_control_target
       TYPE(force_env_type), POINTER                      :: force_env_qs
       TYPE(pw_env_type), POINTER                         :: pw_env
       TYPE(pw_pool_type), POINTER                        :: auxbas_pw_pool
@@ -393,11 +394,11 @@ CONTAINS
             CALL get_qs_env(qs_env, dft_control=dft_control)
             IF (mixed_cdft%is_parallel) THEN
                IF (.NOT. dft_control%qs_control%gapw) THEN
-                     DO i = 1, SIZE(dft_control%qs_control%becke_control%group)
-                        DEALLOCATE (dft_control%qs_control%becke_control%group(i)%coeff)
-                        DEALLOCATE (dft_control%qs_control%becke_control%group(i)%atoms)
-                     END DO
-                     IF (.NOT. settings%sb(6, 1)) DEALLOCATE (dft_control%qs_control%becke_control%atoms)
+                  DO i = 1, SIZE(dft_control%qs_control%becke_control%group)
+                     DEALLOCATE (dft_control%qs_control%becke_control%group(i)%coeff)
+                     DEALLOCATE (dft_control%qs_control%becke_control%group(i)%atoms)
+                  END DO
+                  IF (.NOT. settings%sb(6, 1)) DEALLOCATE (dft_control%qs_control%becke_control%atoms)
                END IF
             ELSE
                IF (iforce_eval == 1) CYCLE
@@ -410,7 +411,7 @@ CONTAINS
                   END IF
                END DO
                IF (dft_control%qs_control%becke_control%cavity_confine) &
-                     CALL release_hirshfeld_type(dft_control%qs_control%becke_control%cavity_env)
+                  CALL release_hirshfeld_type(dft_control%qs_control%becke_control%cavity_env)
                IF (dft_control%qs_control%becke_control%cutoff_type == becke_cutoff_element) &
                   DEALLOCATE (dft_control%qs_control%becke_control%cutoffs_tmp)
                IF (dft_control%qs_control%becke_control%adjust) &

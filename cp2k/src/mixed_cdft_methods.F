@@ -1030,7 +1030,7 @@ CONTAINS
                                                             eigenv, energy, evals, Sda, work
       REAL(KIND=dp), ALLOCATABLE, DIMENSION(:, :)        :: H_mat, H_mat_copy, metric, S_det, S_mat, &
                                                             S_mat_copy, strength, tmp_mat, &
-                                                            W_diagonal, W_mat, Wda, Wad
+                                                            W_diagonal, W_mat, Wad, Wda
       REAL(KIND=dp), ALLOCATABLE, DIMENSION(:, :, :)     :: a, b, overlaps
       REAL(KIND=dp), EXTERNAL                            :: dnrm2
       TYPE(atomic_kind_type), DIMENSION(:), POINTER      :: atomic_kind_set
@@ -1112,7 +1112,7 @@ CONTAINS
       npermutations = nforce_eval*(nforce_eval-1)/2 ! Size of upper triangular part
       ALLOCATE (mo_overlap(npermutations), S_det(npermutations, nspins))
       ALLOCATE (Wda(nvar, npermutations))
-      IF (.NOT. mixed_cdft%identical_constraints) ALLOCATE(Wad(nvar, npermutations))
+      IF (.NOT. mixed_cdft%identical_constraints) ALLOCATE (Wad(nvar, npermutations))
       ALLOCATE (a(nspins, nvar, npermutations), b(nspins, nvar, npermutations))
       a = 0.0_dp
       b = 0.0_dp
@@ -1273,15 +1273,11 @@ CONTAINS
          ! Finalize <Psi_j | w_i(r) | Psi_i> by multiplication with Sda
          DO ivar = 1, nvar
             IF (mixed_cdft%identical_constraints) THEN
-               Wda(ivar, ipermutation) = (SUM(a(:, ivar, ipermutation))+SUM(b(:, ivar, ipermutation)))*&
-                                          Sda(ipermutation)/2.0_dp
-               print *, 'Symmetric Wda', a(:, ivar, ipermutation), b(:, ivar, ipermutation), &
-                  Wda(ivar, ipermutation), Sda(ipermutation)
+               Wda(ivar, ipermutation) = (SUM(a(:, ivar, ipermutation))+SUM(b(:, ivar, ipermutation)))* &
+                                         Sda(ipermutation)/2.0_dp
             ELSE
                Wda(ivar, ipermutation) = SUM(a(:, ivar, ipermutation))*Sda(ipermutation)
                Wad(ivar, ipermutation) = SUM(b(:, ivar, ipermutation))*Sda(ipermutation)
-               print *, 'Wda and Wad', a(:, ivar, ipermutation), b(:, ivar, ipermutation), &
-                  Wda(ivar, ipermutation), Wad(ivar, ipermutation), Sda(ipermutation)
             END IF
          END DO
       END DO
@@ -1448,7 +1444,7 @@ CONTAINS
             ! The coupling is singular if A = B (i.e. states I/J are identical or charge in ground state is fully delocalized)
             IF (ABS(overlaps(1, ipermutation, 1)-overlaps(2, ipermutation, 1)) .LE. 1.0e-14_dp) THEN
                CALL cp_warn(__LOCATION__, &
-                            "MIXED_CDFT WFN_OVERLAP: Coupling between states is singular and set to zero. "// &
+                            "Coupling between states is singular and set to zero. "// &
                             "Potential causes: coupling is computed between identical CDFT states or the spin/charge "// &
                             "density is fully delocalized in the unconstrained ground state.")
                coupling_wfn(ipermutation) = 0.0_dp
@@ -1497,7 +1493,7 @@ CONTAINS
             ! Safeguard against division with 0 and negative numbers
             eigenv(istate) = 1.0e-14_dp
             CALL cp_warn(__LOCATION__, &
-                         "MIXED_CDFT: The overlap matrix is numerically nearly singular. "// &
+                         "The overlap matrix is numerically nearly singular. "// &
                          "Calculation proceeds but the results might be meaningless.")
          END IF
          tmp_mat(istate, istate) = 1.0_dp/SQRT(eigenv(istate))
@@ -1531,15 +1527,11 @@ CONTAINS
                sum_a(2) = sum_a(2)+strength(ivar, istate)*Wda(ivar, ipermutation)
             END IF
          END DO
-         print *, 'W_diagonal', W_diagonal(1, :)
-         print *, 'Sum_a_b(1)', sum_a(1), sum_b(1)
-         print *, 'Sum_a_b(2)', sum_a(2), sum_b(2)
          ! Denote F_X = <Psi_X | H_X + V_X*w_X(r) | Psi_X> = E_X + V_X*<Psi_X | w_X(r) | Psi_X>
          ! H_IJ = F_J*S_IJ - V_J * W_IJ
          c(1) = (energy(jstate)+sum_b(1))*Sda(ipermutation)-sum_b(2)
          ! H_JI = F_I*S_JI - V_I * W_JI
          c(2) = (energy(istate)+sum_a(1))*Sda(ipermutation)-sum_a(2)
-         print *, 'C 1 and C 2', c(:)
          ! H''(I,J) = 0.5*(H_IJ+H_JI) = H''(J,I)
          H_mat(istate, jstate) = (c(1)+c(2))*0.5_dp
          H_mat(jstate, istate) = H_mat(istate, jstate)
