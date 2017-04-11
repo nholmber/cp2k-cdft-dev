@@ -1515,19 +1515,26 @@ CONTAINS
          sum_a = 0.0_dp
          sum_b = 0.0_dp
          DO ivar = 1, nvar
-            ! State X = I, J: strength_X * <Psi_X | w_X(r) | Psi_X>
+            ! V_J * <Psi_J | w_J(r) | Psi_J>
             sum_b(1) = sum_b(1)+strength(ivar, jstate)*W_diagonal(ivar, jstate)
+            ! V_I * <Psi_I | w_I(r) | Psi_I>
             sum_a(1) = sum_a(1)+strength(ivar, istate)*W_diagonal(ivar, istate)
             IF (mixed_cdft%identical_constraints) THEN
-               ! V_J * W_JI
+               ! V_J * W_IJ
                sum_b(2) = sum_b(2)+strength(ivar, jstate)*Wda(ivar, ipermutation)
-               ! V_I * W_IJ
+               ! V_I * W_JI
                sum_a(2) = sum_a(2)+strength(ivar, istate)*Wda(ivar, ipermutation)
             ELSE
-               sum_b(2) = sum_b(2)+strength(ivar, jstate)*Wda(ivar, ipermutation)
-               sum_a(2) = sum_a(2)+strength(ivar, istate)*Wad(ivar, ipermutation)
+               ! V_J * W_IJ
+               sum_b(2) = sum_b(2)+strength(ivar, jstate)*Wad(ivar, ipermutation)
+               ! V_I * W_JI
+               sum_a(2) = sum_a(2)+strength(ivar, istate)*Wda(ivar, ipermutation)
             END IF
          END DO
+         print *, 'W_diagonal', W_diagonal(1, :)
+         print *, 'Sum_a_b(1)', sum_a(1), sum_b(1)
+         print *, 'Sum_a_b(2)', sum_a(2), sum_b(2)
+         ! Denote F_X = <Psi_X | H_X + V_X*w_X(r) | Psi_X> = E_X + V_X*<Psi_X | w_X(r) | Psi_X>
          ! H_IJ = F_J*S_IJ - V_J * W_IJ
          c(1) = (energy(jstate)+sum_b(1))*Sda(ipermutation)-sum_b(2)
          ! H_JI = F_I*S_JI - V_I * W_JI
