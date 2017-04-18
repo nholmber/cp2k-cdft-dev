@@ -751,9 +751,9 @@ CONTAINS
       CHARACTER(len=2)                                   :: element_symbol
       INTEGER                                            :: handle, i, iatom, igroup, ikind, ivar, &
                                                             iw, jatom, natom, nelectron_total, &
-                                                            nvar, unit_nr
+                                                            nfrag_spins, nvar, unit_nr
       INTEGER, DIMENSION(:), POINTER                     :: stride
-      LOGICAL                                            :: paw_atom
+      LOGICAL                                            :: paw_atom, needs_spin_density
       REAL(kind=dp)                                      :: dvol, eps_cavity, nelectron_frag, sign, &
                                                             tc, zeff
       REAL(kind=dp), ALLOCATABLE, DIMENSION(:)           :: dE, strength, target_val
@@ -767,8 +767,7 @@ CONTAINS
       TYPE(particle_list_type), POINTER                  :: particles
       TYPE(particle_type), DIMENSION(:), POINTER         :: particle_set
       TYPE(pw_env_type), POINTER                         :: pw_env
-      TYPE(pw_p_type)                                    :: rho_frag
-      TYPE(pw_p_type), DIMENSION(:), POINTER             :: charge, rho_r
+      TYPE(pw_p_type), DIMENSION(:), POINTER             :: charge, rho_r, rho_frag
       TYPE(pw_pool_type), POINTER                        :: auxbas_pw_pool
       TYPE(qs_energy_type), POINTER                      :: energy
       TYPE(qs_kind_type), DIMENSION(:), POINTER          :: qs_kind_set
@@ -778,7 +777,7 @@ CONTAINS
       TYPE(section_vals_type), POINTER                   :: becke_constraint_section
 
       NULLIFY (para_env, dft_control, particle_set, rho_r, energy, rho, logger, becke_constraint_section, qs_kind_set, &
-               particles, subsys, pw_env, auxbas_pw_pool, mp_rho, rho0_mpole, group, charge)
+               particles, subsys, pw_env, auxbas_pw_pool, mp_rho, rho0_mpole, group, charge, rho_frag)
       CALL timeset(routineN, handle)
       logger => cp_get_default_logger()
       CALL get_qs_env(qs_env, &
@@ -849,55 +848,74 @@ CONTAINS
          IF (dft_control%qs_control%gapw) &
             CALL cp_abort(__LOCATION__, &
                           "Becke deformation density not compatible with GAPW.")
-         IF (SIZE(group) /= 1) &
-            CALL cp_abort(__LOCATION__, &
-                          "Becke deformation density not yet compatible with multiple constraints.")
-         IF (.NOT. group(1)%is_charge_constraint) &
-            CALL cp_abort(__LOCATION__, &
-                          "Becke deformation density not yet compatible with magnetization density constraints.")
+         needs_spin_density = .FALSE.
+         nfrag_spins = 1
+         DO igroup = 1, SIZE(group)
+            IF (.NOT. group(igroup)%is_charge_constraint) needs_spin_density = .TRUE.
+         END DO
+         IF (needs_spin_density) nfrag_spins = 2
          IF (.NOT. becke_control%fragments_integrated) THEN
-            ALLOCATE (becke_control%fragments(2))
+            ALLOCATE (becke_control%fragments(nfrag_spins, 2))
+            ALLOCATE (rho_frag(nfrag_spins))
             CALL get_qs_env(qs_env, pw_env=pw_env)
             CALL pw_env_get(pw_env, auxbas_pw_pool=auxbas_pw_pool)
-            ! Read fragment reference densities (total density => no spin density data)
+            ! Read fragment reference densities
             ! This step can be very slow if the rs_grid is dense
-            CALL pw_pool_create_pw(auxbas_pw_pool, becke_control%fragments(1)%pw, &
+            ! Total density (rho_alpha + rho_beta)
+            CALL pw_pool_create_pw(auxbas_pw_pool, becke_control%fragments(1, 1)%pw, &
                                    use_data=REALDATA3D, in_space=REALSPACE)
-            CALL cube_to_pw(becke_control%fragments(1)%pw, &
+            CALL cube_to_pw(becke_control%fragments(1, 1)%pw, &
                             becke_control%fragment_a_fname, 1.0_dp)
-            CALL pw_pool_create_pw(auxbas_pw_pool, becke_control%fragments(2)%pw, &
+            CALL pw_pool_create_pw(auxbas_pw_pool, becke_control%fragments(1, 2)%pw, &
                                    use_data=REALDATA3D, in_space=REALSPACE)
-            CALL cube_to_pw(becke_control%fragments(2)%pw, &
+            CALL cube_to_pw(becke_control%fragments(1, 2)%pw, &
                             becke_control%fragment_b_fname, 1.0_dp)
+            ! Spin difference density (rho_alpha - rho_beta) if needed
+            IF (needs_spin_density) THEN
+               CALL pw_pool_create_pw(auxbas_pw_pool, becke_control%fragments(2, 1)%pw, &
+                                      use_data=REALDATA3D, in_space=REALSPACE)
+               CALL cube_to_pw(becke_control%fragments(2, 1)%pw, &
+                               becke_control%fragment_a_spin_fname, 1.0_dp)
+               CALL pw_pool_create_pw(auxbas_pw_pool, becke_control%fragments(2, 2)%pw, &
+                                      use_data=REALDATA3D, in_space=REALSPACE)
+               CALL cube_to_pw(becke_control%fragments(2, 2)%pw, &
+                               becke_control%fragment_b_spin_fname, 1.0_dp)
+            END IF
             ! Sum up fragments
-            CALL pw_pool_create_pw(auxbas_pw_pool, rho_frag%pw, use_data=REALDATA3D, &
-                                   in_space=REALSPACE)
-            CALL pw_copy(becke_control%fragments(1)%pw, rho_frag%pw)
-            CALL pw_axpy(becke_control%fragments(2)%pw, rho_frag%pw, 1.0_dp)
-            CALL pw_pool_give_back_pw(auxbas_pw_pool, becke_control%fragments(1)%pw)
-            CALL pw_pool_give_back_pw(auxbas_pw_pool, becke_control%fragments(2)%pw)
+            DO i = 1, nfrag_spins
+               CALL pw_pool_create_pw(auxbas_pw_pool, rho_frag(i)%pw, use_data=REALDATA3D, &
+                                      in_space=REALSPACE)
+               CALL pw_copy(becke_control%fragments(i, 1)%pw, rho_frag(i)%pw)
+               CALL pw_axpy(becke_control%fragments(i, 2)%pw, rho_frag(i)%pw, 1.0_dp)
+               CALL pw_pool_give_back_pw(auxbas_pw_pool, becke_control%fragments(i, 1)%pw)
+               CALL pw_pool_give_back_pw(auxbas_pw_pool, becke_control%fragments(i, 2)%pw)
+            END DO
             DEALLOCATE (becke_control%fragments)
             ! Check that the number of electrons is consistent
             CALL get_qs_env(qs_env, subsys=subsys)
             CALL qs_subsys_get(subsys, nelectron_total=nelectron_total)
-            nelectron_frag = pw_integrate_function(rho_frag%pw)
+            nelectron_frag = pw_integrate_function(rho_frag(1)%pw)
             IF (NINT(nelectron_frag) /= nelectron_total) &
                CALL cp_abort(__LOCATION__, &
                              "The number of electrons in the reference and interacting "// &
                              " configurations does not match. Check your fragment cube files.")
-            ! Update constraint target value i.e. perform integration w*rho_frag*dr
-            ! Note, we assume the weight w is defined only on one of the fragments
+            ! Update constraint target value i.e. perform integration w_i*rho_frag_{tot/spin}*dr
             becke_control%target = 0.0_dp
-            IF (ANY(group(1)%coeff .NE. 1.0_dp)) &
-               CALL cp_abort(__LOCATION__, &
-                             "Absolute weight required for Becke deformation density.")
-            IF (becke_control%external_control .AND. becke_control%cavity_confine) THEN
-               becke_control%target(1) = becke_control%target(1)+ &
-                                         accurate_dot_product(group(1)%weight%pw%cr3d, rho_frag%pw%cr3d, &
-                                                              becke_control%cavity_mat, eps_cavity)*dvol
-            ELSE
-               becke_control%target(1) = becke_control%target(1)+accurate_sum(group(1)%weight%pw%cr3d*rho_frag%pw%cr3d)*dvol
-            END IF
+            DO igroup = 1, SIZE(group)
+               IF (group(igroup)%is_charge_constraint) THEN
+                  i = 1
+               ELSE
+                  i = 2
+               END IF
+               IF (becke_control%external_control .AND. becke_control%cavity_confine) THEN
+                  becke_control%target(igroup) = becke_control%target(igroup)+ &
+                                                 accurate_dot_product(group(igroup)%weight%pw%cr3d, rho_frag(i)%pw%cr3d, &
+                                                                      becke_control%cavity_mat, eps_cavity)*dvol
+               ELSE
+                  becke_control%target(igroup) = becke_control%target(igroup)+ &
+                                                 accurate_sum(group(igroup)%weight%pw%cr3d*rho_frag(i)%pw%cr3d)*dvol
+               END IF
+            END DO
             CALL mp_sum(becke_control%target, para_env%group)
             IF (debug_this_module) THEN
                ALLOCATE (stride(3))
@@ -924,11 +942,14 @@ CONTAINS
             IF (becke_control%atomic_charges) THEN
                ALLOCATE (becke_control%charges_fragment(becke_control%natoms))
                DO iatom = 1, becke_control%natoms
-                  becke_control%charges_fragment(iatom) = accurate_sum(charge(iatom)%pw%cr3d*rho_frag%pw%cr3d)*dvol
+                  becke_control%charges_fragment(iatom) = accurate_sum(charge(iatom)%pw%cr3d*rho_frag(1)%pw%cr3d)*dvol
                END DO
                CALL mp_sum(becke_control%charges_fragment, para_env%group)
             END IF
-            CALL pw_pool_give_back_pw(auxbas_pw_pool, rho_frag%pw)
+            DO i = 1, nfrag_spins
+               CALL pw_pool_give_back_pw(auxbas_pw_pool, rho_frag(i)%pw)
+            END DO
+            DEALLOCATE(rho_frag)
             target_val(:) = becke_control%target(:)
             IF (dft_control%qs_control%cdft) dft_control%qs_control%cdft_control%target = target_val
             becke_control%fragments_integrated = .TRUE.
@@ -1001,6 +1022,8 @@ CONTAINS
                WRITE (iw, '(T3,A,T43,A)') &
                   'Type of constraint          :', ADJUSTR('Magnetization density constraint')
             END IF
+            IF (group(igroup)%is_fragment_constraint) &
+               WRITE (iw, '(T50,A)') ADJUSTR('using fragment densities')
             WRITE (iw, '(T3,A,T54,(3X,F18.12))') &
                'Target value of constraint  :', target_val(igroup)
             WRITE (iw, '(T3,A,T54,(3X,F18.12))') &

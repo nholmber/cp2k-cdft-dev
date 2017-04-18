@@ -683,6 +683,8 @@ CONTAINS
                WRITE (output_unit, '(T3,A,T43,A)') &
                   'Type of constraint          :', ADJUSTR('Magnetization density constraint')
             END IF
+            IF (cdft_control%is_fragment_constraint(igroup)) &
+               WRITE (iw, '(T50,A)') ADJUSTR('using fragment densities')
             WRITE (output_unit, '(T3,A,T54,(3X,F18.12))') &
                'Target value of constraint  :', cdft_control%target(igroup)
             WRITE (output_unit, '(T3,A,T54,(3X,F18.12))') &

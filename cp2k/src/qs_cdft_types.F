@@ -28,8 +28,14 @@ MODULE qs_cdft_types
 
 ! **************************************************************************************************
 !> \brief some parameters useful for becke_constraints
-!> \param fragment_a_fname filename of cube file holding the isolated electron density of fragment a
-!> \param fragment_b_fname filename of cube file holding the isolated electron density of fragment b
+!> \param fragment_a_fname filename of cube file holding the total electron density
+!>                         of isolated fragment a
+!> \param fragment_b_fname filename of cube file holding the total electron density
+!>                         of isolated fragment b
+!> \param fragment_a_spin_fname filename of cube file holding the spin difference density
+!>                              of isolated fragment a
+!> \param fragment_b_spin_fname filename of cube file holding the spin difference density
+!>                              of isolated fragment b
 !> \param ref_count the ref count
 !> \param rglobal global cutoff to use for building the constraint
 !> \param target target values of the constraints
@@ -78,6 +84,8 @@ MODULE qs_cdft_types
       INTEGER, POINTER, DIMENSION(:)       :: atoms
       ! Constraint type: charge constraint or magnetization density constraint
       LOGICAL                              :: is_charge_constraint
+      ! Is the constraint fragment based
+      LOGICAL                              :: is_fragment_constraint
       ! Temporary array holding a component of the weight function gradient that only includes
       ! terms defined on constraint atoms
       REAL(kind=dp), ALLOCATABLE, &
@@ -109,7 +117,9 @@ MODULE qs_cdft_types
 
    TYPE becke_constraint_type
       CHARACTER(LEN=default_path_length)   :: fragment_a_fname, &
-                                              fragment_b_fname
+                                              fragment_b_fname, &
+                                              fragment_a_spin_fname, &
+                                              fragment_b_spin_fname
       INTEGER                              :: ref_count, &
                                               natoms, &
                                               cavity_shape, cutoff_type, &
@@ -139,7 +149,9 @@ MODULE qs_cdft_types
       TYPE(hirshfeld_type), POINTER        :: cavity_env
       TYPE(pw_p_type)                      :: cavity
       TYPE(pw_p_type), POINTER, &
-         DIMENSION(:)                      :: fragments, charge
+         DIMENSION(:)                      :: charge
+      TYPE(pw_p_type), POINTER, &
+         DIMENSION(:, :)                   :: fragments
    END TYPE becke_constraint_type
 
 ! **************************************************************************************************
@@ -241,7 +253,8 @@ MODULE qs_cdft_types
       LOGICAL                              :: need_pot, save_pot, do_et, &
                                               reuse_precond, purge_history, &
                                               should_purge, calculate_metric
-      LOGICAL, DIMENSION(:), ALLOCATABLE   :: is_charge_constraint
+      LOGICAL, DIMENSION(:), ALLOCATABLE   :: is_charge_constraint, &
+                                              is_fragment_constraint
       REAL(KIND=dp), DIMENSION(:), POINTER :: strength, TARGET, value
       TYPE(cp_fm_p_type), DIMENSION(:), &
          POINTER                           :: mo_coeff
@@ -528,6 +541,8 @@ CONTAINS
             DEALLOCATE (cdft_control%value)
          IF (ALLOCATED(cdft_control%is_charge_constraint)) &
             DEALLOCATE (cdft_control%is_charge_constraint)
+         IF (ALLOCATED(cdft_control%is_fragment_constraint)) &
+            DEALLOCATE (cdft_control%is_fragment_constraint)
          cdft_control%type = outer_scf_none
          NULLIFY (cdft_control%weight%pw)
          IF (ASSOCIATED(cdft_control%hirshfeld_control)) THEN
