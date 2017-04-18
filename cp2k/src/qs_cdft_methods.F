@@ -933,7 +933,7 @@ CONTAINS
                                               middle_name="FRAG_DENS", &
                                               extension=".cube", file_position="REWIND", &
                                               log_filename=.FALSE.)
-               CALL cp_pw_to_cube(rho_frag%pw, &
+               CALL cp_pw_to_cube(rho_frag(1)%pw, &
                                   unit_nr, "FRAG_DENS", particles=particles, &
                                   stride=stride)
                DEALLOCATE (stride)
