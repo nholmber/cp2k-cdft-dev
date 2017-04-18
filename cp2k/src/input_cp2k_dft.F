@@ -4263,7 +4263,8 @@ CONTAINS
                           "(rho_alpha - rho_beta)", &
                           usage="CHARGE_CONSTRAINT", &
                           default_l_val=.TRUE., lone_keyword_l_val=.TRUE.)
-
+      CALL section_add_keyword(group_section, keyword)
+      CALL keyword_release(keyword)
 
       CALL keyword_create(keyword, name="FRAGMENT_CONSTRAINT", &
                           description="Use a fragment based constraint. "// &
@@ -4276,9 +4277,6 @@ CONTAINS
                           "the superposition of the isolated fragment densities. Supports only static calculations.", &
                           usage="FRAGMENT_CONSTRAINT", &
                           default_l_val=.FALSE., lone_keyword_l_val=.TRUE.)
-      CALL section_add_keyword(section, keyword)
-      CALL keyword_release(keyword)
-
       CALL section_add_keyword(group_section, keyword)
       CALL keyword_release(keyword)
 
