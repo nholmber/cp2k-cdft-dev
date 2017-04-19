@@ -4224,7 +4224,7 @@ CONTAINS
       CALL section_add_keyword(section, keyword)
       CALL keyword_release(keyword)
 
-      CALL keyword_create(keyword, name="FRAGMENT_B_SPIN_FILE", variants=(/"FRAGMENT_B_SPIN_FILE_NAME"/),&
+      CALL keyword_create(keyword, name="FRAGMENT_B_SPIN_FILE", variants=(/"FRAGMENT_B_SPIN_FILE_NAME"/), &
                           description="Name of the reference spin density cube file for fragment B."// &
                           " May include a path. The reference spin density needs to be outputted"// &
                           " on the same grid as the full system (same cutoff and cell, output stride 1).", &
@@ -4238,7 +4238,7 @@ CONTAINS
                           "(rho_alpha-rho_beta) for fragment A should be flipped. With default (off)"// &
                           "value, the fragment is constrained to have more alpha than beta electrons "// &
                           "if the isolated fragment has unpaired electrons. Useful in conjunction with"// &
-                          "FLIP_FRAGMENT_B." , &
+                          "FLIP_FRAGMENT_B.", &
                           usage="FLIP_FRAGMENT_A", &
                           default_l_val=.FALSE., lone_keyword_l_val=.TRUE.)
       CALL section_add_keyword(section, keyword)
@@ -4249,7 +4249,7 @@ CONTAINS
                           "(rho_alpha-rho_beta) for fragment B should be flipped. With default (off)"// &
                           "value, the fragment is constrained to have more alpha than beta electrons "// &
                           "if the isolated fragment has unpaired electrons. Useful in conjunction with"// &
-                          "FLIP_FRAGMENT_A." , &
+                          "FLIP_FRAGMENT_A.", &
                           usage="FLIP_FRAGMENT_B", &
                           default_l_val=.FALSE., lone_keyword_l_val=.TRUE.)
       CALL section_add_keyword(section, keyword)

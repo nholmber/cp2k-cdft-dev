@@ -753,9 +753,9 @@ CONTAINS
                                                             iw, jatom, natom, nelectron_total, &
                                                             nfrag_spins, nvar, unit_nr
       INTEGER, DIMENSION(:), POINTER                     :: stride
-      LOGICAL                                            :: paw_atom, needs_spin_density
-      REAL(kind=dp)                                      :: dvol, eps_cavity, multiplier(2), nelectron_frag, &
-                                                            sign, tc(2), zeff
+      LOGICAL                                            :: needs_spin_density, paw_atom
+      REAL(kind=dp)                                      :: dvol, eps_cavity, multiplier(2), &
+                                                            nelectron_frag, sign, tc(2), zeff
       REAL(kind=dp), ALLOCATABLE, DIMENSION(:)           :: dE, strength, target_val
       REAL(kind=dp), ALLOCATABLE, DIMENSION(:, :)        :: electronic_charge, gapw_offset
       TYPE(becke_constraint_type), POINTER               :: becke_control
@@ -767,7 +767,7 @@ CONTAINS
       TYPE(particle_list_type), POINTER                  :: particles
       TYPE(particle_type), DIMENSION(:), POINTER         :: particle_set
       TYPE(pw_env_type), POINTER                         :: pw_env
-      TYPE(pw_p_type), DIMENSION(:), POINTER             :: charge, rho_r, rho_frag
+      TYPE(pw_p_type), DIMENSION(:), POINTER             :: charge, rho_frag, rho_r
       TYPE(pw_pool_type), POINTER                        :: auxbas_pw_pool
       TYPE(qs_energy_type), POINTER                      :: energy
       TYPE(qs_kind_type), DIMENSION(:), POINTER          :: qs_kind_set
@@ -957,7 +957,7 @@ CONTAINS
             DO i = 1, nfrag_spins
                CALL pw_pool_give_back_pw(auxbas_pw_pool, rho_frag(i)%pw)
             END DO
-            DEALLOCATE(rho_frag)
+            DEALLOCATE (rho_frag)
             target_val(:) = becke_control%target(:)
             IF (dft_control%qs_control%cdft) dft_control%qs_control%cdft_control%target = target_val
             becke_control%fragments_integrated = .TRUE.
@@ -1099,7 +1099,7 @@ CONTAINS
             ELSE
                IF (.NOT. needs_spin_density) THEN
                   WRITE (iw, '(/,T3,A)') &
-                  '-------------------------------- Becke atomic charges --------------------------------'
+                     '-------------------------------- Becke atomic charges --------------------------------'
                   IF (dft_control%nspins == 1) THEN
                      WRITE (iw, '(T3,A,A)') &
                         '#Atom  Element   Is_constraint', '   Fragment charge    Population (total)'// &
@@ -1124,7 +1124,7 @@ CONTAINS
                            (electronic_charge(iatom, 1)- &
                             becke_control%charges_fragment(iatom, 1))
                         tc(1) = tc(1)+(electronic_charge(iatom, 1)- &
-                                 becke_control%charges_fragment(iatom, 1))
+                                       becke_control%charges_fragment(iatom, 1))
                      ELSE
                         WRITE (iw, "(i7,T15,A2,T23,L10,T43,F8.3,T57,F8.3,T69,F8.3,T81,F8.3)") &
                            jatom, ADJUSTR(element_symbol), &
@@ -1134,7 +1134,7 @@ CONTAINS
                            (electronic_charge(iatom, 1)+electronic_charge(iatom, 2)- &
                             becke_control%charges_fragment(iatom, 1))
                         tc(1) = tc(1)+(electronic_charge(iatom, 1)+electronic_charge(iatom, 2)- &
-                                 becke_control%charges_fragment(iatom, 1))
+                                       becke_control%charges_fragment(iatom, 1))
                      END IF
                   END DO
                   WRITE (iw, '(/,T3,A,T81,F8.3,/)') "Total Charge: ", tc(1)
@@ -1161,9 +1161,9 @@ CONTAINS
                         (electronic_charge(iatom, 1)-electronic_charge(iatom, 2)- &
                          becke_control%charges_fragment(iatom, 2))
                      tc(1) = tc(1)+(electronic_charge(iatom, 1)+electronic_charge(iatom, 2)- &
-                              becke_control%charges_fragment(iatom, 1))
+                                    becke_control%charges_fragment(iatom, 1))
                      tc(2) = tc(2)+(electronic_charge(iatom, 1)-electronic_charge(iatom, 2)- &
-                              becke_control%charges_fragment(iatom, 2))
+                                    becke_control%charges_fragment(iatom, 2))
                   END DO
                   WRITE (iw, '(/,T3,A,T90,F8.3,T102,F8.3/)') "Total Charge and Spin Moment: ", tc(1), tc(2)
                END IF
