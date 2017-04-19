@@ -754,8 +754,8 @@ CONTAINS
                                                             nfrag_spins, nvar, unit_nr
       INTEGER, DIMENSION(:), POINTER                     :: stride
       LOGICAL                                            :: paw_atom, needs_spin_density
-      REAL(kind=dp)                                      :: dvol, eps_cavity, nelectron_frag, sign, &
-                                                            tc, zeff
+      REAL(kind=dp)                                      :: dvol, eps_cavity, multiplier(2), nelectron_frag, &
+                                                            sign, tc(2), zeff
       REAL(kind=dp), ALLOCATABLE, DIMENSION(:)           :: dE, strength, target_val
       REAL(kind=dp), ALLOCATABLE, DIMENSION(:, :)        :: electronic_charge, gapw_offset
       TYPE(becke_constraint_type), POINTER               :: becke_control
@@ -849,11 +849,17 @@ CONTAINS
             CALL cp_abort(__LOCATION__, &
                           "Becke deformation density not compatible with GAPW.")
          needs_spin_density = .FALSE.
+         multiplier = 1.0_dp
          nfrag_spins = 1
          DO igroup = 1, SIZE(group)
             IF (.NOT. group(igroup)%is_charge_constraint) needs_spin_density = .TRUE.
          END DO
-         IF (needs_spin_density) nfrag_spins = 2
+         IF (needs_spin_density) THEN
+            nfrag_spins = 2
+            DO i = 1, 2
+               IF (becke_control%flip_fragment(i)) multiplier(i) = -1.0_dp
+            END DO
+         END IF
          IF (.NOT. becke_control%fragments_integrated) THEN
             ALLOCATE (becke_control%fragments(nfrag_spins, 2))
             ALLOCATE (rho_frag(nfrag_spins))
@@ -875,11 +881,11 @@ CONTAINS
                CALL pw_pool_create_pw(auxbas_pw_pool, becke_control%fragments(2, 1)%pw, &
                                       use_data=REALDATA3D, in_space=REALSPACE)
                CALL cube_to_pw(becke_control%fragments(2, 1)%pw, &
-                               becke_control%fragment_a_spin_fname, 1.0_dp)
+                               becke_control%fragment_a_spin_fname, multiplier(1))
                CALL pw_pool_create_pw(auxbas_pw_pool, becke_control%fragments(2, 2)%pw, &
                                       use_data=REALDATA3D, in_space=REALSPACE)
                CALL cube_to_pw(becke_control%fragments(2, 2)%pw, &
-                               becke_control%fragment_b_spin_fname, 1.0_dp)
+                               becke_control%fragment_b_spin_fname, multiplier(2))
             END IF
             ! Sum up fragments
             DO i = 1, nfrag_spins
@@ -940,9 +946,11 @@ CONTAINS
             END IF
             ! Calculate reference atomic charges int( w_i * rho_frag * dr )
             IF (becke_control%atomic_charges) THEN
-               ALLOCATE (becke_control%charges_fragment(becke_control%natoms))
-               DO iatom = 1, becke_control%natoms
-                  becke_control%charges_fragment(iatom) = accurate_sum(charge(iatom)%pw%cr3d*rho_frag(1)%pw%cr3d)*dvol
+               ALLOCATE (becke_control%charges_fragment(becke_control%natoms, nfrag_spins))
+               DO i = 1, nfrag_spins
+                  DO iatom = 1, becke_control%natoms
+                     becke_control%charges_fragment(iatom, i) = accurate_sum(charge(iatom)%pw%cr3d*rho_frag(i)%pw%cr3d)*dvol
+                  END DO
                END DO
                CALL mp_sum(becke_control%charges_fragment, para_env%group)
             END IF
@@ -1016,14 +1024,22 @@ CONTAINS
             WRITE (iw, '(T3,A,T54,(3X,I18))') &
                'Atomic group                :', igroup
             IF (group(igroup)%is_charge_constraint) THEN
-               WRITE (iw, '(T3,A,T50,A)') &
-                  'Type of constraint          :', ADJUSTR('Charge density constraint')
+               IF (group(igroup)%is_fragment_constraint) THEN
+                  WRITE (iw, '(T3,A,T42,A)') &
+                     'Type of constraint          :', ADJUSTR('Charge density constraint (frag.)')
+               ELSE
+                  WRITE (iw, '(T3,A,T50,A)') &
+                     'Type of constraint          :', ADJUSTR('Charge density constraint')
+               END IF
             ELSE
-               WRITE (iw, '(T3,A,T43,A)') &
-                  'Type of constraint          :', ADJUSTR('Magnetization density constraint')
+               IF (group(igroup)%is_fragment_constraint) THEN
+                  WRITE (iw, '(T3,A,T35,A)') &
+                     'Type of constraint          :', ADJUSTR('Magnetization density constraint (frag.)')
+               ELSE
+                  WRITE (iw, '(T3,A,T43,A)') &
+                     'Type of constraint          :', ADJUSTR('Magnetization density constraint')
+               END IF
             END IF
-            IF (group(igroup)%is_fragment_constraint) &
-               WRITE (iw, '(T50,A)') ADJUSTR('using fragment densities')
             WRITE (iw, '(T3,A,T54,(3X,F18.12))') &
                'Target value of constraint  :', target_val(igroup)
             WRITE (iw, '(T3,A,T54,(3X,F18.12))') &
@@ -1053,9 +1069,9 @@ CONTAINS
                      WRITE (iw, "(i7,T15,A2,T23,L10,T39,F8.3,T61,F8.3,T81,F8.3)") &
                         jatom, ADJUSTR(element_symbol), becke_control%is_constraint(iatom), zeff, electronic_charge(iatom, 1), &
                         (zeff-electronic_charge(iatom, 1))
-                     tc = tc+(zeff-electronic_charge(iatom, 1))
+                     tc(1) = tc(1)+(zeff-electronic_charge(iatom, 1))
                   END DO
-                  WRITE (iw, '(/,T3,A,T81,F8.3,/)') "Total Charge: ", tc
+                  WRITE (iw, '(/,T3,A,T81,F8.3,/)') "Total Charge: ", tc(1)
                ELSE
                   WRITE (iw, '(/,T3,A)') &
                      '------------------------------------------ Becke atomic charges -------------------------------------------'
@@ -1075,45 +1091,82 @@ CONTAINS
                         zeff, electronic_charge(iatom, 1), electronic_charge(iatom, 2), &
                         (zeff-electronic_charge(iatom, 1)-electronic_charge(iatom, 2)), &
                         electronic_charge(iatom, 1)-electronic_charge(iatom, 2)
-                     tc = tc+(zeff-electronic_charge(iatom, 1)-electronic_charge(iatom, 2))
+                     tc(1) = tc(1)+(zeff-electronic_charge(iatom, 1)-electronic_charge(iatom, 2))
+                     tc(2) = tc(2)+(electronic_charge(iatom, 1)-electronic_charge(iatom, 2))
                   END DO
-                  WRITE (iw, '(/,T3,A,T81,F8.3,/)') "Total Charge: ", tc
+                  WRITE (iw, '(/,T3,A,T81,F8.3,T102,F8.3/)') "Total Charge and Spin Moment: ", tc(1), tc(2)
                END IF
             ELSE
-               WRITE (iw, '(/,T3,A)') &
+               IF (.NOT. needs_spin_density) THEN
+                  WRITE (iw, '(/,T3,A)') &
                   '-------------------------------- Becke atomic charges --------------------------------'
-               WRITE (iw, '(T3,A,A)') &
-                  '#Atom  Element   Is_constraint', '   Fragment charge    Population (total)'// &
-                  '      Net charge'
-               tc = 0.0_dp
-               DO iatom = 1, becke_control%natoms
-                  jatom = becke_control%atoms(iatom)
-                  CALL get_atomic_kind(atomic_kind=particle_set(jatom)%atomic_kind, &
-                                       element_symbol=element_symbol, &
-                                       kind_number=ikind)
                   IF (dft_control%nspins == 1) THEN
-                     WRITE (iw, "(i7,T15,A2,T23,L10,T43,F8.3,T65,F8.3,T81,F8.3)") &
-                        jatom, ADJUSTR(element_symbol), &
-                        becke_control%is_constraint(iatom), &
-                        becke_control%charges_fragment(iatom), &
-                        electronic_charge(iatom, 1), &
-                        (electronic_charge(iatom, 1)- &
-                         becke_control%charges_fragment(iatom))
-                     tc = tc+(electronic_charge(iatom, 1)- &
-                              becke_control%charges_fragment(iatom))
+                     WRITE (iw, '(T3,A,A)') &
+                        '#Atom  Element   Is_constraint', '   Fragment charge    Population (total)'// &
+                        '      Net charge'
                   ELSE
-                     WRITE (iw, "(i7,T15,A2,T23,L10,T43,F8.3,T65,F8.3,T81,F8.3)") &
+                     WRITE (iw, '(T3,A,A)') &
+                        '#Atom  Element   Is_constraint', '   Fragment charge  Population (alpha, beta)'// &
+                        '  Net charge'
+                  END IF
+                  tc = 0.0_dp
+                  DO iatom = 1, becke_control%natoms
+                     jatom = becke_control%atoms(iatom)
+                     CALL get_atomic_kind(atomic_kind=particle_set(jatom)%atomic_kind, &
+                                          element_symbol=element_symbol, &
+                                          kind_number=ikind)
+                     IF (dft_control%nspins == 1) THEN
+                        WRITE (iw, "(i7,T15,A2,T23,L10,T43,F8.3,T65,F8.3,T81,F8.3)") &
+                           jatom, ADJUSTR(element_symbol), &
+                           becke_control%is_constraint(iatom), &
+                           becke_control%charges_fragment(iatom, 1), &
+                           electronic_charge(iatom, 1), &
+                           (electronic_charge(iatom, 1)- &
+                            becke_control%charges_fragment(iatom, 1))
+                        tc(1) = tc(1)+(electronic_charge(iatom, 1)- &
+                                 becke_control%charges_fragment(iatom, 1))
+                     ELSE
+                        WRITE (iw, "(i7,T15,A2,T23,L10,T43,F8.3,T57,F8.3,T69,F8.3,T81,F8.3)") &
+                           jatom, ADJUSTR(element_symbol), &
+                           becke_control%is_constraint(iatom), &
+                           becke_control%charges_fragment(iatom, 1), &
+                           electronic_charge(iatom, 1), electronic_charge(iatom, 2), &
+                           (electronic_charge(iatom, 1)+electronic_charge(iatom, 2)- &
+                            becke_control%charges_fragment(iatom, 1))
+                        tc(1) = tc(1)+(electronic_charge(iatom, 1)+electronic_charge(iatom, 2)- &
+                                 becke_control%charges_fragment(iatom, 1))
+                     END IF
+                  END DO
+                  WRITE (iw, '(/,T3,A,T81,F8.3,/)') "Total Charge: ", tc(1)
+               ELSE
+                  WRITE (iw, '(/,T3,A)') &
+                     '------------------------------------------ Becke atomic charges -------------------------------------------'
+                  WRITE (iw, '(T3,A,A)') &
+                     '#Atom  Element  Is_constraint', ' Fragment charge/spin moment'// &
+                     '  Population (alpha, beta)  Net charge/spin moment'
+                  tc = 0.0_dp
+                  DO iatom = 1, becke_control%natoms
+                     jatom = becke_control%atoms(iatom)
+                     CALL get_atomic_kind(atomic_kind=particle_set(jatom)%atomic_kind, &
+                                          element_symbol=element_symbol, &
+                                          kind_number=ikind)
+                     WRITE (iw, "(i7,T15,A2,T22,L10,T40,F8.3,T52,F8.3,T66,F8.3,T78,F8.3,T90,F8.3,T102,F8.3)") &
                         jatom, ADJUSTR(element_symbol), &
                         becke_control%is_constraint(iatom), &
-                        becke_control%charges_fragment(iatom), &
-                        electronic_charge(iatom, 1)+electronic_charge(iatom, 2), &
+                        becke_control%charges_fragment(iatom, 1), &
+                        becke_control%charges_fragment(iatom, 2), &
+                        electronic_charge(iatom, 1), electronic_charge(iatom, 2), &
                         (electronic_charge(iatom, 1)+electronic_charge(iatom, 2)- &
-                         becke_control%charges_fragment(iatom))
-                     tc = tc+(electronic_charge(iatom, 1)+electronic_charge(iatom, 2)- &
-                              becke_control%charges_fragment(iatom))
-                  END IF
-               END DO
-               WRITE (iw, '(/,T3,A,T81,F8.3,/)') "Total Charge: ", tc
+                         becke_control%charges_fragment(iatom, 1)), &
+                        (electronic_charge(iatom, 1)-electronic_charge(iatom, 2)- &
+                         becke_control%charges_fragment(iatom, 2))
+                     tc(1) = tc(1)+(electronic_charge(iatom, 1)+electronic_charge(iatom, 2)- &
+                              becke_control%charges_fragment(iatom, 1))
+                     tc(2) = tc(2)+(electronic_charge(iatom, 1)-electronic_charge(iatom, 2)- &
+                              becke_control%charges_fragment(iatom, 2))
+                  END DO
+                  WRITE (iw, '(/,T3,A,T90,F8.3,T102,F8.3/)') "Total Charge and Spin Moment: ", tc(1), tc(2)
+               END IF
             END IF
          END IF
       END IF

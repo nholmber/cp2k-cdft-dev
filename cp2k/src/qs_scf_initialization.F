@@ -377,7 +377,7 @@ CONTAINS
                dft_control%qs_control%cdft_control%target = dft_control%qs_control%becke_control%target
                IF (.NOT. ALLOCATED(dft_control%qs_control%cdft_control%is_charge_constraint)) &
                   ALLOCATE (dft_control%qs_control%cdft_control%is_charge_constraint(nvariables))
-               IF (.NOT. ALLOCATED(dft_control%qs_control%cdft_control%is_charge_constraint)) &
+               IF (.NOT. ALLOCATED(dft_control%qs_control%cdft_control%is_fragment_constraint)) &
                   ALLOCATE (dft_control%qs_control%cdft_control%is_fragment_constraint(nvariables))
                DO ivar = 1, nvariables
                   dft_control%qs_control%cdft_control%is_charge_constraint(ivar) = &

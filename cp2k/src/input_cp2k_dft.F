@@ -4090,7 +4090,9 @@ CONTAINS
       CALL keyword_release(keyword)
 
       CALL keyword_create(keyword, name="ATOMIC_CHARGES", &
-                          description="Calculate atomic Becke charges. Note:"// &
+                          description="Calculate atomic Becke charges (Z = Z_core - Z_becke)."// &
+                          " With fragment based constraints, charges are relative to fragment"// &
+                          " reference state i.e. Z = Z_becke_frag - Z_reference. Note:"// &
                           " If the number of atoms is greater than the default"// &
                           " pw_pool max cache, calculation of atomic charges"// &
                           " will prompt a warning during deallocation of atomic grids.", &
@@ -4218,7 +4220,7 @@ CONTAINS
                           " May include a path. The reference spin density needs to be outputted"// &
                           " on the same grid as the full system (same cutoff and cell, output stride 1).", &
                           usage="FRAGMENT_A_FILE_NAME <FILENAME>", &
-                          default_lc_val="fragment_a.cube")
+                          default_lc_val="fragment_a_spin.cube")
       CALL section_add_keyword(section, keyword)
       CALL keyword_release(keyword)
 
@@ -4227,7 +4229,29 @@ CONTAINS
                           " May include a path. The reference spin density needs to be outputted"// &
                           " on the same grid as the full system (same cutoff and cell, output stride 1).", &
                           usage="FRAGMENT_B_FILE_NAME <FILENAME>", &
-                          default_lc_val="fragment_b.cube")
+                          default_lc_val="fragment_b_spin.cube")
+      CALL section_add_keyword(section, keyword)
+      CALL keyword_release(keyword)
+
+      CALL keyword_create(keyword, name="FLIP_FRAGMENT_A", &
+                          description="Logical which determines if the reference spin difference density "// &
+                          "(rho_alpha-rho_beta) for fragment A should be flipped. With default (off)"// &
+                          "value, the fragment is constrained to have more alpha than beta electrons "// &
+                          "if the isolated fragment has unpaired electrons. Useful in conjunction with"// &
+                          "FLIP_FRAGMENT_B." , &
+                          usage="FLIP_FRAGMENT_A", &
+                          default_l_val=.FALSE., lone_keyword_l_val=.TRUE.)
+      CALL section_add_keyword(section, keyword)
+      CALL keyword_release(keyword)
+
+      CALL keyword_create(keyword, name="FLIP_FRAGMENT_B", &
+                          description="Logical which determines if the reference spin difference density "// &
+                          "(rho_alpha-rho_beta) for fragment B should be flipped. With default (off)"// &
+                          "value, the fragment is constrained to have more alpha than beta electrons "// &
+                          "if the isolated fragment has unpaired electrons. Useful in conjunction with"// &
+                          "FLIP_FRAGMENT_A." , &
+                          usage="FLIP_FRAGMENT_B", &
+                          default_l_val=.FALSE., lone_keyword_l_val=.TRUE.)
       CALL section_add_keyword(section, keyword)
       CALL keyword_release(keyword)
 

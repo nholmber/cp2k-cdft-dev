@@ -677,14 +677,22 @@ CONTAINS
             WRITE (output_unit, '(T3,A,T54,(3X,I18))') &
                'Atomic group                :', igroup
             IF (cdft_control%is_charge_constraint(igroup)) THEN
-               WRITE (output_unit, '(T3,A,T50,A)') &
-                  'Type of constraint          :', ADJUSTR('Charge density constraint')
+               IF (cdft_control%is_fragment_constraint(igroup)) THEN
+                  WRITE (output_unit, '(T3,A,T42,A)') &
+                     'Type of constraint          :', ADJUSTR('Charge density constraint (frag.)')
+               ELSE
+                  WRITE (output_unit, '(T3,A,T50,A)') &
+                     'Type of constraint          :', ADJUSTR('Charge density constraint')
+               END IF
             ELSE
-               WRITE (output_unit, '(T3,A,T43,A)') &
-                  'Type of constraint          :', ADJUSTR('Magnetization density constraint')
+               IF (cdft_control%is_fragment_constraint(igroup)) THEN
+                  WRITE (output_unit, '(T3,A,T35,A)') &
+                     'Type of constraint          :', ADJUSTR('Magnetization density constraint (frag.)')
+               ELSE
+                  WRITE (output_unit, '(T3,A,T43,A)') &
+                     'Type of constraint          :', ADJUSTR('Magnetization density constraint')
+               END IF
             END IF
-            IF (cdft_control%is_fragment_constraint(igroup)) &
-               WRITE (output_unit, '(T50,A)') ADJUSTR('using fragment densities')
             WRITE (output_unit, '(T3,A,T54,(3X,F18.12))') &
                'Target value of constraint  :', cdft_control%target(igroup)
             WRITE (output_unit, '(T3,A,T54,(3X,F18.12))') &
