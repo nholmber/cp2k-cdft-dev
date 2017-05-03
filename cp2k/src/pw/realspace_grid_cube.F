@@ -241,8 +241,9 @@ CONTAINS
       num_pe = grid%pw_grid%para%group_size
       tag = 1
 
-      ! Parallel routine falls back to stream read in serial mode, but it has slight overhead against sequential read
-      ! That why we use sequential version in serial mode
+      ! Parallel routine falls back to stream read in serial mode,
+      ! but it has slight overhead compared to sequential read
+      ! Therefore, we use sequential version in serial mode
       IF (num_pe == 1) parallel_read = .FALSE.
 
       lbounds_local = grid%pw_grid%bounds_local(1, :)
