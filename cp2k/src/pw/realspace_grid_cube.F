@@ -15,7 +15,7 @@ MODULE realspace_grid_cube
         file_amode_rdonly, file_offset, mp_bcast, mp_file_close, mp_file_descriptor_type, &
         mp_file_open, mp_file_read_all_chv, mp_file_type_free, mp_file_type_hindexed_make_chv, &
         mp_file_type_set_view_chv, mp_maxloc, mp_recv, mp_send, mp_sum, mp_sync, &
-        mpi_chvaracter_size
+        mpi_character_size
    USE pw_grid_types,                   ONLY: PW_MODE_LOCAL
    USE pw_types,                        ONLY: pw_type
 #include "../base/base_uses.f90"
@@ -329,7 +329,7 @@ CONTAINS
          ! Each data line of a Gaussian cube contains max 6 entries with last line potentially containing less if nz % 6 /= 0
          ! Thus, this size is simply the number of entries multiplied by the entry size + the number of line breaks
          num_linebreak = NINT(REAL(size_of_z, dp)/REAL(num_entries_line, dp))
-         msglen = (size_of_z*entry_len+num_linebreak)*mpi_chvaracter_size
+         msglen = (size_of_z*entry_len+num_linebreak)*mpi_character_size
          CALL cube_to_pw_parallel(grid, filename, scaling, msglen)
       END IF
 
