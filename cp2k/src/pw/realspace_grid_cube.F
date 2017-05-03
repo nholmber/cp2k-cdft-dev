@@ -369,7 +369,7 @@ CONTAINS
                                                             num_pe, offset_global, output_unit, &
                                                             size_of_z, tag
       CHARACTER(LEN=msglen), ALLOCATABLE, DIMENSION(:)   :: readbuffer
-      LOGICAL                                            :: should_read
+      LOGICAL                                            :: should_read(2)
       REAL(kind=dp), ALLOCATABLE, DIMENSION(:)           :: buffer
       REAL(kind=dp), DIMENSION(3)                        :: dr, rdum
       TYPE(mp_file_descriptor_type)                      :: mp_file_type
@@ -440,17 +440,17 @@ CONTAINS
       ALLOCATE (displacements(nslices))
       displacements = 0
       DO i = lbounds(1), ubounds(1)
-         should_read = .TRUE.
+         should_read(:) = .TRUE.
          IF (i .LT. lbounds_local(1)) THEN
-            should_read = .FALSE.
+            should_read(1) = .FALSE.
          ELSE IF (i .GT. ubounds_local(1)) THEN
             EXIT
          END IF
          DO j = lbounds(2), ubounds(2)
             IF (j .LT. lbounds_local(2) .OR. j .GT. ubounds_local(2)) THEN
-               should_read = .FALSE.
+               should_read(2) = .FALSE.
             END IF
-            IF (should_read) THEN
+            IF (ALL(should_read .EQV. .TRUE.)) THEN
                IF (islice > nslices) CPABORT("Index out of bounds.")
                displacements(islice) = BOF
                islice = islice+1
