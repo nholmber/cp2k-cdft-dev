@@ -462,14 +462,14 @@ CONTAINS
       ! Size of each z-slice is msglen
       ALLOCATE (blocklengths(nslices))
       blocklengths(:) = msglen
-      ! Create indexed MPI type using calculated byte offsets as displacements and use it as a view
+      ! Create indexed MPI type using calculated byte offsets as displacements and use it as a file view
       mp_file_type = mp_file_type_hindexed_make_chv(nslices, blocklengths, displacements)
       BOF = 0
       CALL mp_file_type_set_view_chv(extunit, BOF, mp_file_type)
       ! Collective read of cube
       ALLOCATE (readbuffer(nslices))
       readbuffer(:) = ''
-      CALL mp_file_read_all_chv(extunit, msglen, nslices, readbuffer)
+      CALL mp_file_read_all_chv(extunit, msglen, nslices, readbuffer, mp_file_type)
       CALL mp_file_type_free(mp_file_type)
       CALL mp_file_close(extunit)
       ! Convert cube values string -> real

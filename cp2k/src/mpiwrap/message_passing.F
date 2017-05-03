@@ -648,7 +648,7 @@ MODULE message_passing
    TYPE mp_file_descriptor_type
       INTEGER                          :: type_handle
       INTEGER                          :: length
-      LOGICAL                          :: has_indexing
+      LOGICAL                          :: has_indexing = .FALSE.
       TYPE(mp_file_indexing_meta_type) :: index_descriptor
    END TYPE
 
@@ -3694,9 +3694,8 @@ CONTAINS
       IF (ierr /= 0)&
          CPABORT("MPI_File_set_view @ "//routineN)
 #else
-      CALL FSEEK(fh, offset+1, 0, ierr)
-      IF (ierr /= 0)&
-         CPABORT("FSEEK @ "//routineN)
+      MARK_USED(fh)
+      MARK_USED(offset)
 #endif
 
       CALL mp_timestop(handle)
@@ -3704,19 +3703,23 @@ CONTAINS
   END SUBROUTINE mp_file_type_set_view_chv
 
 ! **************************************************************************************************
-!> \brief Collective, blocking read of a character array from a file. File access pattern
-!         determined by a previously set file view.
+!> \brief (parallel) Collective, blocking read of a character array from a file. File access pattern
+!                    determined by a previously set file view.
+!>        (serial)   Unformatted stream read using explicit offsets
 !> \param fh     the file handle associated with the input file
 !> \param msglen the message length of an individual vector component
 !> \param ndims  the number of vector components
 !> \param buffer the buffer where the data is placed
+!> \param type_descriptor container for the MPI type
 !> \author Nico Holmberg [05.2017]
 ! **************************************************************************************************
-   SUBROUTINE mp_file_read_all_chv(fh, msglen, ndims, buffer)
+   SUBROUTINE mp_file_read_all_chv(fh, msglen, ndims, buffer, type_descriptor)
       INTEGER, INTENT(IN)                       :: fh
       INTEGER, INTENT(IN)                       :: msglen
       INTEGER, INTENT(IN)                       :: ndims
       CHARACTER(LEN=msglen), DIMENSION(ndims)   :: buffer
+      TYPE(mp_file_descriptor_type), &
+         INTENT(IN), OPTIONAL                   :: type_descriptor
 
       CHARACTER(len=*), PARAMETER :: routineN = 'mp_file_read_all_chv', &
          routineP = moduleN//':'//routineN
@@ -3727,12 +3730,20 @@ CONTAINS
       CALL mp_timeset(routineN,handle)
 
 #if defined(__parallel)
+      MARK_USED(type_descriptor)
       CALL MPI_File_read_all(fh, buffer, ndims*msglen, MPI_CHARACTER, MPI_STATUS_IGNORE, ierr)
       IF (ierr /= 0)&
          CPABORT("MPI_File_read_all @ "//routineN)
 #else
+      IF (.NOT. PRESENT(type_descriptor)) &
+         CALL cp_abort(__LOCATION__, &
+                       "Container for mp_file_descriptor_type must be present in serial call.")
+      IF (.NOT. type_descriptor%has_indexing) THEN
+         CALL cp_abort(__LOCATION__, &
+                       "File view has not been set in mp_file_descriptor_type.")
+      ! Use explicit offsets
       DO i = 1, ndims
-         READ(fh, *) buffer(i)
+         READ(fh, POS=type_descriptor%index_descriptor%chunks(i)+1) buffer(i)
       END DO
 #endif
 
