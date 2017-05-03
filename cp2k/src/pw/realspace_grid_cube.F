@@ -14,8 +14,7 @@ MODULE realspace_grid_cube
    USE message_passing,                 ONLY: &
         file_amode_rdonly, file_offset, mp_bcast, mp_file_close, mp_file_descriptor_type, &
         mp_file_open, mp_file_read_all_chv, mp_file_type_free, mp_file_type_hindexed_make_chv, &
-        mp_file_type_set_view_chv, mp_maxloc, mp_recv, mp_send, mp_sum, mp_sync, &
-        mpi_character_size
+        mp_file_type_set_view_chv, mp_maxloc, mp_recv, mp_send, mp_sum, mp_sync, mpi_character_size
    USE pw_grid_types,                   ONLY: PW_MODE_LOCAL
    USE pw_types,                        ONLY: pw_type
 #include "../base/base_uses.f90"
@@ -207,7 +206,6 @@ CONTAINS
 !> \param grid     pw to read from cube file
 !> \param filename name of cube file
 !> \param scaling  scale values before storing
-!> \param parallel_read  read cube in parallel
 !> \par History
 !>      Created [M.Watkins] (01.2014)
 !>      Use blocking, collective MPI read for parallel simulations [Nico Holmberg] (05.2017)
