@@ -210,14 +210,13 @@ CONTAINS
 !> \param parallel_read  read cube in parallel
 !> \par History
 !>      Created [M.Watkins] (01.2014)
-!>      Added optional MPI read [Nico Holmberg] (05.2017)
+!>      Use blocking, collective MPI read for parallel simulations [Nico Holmberg] (05.2017)
 ! **************************************************************************************************
    SUBROUTINE cube_to_pw(grid, filename, scaling, parallel_read)
 
       TYPE(pw_type), POINTER                             :: grid
       CHARACTER(len=*), INTENT(in)                       :: filename
       REAL(kind=dp), INTENT(in)                          :: scaling
-      LOGICAL, INTENT(in), OPTIONAL                      :: parallel_read
 
       CHARACTER(len=*), PARAMETER :: routineN = 'cube_to_pw', routineP = moduleN//':'//routineN
       INTEGER, PARAMETER                                 :: entry_len = 13, num_entries_line = 6
@@ -228,7 +227,7 @@ CONTAINS
                                                             size_of_z, tag
       INTEGER, DIMENSION(3)                              :: lbounds, lbounds_local, npoints, &
                                                             npoints_local, ubounds, ubounds_local
-      LOGICAL                                            :: my_parallel_read
+      LOGICAL                                            :: parallel_read
       REAL(kind=dp), ALLOCATABLE, DIMENSION(:)           :: buffer
       REAL(kind=dp), DIMENSION(3)                        :: dr, rdum
 
@@ -236,8 +235,7 @@ CONTAINS
 
       CALL timeset(routineN, handle)
 
-      my_parallel_read = .TRUE.
-      IF (PRESENT(parallel_read)) my_parallel_read = parallel_read
+      parallel_read = .TRUE.
 
       !get rs grids and parallel envnment
       gid = grid%pw_grid%para%group
@@ -245,20 +243,24 @@ CONTAINS
       num_pe = grid%pw_grid%para%group_size
       tag = 1
 
-      DO i = 1, 3
-         dr(i) = grid%pw_grid%dh(i, i)
-      END DO
+      ! Parallel routine falls back to stream read in serial mode, but it has slight overhead against sequential read
+      ! That why we use sequential version in serial mode
+      IF (num_pe == 1) parallel_read = .FALSE.
 
-      npoints = grid%pw_grid%npts
-      lbounds = grid%pw_grid%bounds(1, :)
-      ubounds = grid%pw_grid%bounds(2, :)
-
-      npoints_local = grid%pw_grid%npts_local
       lbounds_local = grid%pw_grid%bounds_local(1, :)
       ubounds_local = grid%pw_grid%bounds_local(2, :)
       size_of_z = ubounds_local(3)-lbounds_local(3)+1
 
-      IF (.NOT. my_parallel_read) THEN
+      IF (.NOT. parallel_read) THEN
+         npoints = grid%pw_grid%npts
+         lbounds = grid%pw_grid%bounds(1, :)
+         ubounds = grid%pw_grid%bounds(2, :)
+
+         DO i = 1, 3
+            dr(i) = grid%pw_grid%dh(i, i)
+         END DO
+
+         npoints_local = grid%pw_grid%npts_local
          !pw grids at most pencils - all processors have a full set of z data for x,y
          ALLOCATE (buffer(lbounds(3):ubounds(3)))
 
@@ -325,7 +327,7 @@ CONTAINS
       ELSE
          ! Parallel routine needs as input the byte size of each grid z-slice
          ! This is a hack to prevent compilation errors with gcc -Wall (upto versions 6.3)
-         ! related to declaration CHARACTER(LEN=:), ALLOCATABLE, DIMENSION(:) :: string
+         ! related to allocatable-length string declaration CHARACTER(LEN=:), ALLOCATABLE, DIMENSION(:) :: string
          ! Each data line of a Gaussian cube contains max 6 entries with last line potentially containing less if nz % 6 /= 0
          ! Thus, this size is simply the number of entries multiplied by the entry size + the number of line breaks
          num_linebreak = NINT(REAL(size_of_z, dp)/REAL(num_entries_line, dp))
