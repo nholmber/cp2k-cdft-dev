@@ -447,6 +447,7 @@ CONTAINS
             EXIT
          END IF
          DO j = lbounds(2), ubounds(2)
+            should_read(2) = .TRUE.
             IF (j .LT. lbounds_local(2) .OR. j .GT. ubounds_local(2)) THEN
                should_read(2) = .FALSE.
             END IF
