@@ -3694,6 +3694,7 @@ CONTAINS
       IF (ierr /= 0)&
          CPABORT("MPI_File_set_view @ "//routineN)
 #else
+      ! Uses absolute offsets stored in mp_file_descriptor_type
       MARK_USED(fh)
       MARK_USED(offset)
 #endif
@@ -3738,7 +3739,7 @@ CONTAINS
       IF (.NOT. PRESENT(type_descriptor)) &
          CALL cp_abort(__LOCATION__, &
                        "Container for mp_file_descriptor_type must be present in serial call.")
-      IF (.NOT. type_descriptor%has_indexing) THEN
+      IF (.NOT. type_descriptor%has_indexing) &
          CALL cp_abort(__LOCATION__, &
                        "File view has not been set in mp_file_descriptor_type.")
       ! Use explicit offsets
