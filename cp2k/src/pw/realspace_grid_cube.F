@@ -329,7 +329,9 @@ CONTAINS
          ! related to allocatable-length string declaration CHARACTER(LEN=:), ALLOCATABLE, DIMENSION(:) :: string
          ! Each data line of a Gaussian cube contains max 6 entries with last line potentially containing less if nz % 6 /= 0
          ! Thus, this size is simply the number of entries multiplied by the entry size + the number of line breaks
-         num_linebreak = NINT(REAL(size_of_z, dp)/REAL(num_entries_line, dp))
+         num_linebreak = size_of_z/num_entries_line
+         IF (MODULO(size_of_z, num_entries_line) /= 0) &
+            num_linebreak = num_linebreak+1
          msglen = (size_of_z*entry_len+num_linebreak)*mpi_character_size
          CALL cube_to_pw_parallel(grid, filename, scaling, msglen)
       END IF
