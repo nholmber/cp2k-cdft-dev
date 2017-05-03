@@ -27,7 +27,7 @@ MODULE realspace_grid_cube
    PUBLIC :: pw_to_cube, cube_to_pw
 
    CHARACTER(len=*), PARAMETER, PRIVATE :: moduleN = 'realspace_grid_cube'
-   LOGICAL, PARAMETER, PRIVATE          :: debug_this_module = .TRUE.
+   LOGICAL, PARAMETER, PRIVATE          :: debug_this_module = .FALSE.
 
 CONTAINS
 
