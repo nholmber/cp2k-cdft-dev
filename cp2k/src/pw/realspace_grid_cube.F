@@ -212,7 +212,7 @@ CONTAINS
 !>      Created [M.Watkins] (01.2014)
 !>      Use blocking, collective MPI read for parallel simulations [Nico Holmberg] (05.2017)
 ! **************************************************************************************************
-   SUBROUTINE cube_to_pw(grid, filename, scaling, parallel_read)
+   SUBROUTINE cube_to_pw(grid, filename, scaling)
 
       TYPE(pw_type), POINTER                             :: grid
       CHARACTER(len=*), INTENT(in)                       :: filename
