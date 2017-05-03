@@ -3744,7 +3744,7 @@ CONTAINS
                        "File view has not been set in mp_file_descriptor_type.")
       ! Use explicit offsets
       DO i = 1, ndims
-         READ(fh, POS=type_descriptor%index_descriptor%chunks(i)+1) buffer(i)
+         READ(fh, POS=type_descriptor%index_descriptor%chunks(i)) buffer(i)
       END DO
 #endif
 
