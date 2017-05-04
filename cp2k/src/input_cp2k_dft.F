@@ -1840,8 +1840,7 @@ CONTAINS
                           description="Print only the upper triangular part of the matrix. ", &
                           usage="UPPER_TRIANGULAR {logical}", &
                           repeats=.FALSE., &
-                          default_l_val=.FALSE., &
-                          lone_keyword_l_val=.TRUE.)
+                          default_l_val=.FALSE.)
       CALL section_add_keyword(print_key, keyword)
       CALL keyword_release(keyword)
       CALL section_add_subsection(section, print_key)
@@ -1864,8 +1863,7 @@ CONTAINS
                           description="Print only the upper triangular part of the matrix. ", &
                           usage="UPPER_TRIANGULAR {logical}", &
                           repeats=.FALSE., &
-                          default_l_val=.FALSE., &
-                          lone_keyword_l_val=.TRUE.)
+                          default_l_val=.FALSE.)
       CALL section_add_keyword(print_key, keyword)
       CALL keyword_release(keyword)
       CALL section_add_subsection(section, print_key)
@@ -2210,15 +2208,6 @@ CONTAINS
          description="If the printkey is activated controls the number of homos that dumped as a cube (-1=all),"// &
          " eigenvalues are always all dumped", &
          default_i_val=1)
-      CALL section_add_keyword(print_key, keyword)
-      CALL keyword_release(keyword)
-
-      CALL keyword_create( &
-         keyword, name="homo_list", &
-         description="If the printkey is activated controls the index of homos dumped as a cube,"// &
-         " eigenvalues are always all dumped. It overrides nhomo.", &
-         usage="HOMO_LIST {integer}  {integer} ..  {integer} ", type_of_var=integer_t, &
-         n_var=-1, repeats=.TRUE.)
       CALL section_add_keyword(print_key, keyword)
       CALL keyword_release(keyword)
 
@@ -5229,7 +5218,8 @@ CONTAINS
                           default_i_val=kg_tnadd_embed, &
                           enum_c_vals=s2a("EMBEDDING", "ATOMIC", "NONE"), &
                           enum_desc=s2a("Use full embedding potential (see Iannuzzi et al)", &
-                                        "Use sum of atomic model potentials", "No correction is applied"), &
+                                        "Use sum of atomic model potentials", &
+                                        "Do not use kinetic energy embedding"), &
                           enum_i_vals=(/kg_tnadd_embed, kg_tnadd_atomic, kg_tnadd_none/))
       CALL section_add_keyword(section, keyword)
       CALL keyword_release(keyword)
