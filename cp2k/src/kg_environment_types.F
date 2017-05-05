@@ -97,7 +97,7 @@ MODULE kg_environment_types
       TYPE(section_vals_type), POINTER                :: xc_section_kg
       INTEGER, ALLOCATABLE, DIMENSION(:)              :: atom_to_molecule
       TYPE(molecule_type), DIMENSION(:), POINTER      :: molecule_set
-      TYPE(dbcsr_p_type), DIMENSION(:), POINTER    :: tnadd_mat
+      TYPE(dbcsr_p_type), DIMENSION(:), POINTER       :: tnadd_mat
       TYPE(neighbor_list_set_p_type), &
          DIMENSION(:), POINTER                        :: sab_orb_full, sac_kin
       INTEGER, DIMENSION(:), POINTER                  :: subset_of_mol
