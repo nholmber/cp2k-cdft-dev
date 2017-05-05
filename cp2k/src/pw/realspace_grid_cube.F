@@ -358,8 +358,7 @@ CONTAINS
       INTEGER, INTENT(in)                                :: msglen
 
       CHARACTER(len=*), PARAMETER :: routineN = 'cube_to_pw_parallel', &
-         routineP = moduleN//':'//routineN
-      INTEGER, PARAMETER                                 :: entry_len = 13, num_entries_line = 6
+                                     routineP = moduleN//':'//routineN
 
       INTEGER, DIMENSION(3)                              :: lbounds, lbounds_local, npoints, &
                                                             npoints_local, ubounds, ubounds_local
@@ -367,14 +366,21 @@ CONTAINS
       INTEGER(kind=file_offset), ALLOCATABLE, &
          DIMENSION(:), TARGET                            :: displacements
       INTEGER(kind=file_offset)                          :: BOF
-      INTEGER :: extunit, gid, i, ientry, ip, islice, j, k, master, my_rank, nat, ndum, nslices, &
-         num_pe, offset_global, output_unit, pos, size_of_z, tag
+      INTEGER                                            :: extunit, gid, i, ip, islice, j, k, &
+                                                            master, my_rank, nat, ndum, nslices, &
+                                                            num_pe, offset_global, output_unit, &
+                                                            size_of_z, tag
       CHARACTER(LEN=msglen), ALLOCATABLE, DIMENSION(:)   :: readbuffer
-      CHARACTER(LEN=msglen)                              :: tmp
       LOGICAL                                            :: should_read(2)
       REAL(kind=dp), ALLOCATABLE, DIMENSION(:)           :: buffer
       REAL(kind=dp), DIMENSION(3)                        :: dr, rdum
       TYPE(mp_file_descriptor_type)                      :: mp_file_type
+
+#if ! defined (__GFORTRAN)
+      INTEGER, PARAMETER                                 :: entry_len = 13, num_entries_line = 6
+      CHARACTER(LEN=msglen)                              :: tmp
+      INTEGER                                            :: pos, ientry
+#endif
 
       output_unit = cp_logger_get_default_io_unit()
 
@@ -481,10 +487,17 @@ CONTAINS
       ALLOCATE (buffer(lbounds(3):ubounds(3)))
       buffer = 0.0_dp
       DO islice = 1, nslices
+#if defined (__GFORTRAN)
+         ! gfortran can correctly parse the line breaks in readbuffer(islice)
+         ! and this method of reading actually produces faster code
+         ! (maybe the latter method could be optimized)
+         READ (readbuffer(islice), *) (buffer(k), k=lbounds(3), ubounds(3))
+#else
+         ! ifort and maybe others (?) cant handle the line breaks
+         ! Convert values by going through the z-slice one value at a time
          tmp = readbuffer(islice)
          pos = 1
          ientry = 1
-         ! Go through z-slice one value at a time
          DO k = lbounds_local(3), ubounds_local(3)
             IF (MODULO(ientry, num_entries_line) == 0 .OR. k == ubounds_local(3)) THEN
                ! Last value on line, dont read line break
@@ -496,6 +509,7 @@ CONTAINS
             END IF
             ientry = ientry+1
          END DO
+#endif
          ! Optionally scale cube file values
          grid%cr3d(i, j, lbounds(3):ubounds(3)) = scaling*buffer(lbounds(3):ubounds(3))
          j = j+1
