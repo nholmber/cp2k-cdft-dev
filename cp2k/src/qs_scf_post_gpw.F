@@ -57,9 +57,10 @@ MODULE qs_scf_post_gpw
                                               put_results
    USE cp_result_types,                 ONLY: cp_result_type
    USE dbcsr_api,                       ONLY: &
-        dbcsr_add, dbcsr_copy, dbcsr_copy_into_existing, dbcsr_create, &
+        convert_dbcsr_to_csr, csr_create_from_dbcsr, csr_dbcsr_blkrow_dist, csr_destroy, csr_type, &
+        csr_write, dbcsr_add, dbcsr_copy, dbcsr_copy_into_existing, dbcsr_create, &
         dbcsr_deallocate_matrix_set, dbcsr_desymmetrize, dbcsr_frobenius_norm, dbcsr_get_info, &
-        dbcsr_multiply, dbcsr_p_type, dbcsr_release, dbcsr_type
+        dbcsr_has_symmetry, dbcsr_multiply, dbcsr_p_type, dbcsr_release, dbcsr_type
    USE dct,                             ONLY: pw_shrink
    USE et_coupling_types,               ONLY: set_et_coupling_type
    USE hirshfeld_methods,               ONLY: comp_hirshfeld_charges,&
@@ -95,6 +96,7 @@ MODULE qs_scf_post_gpw
    USE mao_wfn_analysis,                ONLY: mao_analysis
    USE mathconstants,                   ONLY: pi,&
                                               twopi
+   USE memory_utilities,                ONLY: reallocate
    USE message_passing,                 ONLY: mp_sum
    USE minbas_wfn_analysis,             ONLY: minbas_analysis
    USE molden_utils,                    ONLY: write_mos_molden
@@ -1204,7 +1206,9 @@ CONTAINS
          routineP = moduleN//':'//routineN
 
       CHARACTER(LEN=default_path_length)                 :: filename, my_pos_cube, title
-      INTEGER                                            :: handle, ivector, nhomo, unit_nr
+      INTEGER                                            :: handle, i, ir, ivector, n_rep, nhomo, &
+                                                            nlist, unit_nr
+      INTEGER, DIMENSION(:), POINTER                     :: list, list_index
       LOGICAL                                            :: append_cube
       TYPE(atomic_kind_type), DIMENSION(:), POINTER      :: atomic_kind_set
       TYPE(cell_type), POINTER                           :: cell
@@ -1214,6 +1218,8 @@ CONTAINS
 
       CALL timeset(routineN, handle)
 
+      NULLIFY (list_index)
+
       IF (BTEST(cp_print_key_should_output(logger%iter_info, dft_section, "PRINT%MO_CUBES") &
                 , cp_p_file) .AND. section_get_lval(dft_section, "PRINT%MO_CUBES%WRITE_CUBE")) THEN
          nhomo = section_get_ival(dft_section, "PRINT%MO_CUBES%NHOMO")
@@ -1222,8 +1228,32 @@ CONTAINS
          IF (append_cube) THEN
             my_pos_cube = "APPEND"
          END IF
-         IF (nhomo == -1) nhomo = homo
-         DO ivector = MAX(1, homo-nhomo+1), homo
+         CALL section_vals_val_get(dft_section, "PRINT%MO_CUBES%HOMO_LIST", n_rep_val=n_rep)
+         IF (n_rep > 0) THEN ! write the cubes of the list
+            nlist = 0
+            DO ir = 1, n_rep
+               NULLIFY (list)
+               CALL section_vals_val_get(dft_section, "PRINT%MO_CUBES%HOMO_LIST", i_rep_val=ir, &
+                                         i_vals=list)
+               IF (ASSOCIATED(list)) THEN
+                  CALL reallocate(list_index, 1, nlist+SIZE(list))
+                  DO i = 1, SIZE(list)
+                     list_index(i+nlist) = list(i)
+                  END DO
+                  nlist = nlist+SIZE(list)
+               END IF
+            END DO
+         ELSE
+
+            IF (nhomo == -1) nhomo = homo
+            nlist = homo-MAX(1, homo-nhomo+1)+1
+            ALLOCATE (list_index(nlist))
+            DO i = 1, nlist
+               list_index(i) = MAX(1, homo-nhomo+1)+i-1
+            END DO
+         END IF
+         DO i = 1, nlist
+            ivector = list_index(i)
             CALL get_qs_env(qs_env=qs_env, &
                             atomic_kind_set=atomic_kind_set, &
                             qs_kind_set=qs_kind_set, &
@@ -1240,6 +1270,7 @@ CONTAINS
                                stride=section_get_ivals(dft_section, "PRINT%MO_CUBES%STRIDE"))
             CALL cp_print_key_finished_output(unit_nr, logger, input, "DFT%PRINT%MO_CUBES")
          ENDDO
+         IF (ASSOCIATED(list_index)) DEALLOCATE (list_index)
       END IF
 
       CALL timestop(handle)
@@ -2733,6 +2764,10 @@ CONTAINS
                                            "DFT%PRINT%AO_MATRICES/KOHN_SHAM_MATRIX")
       END IF
 
+      ! write csr matrices
+      CALL write_ks_matrix_csr(qs_env, input)
+      CALL write_s_matrix_csr(qs_env, input)
+
       ! Write the xc matrix
       IF (write_xc) THEN
          CALL get_qs_env(qs_env=qs_env, matrix_vxc_kp=matrix_vxc)
@@ -3442,5 +3477,145 @@ CONTAINS
       CALL timestop(handle)
 
    END SUBROUTINE energy_windows
+
+!**************************************************************************************************
+!> \brief writing the KS matrix in csr format into a file
+!> \param qs_env qs environment
+!> \param input the input
+!> \author Mohammad Hossein Bani-Hashemian
+! **************************************************************************************************
+   SUBROUTINE write_ks_matrix_csr(qs_env, input)
+      TYPE(qs_environment_type), POINTER                 :: qs_env
+      TYPE(section_vals_type), POINTER                   :: input
+
+      CHARACTER(len=*), PARAMETER :: routineN = 'write_ks_matrix_csr', &
+         routineP = moduleN//':'//routineN
+
+      CHARACTER(LEN=default_path_length)                 :: file_name
+      INTEGER                                            :: handle, ispin, output_unit, unit_nr
+      LOGICAL                                            :: do_kpoints, do_ks_csr_write, uptr
+      REAL(KIND=dp)                                      :: thld
+      TYPE(cp_logger_type), POINTER                      :: logger
+      TYPE(csr_type)                                     :: ks_mat_csr
+      TYPE(dbcsr_p_type), DIMENSION(:), POINTER          :: matrix_ks
+      TYPE(dbcsr_type)                                   :: matrix_ks_nosym
+      TYPE(section_vals_type), POINTER                   :: dft_section
+
+      CALL timeset(routineN, handle)
+
+      NULLIFY (dft_section)
+
+      logger => cp_get_default_logger()
+      output_unit = cp_logger_get_default_io_unit(logger)
+
+      dft_section => section_vals_get_subs_vals(input, "DFT")
+      do_ks_csr_write = BTEST(cp_print_key_should_output(logger%iter_info, dft_section, &
+                                                         "PRINT%KS_CSR_WRITE"), cp_p_file)
+
+      ! NOTE: k-points has to be treated differently later. k-points has KS matrix as double pointer.
+      CALL get_qs_env(qs_env=qs_env, do_kpoints=do_kpoints)
+
+      IF (do_ks_csr_write .AND. (.NOT. do_kpoints)) THEN
+         CALL section_vals_val_get(dft_section, "PRINT%KS_CSR_WRITE%THRESHOLD", r_val=thld)
+         CALL section_vals_val_get(dft_section, "PRINT%KS_CSR_WRITE%UPPER_TRIANGULAR", l_val=uptr)
+         CALL get_qs_env(qs_env=qs_env, matrix_ks=matrix_ks)
+
+         DO ispin = 1, SIZE(matrix_ks)
+
+            IF (dbcsr_has_symmetry(matrix_ks(ispin)%matrix)) THEN
+               CALL dbcsr_desymmetrize(matrix_ks(ispin)%matrix, matrix_ks_nosym)
+            ELSE
+               CALL dbcsr_copy(matrix_ks_nosym, matrix_ks(ispin)%matrix)
+            END IF
+
+            CALL csr_create_from_dbcsr(matrix_ks_nosym, ks_mat_csr, csr_dbcsr_blkrow_dist)
+            CALL convert_dbcsr_to_csr(matrix_ks_nosym, ks_mat_csr)
+
+            WRITE (file_name, '(A,I0)') "KS_SPIN_", ispin
+            unit_nr = cp_print_key_unit_nr(logger, dft_section, "PRINT%KS_CSR_WRITE", &
+                                           extension=".csr", middle_name=TRIM(file_name), &
+                                           file_status="REPLACE", file_form="FORMATTED")
+            CALL csr_write(ks_mat_csr, unit_nr, upper_triangle=uptr, threshold=thld)
+
+            CALL cp_print_key_finished_output(unit_nr, logger, dft_section, "PRINT%KS_CSR_WRITE")
+
+            CALL csr_destroy(ks_mat_csr)
+            CALL dbcsr_release(matrix_ks_nosym)
+         END DO
+      END IF
+
+      CALL timestop(handle)
+
+   END SUBROUTINE write_ks_matrix_csr
+
+!**************************************************************************************************
+!> \brief writing the KS matrix in csr format into a file
+!> \param qs_env qs environment
+!> \param input the input
+!> \author Mohammad Hossein Bani-Hashemian
+! **************************************************************************************************
+   SUBROUTINE write_s_matrix_csr(qs_env, input)
+      TYPE(qs_environment_type), POINTER                 :: qs_env
+      TYPE(section_vals_type), POINTER                   :: input
+
+      CHARACTER(len=*), PARAMETER :: routineN = 'write_s_matrix_csr', &
+         routineP = moduleN//':'//routineN
+
+      CHARACTER(LEN=default_path_length)                 :: file_name
+      INTEGER                                            :: handle, ispin, output_unit, unit_nr
+      LOGICAL                                            :: do_kpoints, do_s_csr_write, uptr
+      REAL(KIND=dp)                                      :: thld
+      TYPE(cp_logger_type), POINTER                      :: logger
+      TYPE(csr_type)                                     :: s_mat_csr
+      TYPE(dbcsr_p_type), DIMENSION(:), POINTER          :: matrix_s
+      TYPE(dbcsr_type)                                   :: matrix_s_nosym
+      TYPE(section_vals_type), POINTER                   :: dft_section
+
+      CALL timeset(routineN, handle)
+
+      NULLIFY (dft_section)
+
+      logger => cp_get_default_logger()
+      output_unit = cp_logger_get_default_io_unit(logger)
+
+      dft_section => section_vals_get_subs_vals(input, "DFT")
+      do_s_csr_write = BTEST(cp_print_key_should_output(logger%iter_info, dft_section, &
+                                                        "PRINT%S_CSR_WRITE"), cp_p_file)
+
+      ! NOTE: k-points has to be treated differently later. k-points has overlap matrix as double pointer.
+      CALL get_qs_env(qs_env=qs_env, do_kpoints=do_kpoints)
+
+      IF (do_s_csr_write .AND. (.NOT. do_kpoints)) THEN
+         CALL section_vals_val_get(dft_section, "PRINT%S_CSR_WRITE%THRESHOLD", r_val=thld)
+         CALL section_vals_val_get(dft_section, "PRINT%S_CSR_WRITE%UPPER_TRIANGULAR", l_val=uptr)
+         CALL get_qs_env(qs_env=qs_env, matrix_s=matrix_s)
+
+         DO ispin = 1, SIZE(matrix_s)
+
+            IF (dbcsr_has_symmetry(matrix_s(ispin)%matrix)) THEN
+               CALL dbcsr_desymmetrize(matrix_s(ispin)%matrix, matrix_s_nosym)
+            ELSE
+               CALL dbcsr_copy(matrix_s_nosym, matrix_s(ispin)%matrix)
+            END IF
+
+            CALL csr_create_from_dbcsr(matrix_s_nosym, s_mat_csr, csr_dbcsr_blkrow_dist)
+            CALL convert_dbcsr_to_csr(matrix_s_nosym, s_mat_csr)
+
+            WRITE (file_name, '(A,I0)') "S_SPIN_", ispin
+            unit_nr = cp_print_key_unit_nr(logger, dft_section, "PRINT%S_CSR_WRITE", &
+                                           extension=".csr", middle_name=TRIM(file_name), &
+                                           file_status="REPLACE", file_form="FORMATTED")
+            CALL csr_write(s_mat_csr, unit_nr, upper_triangle=uptr, threshold=thld)
+
+            CALL cp_print_key_finished_output(unit_nr, logger, dft_section, "PRINT%S_CSR_WRITE")
+
+            CALL csr_destroy(s_mat_csr)
+            CALL dbcsr_release(matrix_s_nosym)
+         END DO
+      END IF
+
+      CALL timestop(handle)
+
+   END SUBROUTINE write_s_matrix_csr
 
 END MODULE qs_scf_post_gpw

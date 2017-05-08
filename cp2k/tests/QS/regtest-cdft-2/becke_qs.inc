@@ -82,7 +82,7 @@
       FRAGMENT_A_SPIN_FILE He+-noconstraint-SPIN_DENSITY-1_0.cube
       FRAGMENT_B_FILE_NAME H-noconstraint-ELECTRON_DENSITY-1_0.cube
       FRAGMENT_B_SPIN_FILE H-noconstraint-SPIN_DENSITY-1_0.cube
-      ! Constraint fragment spin densities in such way that
+      ! Constrain fragment spin densities in such way that
       ! A has one alpha electron, B one beta electron
       FLIP_FRAGMENT_A FALSE
       FLIP_FRAGMENT_B TRUE
