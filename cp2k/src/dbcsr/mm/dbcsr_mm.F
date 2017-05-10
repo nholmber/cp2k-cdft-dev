@@ -166,6 +166,7 @@ CONTAINS
       CHARACTER(len=*), PARAMETER :: routineN = 'dbcsr_multiply_lib_finalize', &
          routineP = moduleN//':'//routineN
 
+      CHARACTER(len=1000)                                :: msg
       INTEGER                                            :: ilimit, isqrt, isqrt2, ithread
       INTEGER(KIND=int_8)                                :: total_nexchanged
       INTEGER(KIND=int_8), &
@@ -258,12 +259,13 @@ CONTAINS
          isqrt2 = NINT(SQRT(REAL(dbcsr_mpi_statistics%last_mpi_ranks_used*2, KIND=real_8)))
          IF (isqrt*isqrt .NE. dbcsr_mpi_statistics%last_mpi_ranks_used) THEN
             WRITE (UNIT=output_unit, FMT="(T2,A)") REPEAT("-", 79)
-            WRITE (UNIT=output_unit, FMT="(T2,A)") &
-               "Warning: using a non-square number of MPI ranks might lead to poor performance."
-            WRITE (UNIT=output_unit, FMT="(T2,A,I0)") &
-               "         used ranks: ", dbcsr_mpi_statistics%last_mpi_ranks_used
-            WRITE (UNIT=output_unit, FMT="(T2,A,2(I0,1X))") &
-               "         suggested : ", isqrt**2, isqrt2**2
+            WRITE (UNIT=msg, FMT="(A,I0,A,2(I0,1X))") &
+               "Using a non-square number of MPI ranks might lead to poor performance."// &
+               REPEAT(" ", 25)// &
+               "Used ranks: ", dbcsr_mpi_statistics%last_mpi_ranks_used, &
+               REPEAT(" ", 50)// &
+               "Suggested: ", isqrt**2, isqrt2**2
+            CPWARN(msg)
          ENDIF
       ENDIF
       IF (ASSOCIATED(memtype_trsbuffer_1%pool)) &
