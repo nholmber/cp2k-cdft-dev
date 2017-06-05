@@ -17,8 +17,8 @@ MODULE input_cp2k_dft
         Hunt2003, Iannuzzi2005, Iannuzzi2006, Iannuzzi2007, Kolafa2004, Krack2000, Krack2002, &
         Kunert2003, Lippert1997, Lippert1999, Lu2004, Perdew1981, Porezag1995, Repasky2002, &
         Rocha2006, Schenter2008, Schiffmann2015, Seifert1996, Stewart1982, Stewart1989, &
-        Stewart2007, Thiel1992, Tozer1996, VandeVondele2003, VandeVondele2005a, VandeVondele2005b, &
-        VandeVondele2006, Weber2008, Zhao1994, Zhechkov2005
+        Stewart2007, Thiel1992, Tozer1996, VanVoorhis2015, VandeVondele2003, VandeVondele2005a, &
+        VandeVondele2005b, VandeVondele2006, Weber2008, Zhao1994, Zhechkov2005
    USE cp_output_handling,              ONLY: add_last_numeric,&
                                               cp_print_key_section_create,&
                                               debug_print_level,&
@@ -47,7 +47,7 @@ MODULE input_cp2k_dft
         do_lri_opt_exps, do_lri_pseudoinv_diag, do_lri_pseudoinv_svd, do_method_am1, &
         do_method_dftb, do_method_gapw, do_method_gapw_xc, do_method_gpw, do_method_lrigpw, &
         do_method_mndo, do_method_mndod, do_method_ofgpw, do_method_pdg, do_method_pm3, &
-        do_method_pm6, do_method_pnnl, do_method_rm1, do_method_scptb, do_pade, do_ppl_analytic, &
+        do_method_pm6, do_method_pm6fm, do_method_pnnl, do_method_rm1, do_pade, do_ppl_analytic, &
         do_ppl_grid, do_pwgrid_ns_fullspace, do_pwgrid_ns_halfspace, do_pwgrid_spherical, &
         do_s2_constraint, do_s2_restraint, do_se_is_kdso, do_se_is_kdso_d, do_se_is_slater, &
         do_se_lr_ewald, do_se_lr_ewald_gks, do_se_lr_ewald_r3, do_se_lr_none, do_spin_density, &
@@ -2993,25 +2993,24 @@ CONTAINS
                           description="Specifies the electronic structure method that should be employed", &
                           usage="METHOD GAPW", &
                           enum_c_vals=s2a("GAPW", "GAPW_XC", "GPW", "LRIGPW", &
-                                          "MNDO", "MNDOD", "AM1", "PM3", "PM6", "PDG", "RM1", "PNNL", "DFTB", "OFGPW", "SCPTB"), &
+                                          "MNDO", "MNDOD", "AM1", "PM3", "PM6", "PM6-FM", "PDG", "RM1", "PNNL", "DFTB", "OFGPW"), &
                           enum_desc=s2a("Gaussian and augmented plane waves method", &
                                         "Gaussian and augmented plane waves method only for XC", &
                                         "Gaussian and plane waves method", &
                                         "Local resolution of identity method", &
                                         "MNDO semiempirical", "MNDO-d semiempirical", "AM1 semiempirical", &
-                                        "PM3 semiempirical", "PM6 semiempirical", "PDG semiempirical", &
+                                        "PM3 semiempirical", "PM6 semiempirical", "PM6-FM semiempirical", "PDG semiempirical", &
                                         "RM1 semiempirical", &
                                         "PNNL semiempirical", &
                                         "DFTB Density Functional based Tight-Binding", &
-                                        "OFGPW Orbital-free GPW method", &
-                                        "SCPTB Self-Consistent-Polarization Tight-Binding"), &
+                                        "OFGPW Orbital-free GPW method"), &
                           enum_i_vals=(/do_method_gapw, do_method_gapw_xc, do_method_gpw, do_method_lrigpw, &
                                         do_method_mndo, do_method_mndod, do_method_am1, do_method_pm3, &
-                                        do_method_pm6, do_method_pdg, do_method_rm1, do_method_pnnl, do_method_dftb, &
-                                        do_method_ofgpw, do_method_scptb/), &
+                                     do_method_pm6, do_method_pm6fm, do_method_pdg, do_method_rm1, do_method_pnnl, do_method_dftb, &
+                                        do_method_ofgpw/), &
                           citations=(/Lippert1997, Lippert1999, Krack2000, VandeVondele2005a, &
                                       VandeVondele2006, Dewar1977, Dewar1985, Rocha2006, Stewart1989, Thiel1992, &
-                                      Repasky2002, Stewart2007, Schenter2008/), &
+                                      Repasky2002, Stewart2007, VanVoorhis2015, Schenter2008/), &
                           default_i_val=do_method_gpw)
       CALL section_add_keyword(section, keyword)
       CALL keyword_release(keyword)
@@ -3032,10 +3031,6 @@ CONTAINS
       CALL section_release(subsection)
 
       CALL create_dftb_control_section(subsection)
-      CALL section_add_subsection(section, subsection)
-      CALL section_release(subsection)
-
-      CALL create_scptb_control_section(subsection)
       CALL section_add_subsection(section, subsection)
       CALL section_release(subsection)
 
@@ -3146,95 +3141,6 @@ CONTAINS
       CALL keyword_release(keyword)
 
    END SUBROUTINE create_dftb_control_section
-
-! **************************************************************************************************
-!> \brief ...
-!> \param section ...
-! **************************************************************************************************
-   SUBROUTINE create_scptb_control_section(section)
-      TYPE(section_type), POINTER                        :: section
-
-      CHARACTER(len=*), PARAMETER :: routineN = 'create_scptb_control_section', &
-         routineP = moduleN//':'//routineN
-
-      TYPE(keyword_type), POINTER                        :: keyword
-
-      CPASSERT(.NOT. ASSOCIATED(section))
-      CALL section_create(section, "SCPTB", &
-                          description="Parameters needed to set up the SCPTB methods", &
-                          n_keywords=1, n_subsections=1, repeats=.FALSE.)
-
-      NULLIFY (keyword)
-      CALL keyword_create(keyword, name="PARAMETER_FILE_NAME", &
-                          description="Specify file that contains the atomic parameters", &
-                          usage="PARAMETER_FILE_NAME filename", &
-                          n_var=1, type_of_var=char_t, default_c_val="")
-      CALL section_add_keyword(section, keyword)
-      CALL keyword_release(keyword)
-
-      CALL keyword_create(keyword, name="DISPERSION_PARAMETER_FILE", &
-                          description="Specify file that contains the atomic dispersion parameters", &
-                          usage="DISPERSION_PARAMETER_FILE filename", &
-                          n_var=1, type_of_var=char_t, default_c_val="")
-      CALL section_add_keyword(section, keyword)
-      CALL keyword_release(keyword)
-
-      CALL keyword_create(keyword, name="DISPERSION", &
-                          description="Use dispersion correction", &
-                          lone_keyword_l_val=.TRUE., &
-                          usage="DISPERSION", default_l_val=.TRUE.)
-      CALL section_add_keyword(section, keyword)
-      CALL keyword_release(keyword)
-
-      CALL keyword_create(keyword, name="DISPERSION_RADIUS", &
-                          description="Define radius of dispersion interaction", &
-                          usage="DISPERSION_RADIUS", default_r_val=15._dp)
-      CALL section_add_keyword(section, keyword)
-      CALL keyword_release(keyword)
-
-      CALL keyword_create(keyword, name="COORDINATION_CUTOFF", &
-                          description="Define cutoff for coordination number calculation", &
-                          usage="COORDINATION_CUTOFF", default_r_val=1.e-6_dp)
-      CALL section_add_keyword(section, keyword)
-      CALL keyword_release(keyword)
-
-      CALL keyword_create(keyword, name="D3_SCALING", &
-                          description="Scaling parameters (s6,sr6,s8) for the D3 dispersion method,", &
-                          usage="D3_SCALING 1.0 1.0 1.0", n_var=3, default_r_vals=(/1.0_dp, 1.0_dp, 1.0_dp/))
-      CALL section_add_keyword(section, keyword)
-      CALL keyword_release(keyword)
-
-      CALL keyword_create(keyword, name="STO_NG", &
-                          description="Provides the order of the Slater orbital expansion of Gaussian-Type Orbitals.", &
-                          usage="STO_NG", default_i_val=6)
-      CALL section_add_keyword(section, keyword)
-      CALL keyword_release(keyword)
-
-      CALL keyword_create(keyword, name="PAIR_CUTOFF", &
-                          description="Define cutoff for pair potential calculation", &
-                          usage="PAIR_CUTOFF", default_r_val=1.e-8_dp)
-      CALL section_add_keyword(section, keyword)
-      CALL keyword_release(keyword)
-
-      CALL keyword_create(keyword, name="do_ewald", &
-                          description="Use Ewald type method instead of direct sum for Coulomb interaction", &
-                          usage="DO_EWALD", default_l_val=.FALSE., lone_keyword_l_val=.TRUE.)
-      CALL section_add_keyword(section, keyword)
-      CALL keyword_release(keyword)
-
-      CALL keyword_create(keyword, name="do_scc", &
-                          description="Use self consistent charge method. Can be used together with DO_SCP to get TB method", &
-                          usage="DO_SCC", default_l_val=.TRUE., lone_keyword_l_val=.TRUE.)
-      CALL section_add_keyword(section, keyword)
-      CALL keyword_release(keyword)
-
-      CALL keyword_create(keyword, name="do_scp", &
-                          description="Use SCP method. Can be used to switch off SCP to get a SCC-DFTB method", &
-                          usage="DO_SCP", default_l_val=.TRUE., lone_keyword_l_val=.TRUE.)
-      CALL section_add_keyword(section, keyword)
-      CALL keyword_release(keyword)
-
-   END SUBROUTINE create_scptb_control_section
 
 ! **************************************************************************************************
 !> \brief ...

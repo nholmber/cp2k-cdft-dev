@@ -16,7 +16,7 @@ MODULE input_cp2k_mp2
                                               DelBen2015,&
                                               DelBen2015b,&
                                               Rybkin2016
-   USE cp_eri_mme_types,                ONLY: create_eri_mme_section
+   USE cp_eri_mme_interface,            ONLY: create_eri_mme_section
    USE cp_output_handling,              ONLY: add_last_numeric,&
                                               cp_print_key_section_create,&
                                               debug_print_level,&
@@ -26,8 +26,9 @@ MODULE input_cp2k_mp2
                                               silent_print_level
    USE input_constants,                 ONLY: &
         do_eri_gpw, do_eri_mme, do_eri_os, do_hfx_potential_coulomb, do_mp2_potential_tshpsc, &
-        gaussian, mp2_method_direct, mp2_method_gpw, mp2_method_none, mp2_ri_optimize_basis, &
-        numerical, ri_coulomb, ri_mp2_laplace, ri_mp2_method_gpw, ri_overlap, &
+        gaussian, gw_pade_approx, gw_two_pole_model, mp2_method_direct, mp2_method_gpw, &
+        mp2_method_none, mp2_ri_optimize_basis, numerical, ri_coulomb, ri_mp2_laplace, &
+        ri_mp2_method_gpw, ri_overlap, ri_rpa_g0w0_crossing_bisection, &
         ri_rpa_g0w0_crossing_newton, ri_rpa_g0w0_crossing_none, ri_rpa_g0w0_crossing_z_shot, &
         ri_rpa_method_gpw, wfc_mm_style_gemm, wfc_mm_style_syrk
    USE input_cp2k_hfx,                  ONLY: create_hfx_section
@@ -206,6 +207,16 @@ CONTAINS
                                        print_level=low_print_level, add_last=add_last_numeric, filename="__STD_OUT__")
       CALL section_add_subsection(section, print_key)
       CALL section_release(print_key)
+
+      CALL keyword_create( &
+         keyword=keyword, &
+         name="MINIMAL_GAP", &
+         description="If this keyword has a positive value, the HOMO-LUMO gap from DFT is enlarged to this value. "// &
+         "Should only be used for metals for RPA and GW if numerical issues are present.", &
+         usage="MINIMAL_GAP 0.01", &
+         default_r_val=-1.0_dp, unit_str="eV")
+      CALL section_add_keyword(section, keyword)
+      CALL keyword_release(keyword)
 
       CALL create_mp2_direct(subsection)
       CALL section_add_subsection(section, subsection)
@@ -716,11 +727,13 @@ CONTAINS
       CALL keyword_create(keyword, name="CROSSING_SEARCH", &
                           description="Determines, how the self_energy is evaluated on the real axis.", &
                           usage="CROSSING_SEARCH Z_SHOT", &
-                          enum_c_vals=s2a("NONE", "Z_SHOT", "NEWTON"), &
-                          enum_i_vals=(/ri_rpa_g0w0_crossing_none, ri_rpa_g0w0_crossing_z_shot, ri_rpa_g0w0_crossing_newton/), &
+                          enum_c_vals=s2a("NONE", "Z_SHOT", "NEWTON", "BISECTION"), &
+                          enum_i_vals=(/ri_rpa_g0w0_crossing_none, ri_rpa_g0w0_crossing_z_shot, &
+                                        ri_rpa_g0w0_crossing_newton, ri_rpa_g0w0_crossing_bisection/), &
                           enum_desc=s2a("Evaluate the correlation self-energy at the energy eigenvalue of SCF.", &
                                         "Calculate the derivative of Sigma and out of it Z. Then extrapolate using Z.", &
-                                        "Make a Newton-Raphson fix point iteration."), &
+                                        "Make a Newton-Raphson fix point iteration.", &
+                                        "Make a bisection fix point iteration."), &
                           default_i_val=ri_rpa_g0w0_crossing_z_shot)
       CALL section_add_keyword(section, keyword)
       CALL keyword_release(keyword)
@@ -793,6 +806,26 @@ CONTAINS
       CALL section_add_keyword(section, keyword)
       CALL keyword_release(keyword)
 
+      CALL keyword_create(keyword, name="NORMALIZE_SIGMA", &
+                          description="If true, parts of the exchange self-energy is added to the correlation "// &
+                          "self-energy. Especially recommended for surfaces with large slab distances."// &
+                          "Only works if RI_SIGMA_X is activated.", &
+                          usage="NORMALIZE_SIGMA", &
+                          default_l_val=.FALSE., &
+                          lone_keyword_l_val=.TRUE.)
+      CALL section_add_keyword(section, keyword)
+      CALL keyword_release(keyword)
+
+      CALL keyword_create(keyword, name="NEGLECT_NORMALIZATION_SIGMA_X", &
+                          description="Only works if NORMALIZE_SIGMA is true. If true,  don't add an exact "// &
+                          "exchange part to Sigma_x-v_xc. Only makes sense for periodic systems where a constant "// &
+                          "shift of single electron levels is allowed.", &
+                          usage="NEGLECT_NORMALIZATION_SIGMA_X", &
+                          default_l_val=.FALSE., &
+                          lone_keyword_l_val=.TRUE.)
+      CALL section_add_keyword(section, keyword)
+      CALL keyword_release(keyword)
+
       CALL keyword_create( &
          keyword=keyword, &
          name="RI_METRIC", &
@@ -859,6 +892,52 @@ CONTAINS
       CALL section_add_keyword(section, keyword)
       CALL keyword_release(keyword)
 
+      CALL keyword_create(keyword, name="ATOMS", &
+                          description="This keyword can be used for projecting the MOs on the Gaussian basis of "// &
+                          "the list of atoms which follow after ATOM, e.g. this gives a kind of Mulliken charge of "// &
+                          "MOs at certain atoms. Can for example be used to determine MOs which are located on a "// &
+                          "molecule adsorbed on a surface. The atom number refers to the order of the atom in "// &
+                          "the geometry. If the first entry is negative, no projection of MOs on the Gaussian. "// &
+                          "The MO Mulliken charges are printed if the keyword PRINT_GW_DETAILS is activated. "// &
+                          "For a range of atoms, please use ATOM_RANGE", &
+                          usage="ATOMS 5 7 8 11", type_of_var=integer_t, n_var=-1, default_i_vals=(/-1/))
+      CALL section_add_keyword(section, keyword)
+      CALL keyword_release(keyword)
+
+      CALL keyword_create(keyword, name="ATOM_RANGE", &
+                          description="As ATOMS, but here you can specify a start and an end atom. Please, either "// &
+                          "use ATOMS or ATOM_RANGE.", &
+                          usage="ATOM_RANGE 12 18", type_of_var=integer_t, n_var=2, default_i_vals=(/-1, -1/))
+      CALL section_add_keyword(section, keyword)
+      CALL keyword_release(keyword)
+
+      CALL keyword_create(keyword, name="EPS_CHARGE", &
+                          description="Keyword only works if a list of ATOMS have been specified. If the Mulliken "// &
+                          "charge of a MO is below EPS_CHARGE, then the GW correction of that level is not computed. "// &
+                          "If EPS_CHARGE is larger than 1.0, no GW levels will be computed.", &
+                          usage="EPS_CHARGE 0.3", &
+                          default_r_val=-1.0_dp)
+      CALL section_add_keyword(section, keyword)
+      CALL keyword_release(keyword)
+
+      CALL keyword_create(keyword, name="IC_CORR_LIST", &
+                          description="List of image charge correction from a previous calculation to be applied in G0W0 "// &
+                          "or evGW. Keyword is active, if the first entry is positive (since IC corrections are positive "// &
+                          "occupied MOs. The start corresponds to the first corrected GW level.", &
+                          usage="IC_CORR_LIST <REAL> ... <REAL>", &
+                          default_r_vals=(/-1.0_dp/), &
+                          type_of_var=real_t, n_var=-1, unit_str="eV")
+      CALL section_add_keyword(section, keyword)
+      CALL keyword_release(keyword)
+
+      CALL keyword_create(keyword, name="IC_CORR_LIST_BETA", &
+                          description="IC_CORR_LIST for beta spins in case of open shell calculation.", &
+                          usage="IC_CORR_LIST_BETA <REAL> ... <REAL>", &
+                          default_r_vals=(/-1.0_dp/), &
+                          type_of_var=real_t, n_var=-1, unit_str="eV")
+      CALL section_add_keyword(section, keyword)
+      CALL keyword_release(keyword)
+
       CALL keyword_create(keyword, name="PERIODIC", &
                           description="If true, the periodic correction scheme is used employing k-points.", &
                           usage="PERIODIC", &
@@ -867,8 +946,62 @@ CONTAINS
       CALL section_add_keyword(section, keyword)
       CALL keyword_release(keyword)
 
-      ! here we generate a kpoint subsection for the periodic GW correction
+      CALL keyword_create(keyword, name="BSE", &
+                          description="If true, electronic excitation energies are computed from the Bethe-"// &
+                          "Salpeter equation on top of GW eigenvalues.  Parameter of BSE can be adjusted in "// &
+                          "the corresponding section.", &
+                          usage="BSE", &
+                          default_l_val=.FALSE., &
+                          lone_keyword_l_val=.TRUE.)
+      CALL section_add_keyword(section, keyword)
+      CALL keyword_release(keyword)
+
+      CALL keyword_create(keyword, name="IMAGE_CHARGE_MODEL", &
+                          variants=(/"IC"/), &
+                          description="If true, an image charge model is applied to mimic the renormalization of "// &
+                          "electronic levels of a molecule at a metallic surface. For this calculation, the molecule "// &
+                          "has to be reflected on the desired xy image plane. The coordinates of the reflected molecule "// &
+                          "have to be added to the coord file as ghost atoms. For the ghost atoms, identical basis sets "// &
+                          "the normal atoms have to be used.", &
+                          usage="IC TRUE", &
+                          default_l_val=.FALSE., &
+                          lone_keyword_l_val=.TRUE.)
+      CALL section_add_keyword(section, keyword)
+      CALL keyword_release(keyword)
+
+      CALL keyword_create(keyword, name="ANALYTIC_CONTINUATION", &
+                          description="Defines which type of analytic continuation for the self energy is used", &
+                          usage="ANALYTIC_CONTINUATION", &
+                          enum_c_vals=s2a("TWO_POLE", "PADE"), &
+                          enum_i_vals=(/gw_two_pole_model, gw_pade_approx/), &
+                          enum_desc=s2a("Use 'two-pole' model.", &
+                                        "Use Pade approximation."), &
+                          default_i_val=gw_two_pole_model)
+      CALL section_add_keyword(section, keyword)
+      CALL keyword_release(keyword)
+
+      CALL keyword_create(keyword, name="NPARAM_PADE", &
+                          description="Number of parameters for the Pade approximation "// &
+                          "when using the latter for the analytic continuation of the "// &
+                          "self energy. 16 parameters (corresponding to 8 poles) are "// &
+                          "are recommended.", &
+                          usage="NPARAM_PADE 16", &
+                          default_i_val=16)
+      CALL section_add_keyword(section, keyword)
+      CALL keyword_release(keyword)
+
+      ! here we generate a subsection for the periodic GW correction
       CALL create_periodic_gw_correction_section(subsection)
+      CALL section_add_subsection(section, subsection)
+      CALL section_release(subsection)
+
+      ! here we generate a subsection for Bethe-Salpeter
+      CALL create_bse_section(subsection)
+      CALL section_add_subsection(section, subsection)
+      CALL section_release(subsection)
+
+      ! here we generate a subsection for image charge calculations
+      CALL create_ic_section(subsection)
       CALL section_add_subsection(section, subsection)
       CALL section_release(subsection)
 
@@ -998,6 +1131,124 @@ CONTAINS
 !> \brief ...
 !> \param section ...
 ! **************************************************************************************************
+   SUBROUTINE create_bse_section(section)
+      TYPE(section_type), POINTER                        :: section
+
+      CHARACTER(len=*), PARAMETER :: routineN = 'create_bse_section', &
+         routineP = moduleN//':'//routineN
+
+      TYPE(keyword_type), POINTER                        :: keyword
+
+      CPASSERT(.NOT. ASSOCIATED(section))
+      CALL section_create(section, "BSE", &
+                          description="Parameters influencing the Bethe-Salpeter calculations on "// &
+                          "top of GW eigenvalues.", &
+                          n_keywords=12, n_subsections=1, repeats=.FALSE.)
+
+      NULLIFY (keyword)
+
+      CALL keyword_create(keyword, name="NUM_Z_VECTORS", &
+                          description="Number Z vectors used in the subspace iterations. This is a convergence "// &
+                          "parameter: Increasing NUM_Z_VECTORS should keep the result constant in case of convergence,.", &
+                          usage="NUM_Z_VECTORS 50", &
+                          default_i_val=20)
+      CALL section_add_keyword(section, keyword)
+      CALL keyword_release(keyword)
+
+      CALL keyword_create(keyword, name="THRESHOLD_MIN_TRANS", &
+                          variants=(/"EPS"/), &
+                          description="Threshold for stopping the iteration for computing the transistion energies. "// &
+                          "If the lowest excitation changes by less than THRESHOLD_MIN_TRANS (in eV), the ieration"// &
+                          "stops.", &
+                          usage="THRESHOLD_MIN_TRANS 0.001", &
+                          default_r_val=0.001_dp)
+      CALL section_add_keyword(section, keyword)
+      CALL keyword_release(keyword)
+
+      CALL keyword_create(keyword, name="MAX_ITER", &
+                          description="Maximum number of iterations for determining the transistion energies.", &
+                          usage="MAX_ITER 200", &
+                          default_i_val=200)
+      CALL section_add_keyword(section, keyword)
+      CALL keyword_release(keyword)
+
+   END SUBROUTINE
+
+! **************************************************************************************************
+!> \brief ...
+!> \param section ...
+! **************************************************************************************************
+   SUBROUTINE create_ic_section(section)
+      TYPE(section_type), POINTER                        :: section
+
+      CHARACTER(len=*), PARAMETER :: routineN = 'create_ic_section', &
+         routineP = moduleN//':'//routineN
+
+      TYPE(keyword_type), POINTER                        :: keyword
+
+      CPASSERT(.NOT. ASSOCIATED(section))
+      CALL section_create(section, "IC", &
+                          description="Parameters influencing the image charge correction. "// &
+                          "The image plane is always an xy plane, so adjust the molecule according "// &
+                          "to that. ", &
+                          n_keywords=3, n_subsections=1, repeats=.FALSE.)
+
+      NULLIFY (keyword)
+
+      CALL keyword_create(keyword, name="PRINT_IC_LIST", &
+                          description="If true, the image charge correction values are printed in a list, "// &
+                          "such that it can be used as input for a subsequent evGW calculation.", &
+                          usage="PRINT_IC_VALUES", &
+                          default_l_val=.FALSE., &
+                          lone_keyword_l_val=.TRUE.)
+      CALL section_add_keyword(section, keyword)
+      CALL keyword_release(keyword)
+
+      CALL keyword_create(keyword, name="EPS_DIST", &
+                          description="Threshold where molecule and image molecule have to coincide. ", &
+                          usage="EPS_DIST 0.1", unit_str="angstrom", &
+                          type_of_var=real_t, default_r_val=3.0E-02_dp, repeats=.FALSE.)
+      CALL section_add_keyword(section, keyword)
+      CALL keyword_release(keyword)
+
+      CALL keyword_create(keyword, name="OPTIMIZE_HOMO_LUMO", &
+                          variants=(/"OPTIMIZE"/), &
+                          description="If true, the image charge correction values are printed in a list, "// &
+                          "such that it can be used as input for a subsequent evGW calculation.", &
+                          usage="OPTIMIZE_HOMO_LUMO", &
+                          default_l_val=.FALSE., &
+                          lone_keyword_l_val=.TRUE.)
+      CALL section_add_keyword(section, keyword)
+      CALL keyword_release(keyword)
+
+      CALL keyword_create(keyword, name="GW_EIGENVALUES", &
+                          description="List of GW eigenvalues from a previous GW calculation to be used in the "// &
+                          "optimization of the HOMO and the LUMO. The number of eigenvalues has to match "// &
+                          "CORR_MOS_OCC+CORR_MOS_VIRT for the IC calculation. Is only active if "// &
+                          "OPTIMIZE_HOMO_LUMO is true.", &
+                          usage="GW_EIGENVALUES <REAL> ... <REAL>", &
+                          default_r_vals=(/-1.0_dp/), &
+                          type_of_var=real_t, n_var=-1, unit_str="eV")
+      CALL section_add_keyword(section, keyword)
+      CALL keyword_release(keyword)
+
+      CALL keyword_create(keyword, name="GW_EIGENVALUES_BETA", &
+                          description="List of beta GW eigenvalues from a previous GW calculation to be used in the "// &
+                          "optimization of the HOMO and the LUMO. The number of eigenvalues has to match "// &
+                          "CORR_MOS_OCC+CORR_MOS_VIRT for the IC calculation. Is only active if "// &
+                          "OPTIMIZE_HOMO_LUMO is true.", &
+                          usage="GW_EIGENVALUES <REAL> ... <REAL>", &
+                          default_r_vals=(/-1.0_dp/), &
+                          type_of_var=real_t, n_var=-1, unit_str="eV")
+      CALL section_add_keyword(section, keyword)
+      CALL keyword_release(keyword)
+
+   END SUBROUTINE
+
+! **************************************************************************************************
+!> \brief ...
+!> \param section ...
+! **************************************************************************************************
    SUBROUTINE create_ri_im_time(section)
       TYPE(section_type), POINTER                        :: section
 
@@ -1075,6 +1326,15 @@ CONTAINS
          "for Mocc/virt(it)=(abP)*D_ad^occ/virt(it) is determined by EPS_FILTER in WFC_GPW. Default should be kept.", &
          usage="EPS_FILTER_IM_TIME 1.0E-10 ", type_of_var=real_t, &
          default_r_val=1.0E-08_dp)
+      CALL section_add_keyword(section, keyword)
+      CALL keyword_release(keyword)
+
+      CALL keyword_create( &
+         keyword, name="STABILIZE_EXP", &
+         description="It is observed that EXP(-alpha) gives NaN if alpha is larger than 100-300. Using "// &
+         "the STABILIZE_EXP keyword, all EXP(-alpha) are not computed but set to zero for alpha > STABILIZE_EXP.", &
+         usage="EPS_FILTER_IM_TIME 1.0E-10 ", type_of_var=real_t, &
+         default_r_val=70.0_dp)
       CALL section_add_keyword(section, keyword)
       CALL keyword_release(keyword)
 
