@@ -51,7 +51,7 @@ MODULE qs_kind_types
         set_default_all_potential, set_potential, sgp_potential_type, write_potential
    USE input_constants,                 ONLY: &
         do_method_am1, do_method_dftb, do_method_mndo, do_method_mndod, do_method_pdg, &
-        do_method_pm3, do_method_pm6, do_method_pnnl, do_method_rm1, do_method_scptb, do_qs
+        do_method_pm3, do_method_pm6, do_method_pm6fm, do_method_pnnl, do_method_rm1, do_qs
    USE input_section_types,             ONLY: section_vals_get,&
                                               section_vals_get_subs_vals,&
                                               section_vals_type,&
@@ -83,10 +83,6 @@ MODULE qs_kind_types
    USE qs_harmonics_atom,               ONLY: allocate_harmonics_atom,&
                                               deallocate_harmonics_atom,&
                                               harmonics_atom_type
-   USE scptb_types,                     ONLY: deallocate_scptb_parameter,&
-                                              get_scptb_parameter,&
-                                              scptb_parameter_type,&
-                                              write_scptb_parameter
    USE semi_empirical_types,            ONLY: get_se_param,&
                                               semi_empirical_create,&
                                               semi_empirical_release,&
@@ -154,7 +150,6 @@ MODULE qs_kind_types
       TYPE(sgp_potential_type), POINTER      :: sgp_potential => Null()
       TYPE(semi_empirical_type), POINTER     :: se_parameter => Null()
       TYPE(qs_dftb_atom_type), POINTER       :: dftb_parameter => Null()
-      TYPE(scptb_parameter_type), POINTER    :: scptb_parameter => Null()
       !
       TYPE(gto_basis_set_type), POINTER      :: soft_basis_set => Null()
       TYPE(gto_basis_set_type), POINTER      :: hard_basis_set => Null()
@@ -173,6 +168,7 @@ MODULE qs_kind_types
       LOGICAL                                :: floating = .FALSE.
       INTEGER                                :: lmax_dftb = -1
       REAL(KIND=dp)                          :: dudq_dftb3 = 0.0_dp
+      REAL(KIND=dp)                          :: magnetization = 0.0_dp
       INTEGER, DIMENSION(:, :), POINTER      :: addel => Null()
       INTEGER, DIMENSION(:, :), POINTER      :: laddel => Null()
       INTEGER, DIMENSION(:, :), POINTER      :: naddel => Null()
@@ -217,7 +213,7 @@ MODULE qs_kind_types
              set_qs_kind, &
              write_qs_kind_set, &
              write_gto_basis_sets, &
-             init_atom_electronic_state, set_gth_state
+             init_atom_electronic_state, set_pseudo_state
 
    ! Public data types
    PUBLIC :: qs_kind_type, pao_potential_type, pao_descriptor_type
@@ -262,9 +258,6 @@ CONTAINS
             END IF
             IF (ASSOCIATED(qs_kind_set(ikind)%dftb_parameter)) THEN
                CALL deallocate_dftb_atom_param(qs_kind_set(ikind)%dftb_parameter)
-            END IF
-            IF (ASSOCIATED(qs_kind_set(ikind)%scptb_parameter)) THEN
-               CALL deallocate_scptb_parameter(qs_kind_set(ikind)%scptb_parameter)
             END IF
             IF (ASSOCIATED(qs_kind_set(ikind)%soft_basis_set) .AND. &
                 qs_kind_set(ikind)%paw_atom) THEN
@@ -345,7 +338,6 @@ CONTAINS
 !> \param sgp_potential ...
 !> \param se_parameter ...
 !> \param dftb_parameter ...
-!> \param scptb_parameter ...
 !> \param dftb3_param ...
 !> \param zeff ...
 !> \param elec_conf ...
@@ -376,6 +368,7 @@ CONTAINS
 !> \param u_minus_j ...
 !> \param dispersion ...
 !> \param bs_occupation ...
+!> \param magnetization ...
 !> \param no_optimize ...
 !> \param addel ...
 !> \param laddel ...
@@ -400,7 +393,7 @@ CONTAINS
    SUBROUTINE get_qs_kind(qs_kind, &
                           basis_set, basis_type, ncgf, nsgf, &
                           all_potential, tnadd_potential, gth_potential, sgp_potential, &
-                          se_parameter, dftb_parameter, scptb_parameter, &
+                          se_parameter, dftb_parameter, &
                           dftb3_param, zeff, elec_conf, mao, lmax_dftb, &
                           alpha_core_charge, ccore_charge, core_charge, core_charge_radius, &
                           soft_basis_set, hard_basis_set, paw_proj_set, softb, &
@@ -408,7 +401,7 @@ CONTAINS
                           gpw_type_forced, harmonics, max_iso_not0, max_s_harm, grid_atom, &
                           ngrid_ang, ngrid_rad, lmax_rho0, &
                           dft_plus_u_atom, l_of_dft_plus_u, u_minus_j, dispersion, &
-                          bs_occupation, no_optimize, addel, laddel, naddel, orbitals, &
+                          bs_occupation, magnetization, no_optimize, addel, laddel, naddel, orbitals, &
                           max_scf, eps_scf, smear, u_ramping, u_minus_j_target, eps_u_ramping, &
                           init_u_ramping_each_scf, reltmat, ghost, floating, name, element_symbol, &
                           pao_basis_size, pao_potentials, pao_descriptors)
@@ -423,7 +416,6 @@ CONTAINS
       TYPE(sgp_potential_type), OPTIONAL, POINTER        :: sgp_potential
       TYPE(semi_empirical_type), OPTIONAL, POINTER       :: se_parameter
       TYPE(qs_dftb_atom_type), OPTIONAL, POINTER         :: dftb_parameter
-      TYPE(scptb_parameter_type), OPTIONAL, POINTER      :: scptb_parameter
       REAL(KIND=dp), INTENT(OUT), OPTIONAL               :: dftb3_param, zeff
       INTEGER, DIMENSION(:), OPTIONAL, POINTER           :: elec_conf
       INTEGER, INTENT(OUT), OPTIONAL                     :: mao, lmax_dftb
@@ -443,7 +435,9 @@ CONTAINS
       INTEGER, INTENT(OUT), OPTIONAL                     :: l_of_dft_plus_u
       REAL(KIND=dp), INTENT(OUT), OPTIONAL               :: u_minus_j
       TYPE(qs_atom_dispersion_type), OPTIONAL, POINTER   :: dispersion
-      LOGICAL, INTENT(OUT), OPTIONAL                     :: bs_occupation, no_optimize
+      LOGICAL, INTENT(OUT), OPTIONAL                     :: bs_occupation
+      REAL(KIND=dp), INTENT(OUT), OPTIONAL               :: magnetization
+      LOGICAL, INTENT(OUT), OPTIONAL                     :: no_optimize
       INTEGER, DIMENSION(:, :), OPTIONAL, POINTER        :: addel, laddel, naddel
       INTEGER, DIMENSION(:), OPTIONAL, POINTER           :: orbitals
       INTEGER, OPTIONAL                                  :: max_scf
@@ -521,7 +515,6 @@ CONTAINS
       IF (PRESENT(sgp_potential)) sgp_potential => qs_kind%sgp_potential
       IF (PRESENT(se_parameter)) se_parameter => qs_kind%se_parameter
       IF (PRESENT(dftb_parameter)) dftb_parameter => qs_kind%dftb_parameter
-      IF (PRESENT(scptb_parameter)) scptb_parameter => qs_kind%scptb_parameter
 
       IF (PRESENT(element_symbol)) element_symbol = qs_kind%element_symbol
       IF (PRESENT(name)) name = qs_kind%name
@@ -703,6 +696,8 @@ CONTAINS
       IF (PRESENT(addel)) addel => qs_kind%addel
       IF (PRESENT(laddel)) laddel => qs_kind%laddel
       IF (PRESENT(naddel)) naddel => qs_kind%naddel
+
+      IF (PRESENT(magnetization)) magnetization = qs_kind%magnetization
 
       IF (PRESENT(no_optimize)) no_optimize = qs_kind%no_optimize
 
@@ -1642,6 +1637,9 @@ CONTAINS
          CALL section_vals_val_get(kind_section, i_rep_section=k_rep, &
                                    keyword_name="NO_OPTIMIZE", l_val=qs_kind%no_optimize)
 
+         ! Magnetization
+         CALL section_vals_val_get(kind_section, i_rep_section=k_rep, &
+                                   keyword_name="MAGNETIZATION", r_val=qs_kind%magnetization)
          ! DFTB3 param
          CALL section_vals_val_get(kind_section, i_rep_section=k_rep, &
                                    keyword_name="DFTB3_PARAM", r_val=qs_kind%dudq_dftb3)
@@ -1660,6 +1658,11 @@ CONTAINS
          CALL section_vals_val_get(bs_section, "_SECTION_PARAMETERS_", &
                                    l_val=section_enabled)
          IF (section_enabled) THEN
+            ! test for conflict with magnetization
+            IF (qs_kind%magnetization /= 0.0_dp) THEN
+               CALL cp_abort(__LOCATION__, "BS Section is in conflict with non-zero magnetization "// &
+                             "for this atom kind.")
+            END IF
             qs_kind%bs_occupation = .TRUE.
             !Alpha spin
             NULLIFY (spin_section)
@@ -1835,8 +1838,8 @@ CONTAINS
       END IF
 
       SELECT CASE (method_id)
-      CASE (do_method_dftb, do_method_scptb, do_method_rm1, do_method_am1, do_method_mndo, &
-            do_method_pdg, do_method_pm3, do_method_pm6, do_method_mndod, &
+      CASE (do_method_dftb, do_method_rm1, do_method_am1, do_method_mndo, &
+            do_method_pdg, do_method_pm3, do_method_pm6, do_method_pm6fm, do_method_mndod, &
             do_method_pnnl)
          ! Allocate all_potential
          CALL allocate_potential(qs_kind%all_potential)
@@ -1860,7 +1863,7 @@ CONTAINS
          ! Basis set (Parameters)
          SELECT CASE (method_id)
          CASE (do_method_rm1, do_method_am1, do_method_mndo, do_method_pdg, &
-               do_method_pm3, do_method_pm6, do_method_mndod, do_method_pnnl)
+               do_method_pm3, do_method_pm6, do_method_pm6fm, do_method_mndod, do_method_pnnl)
             ! Setup proper semiempirical parameters
             check = .NOT. ASSOCIATED(qs_kind%se_parameter)
             CPASSERT(check)
@@ -1884,7 +1887,7 @@ CONTAINS
             CALL init_potential(qs_kind%all_potential, itype="BARE", &
                                 zeff=qs_kind%se_parameter%zeff, zeff_correction=zeff_correction)
             qs_kind%se_parameter%zeff = qs_kind%se_parameter%zeff-zeff_correction
-         CASE (do_method_dftb, do_method_scptb)
+         CASE (do_method_dftb)
             ! Do nothing at this stage.. The initialization of the parameters will be done
             ! later
          CASE DEFAULT
@@ -2242,10 +2245,10 @@ CONTAINS
       IF (method == do_qs) THEN
          CALL section_vals_val_get(force_env_section, "DFT%QS%METHOD", i_val=qs_method)
          SELECT CASE (qs_method)
-         CASE (do_method_mndo, do_method_am1, do_method_pm3, do_method_pm6, &
+         CASE (do_method_mndo, do_method_am1, do_method_pm3, do_method_pm6fm, do_method_pm6, &
                do_method_pdg, do_method_rm1, do_method_mndod, do_method_pnnl)
             no_fail = .TRUE.
-         CASE (do_method_dftb, do_method_scptb)
+         CASE (do_method_dftb)
             no_fail = .TRUE.
          END SELECT
       ELSE
@@ -2283,7 +2286,6 @@ CONTAINS
 
       LOGICAL                                            :: defined
       TYPE(qs_dftb_atom_type), POINTER                   :: dftb_parameter
-      TYPE(scptb_parameter_type), POINTER                :: scptb_parameter
       TYPE(semi_empirical_type), POINTER                 :: se_parameter
 
       IF (dft_control%qs_control%semi_empirical) THEN
@@ -2298,12 +2300,6 @@ CONTAINS
          CALL get_dftb_atom_param(dftb_parameter, defined=defined)
          CPASSERT(defined)
          CALL write_dftb_atom_param(dftb_parameter, subsys_section)
-      ELSE IF (dft_control%qs_control%scptb) THEN
-         CALL get_qs_kind(qs_kind, scptb_parameter=scptb_parameter)
-         CPASSERT(ASSOCIATED(scptb_parameter))
-         CALL get_scptb_parameter(scptb_parameter, defined=defined)
-         CPASSERT(defined)
-         CALL write_scptb_parameter(scptb_parameter, subsys_section)
       END IF
 
    END SUBROUTINE check_qs_kind
@@ -2356,14 +2352,13 @@ CONTAINS
 !> \param u_minus_j ...
 !> \param reltmat ...
 !> \param dftb_parameter ...
-!> \param scptb_parameter ...
 !> \param elec_conf ...
 !> \param pao_basis_size ...
 ! **************************************************************************************************
    SUBROUTINE set_qs_kind(qs_kind, paw_atom, ghost, floating, hard_radius, hard0_radius, &
                           soft_basis_set, hard_basis_set, lmax_rho0, zeff, &
                           no_optimize, dispersion, u_minus_j, reltmat, &
-                          dftb_parameter, scptb_parameter, &
+                          dftb_parameter, &
                           elec_conf, pao_basis_size)
 
       TYPE(qs_kind_type), INTENT(INOUT)                  :: qs_kind
@@ -2377,14 +2372,12 @@ CONTAINS
       REAL(KIND=dp), INTENT(IN), OPTIONAL                :: u_minus_j
       REAL(KIND=dp), DIMENSION(:, :), OPTIONAL, POINTER  :: reltmat
       TYPE(qs_dftb_atom_type), OPTIONAL, POINTER         :: dftb_parameter
-      TYPE(scptb_parameter_type), OPTIONAL, POINTER      :: scptb_parameter
       INTEGER, DIMENSION(:), INTENT(IN), OPTIONAL        :: elec_conf
       INTEGER, INTENT(IN), OPTIONAL                      :: pao_basis_size
 
       CHARACTER(len=*), PARAMETER :: routineN = 'set_qs_kind', routineP = moduleN//':'//routineN
 
       IF (PRESENT(dftb_parameter)) qs_kind%dftb_parameter => dftb_parameter
-      IF (PRESENT(scptb_parameter)) qs_kind%scptb_parameter => scptb_parameter
       IF (PRESENT(elec_conf)) THEN
          IF (ASSOCIATED(qs_kind%elec_conf)) THEN
             DEALLOCATE (qs_kind%elec_conf)
@@ -2673,30 +2666,36 @@ CONTAINS
 !> \brief ...
 !> \param atomic_kind ...
 !> \param qs_kind ...
-!> \param ispin ...
 !> \param ncalc ...
 !> \param ncore ...
 !> \param nelem ...
+!> \param edelta ...
 ! **************************************************************************************************
-   SUBROUTINE init_atom_electronic_state(atomic_kind, qs_kind, ispin, ncalc, ncore, nelem)
+   SUBROUTINE init_atom_electronic_state(atomic_kind, qs_kind, ncalc, ncore, nelem, edelta)
 
       TYPE(atomic_kind_type), INTENT(IN)                 :: atomic_kind
       TYPE(qs_kind_type), INTENT(IN)                     :: qs_kind
-      INTEGER, INTENT(IN)                                :: ispin
       INTEGER, DIMENSION(0:lmat, 10), INTENT(OUT)        :: ncalc, ncore, nelem
+      REAL(KIND=dp), DIMENSION(0:lmat, 10, 2), &
+         INTENT(OUT)                                     :: edelta
 
       CHARACTER(len=*), PARAMETER :: routineN = 'init_atom_electronic_state', &
          routineP = moduleN//':'//routineN
 
-      INTEGER                                            :: i, ii, l, ll, ne, nn, z
+      INTEGER                                            :: i, ii, is, l, ll, ne, nn, z
+      INTEGER, DIMENSION(:), POINTER                     :: econf
       INTEGER, DIMENSION(:, :), POINTER                  :: addel, laddel, naddel
       LOGICAL                                            :: bs_occupation
+      REAL(KIND=dp)                                      :: dmag, magnetization
       TYPE(gth_potential_type), POINTER                  :: gth_potential
+      TYPE(sgp_potential_type), POINTER                  :: sgp_potential
 
       CALL get_atomic_kind(atomic_kind, z=z)
       NULLIFY (gth_potential)
       CALL get_qs_kind(qs_kind, &
                        gth_potential=gth_potential, &
+                       sgp_potential=sgp_potential, &
+                       magnetization=magnetization, &
                        bs_occupation=bs_occupation, &
                        addel=addel, laddel=laddel, naddel=naddel)
 
@@ -2704,8 +2703,13 @@ CONTAINS
       nelem = 0
       ncore = 0
       ncalc = 0
+      edelta = 0.0_dp
       IF (ASSOCIATED(gth_potential)) THEN
-         CALL set_gth_state(gth_potential, z, ncalc, ncore, nelem)
+         CALL get_potential(gth_potential, elec_conf=econf)
+         CALL set_pseudo_state(econf, z, ncalc, ncore, nelem)
+      ELSE IF (ASSOCIATED(sgp_potential)) THEN
+         CALL get_potential(sgp_potential, elec_conf=econf)
+         CALL set_pseudo_state(econf, z, ncalc, ncore, nelem)
       ELSE
          DO l = 0, MIN(lmat, UBOUND(ptable(z)%e_conv, 1))
             ll = 2*(2*l+1)
@@ -2729,65 +2733,91 @@ CONTAINS
       ! this is done to break symmetry (bs) and bias the intial guess
       ! to the pre-defined multiplicity/charge state of the atom
       IF (bs_occupation) THEN
-         DO i = 1, SIZE(addel, 1)
-            ne = addel(i, ispin)
-            l = laddel(i, ispin)
-            nn = naddel(i, ispin)-l
-            IF (ne /= 0) THEN
-               IF (nn == 0) THEN
-                  DO ii = SIZE(nelem, 2), 1, -1
-                     IF (ncalc(l, ii) > 0) THEN
-                        IF ((ncalc(l, ii)+ne) < 2*(2*l+1)+1) THEN
-                           ncalc(l, ii) = ncalc(l, ii)+ne
+         DO is = 1, 2
+            DO i = 1, SIZE(addel, 1)
+               ne = addel(i, is)
+               l = laddel(i, is)
+               nn = naddel(i, is)-l
+               IF (ne /= 0) THEN
+                  IF (nn == 0) THEN
+                     DO ii = SIZE(nelem, 2), 1, -1
+                        IF (ncalc(l, ii) > 0) THEN
+                           IF ((ncalc(l, ii)+ne) < 2*(2*l+1)+1) THEN
+                              edelta(l, ii, is) = edelta(l, ii, is)+ne
+                              nn = ii
+                           ELSE
+                              edelta(l, ii+1, is) = edelta(l, ii+1, is)+ne
+                              nn = ii+1
+                           END IF
+                           EXIT
+                        ELSE IF (ii == 1) THEN
+                           edelta(l, ii, is) = edelta(l, ii, is)+ne
                            nn = ii
-                        ELSE
-                           ncalc(l, ii+1) = ncalc(l, ii+1)+ne
-                           nn = ii+1
                         END IF
-                        EXIT
-                     ELSE IF (ii == 1) THEN
-                        ncalc(l, ii) = ncalc(l, ii)+ne
-                        nn = ii
-                     END IF
-                  END DO
-               ELSE
-                  ncalc(l, nn) = ncalc(l, nn)+ne
+                     END DO
+                  ELSE
+                     edelta(l, nn, is) = edelta(l, nn, is)+ne
+                  END IF
+                  IF (ncalc(l, nn)+edelta(l, nn, is) < 0) THEN
+                     edelta(l, nn, is) = -ncalc(l, nn)
+                  END IF
                END IF
-               IF (ncalc(l, nn) < 0) THEN
-                  ncalc(l, nn) = 0
+            END DO
+         END DO
+         edelta = 0.5_dp*edelta
+      ELSE IF (magnetization /= 0.0_dp) THEN
+         dmag = 0.5_dp*ABS(magnetization)
+         DO l = 0, MIN(lmat, UBOUND(ptable(z)%e_conv, 1))
+            ll = 2*(2*l+1)
+            ii = 0
+            DO i = 1, SIZE(ncalc, 2)
+               IF (ncalc(l, i) == 0) CYCLE
+               IF (ncalc(l, i) == ll) CYCLE
+               IF (ncalc(l, i) > dmag .AND. (ll-ncalc(l, i)) > dmag) THEN
+                  ii = i
+                  EXIT
                END IF
+            END DO
+            IF (ii /= 0) THEN
+               edelta(l, ii, 1) = magnetization*0.5_dp
+               edelta(l, ii, 2) = -magnetization*0.5_dp
+               EXIT
             END IF
          END DO
+         IF (ii == 0) THEN
+            CALL cp_abort(__LOCATION__, &
+                          "Magnetization value cannot be imposed for this atom type")
+         END IF
       END IF
 
       IF (qs_kind%ghost .OR. qs_kind%floating) THEN
          nelem = 0
          ncore = 0
          ncalc = 0
+         edelta = 0.0_dp
       END IF
 
    END SUBROUTINE init_atom_electronic_state
 
 ! **************************************************************************************************
 !> \brief ...
-!> \param gth_potential ...
+!> \param econf ...
 !> \param z ...
 !> \param ncalc ...
 !> \param ncore ...
 !> \param nelem ...
 ! **************************************************************************************************
-   SUBROUTINE set_gth_state(gth_potential, z, ncalc, ncore, nelem)
-      TYPE(gth_potential_type), POINTER                  :: gth_potential
+   SUBROUTINE set_pseudo_state(econf, z, ncalc, ncore, nelem)
+      INTEGER, DIMENSION(:), POINTER                     :: econf
       INTEGER, INTENT(IN)                                :: z
       INTEGER, DIMENSION(0:lmat, 10), INTENT(OUT)        :: ncalc, ncore, nelem
 
-      CHARACTER(len=*), PARAMETER :: routineN = 'set_gth_state', routineP = moduleN//':'//routineN
+      CHARACTER(len=*), PARAMETER :: routineN = 'set_pseudo_state', &
+         routineP = moduleN//':'//routineN
 
       INTEGER                                            :: ii, l, ll, lx, nn
       INTEGER, DIMENSION(0:lmat)                         :: econfx
-      INTEGER, DIMENSION(:), POINTER                     :: econf
 
-      CALL get_potential(gth_potential, elec_conf=econf)
       econfx = 0
       econfx(0:SIZE(econf)-1) = econf
       IF (SUM(econf) >= 0) THEN
@@ -2855,7 +2885,7 @@ CONTAINS
          END DO
       END IF
 
-   END SUBROUTINE set_gth_state
+   END SUBROUTINE set_pseudo_state
 
 ! **************************************************************************************************
 !> \brief finds if a given qs run needs to use nlcc

@@ -168,7 +168,8 @@ MODULE input_constants
    INTEGER, PARAMETER, PUBLIC               :: no_pseudo = 0, &
                                                gth_pseudo = 1, &
                                                upf_pseudo = 2, &
-                                               ecp_pseudo = 3
+                                               ecp_pseudo = 3, &
+                                               sgp_pseudo = 4
    ! Confinement type for Atom Code
    INTEGER, PARAMETER, PUBLIC               :: no_conf = 0, &
                                                poly_conf = 1, &
@@ -250,7 +251,7 @@ MODULE input_constants
                                                do_method_pchg = 15, &
                                                do_method_pnnl = 16, &
                                                do_method_ofgpw = 17, &
-                                               do_method_scptb = 18
+                                               do_method_pm6fm = 18
 
    INTEGER, PARAMETER, PUBLIC               :: do_multipole_section_on = 0, &
                                                do_multipole_section_off = 1
@@ -919,7 +920,11 @@ MODULE input_constants
    ! G0W0 parameter
    INTEGER, PARAMETER, PUBLIC               :: ri_rpa_g0w0_crossing_none = 0, &
                                                ri_rpa_g0w0_crossing_z_shot = 1, &
-                                               ri_rpa_g0w0_crossing_newton = 2
+                                               ri_rpa_g0w0_crossing_newton = 2, &
+                                               ri_rpa_g0w0_crossing_bisection = 3
+
+   INTEGER, PARAMETER, PUBLIC               :: gw_pade_approx = 0, &
+                                               gw_two_pole_model = 1
 
    ! periodic RESP parameters
    INTEGER, PARAMETER, PUBLIC               :: do_resp_x_dir = 0, &

@@ -34,11 +34,13 @@ MODULE dbcsr_mm_multrec
         dbcsr_mm_csr_dev2host_init, dbcsr_mm_csr_finalize, dbcsr_mm_csr_init, &
         dbcsr_mm_csr_lib_finalize, dbcsr_mm_csr_lib_init, dbcsr_mm_csr_multiply, &
         dbcsr_mm_csr_phaseout, dbcsr_mm_csr_purge_stacks, dbcsr_mm_csr_red3D, dbcsr_mm_csr_type
-   USE dbcsr_ptr_util,                  ONLY: ensure_array_size
    USE dbcsr_types,                     ONLY: dbcsr_data_obj,&
                                               dbcsr_type,&
-                                              dbcsr_work_type
+                                              dbcsr_work_type,&
+                                              dbcsr_type_complex_4, dbcsr_type_complex_8, &
+                                              dbcsr_type_real_4, dbcsr_type_real_8
    USE kinds,                           ONLY: int_8,&
+                                              real_4,&
                                               real_8,&
                                               sp
 #include "../../base/base_uses.f90"
@@ -110,6 +112,7 @@ MODULE dbcsr_mm_multrec
       PRIVATE
       LOGICAL :: c_has_symmetry, keep_sparsity, use_eps
       INTEGER, DIMENSION(:), POINTER :: m_sizes, n_sizes, k_sizes
+      INTEGER, DIMENSION(:), POINTER :: m_global_sizes, n_global_sizes
       INTEGER, DIMENSION(:), POINTER :: c_local_rows, c_local_cols, k_locals, &
                                         c_global_rows, c_global_cols
 
@@ -169,11 +172,13 @@ CONTAINS
 !> \param row_max_epss ...
 !> \param block_estimate ...
 !> \param right_row_blk_size ...
+!> \param m_sizes ...
+!> \param n_sizes ...
 !> \param nlayers ...
 ! **************************************************************************************************
    SUBROUTINE dbcsr_mm_multrec_init(this, left, right, product, &
                                     keep_sparsity, eps, row_max_epss, block_estimate, right_row_blk_size, &
-                                    nlayers)
+                                    m_sizes, n_sizes, nlayers)
       TYPE(dbcsr_mm_multrec_type), INTENT(out)           :: this
       TYPE(dbcsr_type), INTENT(IN), OPTIONAL             :: left, right
       TYPE(dbcsr_type), INTENT(INOUT)                    :: product
@@ -182,6 +187,7 @@ CONTAINS
       REAL(kind=sp), DIMENSION(:), INTENT(IN), TARGET    :: row_max_epss
       INTEGER, INTENT(IN)                                :: block_estimate
       INTEGER, DIMENSION(:), INTENT(IN)                  :: right_row_blk_size
+      INTEGER, DIMENSION(:), INTENT(IN), POINTER         :: m_sizes, n_sizes
       INTEGER, OPTIONAL                                  :: nlayers
 
       CHARACTER(len=*), PARAMETER :: routineN = 'dbcsr_mm_multrec_init', &
@@ -288,13 +294,10 @@ CONTAINS
          this%row_max_epss(:) = -HUGE(0.0_sp)
       ENDIF
       !
-      ALLOCATE (this%m_sizes(c_nblkrows_local))
-      CALL local_filter(array_data(product%row_blk_size), SIZE(c_local_rows), &
-                        c_local_rows, this%m_sizes)
-      ALLOCATE (this%n_sizes(c_nblkcols_local))
-      CALL local_filter(array_data(product%col_blk_size), SIZE(c_local_cols), &
-                        c_local_cols, this%n_sizes)
-      !
+      this%m_sizes => m_sizes
+      this%n_sizes => n_sizes
+      this%m_global_sizes => array_data(product%row_blk_size)
+      this%n_global_sizes => array_data(product%col_blk_size)
       NULLIFY (this%k_locals)
       NULLIFY (this%k_sizes)
 
@@ -325,14 +328,16 @@ CONTAINS
 !>                            floating point operations performed
 !> \param[in] a_norms         (optional) norms of left-matrix blocks
 !> \param[in] b_norms         (optional) norms of right-matrix blocks
+!> \param k_sizes ...
 !> \param do_rec ...
 ! **************************************************************************************************
    SUBROUTINE dbcsr_mm_multrec_multiply(this, left, right, flop, &
-                                        a_norms, b_norms, do_rec)
+                                        a_norms, b_norms, k_sizes, do_rec)
       TYPE(dbcsr_mm_multrec_type), INTENT(inout)         :: this
       TYPE(dbcsr_type), INTENT(IN)                       :: left, right
       INTEGER(KIND=int_8), INTENT(OUT)                   :: flop
       REAL(kind=sp), DIMENSION(:), INTENT(in), TARGET    :: a_norms, b_norms
+      INTEGER, DIMENSION(:), INTENT(IN), POINTER         :: k_sizes
       LOGICAL, INTENT(IN), OPTIONAL                      :: do_rec
 
       CHARACTER(len=*), PARAMETER :: routineN = 'dbcsr_mm_multrec_multiply', &
@@ -357,9 +362,7 @@ CONTAINS
       ! The right%local_rows is setup by the communication engine.
       k_locals => array_data(right%local_rows)
       this%k_locals => k_locals
-      CALL ensure_array_size(this%k_sizes, ub=SIZE(k_locals))
-      CALL local_filter(array_data(right%row_blk_size), SIZE(k_locals), &
-                        k_locals, this%k_sizes)
+      this%k_sizes => k_sizes
       ! Setup the block norms
       this%a_norms => a_norms
       this%b_norms => b_norms
@@ -386,8 +389,6 @@ CONTAINS
 
       flop = flop+this%flop
       !
-      IF (ASSOCIATED(this%k_sizes)) DEALLOCATE (this%k_sizes)
-
    END SUBROUTINE dbcsr_mm_multrec_multiply
 
 ! **************************************************************************************************
@@ -445,8 +446,6 @@ CONTAINS
       CALL dbcsr_mm_csr_finalize(this%csr)
 
       ! Release the carrier
-      DEALLOCATE (this%m_sizes)
-      DEALLOCATE (this%n_sizes)
       IF (this%new_row_max_epss) DEALLOCATE (this%row_max_epss)
 
       IF (PRESENT(meta_buffer) .AND. PRESENT(data_buffer)) THEN
@@ -472,11 +471,69 @@ CONTAINS
                                  this%product_wm%col_i, &
                                  this%c_local_rows, this%c_local_cols, &
                                  this%original_lastblk+1, this%product_wm%lastblk)
+
+         ! if filtering is requested remove small blocks, unless the sparsity needs to be kept
+         IF (this%use_eps .AND. .NOT. this%keep_sparsity) &
+            CALL multrec_filtering(this)
       ENDIF
 
       this%initialized = .FALSE.
       CALL timestop(handle)
    END SUBROUTINE dbcsr_mm_multrec_finalize
+
+! **************************************************************************************************
+!> \brief Applying in-place filtering on the workspace
+! **************************************************************************************************
+   SUBROUTINE multrec_filtering(this)
+      TYPE(dbcsr_mm_multrec_type), INTENT(inout)         :: this
+
+      CHARACTER(len=*), PARAMETER :: routineN = 'multrec_filtering', &
+         routineP = moduleN//':'//routineN
+
+      INTEGER                                            :: handle
+
+      CALL timeset(routineN, handle)
+
+      SELECT CASE (this%product_wm%data_area%d%data_type)
+      CASE (dbcsr_type_real_4)
+         CALL multrec_filtering_s(this%eps, &
+              this%product_wm%lastblk, &
+              this%product_wm%row_i, &
+              this%product_wm%col_i, &
+              this%product_wm%blk_p, &
+              this%m_global_sizes, this%n_global_sizes, &
+              this%product_wm%data_area%d%r_sp)
+      CASE (dbcsr_type_real_8)
+         CALL multrec_filtering_d(this%eps, &
+              this%product_wm%lastblk, &
+              this%product_wm%row_i, &
+              this%product_wm%col_i, &
+              this%product_wm%blk_p, &
+              this%m_global_sizes, this%n_global_sizes, &
+              this%product_wm%data_area%d%r_dp)
+      CASE (dbcsr_type_complex_4)
+         CALL multrec_filtering_c(this%eps, &
+              this%product_wm%lastblk, &
+              this%product_wm%row_i, &
+              this%product_wm%col_i, &
+              this%product_wm%blk_p, &
+              this%m_global_sizes, this%n_global_sizes, &
+              this%product_wm%data_area%d%c_sp)
+      CASE (dbcsr_type_complex_8)
+         CALL multrec_filtering_z(this%eps, &
+              this%product_wm%lastblk, &
+              this%product_wm%row_i, &
+              this%product_wm%col_i, &
+              this%product_wm%blk_p, &
+              this%m_global_sizes, this%n_global_sizes, &
+              this%product_wm%data_area%d%c_dp)
+      CASE DEFAULT
+         CPABORT("Invalid data type.")
+      END SELECT
+
+      CALL timestop(handle)
+
+   END SUBROUTINE multrec_filtering
 
 ! **************************************************************************************************
 !> \brief Make the reduction of the 3D layers in the local multrec object
@@ -777,34 +834,12 @@ CONTAINS
    END SUBROUTINE remap_local2global
 
 ! **************************************************************************************************
-!> \brief Gathers the local elements from all data (full_data)
-!>
-!> \param[in] full_data       All elements
-!> \param[in] nle             Number of local elements
-!> \param[in] local_elements  List of local elements
-!> \param[out] local_data     Local elements obtained from all elements
-! **************************************************************************************************
-   PURE SUBROUTINE local_filter(full_data, nle, local_elements, local_data)
-      INTEGER, DIMENSION(:), INTENT(IN)                  :: full_data
-      INTEGER, INTENT(IN)                                :: nle
-      INTEGER, DIMENSION(1:nle), INTENT(IN)              :: local_elements
-      INTEGER, DIMENSION(1:nle), INTENT(OUT)             :: local_data
-
-      INTEGER                                            :: l
-
-      DO l = 1, nle
-         local_data(l) = full_data(local_elements(l))
-      END DO
-   END SUBROUTINE local_filter
-
-! **************************************************************************************************
 !> \brief Gathers the local elements from all data (full_data) for
 !>        single precision elements.
 !> \param full_data ...
 !> \param nle ...
 !> \param local_elements ...
 !> \param local_data ...
-!> \note see local_filter
 ! **************************************************************************************************
    PURE SUBROUTINE local_filter_sp(full_data, nle, local_elements, local_data)
       REAL(KIND=sp), DIMENSION(:), INTENT(IN)            :: full_data
@@ -818,6 +853,8 @@ CONTAINS
          local_data(l) = full_data(local_elements(l))
       END DO
    END SUBROUTINE local_filter_sp
+
+#:include "dbcsr_mm_multrec.f90"
 
 END MODULE dbcsr_mm_multrec
 

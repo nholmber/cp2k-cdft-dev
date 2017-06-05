@@ -20,6 +20,7 @@ MODULE dbcsr_mm_common
                                               array_hold
    USE dbcsr_acc_operations,            ONLY: dbcsr_acc_transpose
    USE dbcsr_data_methods,              ONLY: dbcsr_data_ensure_size,&
+                                              dbcsr_data_get_size,&
                                               dbcsr_data_host2dev,&
                                               dbcsr_data_set_size_referenced,&
                                               dbcsr_get_data_p_c,&
@@ -97,6 +98,7 @@ MODULE dbcsr_mm_common
 
    PUBLIC :: calculate_norms
    PUBLIC :: huge_norm
+   PUBLIC :: local_filter
 
 CONTAINS
 
@@ -314,12 +316,15 @@ CONTAINS
 ! **************************************************************************************************
 !> \brief Enumerate all occuring blocksizes
 !> \param blk_sizes ...
+!> \param max_size ...
 !> \param enum ...
 !> \param rev_enum ...
 !> \author Ole Schuett
 ! **************************************************************************************************
-   SUBROUTINE enumerate_blk_sizes(blk_sizes, enum, rev_enum)
-      INTEGER, DIMENSION(:), POINTER                     :: blk_sizes, enum, rev_enum
+   SUBROUTINE enumerate_blk_sizes(blk_sizes, max_size, enum, rev_enum)
+      INTEGER, DIMENSION(:), POINTER                     :: blk_sizes
+      INTEGER, INTENT(IN)                                :: max_size
+      INTEGER, DIMENSION(:), POINTER                     :: enum, rev_enum
 
       CHARACTER(len=*), PARAMETER :: routineN = 'enumerate_blk_sizes', &
          routineP = moduleN//':'//routineN
@@ -328,8 +333,7 @@ CONTAINS
 
       CALL timeset(routineN, handle)
 
-      n = MAXVAL(blk_sizes)
-      ALLOCATE (enum(0:n))
+      ALLOCATE (enum(0:max_size))
       enum(:) = 0
 
       DO i = 1, SIZE(blk_sizes)
@@ -356,34 +360,39 @@ CONTAINS
 !> \brief write out a stack for transposing the blocks
 !> \param matrix ...
 !> \param trs_stackbuf ...
+!> \param row_blk_sizes ...
+!> \param col_blk_sizes ...
 !> \param row_blk_sizes2enum ...
 !> \param enum2row_blk_sizes ...
 !> \param col_blk_sizes2enum ...
 !> \param enum2col_blk_sizes ...
+!> \param noresize ...
 !> \author Ole Schuett
 ! **************************************************************************************************
    SUBROUTINE acc_transpose_blocks(matrix, trs_stackbuf, &
+                                   row_blk_sizes, col_blk_sizes, &
                                    row_blk_sizes2enum, enum2row_blk_sizes, &
-                                   col_blk_sizes2enum, enum2col_blk_sizes)
+                                   col_blk_sizes2enum, enum2col_blk_sizes, &
+                                   noresize)
       TYPE(dbcsr_type), INTENT(IN)                       :: matrix
       TYPE(dbcsr_data_obj), INTENT(INOUT)                :: trs_stackbuf
-      INTEGER, DIMENSION(:), INTENT(IN), POINTER         :: row_blk_sizes2enum, enum2row_blk_sizes, &
-                                                            col_blk_sizes2enum, enum2col_blk_sizes
+      INTEGER, DIMENSION(:), INTENT(IN), POINTER :: row_blk_sizes, col_blk_sizes, &
+         row_blk_sizes2enum, enum2row_blk_sizes, col_blk_sizes2enum, enum2col_blk_sizes
+      LOGICAL, INTENT(IN), OPTIONAL                      :: noresize
 
       CHARACTER(len=*), PARAMETER :: routineN = 'acc_transpose_blocks', &
          routineP = moduleN//':'//routineN
 
-      INTEGER                                            :: blk_p, col, handle, handle1, i, m, mi, &
-                                                            mi_max, n, nblks, ni, ni_max, offset, &
-                                                            row, x
+      INTEGER                                            :: blk_p, handle, handle1, i, m, mi, &
+                                                            mi_max, n, nblks, ni, ni_max, offset, x, &
+                                                            row, col
       INTEGER, ALLOCATABLE, DIMENSION(:, :)              :: counters, filled, offsets, tmp_stack
-      INTEGER, DIMENSION(:), POINTER                     :: blk_index, col_blk_sizes, &
-                                                            local2global_cols, local2global_rows, &
-                                                            row_blk_sizes, trs_stack
+      INTEGER, DIMENSION(:), POINTER                     :: blk_index, trs_stack
+      LOGICAL                                            :: my_noresize
 
       CALL timeset(routineN, handle)
 
-      NULLIFY (local2global_rows, local2global_cols, trs_stack)
+      NULLIFY (trs_stack)
 
       IF (.NOT. matrix%list_indexing) &
          CPABORT("build_trs_stack: only list_indexing supported.")
@@ -400,7 +409,14 @@ CONTAINS
       CALL timestop(handle1)
 
       CALL timeset(routineN//"_ensure", handle1)
-      CALL dbcsr_data_ensure_size(trs_stackbuf, data_size=nblks, nocopy=.TRUE.)
+      my_noresize = .FALSE.
+      IF (PRESENT(noresize)) my_noresize = noresize
+      IF (my_noresize) THEN
+         IF (dbcsr_data_get_size(trs_stackbuf) .LT. nblks) &
+            CPABORT("build_trs_stack: trs_stackbuf undersized")
+      ELSE
+         CALL dbcsr_data_ensure_size(trs_stackbuf, data_size=nblks, nocopy=.TRUE.)
+      ENDIF
       CALL dbcsr_data_set_size_referenced(trs_stackbuf, nblks)
       trs_stack => trs_stackbuf%d%i4
       CALL timestop(handle1)
@@ -421,11 +437,6 @@ CONTAINS
          ENDDO
       ELSE
          ALLOCATE (tmp_stack(3, nblks))
-         row_blk_sizes => array_data(matrix%row_blk_size)
-         col_blk_sizes => array_data(matrix%col_blk_size)
-         local2global_rows => array_data(matrix%local_rows)
-         local2global_cols => array_data(matrix%local_cols)
-
          ! collect block addresses and dimensions in a temporary stack
          ! while doing so, also count number of blocks per block-dimensions
          DO i = 1, nblks
@@ -433,8 +444,6 @@ CONTAINS
             col = blk_index(3*(i-1)+2)
             blk_p = blk_index(3*(i-1)+3)
             IF (blk_p == 0) CYCLE
-            row = local2global_rows(row)
-            col = local2global_cols(col)
             m = row_blk_sizes(row)
             n = col_blk_sizes(col)
             mi = row_blk_sizes2enum(m)
@@ -565,15 +574,15 @@ CONTAINS
 !> \param[in,out] matrix     DBCSR matrix for which to calculate norms
 !> \param[out] norms         Block norms
 ! **************************************************************************************************
-   SUBROUTINE calculate_norms(matrix, norms)
+   SUBROUTINE calculate_norms(matrix, norms, row_blk_sizes, col_blk_sizes)
       TYPE(dbcsr_type), INTENT(IN)                       :: matrix
       REAL(kind=sp), DIMENSION(:), INTENT(OUT)           :: norms
+      INTEGER, DIMENSION(:), POINTER, INTENT(IN)         :: row_blk_sizes, col_blk_sizes
 
       CHARACTER(len=*), PARAMETER :: routineN = 'calculate_norms', &
          routineP = moduleN//':'//routineN
 
       INTEGER                                            :: data_type, handle, nblks
-      INTEGER, DIMENSION(:), POINTER                     :: local_cols, local_rows
 
 !   ---------------------------------------------------------------------------
 
@@ -582,48 +591,51 @@ CONTAINS
       IF (.NOT. dbcsr_valid_index(matrix)) &
          CPABORT("The matrix must be valid.")
       data_type = dbcsr_get_data_type(matrix)
-      local_rows => array_data(matrix%local_rows)
-      local_cols => array_data(matrix%local_cols)
       nblks = matrix%nblks
       SELECT CASE (data_type)
       CASE (dbcsr_type_real_4)
-         CALL calc_norms_s(norms, nblks, &
-                           matrix%coo_l, &
-                           array_data(matrix%row_blk_size), &
-                           array_data(matrix%col_blk_size), &
-                           dbcsr_get_data_p_s(matrix%data_area), &
-                           local2global_rows=local_rows, &
-                           local2global_cols=local_cols)
+         CALL calc_norms_s(norms, nblks, matrix%coo_l, &
+                           row_blk_sizes, col_blk_sizes, &
+                           dbcsr_get_data_p_s(matrix%data_area))
       CASE (dbcsr_type_real_8)
-         CALL calc_norms_d(norms, nblks, &
-                           matrix%coo_l, &
-                           array_data(matrix%row_blk_size), &
-                           array_data(matrix%col_blk_size), &
-                           dbcsr_get_data_p_d(matrix%data_area), &
-                           local2global_rows=local_rows, &
-                           local2global_cols=local_cols)
+         CALL calc_norms_d(norms, nblks, matrix%coo_l, &
+                           row_blk_sizes, col_blk_sizes, &
+                           dbcsr_get_data_p_d(matrix%data_area))
       CASE (dbcsr_type_complex_4)
-         CALL calc_norms_c(norms, nblks, &
-                           matrix%coo_l, &
-                           array_data(matrix%row_blk_size), &
-                           array_data(matrix%col_blk_size), &
-                           dbcsr_get_data_p_c(matrix%data_area), &
-                           local2global_rows=local_rows, &
-                           local2global_cols=local_cols)
+         CALL calc_norms_c(norms, nblks, matrix%coo_l, &
+                           row_blk_sizes, col_blk_sizes, &
+                           dbcsr_get_data_p_c(matrix%data_area))
       CASE (dbcsr_type_complex_8)
-         CALL calc_norms_z(norms, nblks, &
-                           matrix%coo_l, &
-                           array_data(matrix%row_blk_size), &
-                           array_data(matrix%col_blk_size), &
-                           dbcsr_get_data_p_z(matrix%data_area), &
-                           local2global_rows=local_rows, &
-                           local2global_cols=local_cols)
+         CALL calc_norms_z(norms, nblks, matrix%coo_l, &
+                           row_blk_sizes, col_blk_sizes, &
+                           dbcsr_get_data_p_z(matrix%data_area))
       CASE DEFAULT
          CPABORT("Invalid data type.")
       END SELECT
       !
       CALL timestop(handle)
    END SUBROUTINE calculate_norms
+
+! **************************************************************************************************
+!> \brief Gathers the local elements from all data (full_data)
+!>
+!> \param[in] full_data       All elements
+!> \param[in] nle             Number of local elements
+!> \param[in] local_elements  List of local elements
+!> \param[out] local_data     Local elements obtained from all elements
+! **************************************************************************************************
+   PURE SUBROUTINE local_filter(full_data, nle, local_elements, local_data)
+      INTEGER, DIMENSION(:), INTENT(IN)                  :: full_data
+      INTEGER, INTENT(IN)                                :: nle
+      INTEGER, DIMENSION(1:nle), INTENT(IN)              :: local_elements
+      INTEGER, DIMENSION(1:nle), INTENT(OUT)             :: local_data
+
+      INTEGER                                            :: l
+
+      DO l = 1, nle
+         local_data(l) = full_data(local_elements(l))
+      END DO
+   END SUBROUTINE local_filter
 
 #:include "dbcsr_mm_common.f90"
 
