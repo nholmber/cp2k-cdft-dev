@@ -23,7 +23,7 @@ HeH-mixed-cdft-7.inp                                  11      2e-11             
 HeH-mixed-cdft-12.inp                                 77      3e-12              -2.84548287253409
 # Rerun some tests using serial mode (NGROUPS 1)
 # Electronic coupling and related
-HeH-mixed-cdft-8.inp                                  73      5e-10             510.592548695828
+HeH-mixed-cdft-8.inp                                  73      5e-10             509.054275709926
 # Energy/Force
 HeH-mixed-cdft-9.inp                                  11      2e-13              -2.432588089626460
 # MD
