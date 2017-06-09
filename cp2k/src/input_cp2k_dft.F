@@ -5437,8 +5437,8 @@ CONTAINS
       CALL keyword_release(keyword)
 
       CALL keyword_create(keyword, name="MAX_LS", &
-                          description="The maximum backtracking line search steps to perform.", &
-                          usage="MAX_SCF 5", default_i_val=5)
+                          description="The maximum number of backtracking line search steps to perform.", &
+                          usage="MAX_LS 5", default_i_val=5)
       CALL section_add_keyword(section, keyword)
       CALL keyword_release(keyword)
 
