@@ -5335,8 +5335,8 @@ CONTAINS
                                         "Newton's method with backtracking line search to find the optimal step size. "// &
                                         "Only compatible with CDFT constraints. Starts from the regular Newton solution "// &
                                         "and successively reduces the step size until the L2 norm of the CDFT gradient "// &
-                                        "decreases. Potentially very expensive because each iteration performs a full "// &
-                                        " SCF calculation."), &
+                                        "decreases or MAX_LS steps is reached. Potentially very expensive because "// &
+                                        "each iteration performs a full SCF calculation."), &
                           enum_i_vals=(/outer_scf_optimizer_sd, outer_scf_optimizer_diis, outer_scf_optimizer_none, &
                                         outer_scf_optimizer_bisect, outer_scf_optimizer_broyden, &
                                         outer_scf_optimizer_newton, outer_scf_optimizer_secant, &
@@ -5433,6 +5433,12 @@ CONTAINS
       CALL keyword_create(keyword, name="MAX_SCF", &
                           description="The maximum number of outer loops ", &
                           usage="MAX_SCF 20", default_i_val=50)
+      CALL section_add_keyword(section, keyword)
+      CALL keyword_release(keyword)
+
+      CALL keyword_create(keyword, name="MAX_SCF", &
+                          description="The maximum backtracking line search steps to perform.", &
+                          usage="MAX_SCF 5", default_i_val=5)
       CALL section_add_keyword(section, keyword)
       CALL keyword_release(keyword)
 

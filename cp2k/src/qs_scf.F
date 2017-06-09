@@ -1521,14 +1521,13 @@ CONTAINS
 
       CHARACTER(LEN=*), PARAMETER :: routineN = 'qs_cdft_line_search', &
          routineP = moduleN//':'//routineN
-      INTEGER, PARAMETER                                 :: max_linesearch = 5
 
       CHARACTER(len=default_path_length)                 :: project_name
       INTEGER                                            :: handle, i, ispin, iter_count, lp, &
-                                                            max_scf, nspins, nsteps, nvar, &
+                                                            max_linesearch, max_scf, nspins, nsteps, nvar, &
                                                             output_unit
       LOGICAL                                            :: converged, do_linesearch, should_exit, &
-                                                            should_stop
+                                                            should_stop, reached_maxls
       REAL(KIND=dp)                                      :: alpha
       REAL(KIND=dp), DIMENSION(:), POINTER               :: energy
       REAL(KIND=dp), DIMENSION(:, :), POINTER            :: gradient, inv_jacobian
@@ -1615,10 +1614,12 @@ CONTAINS
          ! Allocate work
          nvar = SIZE(scf_env%outer_scf%variables, 1)
          max_scf = scf_control%outer_scf%max_scf+1
+         max_linesearch = scf_control%outer_scf%max_ls
          ALLOCATE (gradient(nvar, max_scf))
          gradient = scf_env%outer_scf%gradient
          ALLOCATE (energy(max_scf))
          energy = scf_env%outer_scf%energy
+         reached_maxls = .FALSE.
          ! Broyden optimizers: perform update of inv_jacobian if necessary
          IF (scf_control%outer_scf%broyden_update) THEN
             CALL outer_loop_optimize(scf_env, scf_control)
@@ -1630,8 +1631,8 @@ CONTAINS
          IF (output_unit > 0) THEN
             WRITE (output_unit, FMT="(/,A)") &
                " ================================== LINE SEARCH STARTED  =================================="
-            WRITE (output_unit, FMT="(A)") &
-               " Evaluating optimal step size for optimizer"
+            WRITE (output_unit, FMT="(A,I5,A)") &
+               " Evaluating optimal step size for optimizer using a maximum of", max_linesearch, 'steps'
             WRITE (output_unit, '(A,I10,A,I10)') &
                " Energy evaluation: ", cdft_control%ienergy, ", CDFT SCF iteration: ", iter_count
          END IF
@@ -1679,6 +1680,11 @@ CONTAINS
             scf_env%outer_scf%variables(:, iter_count+1) = 0.0_dp
             scf_env%outer_scf%gradient = gradient
             scf_env%outer_scf%energy = energy
+            ! Reached max steps and SCF converged: continue with last iterated step size
+            IF (i == max_linesearch .AND. converged) THEN
+              should_exit = .TRUE.
+              reached_maxls = .TRUE.
+            END IF
             ! If a suitable step size was found, do not reset the electronic structure so we can continue from it
             IF (should_exit) EXIT
             cdft_control%total_steps = nsteps
@@ -1694,9 +1700,12 @@ CONTAINS
          scf_control%outer_scf%newton_step = alpha
          IF (.NOT. should_exit) THEN
             CALL cp_warn(__LOCATION__, &
-                         "Line search did not converge.")
+                         "Line search did not converge. CDFT SCF proceeds with fixed step size.")
             scf_control%outer_scf%newton_step = scf_control%outer_scf%newton_step_save
          END IF
+         IF (reached_maxls) &
+            CALL cp_warn(__LOCATION__, &
+                         "Line search did not converge. CDFT SCF proceeds with lasted iterated step size.")
          CALL cp_rm_default_logger()
          CALL cp_logger_release(tmp_logger)
          ! Release temporary storage

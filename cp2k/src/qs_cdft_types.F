@@ -243,6 +243,7 @@ MODULE qs_cdft_types
       INTEGER                              :: jacobian_type
       INTEGER                              :: broyden_type
       INTEGER                              :: jacobian_freq(2)
+      INTEGER                              :: max_ls
    END TYPE outer_scf_control_type
 
    TYPE cdft_control_type
@@ -507,6 +508,7 @@ CONTAINS
       cdft_control%constraint_control%newton_step = 1.0_dp
       cdft_control%constraint_control%newton_step_save = 1.0_dp
       cdft_control%constraint_control%ijacobian = 0
+      cdft_control%constraint_control%max_ls = 0
       cdft_control%constraint_control%build_jacobian = .FALSE.
       cdft_control%constraint_control%broyden_update = .FALSE.
       cdft_control%constraint%iter_count = 0

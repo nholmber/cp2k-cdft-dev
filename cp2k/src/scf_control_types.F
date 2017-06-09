@@ -95,6 +95,7 @@ MODULE scf_control_types
 !> \param ijacobian counter to track how many outer_scf iterations have passed since the last
 !>                  Jacobian rebuild
 !> \param broyden_update logical which determines if a Broyden update is needed
+!> \param max_ls the maximum number of backtracking line search steps to perform
 !> \par History
 !>      09.2002 created [fawzi]
 !> \author Fawzi Mohamed
@@ -118,6 +119,7 @@ MODULE scf_control_types
       INTEGER       :: broyden_type
       INTEGER       :: jacobian_freq(2)
       INTEGER       :: ijacobian
+      INTEGER       :: max_ls
    END TYPE outer_scf_control_type
 
    TYPE smear_type
@@ -290,6 +292,7 @@ CONTAINS
       scf_control%outer_scf%newton_step = 1.0_dp
       scf_control%outer_scf%newton_step_save = 1.0_dp
       scf_control%outer_scf%ijacobian = 0
+      scf_control%outer_scf%max_ls = 0
       scf_control%outer_scf%build_jacobian = .FALSE.
       scf_control%outer_scf%broyden_update = .FALSE.
 
@@ -525,6 +528,8 @@ CONTAINS
                                    i_val=scf_control%outer_scf%optimizer)
          CALL section_vals_val_get(outer_scf_section, "MAX_SCF", &
                                    i_val=scf_control%outer_scf%max_scf)
+         CALL section_vals_val_get(outer_scf_section, "MAX_SCF", &
+                                   i_val=scf_control%outer_scf%max_ls)
          CALL section_vals_val_get(outer_scf_section, "EXTRAPOLATION_ORDER", &
                                    i_val=scf_control%outer_scf%extrapolation_order)
          CALL section_vals_val_get(outer_scf_section, "JACOBIAN_TYPE", &

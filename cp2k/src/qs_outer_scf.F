@@ -580,6 +580,7 @@ CONTAINS
          ! Now switch
          scf_control%outer_scf%have_scf = cdft_control%ot_control%have_scf
          scf_control%outer_scf%max_scf = cdft_control%ot_control%max_scf
+         scf_control%outer_scf%max_ls = cdft_control%ot_control%max_ls
          scf_control%outer_scf%eps_scf = cdft_control%ot_control%eps_scf
          scf_control%outer_scf%step_size = cdft_control%ot_control%step_size
          scf_control%outer_scf%type = cdft_control%ot_control%type
@@ -633,6 +634,7 @@ CONTAINS
          ! OT -> constraint
          scf_control%outer_scf%have_scf = cdft_control%constraint_control%have_scf
          scf_control%outer_scf%max_scf = cdft_control%constraint_control%max_scf
+         scf_control%outer_scf%max_ls = cdft_control%constraint_control%max_ls
          scf_control%outer_scf%eps_scf = cdft_control%constraint_control%eps_scf
          scf_control%outer_scf%step_size = cdft_control%constraint_control%step_size
          scf_control%outer_scf%type = cdft_control%constraint_control%type
