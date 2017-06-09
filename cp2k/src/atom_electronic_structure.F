@@ -16,7 +16,7 @@ MODULE atom_electronic_structure
                                               atom_print_zmp_iteration
    USE atom_types,                      ONLY: &
         atom_type, create_opgrid, create_opmat, ecp_pseudo, gth_pseudo, lmat, no_pseudo, &
-        opgrid_type, opmat_type, release_opgrid, release_opmat, set_atom, upf_pseudo
+        opgrid_type, opmat_type, release_opgrid, release_opmat, set_atom, sgp_pseudo, upf_pseudo
    USE atom_utils,                      ONLY: &
         atom_denmat, atom_density, atom_read_external_density, atom_read_external_vxc, &
         atom_read_zmp_restart, atom_solve, atom_trace, ceri_contract, coulomb_potential_analytic, &
@@ -28,9 +28,9 @@ MODULE atom_electronic_structure
                                               calculate_atom_vxc_lsd,&
                                               calculate_atom_zmp
    USE input_constants,                 ONLY: &
-        do_analytic, do_dkh0_atom, do_dkh1_atom, do_dkh2_atom, do_dkh3_atom, do_dkh4_atom, &
-        do_dkh5_atom, do_nonrel_atom, do_numeric, do_rhf_atom, do_rks_atom, do_rohf_atom, &
-        do_sczoramp_atom, do_semi_analytic, do_uhf_atom, do_uks_atom, do_zoramp_atom
+        do_analytic, do_dkh0_atom, do_dkh1_atom, do_dkh2_atom, do_dkh3_atom, do_nonrel_atom, &
+        do_numeric, do_rhf_atom, do_rks_atom, do_rohf_atom, do_sczoramp_atom, do_semi_analytic, &
+        do_uhf_atom, do_uks_atom, do_zoramp_atom
    USE input_section_types,             ONLY: section_vals_get,&
                                               section_vals_get_subs_vals,&
                                               section_vals_type,&
@@ -64,11 +64,33 @@ CONTAINS
       CHARACTER(len=*), PARAMETER :: routineN = 'calculate_atom', routineP = moduleN//':'//routineN
 
       INTEGER                                            :: handle, method
+      LOGICAL                                            :: explicit
+      TYPE(section_vals_type), POINTER                   :: sub_section
 
       CALL timeset(routineN, handle)
 
-      method = atom%method_type
+      ! test for not supported methods and functionals
+      IF (ASSOCIATED(atom%xc_section)) THEN
+         !
+         sub_section => section_vals_get_subs_vals(atom%xc_section, "ADIABATIC_RESCALING")
+         CALL section_vals_get(sub_section, explicit=explicit)
+         IF (explicit) CALL cp_abort(__LOCATION__, "ADIABATIC_RESCALING not supported in ATOM code")
+         !
+         sub_section => section_vals_get_subs_vals(atom%xc_section, "VDW_POTENTIAL")
+         CALL section_vals_get(sub_section, explicit=explicit)
+         IF (explicit) CALL cp_abort(__LOCATION__, "VDW_POTENTIAL not supported in ATOM code")
+         !
+         sub_section => section_vals_get_subs_vals(atom%xc_section, "XC_POTENTIAL")
+         CALL section_vals_get(sub_section, explicit=explicit)
+         IF (explicit) CALL cp_abort(__LOCATION__, "XC_POTENTIAL not supported in ATOM code")
+         !
+         sub_section => section_vals_get_subs_vals(atom%xc_section, "WF_CORRELATION")
+         CALL section_vals_get(sub_section, explicit=explicit)
+         IF (explicit) CALL cp_abort(__LOCATION__, "WF_CORRELATION methods not supported in ATOM code")
+         !
+      END IF
 
+      method = atom%method_type
       SELECT CASE (method)
       CASE (do_rks_atom, do_rhf_atom)
          CALL calculate_atom_restricted(atom, iw, noguess, converged)
@@ -198,10 +220,10 @@ CONTAINS
             hcore%op = atom%integrals%kin-atom%zcore*atom%integrals%core
          CASE (do_zoramp_atom, do_sczoramp_atom)
             hcore%op = atom%integrals%kin+atom%integrals%tzora-atom%zcore*atom%integrals%core
-         CASE (do_dkh0_atom, do_dkh1_atom, do_dkh2_atom, do_dkh3_atom, do_dkh4_atom, do_dkh5_atom)
+         CASE (do_dkh0_atom, do_dkh1_atom, do_dkh2_atom, do_dkh3_atom)
             hcore%op = atom%integrals%hdkh
          END SELECT
-      CASE (gth_pseudo, upf_pseudo, ecp_pseudo)
+      CASE (gth_pseudo, upf_pseudo, sgp_pseudo, ecp_pseudo)
          hcore%op = atom%integrals%kin+atom%integrals%core+atom%integrals%hnl
       END SELECT
       ! add confinement potential (not included in relativistic transformations)
@@ -264,7 +286,7 @@ CONTAINS
          CASE (no_pseudo)
             atom%energy%eploc = 0._dp
             atom%energy%epnl = 0._dp
-         CASE (gth_pseudo, upf_pseudo, ecp_pseudo)
+         CASE (gth_pseudo, upf_pseudo, sgp_pseudo, ecp_pseudo)
             atom%energy%eploc = atom_trace(atom%integrals%core, atom%orbitals%pmat)
             atom%energy%epnl = atom_trace(atom%integrals%hnl, atom%orbitals%pmat)
          END SELECT
@@ -486,26 +508,26 @@ CONTAINS
       END SELECT
 
       ! set alpha and beta occupations
-      atom%state%occa = 0._dp
-      atom%state%occb = 0._dp
-      DO l = 0, 3
-         nm = REAL((2*l+1), KIND=dp)
-         DO k = 1, 10
-            ne = atom%state%occupation(l, k)
-            IF (ne == 0._dp) THEN !empty shell
-               EXIT !assume there are no holes
-            ELSEIF (ne == 2._dp*nm) THEN !closed shell
-               atom%state%occa(l, k) = nm
-               atom%state%occb(l, k) = nm
-            ELSEIF (atom%state%multiplicity == -2) THEN !High spin case
-               atom%state%occa(l, k) = MIN(ne, nm)
-               atom%state%occb(l, k) = MAX(0._dp, ne-nm)
-            ELSE
-               atom%state%occa(l, k) = 0.5_dp*(ne+atom%state%multiplicity-1._dp)
-               atom%state%occb(l, k) = ne-atom%state%occa(l, k)
-            END IF
+      IF (SUM(ABS(atom%state%occa)+ABS(atom%state%occb)) == 0.0_dp) THEN
+         DO l = 0, 3
+            nm = REAL((2*l+1), KIND=dp)
+            DO k = 1, 10
+               ne = atom%state%occupation(l, k)
+               IF (ne == 0._dp) THEN !empty shell
+                  EXIT !assume there are no holes
+               ELSEIF (ne == 2._dp*nm) THEN !closed shell
+                  atom%state%occa(l, k) = nm
+                  atom%state%occb(l, k) = nm
+               ELSEIF (atom%state%multiplicity == -2) THEN !High spin case
+                  atom%state%occa(l, k) = MIN(ne, nm)
+                  atom%state%occb(l, k) = MAX(0._dp, ne-nm)
+               ELSE
+                  atom%state%occa(l, k) = 0.5_dp*(ne+atom%state%multiplicity-1._dp)
+                  atom%state%occb(l, k) = ne-atom%state%occa(l, k)
+               END IF
+            END DO
          END DO
-      END DO
+      END IF
       ! check for relativistic method
       reltyp = atom%relativistic
 
@@ -528,7 +550,7 @@ CONTAINS
             hcore%op = atom%integrals%kin-atom%zcore*atom%integrals%core
          CASE (do_zoramp_atom, do_sczoramp_atom)
             hcore%op = atom%integrals%kin+atom%integrals%tzora-atom%zcore*atom%integrals%core
-         CASE (do_dkh0_atom, do_dkh1_atom, do_dkh2_atom, do_dkh3_atom, do_dkh4_atom, do_dkh5_atom)
+         CASE (do_dkh0_atom, do_dkh1_atom, do_dkh2_atom, do_dkh3_atom)
             hcore%op = atom%integrals%hdkh
          END SELECT
       CASE (gth_pseudo)
@@ -537,7 +559,7 @@ CONTAINS
             lsdpot = .TRUE.
             hlsd%op = atom%integrals%clsd
          END IF
-      CASE (upf_pseudo, ecp_pseudo)
+      CASE (upf_pseudo, sgp_pseudo, ecp_pseudo)
          hcore%op = atom%integrals%kin+atom%integrals%core+atom%integrals%hnl
       END SELECT
       ! add confinement potential (not included in relativistic transformations)
@@ -616,7 +638,7 @@ CONTAINS
          CASE (no_pseudo)
             atom%energy%eploc = 0._dp
             atom%energy%epnl = 0._dp
-         CASE (gth_pseudo, upf_pseudo, ecp_pseudo)
+         CASE (gth_pseudo, upf_pseudo, sgp_pseudo, ecp_pseudo)
             atom%energy%eploc = atom_trace(atom%integrals%core, atom%orbitals%pmat)
             atom%energy%epnl = atom_trace(atom%integrals%hnl, atom%orbitals%pmat)
          END SELECT

@@ -13,9 +13,12 @@
 !>  - 2017-02    Remove clusters (Alfio Lazzaro).
 ! **************************************************************************************************
 MODULE dbcsr_mm_3d
-   USE acc_event,                       ONLY: acc_event_synchronize
+   USE acc_event,                       ONLY: acc_event_create,&
+                                              acc_event_destroy,&
+                                              acc_event_synchronize
    USE array_types,                     ONLY: array_data,&
-                                              array_get
+                                              array_get,&
+                                              array_size
    USE dbcsr_block_operations,          ONLY: dbcsr_block_conjg,&
                                               dbcsr_block_copy_aa,&
                                               dbcsr_block_real_neg,&
@@ -26,11 +29,12 @@ MODULE dbcsr_mm_3d
    USE dbcsr_config,                    ONLY: dbcsr_cfg,&
                                               has_acc
    USE dbcsr_data_methods,              ONLY: &
-        dbcsr_data_clear_pointer, dbcsr_data_ensure_size, dbcsr_data_exists, dbcsr_data_get_size, &
-        dbcsr_data_get_size_referenced, dbcsr_data_get_type, dbcsr_data_host2dev, dbcsr_data_init, &
-        dbcsr_data_new, dbcsr_data_release, dbcsr_data_set_pointer, &
-        dbcsr_data_set_size_referenced, dbcsr_data_valid, dbcsr_scalar_are_equal, &
-        dbcsr_scalar_negative, dbcsr_scalar_one, dbcsr_type_1d_to_2d
+        dbcsr_data_clear_pointer, dbcsr_data_ensure_size, dbcsr_data_exists, &
+        dbcsr_data_get_memory_type, dbcsr_data_get_size, dbcsr_data_get_size_referenced, &
+        dbcsr_data_get_type, dbcsr_data_host2dev, dbcsr_data_init, dbcsr_data_new, &
+        dbcsr_data_release, dbcsr_data_set_pointer, dbcsr_data_set_size_referenced, &
+        dbcsr_data_valid, dbcsr_scalar_are_equal, dbcsr_scalar_negative, dbcsr_scalar_one, &
+        dbcsr_type_1d_to_2d
    USE dbcsr_data_types,                ONLY: dbcsr_datatype_sizeof
    USE dbcsr_dist_methods,              ONLY: dbcsr_distribution_col_dist,&
                                               dbcsr_distribution_has_threads,&
@@ -47,12 +51,13 @@ MODULE dbcsr_mm_3d
    USE dbcsr_mem_methods,               ONLY: dbcsr_mempool_limit_capacity
    USE dbcsr_methods,                   ONLY: &
         dbcsr_col_block_offsets, dbcsr_col_block_sizes, dbcsr_distribution, dbcsr_get_data_type, &
-        dbcsr_has_symmetry, dbcsr_nblkcols_total, dbcsr_nblkrows_total, dbcsr_nfullcols_local, &
+        dbcsr_has_symmetry, dbcsr_max_col_size, dbcsr_max_row_size, dbcsr_nblkcols_local, &
+        dbcsr_nblkcols_total, dbcsr_nblkrows_local, dbcsr_nblkrows_total, dbcsr_nfullcols_local, &
         dbcsr_nfullcols_total, dbcsr_nfullrows_local, dbcsr_nfullrows_total, dbcsr_release, &
         dbcsr_row_block_offsets, dbcsr_row_block_sizes, dbcsr_valid_index
    USE dbcsr_mm_common,                 ONLY: &
         acc_transpose_blocks, calculate_norms, count_mpi_statistics, dbcsr_mm_multrec_type_p, &
-        dbcsr_mpi_statistics, enumerate_blk_sizes, max_memory, memtype_abpanel_1, &
+        dbcsr_mpi_statistics, enumerate_blk_sizes, local_filter, max_memory, memtype_abpanel_1, &
         memtype_abpanel_2, memtype_mpi_buffer, memtype_mpi_product, memtype_product_wm, &
         memtype_trsbuffer_1, memtype_trsbuffer_2, product_matrix_size_guess, rec_sort_index, &
         setup_buffer_matrix
@@ -115,33 +120,33 @@ MODULE dbcsr_mm_3d
    LOGICAL, PARAMETER :: careful_mod = .FALSE.
 
    TYPE dbcsr_buffer
-      TYPE(dbcsr_data_obj), DIMENSION(:), ALLOCATABLE :: DATA
-      TYPE(dbcsr_data_obj)                            :: data_red3D, data_before_resize
-      INTEGER                                         :: vprow, vpcol
-      INTEGER                                         :: grp = mp_comm_null, & ! Global communicator
-                                                         subgrp = mp_comm_null ! Communicator for A and B
-      INTEGER                                         :: data_win, meta_win
-      INTEGER, DIMENSION(:), POINTER                  :: meta => Null(), &
-                                                         meta_before_resize => Null(), &
-                                                         meta_red3D => Null()
-      INTEGER, DIMENSION(2)                           :: get_requests
-      TYPE(dbcsr_data_obj), DIMENSION(:), ALLOCATABLE :: trs_stackbuf
-      INTEGER                            :: meta_size
-      INTEGER                            :: num_layers_3D = 1
-      INTEGER                            :: coord3D = 1
-      TYPE(dbcsr_type)                   :: matrix
-      LOGICAL                            :: is_valid = .FALSE., &
-                                            is_comm = .FALSE., &
-                                            has_rma_win = .FALSE.
+      TYPE(dbcsr_data_obj)                        :: DATA, &
+                                                     data_before_resize, &
+                                                     trs_stackbuf
+      INTEGER                                     :: vprow, vpcol
+      INTEGER                                     :: grp = mp_comm_null, & ! Global communicator
+                                                     subgrp = mp_comm_null ! Communicator for A and B
+      INTEGER                                     :: data_win, meta_win
+      INTEGER, DIMENSION(:), POINTER              :: meta => Null(), &
+                                                     meta_before_resize => Null(), &
+                                                     meta_red3D => Null()
+      INTEGER, DIMENSION(2)                       :: get_requests
+      INTEGER                                     :: meta_size
+      INTEGER                                     :: num_layers_3D = 1
+      INTEGER                                     :: coord3D = 1
+      TYPE(dbcsr_type)                            :: matrix
+      LOGICAL                                     :: is_valid = .FALSE., &
+                                                     is_comm = .FALSE., &
+                                                     has_rma_win = .FALSE.
    END TYPE dbcsr_buffer
 
-   TYPE dbcsr_buffer_p
-      TYPE(dbcsr_buffer), POINTER        :: b => Null()
-   END TYPE dbcsr_buffer_p
-
    TYPE dbcsr_buffers
-      TYPE(dbcsr_buffer)             :: left, right
+      TYPE(dbcsr_buffer)                 :: left, right
    END TYPE dbcsr_buffers
+
+   TYPE mn_local_sizes
+      INTEGER, DIMENSION(:), POINTER  :: sizes => Null()
+   END TYPE mn_local_sizes
 
    TYPE dbcsr_layers_3D_C_reduction
       INTEGER                            :: grp = mp_comm_null, &
@@ -149,6 +154,10 @@ MODULE dbcsr_mm_3d
                                             rowgrp3D = mp_comm_null
       INTEGER                            :: num_layers_3D = 1, &
                                             side3D = HUGE(1)
+      ! Use a buffer per each thread
+      TYPE(dbcsr_data_obj), &
+         DIMENSION(:), ALLOCATABLE       :: data_red3D
+      INTEGER                            :: data_type
    END TYPE dbcsr_layers_3D_C_reduction
 
    ! Buffers
@@ -178,6 +187,11 @@ MODULE dbcsr_mm_3d
    INTEGER, DIMENSION(2), PRIVATE  :: requests_win_create
 
    INTEGER :: request_sync_mult = mp_request_null
+
+   ! Buffers used in make_buffers
+   TYPE(dbcsr_data_obj), TARGET, SAVE :: make_buffers_data_recv, make_buffers_data_send
+   INTEGER, DIMENSION(:), POINTER     :: make_buffers_meta_recv => Null(), &
+                                         make_buffers_meta_send => Null()
 
    PUBLIC :: multiply_3D
    PUBLIC :: release_layers_3d_C_reduction, buffers_release
@@ -268,8 +282,7 @@ CONTAINS
                                                             send_sizes
       INTEGER, DIMENSION(2)                              :: block_col_bounds, block_row_bounds
       INTEGER, DIMENSION(:), POINTER :: col_dist, col_img_dist, local_cols, local_g2l_map_cols, &
-         local_g2l_map_rows, local_rows, meta_buffer_p, meta_recv, meta_send, row_dist, &
-         row_img_dist, threads_dist
+         local_g2l_map_rows, local_rows, meta_buffer_p, row_dist, row_img_dist, threads_dist
       INTEGER, DIMENSION(:, :), POINTER                  :: blacs2mpi, local_images_size
       INTEGER, DIMENSION(idata:imeta)                    :: my_size_recv, my_size_send
       INTEGER, POINTER                                   :: coli, rowi
@@ -280,7 +293,6 @@ CONTAINS
       TYPE(dbcsr_buffer), POINTER                        :: buffer
       TYPE(dbcsr_data_obj)                               :: data_block
       TYPE(dbcsr_data_obj), POINTER                      :: data_buffer_p
-      TYPE(dbcsr_data_obj), TARGET                       :: data_recv, data_send
       TYPE(dbcsr_distribution_obj)                       :: set_dist
       TYPE(dbcsr_iterator)                               :: iter
       TYPE(dbcsr_mp_obj)                                 :: mp_obj
@@ -527,10 +539,10 @@ CONTAINS
 !$OMP         is_left,my_size_send,my_size_recv,nimages,&
 !$OMP         local_images_size,data_type,memtype_mpi_buffer,sm,&
 !$OMP         img_nblks_cols,img_nblks_rows,mynode,offset_threads,&
-!$OMP         local_g2l_map_cols,local_g2l_map_rows,recv_sizes,grp,meta_send,&
-!$OMP         scale_value,scale_neg_one,data_send,data_recv,&
+!$OMP         local_g2l_map_cols,local_g2l_map_rows,recv_sizes,grp,make_buffers_meta_send,&
+!$OMP         scale_value,scale_neg_one,make_buffers_data_send,make_buffers_data_recv,&
 !$OMP         size_index,recv_displ_proc,recv_size_proc,send_size_proc,&
-!$OMP         mp_obj,threads_dist,meta_recv,nrows_images,ncols_images,&
+!$OMP         mp_obj,threads_dist,make_buffers_meta_recv,nrows_images,ncols_images,&
 !$OMP         locks,blacs2mpi,send_displ_proc,recv_displs,send_displs,&
 !$OMP         left_images_size,right_images_size,local_images_displ,requests,&
 !$OMP         buffer,left_total_row_counts,otf_filtering,&
@@ -651,7 +663,7 @@ CONTAINS
       ! Allocate data and meta buffers
       do_win_create(:) = .NOT. buffer%has_rma_win
       IF (buffer%has_rma_win) THEN
-         IF (buffer%grp .NE. grp .OR. dbcsr_data_get_type(buffer%data(1)) .NE. data_type) THEN
+         IF (buffer%grp .NE. grp .OR. dbcsr_data_get_type(buffer%data) .NE. data_type) THEN
             do_win_create(:) = .TRUE.
          ENDIF
       ENDIF
@@ -698,13 +710,20 @@ CONTAINS
       ENDDO
       !
       ! Allocate data/meta to send
-      CALL dbcsr_data_init(data_send)
-      CALL dbcsr_data_new(data_send, data_type, my_size_send(idata)-1, &
-                          memory_type=memtype_mpi_buffer)
-      CALL dbcsr_data_clear(data_send)
-      NULLIFY (meta_send)
-      CALL ensure_array_size(meta_send, ub=my_size_send(imeta)-1, &
-                             nocopy=.TRUE., memory_type=memtype_mpi_buffer, zero_pad=.TRUE.)
+      IF (dbcsr_data_valid(make_buffers_data_send)) THEN
+         IF (dbcsr_data_get_type(make_buffers_data_send) .NE. data_type) THEN
+            CALL dbcsr_data_release(make_buffers_data_send)
+         ENDIF
+      ENDIF
+      IF (dbcsr_data_valid(make_buffers_data_send)) THEN
+         CALL dbcsr_data_ensure_size(make_buffers_data_send, my_size_send(idata)-1, nocopy=.TRUE.)
+      ELSE
+         CALL dbcsr_data_init(make_buffers_data_send)
+         CALL dbcsr_data_new(make_buffers_data_send, data_type, my_size_send(idata)-1, &
+                             memory_type=memtype_mpi_buffer)
+      ENDIF
+      CALL ensure_array_size(make_buffers_meta_send, ub=my_size_send(imeta)-1, &
+                             nocopy=.TRUE., memory_type=memtype_mpi_buffer)
       ! Displs for data offset
       ALLOCATE (offset_threads(idata:imeta, 0:nthreads-1, nimages))
       offset_threads(:, :, :) = 0
@@ -785,11 +804,11 @@ CONTAINS
                                   shifting='0')
             dst_proc = blacs2mpi(prow, pcol)
             IF (dst_proc .EQ. mynode) THEN
-               data_buffer_p => buffer%data(1)
+               data_buffer_p => buffer%data
                meta_buffer_p => buffer%meta
             ELSE
-               data_buffer_p => data_send
-               meta_buffer_p => meta_send
+               data_buffer_p => make_buffers_data_send
+               meta_buffer_p => make_buffers_meta_send
             ENDIF
 !$          IF (is_left .AND. do_symmetry) THEN
 !$             myt = threads_dist(stored_row)
@@ -874,26 +893,33 @@ CONTAINS
       !
 !$OMP BARRIER
 !$OMP MASTER
-      CALL dbcsr_data_init(data_recv)
-      CALL dbcsr_data_new(data_recv, data_type, my_size_recv(idata)-1, &
-                          memory_type=memtype_mpi_buffer)
-      NULLIFY (meta_recv)
-      CALL ensure_array_size(meta_recv, ub=my_size_recv(imeta)-1, &
-                             nocopy=.TRUE., memory_type=memtype_mpi_buffer, zero_pad=.TRUE.)
+      !
+      ! Allocate data/meta to recv
+      IF (dbcsr_data_valid(make_buffers_data_recv)) THEN
+         IF (dbcsr_data_get_type(make_buffers_data_recv) .NE. data_type) THEN
+            CALL dbcsr_data_release(make_buffers_data_recv)
+         ENDIF
+      ENDIF
+      IF (dbcsr_data_valid(make_buffers_data_recv)) THEN
+         CALL dbcsr_data_ensure_size(make_buffers_data_recv, my_size_recv(idata)-1, nocopy=.TRUE.)
+      ELSE
+         CALL dbcsr_data_init(make_buffers_data_recv)
+         CALL dbcsr_data_new(make_buffers_data_recv, data_type, my_size_recv(idata)-1, &
+                             memory_type=memtype_mpi_buffer)
+      ENDIF
+      CALL ensure_array_size(make_buffers_meta_recv, ub=my_size_recv(imeta)-1, &
+                             nocopy=.TRUE., memory_type=memtype_mpi_buffer)
       ! Exchange data
       CALL timeset(routineN//"_data", handle2)
-      CALL hybrid_alltoall_any(data_send, send_size_proc(idata, :), send_displ_proc(idata, :), &
-                               data_recv, recv_size_proc(idata, :), recv_displ_proc(idata, :), &
+      CALL hybrid_alltoall_any(make_buffers_data_send, send_size_proc(idata, :), send_displ_proc(idata, :), &
+                               make_buffers_data_recv, recv_size_proc(idata, :), recv_displ_proc(idata, :), &
                                mp_obj, &
                                most_ptp=.TRUE., remainder_ptp=.TRUE., no_hybrid=.FALSE.)
-      CALL hybrid_alltoall_i1(meta_send, send_size_proc(imeta, :), send_displ_proc(imeta, :), &
-                              meta_recv, recv_size_proc(imeta, :), recv_displ_proc(imeta, :), &
+      CALL hybrid_alltoall_i1(make_buffers_meta_send, send_size_proc(imeta, :), send_displ_proc(imeta, :), &
+                              make_buffers_meta_recv, recv_size_proc(imeta, :), recv_displ_proc(imeta, :), &
                               mp_obj, &
                               most_ptp=.TRUE., remainder_ptp=.TRUE., no_hybrid=.FALSE.)
       CALL timestop(handle2)
-      ! Delete send data
-      CALL dbcsr_data_release(data_send)
-      CALL memory_deallocate(meta_send, memtype_mpi_buffer)
 !$OMP END MASTER
 !$OMP BARRIER
 !$    IF (is_left .AND. do_symmetry) THEN
@@ -901,7 +927,7 @@ CONTAINS
 !$    ENDIF
       !
       ! Arrange data in the local buffers in images
-      data_buffer_p => buffer%data(1)
+      data_buffer_p => buffer%data
       meta_buffer_p => buffer%meta
       DO ui = 1, nimages
          ! Check for empty images
@@ -916,11 +942,11 @@ CONTAINS
                ! Copy meta, block by block
                DO blk = recv_displs(imeta, ithread, ui, dst_proc), &
                         recv_displs(imeta, ithread, ui, dst_proc)+recv_sizes(imeta, ithread, ui, dst_proc)-1, 3
-                  stored_row = local_g2l_map_rows(meta_recv(blk))
-                  stored_col = local_g2l_map_cols(meta_recv(blk+1))
+                  stored_row = local_g2l_map_rows(make_buffers_meta_recv(blk))
+                  stored_col = local_g2l_map_cols(make_buffers_meta_recv(blk+1))
                   meta_buffer_p(offset_threads(imeta, ithread, ui)) = stored_row
                   meta_buffer_p(offset_threads(imeta, ithread, ui)+1) = stored_col
-                  meta_buffer_p(offset_threads(imeta, ithread, ui)+2) = meta_recv(blk+2)+ &
+                  meta_buffer_p(offset_threads(imeta, ithread, ui)+2) = make_buffers_meta_recv(blk+2)+ &
                                                                         offset_threads(idata, ithread, ui)
                   offset_threads(imeta, ithread, ui) = offset_threads(imeta, ithread, ui)+3
                   ! Count the maximum possible multiplies per row for on-the-fly filtering
@@ -934,7 +960,7 @@ CONTAINS
                CALL dbcsr_data_set(data_buffer_p, &
                                    offset_threads(idata, ithread, ui)+local_images_displ(idata, ui)+1, &
                                    recv_sizes(idata, ithread, ui, dst_proc), &
-                                   data_recv, recv_displs(idata, ithread, ui, dst_proc))
+                                   make_buffers_data_recv, recv_displs(idata, ithread, ui, dst_proc))
                offset_threads(idata, ithread, ui) = offset_threads(idata, ithread, ui)+ &
                                                     recv_sizes(idata, ithread, ui, dst_proc)
             ENDIF
@@ -958,8 +984,6 @@ CONTAINS
          CALL mp_isum(do_win_create, buffer%subgrp, requests_win_create(irequests))
       ENDIF
       !
-      CALL dbcsr_data_release(data_recv)
-      CALL memory_deallocate(meta_recv, memtype_mpi_buffer)
       IF (is_left) THEN
          NULLIFY (local_g2l_map_rows)
          DEALLOCATE (local_g2l_map_cols)
@@ -1123,9 +1147,14 @@ CONTAINS
 
 ! **************************************************************************************************
 !> \brief Release communicators for 3D layers for C-reduction
+!> \param release_buffers ...
 !> \author Alfio Lazzaro
 ! **************************************************************************************************
-   SUBROUTINE release_layers_3D_C_reduction()
+   SUBROUTINE release_layers_3D_C_reduction(release_buffers)
+      LOGICAL, OPTIONAL                                  :: release_buffers
+
+      INTEGER                                            :: ibuff
+
       layers_3D_C_reduction%grp = mp_comm_null
       IF (layers_3D_C_reduction%rowgrp3D .NE. mp_comm_null) CALL mp_comm_free(layers_3D_C_reduction%rowgrp3D)
       IF (layers_3D_C_reduction%grp3D .NE. mp_comm_null) CALL mp_comm_free(layers_3D_C_reduction%grp3D)
@@ -1133,6 +1162,15 @@ CONTAINS
       layers_3D_C_reduction%grp3D = mp_comm_null
       layers_3D_C_reduction%num_layers_3D = 1
       layers_3D_C_reduction%side3D = HUGE(1)
+
+      IF (PRESENT(release_buffers)) THEN
+         IF (release_buffers .AND. ALLOCATED(layers_3D_C_reduction%data_red3D)) THEN
+            DO ibuff = 1, SIZE(layers_3D_C_reduction%data_red3D)
+               CALL dbcsr_data_release(layers_3D_C_reduction%data_red3D(ibuff))
+            ENDDO
+            DEALLOCATE (layers_3D_C_reduction%data_red3D)
+         ENDIF
+      ENDIF
    END SUBROUTINE release_layers_3D_C_reduction
 
 ! **************************************************************************************************
@@ -1169,56 +1207,60 @@ CONTAINS
 
       INTEGER :: blk, data_type, data_type_byte, final_step_k, grp_left, grp_right, handle, &
          handle1, handle2, icol3D, icol3D_send, ileft_buffer_calc, ileft_buffer_comm, &
-         iright_buffer_calc, iright_buffer_comm, irow3D, irow3D_send, istep_k, istep_k_ordered, &
-         ithread, ivirt_k, last_step_k, left_col_mult, left_col_nimages, left_col_total_nimages, &
+         iright_buffer_calc, iright_buffer_comm, irow3D, irow3D_send, istep_k_ordered, ithread, &
+         ivirt_k, last_step_k, left_col_mult, left_col_nimages, left_col_total_nimages, &
          left_max_data_size, left_max_meta_size, left_myfirstvcol, left_myfirstvrow, left_mypcol, &
          left_myprow, left_npcols, left_nprows, left_row_mult, left_row_nimages, &
-         leftovers_first_k, leftovers_k, leftovers_shift_k, leftovers_start_k, min_nimages, mycol3D
-      INTEGER :: mypcol, myprow, myrank3D, myrow3D, myt, nblkrows_local, nbuffers, nbuffers_norms, &
-         ncols3D, nranks3D, nrows3D, nthreads, numnodes, nvirt_k, proc3D_recv, proc3D_send, &
-         recv_vcol, recv_vrow, request_epss, request_keep_sparsity, right_col_mult, &
-         right_col_nimages, right_max_data_size, right_max_meta_size, right_myfirstvcol, &
-         right_myfirstvrow, right_mypcol, right_myprow, right_npcols, right_nprows, &
-         right_row_mult, right_row_nimages, right_row_total_nimages, row, shift3D, shift3D_recv, &
+         leftovers_first_k, leftovers_k, leftovers_shift_k, leftovers_start_k, min_nimages, &
+         mycol3D, mypcol, myprow
+      INTEGER :: myrank3D, myrow3D, myt, nblkrows_local, nbuffers, nbuffers_norms, ncols3D, &
+         nranks3D, nrows3D, nthreads, numnodes, nvirt_k, proc3D_recv, proc3D_send, recv_vcol, &
+         recv_vrow, request_epss, request_keep_sparsity, right_col_mult, right_col_nimages, &
+         right_max_data_size, right_max_meta_size, right_myfirstvcol, right_myfirstvrow, &
+         right_mypcol, right_myprow, right_npcols, right_nprows, right_row_mult, &
+         right_row_nimages, right_row_total_nimages, row, shift3D, shift3D_comm, shift3D_recv, &
          size_guess, size_guess_init, start_k, start_k_ordered, v_ki
       INTEGER(KIND=int_8)                                :: mem
-      INTEGER, ALLOCATABLE, DIMENSION(:)                 :: left_vrow, product_matrix_epss_displ, &
-                                                            product_matrix_epss_size, &
-                                                            product_matrix_meta, right_vcol
+      INTEGER, ALLOCATABLE, DIMENSION(:) :: left_vrow, product_matrix_epss_displ, &
+         product_matrix_epss_size, product_matrix_meta, product_matrix_size_recv, &
+         product_matrix_size_send, requests_reduction, right_vcol
       INTEGER, ALLOCATABLE, DIMENSION(:, :)              :: product_matrix_meta_displ, &
                                                             product_matrix_meta_size
       INTEGER, DIMENSION(2)                              :: requests_reduction_size
-      INTEGER, DIMENSION(4)                              :: requests_reduction
       INTEGER, DIMENSION(:), POINTER :: col_blk_sizes2enum, enum2col_blk_sizes, &
-         enum2row_blk_sizes, product_matrix_meta_recv, product_matrix_meta_send, row_blk_sizes2enum
+         enum2row_blk_sizes, k_sizes, product_matrix_meta_recv, product_matrix_meta_send, &
+         row_blk_sizes2enum
       INTEGER, DIMENSION(:, :, :), POINTER               :: left_displ_layers3D, &
                                                             left_images_size_layers3D, &
                                                             right_displ_layers3D, &
                                                             right_images_size_layers3D
       INTEGER, DIMENSION(dbcsr_slot_nblkrows_total:&
          dbcsr_slot_nfullcols_local)                     :: left_global_indices, right_global_indices
-      INTEGER, DIMENSION(idata:imeta)                    :: product_matrix_size_recv, &
-                                                            product_matrix_size_send
+      INTEGER, POINTER                                   :: istep_k_comm
+      INTEGER, TARGET                                    :: istep_k, istep_k_comm_curr
       LOGICAL                                            :: do_layers3D, do_square_layers3D, &
-                                                            first_k, first_v_k, keep_sparsity, &
-                                                            otf_filtering
+                                                            first_k, first_v_k, is_not_comm, &
+                                                            keep_sparsity, otf_filtering
       LOGICAL, ALLOCATABLE, DIMENSION(:)                 :: do_comm_left, do_comm_right
       REAL(kind=sp)                                      :: filter_eps_sp
       REAL(kind=sp), ALLOCATABLE, DIMENSION(:), TARGET   :: row_max_epss
       REAL(kind=sp), ALLOCATABLE, DIMENSION(:, :)        :: left_norms, right_norms
       REAL(kind=sp), DIMENSION(:), POINTER               :: product_matrix_epss
       TYPE(dbcsr_2d_array_obj)                           :: product_matrix3D
+      TYPE(dbcsr_buffer), ALLOCATABLE, DIMENSION(:), &
+         TARGET                                          :: left_buffers, right_buffers
       TYPE(dbcsr_buffer), POINTER                        :: left_buffer_p, right_buffer_p
-      TYPE(dbcsr_buffer_p), ALLOCATABLE, DIMENSION(:)    :: left_buffers, right_buffers
       TYPE(dbcsr_data_obj)                               :: data_get, data_send
       TYPE(dbcsr_mm_multrec_type_p), ALLOCATABLE, &
          DIMENSION(:, :, :)                              :: multrec
       TYPE(dbcsr_mp_obj)                                 :: left_mp_obj, product_mp_obj, right_mp_obj
+      TYPE(mn_local_sizes), ALLOCATABLE, DIMENSION(:)    :: m_sizes, n_sizes
 
       CALL timeset(routineN, handle)
       !
       NULLIFY (row_blk_sizes2enum, enum2row_blk_sizes)
       NULLIFY (col_blk_sizes2enum, enum2col_blk_sizes)
+      NULLIFY (k_sizes)
       !
       IF (PRESENT(retain_sparsity)) THEN
          keep_sparsity = retain_sparsity
@@ -1437,19 +1479,17 @@ CONTAINS
       ! update capacity of memory-pools
       IF (ASSOCIATED(memtype_abpanel_1%pool)) &
          CALL dbcsr_mempool_limit_capacity(memtype_abpanel_1%pool, &
-                                           capacity=nbuffers)
+                                           capacity=2)
       IF (ASSOCIATED(memtype_abpanel_2%pool)) &
          CALL dbcsr_mempool_limit_capacity(memtype_abpanel_2%pool, &
-                                           capacity=nbuffers)
+                                           capacity=2)
       IF (has_acc) THEN
-         CALL dbcsr_mempool_limit_capacity(memtype_trsbuffer_1%pool, &
-                                           capacity=nbuffers/2+MOD(nbuffers, 2))
-         CALL dbcsr_mempool_limit_capacity(memtype_trsbuffer_2%pool, &
-                                           capacity=nbuffers/2+MOD(nbuffers, 2))
          ! enumerate the blocksizes to keep the following 2D-arrays small.
          CALL enumerate_blk_sizes(dbcsr_row_block_sizes(matrix_right), &
+                                  dbcsr_max_row_size(matrix_right), &
                                   row_blk_sizes2enum, enum2row_blk_sizes)
          CALL enumerate_blk_sizes(dbcsr_col_block_sizes(matrix_right), &
+                                  dbcsr_max_col_size(matrix_right), &
                                   col_blk_sizes2enum, enum2col_blk_sizes)
       ENDIF
       IF (nranks3D .GT. 1) THEN
@@ -1491,12 +1531,14 @@ CONTAINS
       !
       CALL setup_buffers(buffers_1%right, buffers_2%right, &
                          right_buffers, nbuffers, &
-                         right_max_meta_size, matrix_right, &
-                         imgdist_right)
+                         right_max_data_size, &
+                         right_max_meta_size, &
+                         matrix_right, imgdist_right)
       CALL setup_buffers(buffers_1%left, buffers_2%left, &
                          left_buffers, nbuffers, &
-                         left_max_meta_size, matrix_left, &
-                         imgdist_left)
+                         left_max_data_size, &
+                         left_max_meta_size, &
+                         matrix_left, imgdist_left)
       !
       ! Setup the receive data pointers
       CALL dbcsr_data_init(data_get)
@@ -1504,6 +1546,27 @@ CONTAINS
       IF (do_layers3D) THEN
          CALL dbcsr_data_init(data_send)
          CALL dbcsr_data_new(data_send, data_type)
+         ! Prepare buffers for 3D reduction
+         IF (ALLOCATED(layers_3D_C_reduction%data_red3D)) THEN
+            IF (SIZE(layers_3D_C_reduction%data_red3D) .LT. nthreads .OR. &
+                layers_3D_C_reduction%data_type .NE. data_type) THEN
+               DO myt = 1, SIZE(layers_3D_C_reduction%data_red3D)
+                  CALL dbcsr_data_release(layers_3D_C_reduction%data_red3D(myt))
+               ENDDO
+               DEALLOCATE (layers_3D_C_reduction%data_red3D)
+               layers_3D_C_reduction%data_type = 0
+            ENDIF
+         ENDIF
+         IF (.NOT. ALLOCATED(layers_3D_C_reduction%data_red3D)) THEN
+            ALLOCATE (layers_3D_C_reduction%data_red3D(nthreads))
+            DO myt = 1, nthreads
+               CALL dbcsr_data_init(layers_3D_C_reduction%data_red3D(myt))
+               CALL dbcsr_data_new(layers_3D_C_reduction%data_red3D(myt), data_type)
+            ENDDO
+            layers_3D_C_reduction%data_type = data_type
+         ENDIF
+         ALLOCATE (product_matrix_size_send(nthreads+1), product_matrix_size_recv(nthreads+1))
+         ALLOCATE (requests_reduction((nthreads+1)*2))
       ENDIF
       !
       ! These values for meta data are used for global values
@@ -1585,17 +1648,20 @@ CONTAINS
       ileft_buffer_comm = 0
       ALLOCATE (do_comm_right(ncols3D), do_comm_left(nrows3D))
       ALLOCATE (right_vcol(ncols3D), left_vrow(nrows3D))
+      ALLOCATE (m_sizes(nrows3D), n_sizes(ncols3D))
       irow3D_send = 0
       icol3D_send = 0
       first_k = .TRUE.
       first_v_k = .TRUE.
+      istep_k_comm_curr = leftovers_first_k
+      istep_k_comm => istep_k_comm_curr
       grouped_steps_index: DO istep_k = leftovers_first_k, last_step_k
          !
          ! Wait data.  Exclude the first interation.
          wait: IF (istep_k .GT. leftovers_first_k) THEN
             IF (debug_mod) WRITE (*, '(1X,A)') routineN//" waiting for right and left"
-            right_buffer_p => right_buffers(iright_buffer_calc)%b
-            left_buffer_p => left_buffers(ileft_buffer_calc)%b
+            right_buffer_p => right_buffers(iright_buffer_calc)
+            left_buffer_p => left_buffers(ileft_buffer_calc)
             IF (right_buffer_p%is_comm .AND. left_buffer_p%is_comm) THEN
                ! check if right matrix was already initialized
                IF (.NOT. right_buffer_p%matrix%valid) THEN
@@ -1613,20 +1679,21 @@ CONTAINS
          ENDIF wait
          !
          ! Matrix transfer. Transfer in all but the last loop iteration.
-         xfer: IF (istep_k .LT. last_step_k) THEN
+         shift3D_comm = shift3D
+         xfer: DO WHILE (istep_k_comm .LT. last_step_k)
             start_k_ordered = start_k
-            istep_k_ordered = istep_k
+            istep_k_ordered = istep_k_comm
             ! Put leftovers ticks always first
             IF (leftovers_k .GT. 0) THEN
-               IF (istep_k .LT. leftovers_first_k+leftovers_k) THEN
+               IF (istep_k_comm .LT. leftovers_first_k+leftovers_k) THEN
                   start_k_ordered = leftovers_start_k
                ELSE
-                  istep_k_ordered = istep_k+leftovers_shift_k
+                  istep_k_ordered = istep_k_comm+leftovers_shift_k
                ENDIF
             ENDIF
             first_k = MOD(istep_k_ordered, nranks3D) .EQ. 0
             ivirt_k = istep_k_ordered/nranks3D
-            IF (istep_k .LT. leftovers_first_k+leftovers_k) THEN
+            IF (istep_k_comm .LT. leftovers_first_k+leftovers_k) THEN
                CALL row_col_3D_reflected(irow3D, icol3D, nrows3D, ncols3D, istep_k_ordered)
             ELSE
                CALL row_col_3D_reflected(irow3D, icol3D, nrows3D, ncols3D, shift3D)
@@ -1635,13 +1702,14 @@ CONTAINS
             !
             v_ki = MOD(ivirt_k, min_nimages)
             ! Reset communication flags at the first layer
-            IF (first_k .OR. istep_k .EQ. leftovers_first_k) THEN
+            IF ((first_k .OR. istep_k_comm .EQ. leftovers_first_k) .AND. &
+                istep_k_comm .EQ. istep_k_comm_curr) THEN
                do_comm_right(:) = .TRUE.
                do_comm_left(:) = .TRUE.
             ENDIF
             ! Take first image global virtual coordinates
             IF (v_ki .EQ. 0) THEN
-               IF (istep_k .GE. leftovers_first_k+leftovers_k) first_v_k = .FALSE.
+               IF (istep_k_comm .GE. leftovers_first_k+leftovers_k) first_v_k = .FALSE.
                start_k_ordered = start_k_ordered+ivirt_k
             ENDIF
             IF (v_ki .EQ. 0 .OR. (first_v_k .AND. min_nimages .GT. 1)) THEN
@@ -1681,8 +1749,12 @@ CONTAINS
                   ileft_buffer_comm = MOD(ileft_buffer_comm, nbuffers)+1
                ENDIF
             ENDIF
-            right_buffer_p => right_buffers(iright_buffer_comm)%b
-            left_buffer_p => left_buffers(ileft_buffer_comm)%b
+            !
+            ! Exit if data are already communicated
+            IF (istep_k_comm .NE. istep_k_comm_curr) EXIT
+            !
+            right_buffer_p => right_buffers(iright_buffer_comm)
+            left_buffer_p => left_buffers(ileft_buffer_comm)
             right_buffer_p%coord3D = icol3D
             left_buffer_p%coord3D = irow3D
             !
@@ -1693,6 +1765,7 @@ CONTAINS
                right_buffer_p%is_comm = .FALSE.
             ENDIF
             !
+            is_not_comm = .TRUE.
             IF (right_images_size_layers3D(imeta, icol3D, right_buffer_p%vprow) .NE. 0) THEN
                ! First col, communicate left matrix
                IF (do_comm_left(irow3D)) THEN
@@ -1702,41 +1775,58 @@ CONTAINS
                ENDIF
                !
                IF (left_images_size_layers3D(imeta, irow3D, left_buffer_p%vpcol) .NE. 0) THEN
-                  ! Right
-                  IF (do_comm_right(icol3D)) THEN
-                     IF (has_acc) THEN
-                        CALL timeset(routineN//"_acc_sync_right", handle2)
-                        CALL acc_event_synchronize(right_buffer_p%data(1)%d%acc_ready)
-                        CALL timestop(handle2)
+                  ! Check if data is already communicated
+                  is_not_comm = do_comm_right(icol3D) .OR. do_comm_left(irow3D)
+                  IF (is_not_comm) THEN
+                     ! Right
+                     IF (do_comm_right(icol3D)) THEN
+                        IF (has_acc) THEN
+                           CALL timeset(routineN//"_acc_sync_right", handle2)
+                           CALL acc_event_synchronize(right_buffer_p%data%d%acc_ready)
+                           CALL timestop(handle2)
+                        ENDIF
+                        !
+                        do_comm_right(icol3D) = .FALSE.
+                        CALL rma_transfer(right_buffer_p%vprow, right_row_nimages, &
+                                          right_images_size_layers3D(:, icol3D, right_buffer_p%vprow), &
+                                          right_displ_layers3D(:, icol3D, right_buffer_p%vprow), &
+                                          right_buffer_p, &
+                                          buffers_win%right%meta_win, buffers_win%right%data_win, &
+                                          data_get, data_type_byte, buffers_win%right, icol3D, ncols3D)
                      ENDIF
-                     !
-                     do_comm_right(icol3D) = .FALSE.
-                     CALL rma_transfer(right_buffer_p%vprow, right_row_nimages, &
-                                       right_images_size_layers3D(:, icol3D, right_buffer_p%vprow), &
-                                       right_displ_layers3D(:, icol3D, right_buffer_p%vprow), &
-                                       right_buffer_p, &
-                                       buffers_win%right%meta_win, buffers_win%right%data_win, &
-                                       data_get, data_type_byte, buffers_win%right, icol3D, ncols3D)
-                  ENDIF
-                  ! Left
-                  IF (do_comm_left(irow3D)) THEN
-                     IF (has_acc) THEN
-                        CALL timeset(routineN//"_acc_sync_left", handle2)
-                        CALL acc_event_synchronize(left_buffer_p%data(1)%d%acc_ready)
-                        CALL timestop(handle2)
+                     ! Left
+                     IF (do_comm_left(irow3D)) THEN
+                        IF (has_acc) THEN
+                           CALL timeset(routineN//"_acc_sync_left", handle2)
+                           CALL acc_event_synchronize(left_buffer_p%data%d%acc_ready)
+                           CALL timestop(handle2)
+                        ENDIF
+                        !
+                        do_comm_left(irow3D) = .FALSE.
+                        CALL rma_transfer(left_buffer_p%vpcol, left_col_nimages, &
+                                          left_images_size_layers3D(:, irow3D, left_buffer_p%vpcol), &
+                                          left_displ_layers3D(:, irow3D, left_buffer_p%vpcol), &
+                                          left_buffer_p, &
+                                          buffers_win%left%meta_win, buffers_win%left%data_win, &
+                                          data_get, data_type_byte, buffers_win%left, irow3D, nrows3D)
                      ENDIF
-                     !
-                     do_comm_left(irow3D) = .FALSE.
-                     CALL rma_transfer(left_buffer_p%vpcol, left_col_nimages, &
-                                       left_images_size_layers3D(:, irow3D, left_buffer_p%vpcol), &
-                                       left_displ_layers3D(:, irow3D, left_buffer_p%vpcol), &
-                                       left_buffer_p, &
-                                       buffers_win%left%meta_win, buffers_win%left%data_win, &
-                                       data_get, data_type_byte, buffers_win%left, irow3D, nrows3D)
                   ENDIF
                ENDIF
             ENDIF
-         ENDIF xfer
+            !
+            istep_k_comm_curr = istep_k_comm_curr+1
+            ! Stop looping when data is communicated
+            ! Only works for 4 layers
+            IF (is_not_comm .OR. nranks3D .NE. 4) THEN
+               istep_k_comm => istep_k
+               IF ((istep_k_comm+1) .EQ. istep_k_comm_curr) EXIT
+               ! Restore coordinates by looping once again
+               shift3D = shift3D_comm
+               CYCLE
+            ENDIF
+            ! Keep looping until it starts a new communication (only for 4 layers)
+            istep_k_comm => istep_k_comm_curr
+         ENDDO xfer
          !
          ! Create matrices and multrec's, only the first occurrence
          IF (.NOT. ASSOCIATED(product_matrix3D%mats(irow3D, icol3D)%matrix)) THEN
@@ -1771,6 +1861,21 @@ CONTAINS
                CALL dbcsr_repoint_index(product_matrix3D%mats(irow3D, icol3D)%matrix)
             ENDIF
             !
+            IF (.NOT. ASSOCIATED(m_sizes(irow3D)%sizes)) THEN
+               ALLOCATE (m_sizes(irow3D)%sizes(dbcsr_nblkrows_local(product_matrix3D%mats(irow3D, icol3D)%matrix)))
+               CALL local_filter(array_data(product_matrix3D%mats(irow3D, icol3D)%matrix%row_blk_size), &
+                                 array_size(product_matrix3D%mats(irow3D, icol3D)%matrix%local_rows), &
+                                 array_data(product_matrix3D%mats(irow3D, icol3D)%matrix%local_rows), &
+                                 m_sizes(irow3D)%sizes)
+            ENDIF
+            IF (.NOT. ASSOCIATED(n_sizes(icol3D)%sizes)) THEN
+               ALLOCATE (n_sizes(icol3D)%sizes(dbcsr_nblkcols_local(product_matrix3D%mats(irow3D, icol3D)%matrix)))
+               CALL local_filter(array_data(product_matrix3D%mats(irow3D, icol3D)%matrix%col_blk_size), &
+                                 array_size(product_matrix3D%mats(irow3D, icol3D)%matrix%local_cols), &
+                                 array_data(product_matrix3D%mats(irow3D, icol3D)%matrix%local_cols), &
+                                 n_sizes(icol3D)%sizes)
+            ENDIF
+            !
 !$OMP PARALLEL DEFAULT(NONE) &
 !$OMP          PRIVATE (size_guess, ithread) &
 !$OMP          SHARED (product_matrix3D, multrec, &
@@ -1779,7 +1884,7 @@ CONTAINS
 !$OMP                  matrix_right, matrix_left, nthreads, &
 !$OMP                  irow3D, icol3D, myrow3D, mycol3D, keep_product_data, &
 !$OMP                  product_matrix_epss_displ, product_matrix_epss_size, &
-!$OMP                  memtype_product_wm, size_guess_init, nranks3D)
+!$OMP                  memtype_product_wm, size_guess_init, nranks3D, m_sizes, n_sizes)
             !
             ! Setup product work areas
             !
@@ -1796,8 +1901,7 @@ CONTAINS
 !$OMP BARRIER
             ENDIF
             ! The work arrays have to be setup
-            size_guess = product_matrix3D%mats(irow3D, icol3D)% &
-                         matrix%wms(ithread+1)%datasize ! Should be minimal
+            size_guess = product_matrix3D%mats(irow3D, icol3D)%matrix%wms(ithread+1)%datasize ! Should be minimal
             IF (.NOT. keep_sparsity) THEN
                size_guess = MAX(size_guess, size_guess_init)
             ENDIF
@@ -1824,6 +1928,7 @@ CONTAINS
                                                                         product_matrix_epss_size(irow3D)), &
                                        block_estimate=0, &
                                        right_row_blk_size=dbcsr_row_block_sizes(matrix_right), &
+                                       m_sizes=m_sizes(irow3D)%sizes, n_sizes=n_sizes(icol3D)%sizes, &
                                        nlayers=nranks3D)
 !$OMP END PARALLEL
             !
@@ -1836,19 +1941,18 @@ CONTAINS
          !
          ! Do the multiplication.  Exclude the first interation.
          calc: IF (istep_k .GT. leftovers_first_k) THEN
-            right_buffer_p => right_buffers(iright_buffer_calc)%b
-            left_buffer_p => left_buffers(ileft_buffer_calc)%b
+            right_buffer_p => right_buffers(iright_buffer_calc)
+            left_buffer_p => left_buffers(ileft_buffer_calc)
             irow3D = left_buffer_p%coord3D
             icol3D = right_buffer_p%coord3D
             IF (istep_k .GT. final_step_k) THEN
 !$OMP PARALLEL DEFAULT (NONE) &
 !$OMP SHARED (multrec, irow3D, icol3D, irow3D_send, icol3D_send, &
 !$OMP         istep_k, final_step_k, product_matrix3D, &
-!$OMP         handle2, requests_reduction_size, &
+!$OMP         handle2, requests_reduction_size, nthreads, &
 !$OMP         product_matrix_meta_send, product_matrix_meta_recv, &
 !$OMP         product_matrix_size_send, product_matrix_size_recv, &
-!$OMP         buffers_win, memtype_mpi_buffer, &
-!$OMP         data_send, data_get, proc3D_send, proc3D_recv, &
+!$OMP         buffers_win, data_send, data_get, proc3D_send, proc3D_recv, &
 !$OMP         layers_3D_C_reduction, requests_reduction, &
 !$OMP         dbcsr_mpi_statistics, data_type_byte) &
 !$OMP PRIVATE (ithread)
@@ -1859,48 +1963,47 @@ CONTAINS
                IF (istep_k .GT. final_step_k+1) THEN
                   CALL dbcsr_mm_multrec_finalize( &
                      multrec(ithread, irow3D_send, icol3D_send)%p, &
-                     buffers_win%left%meta_red3D, &
-                     buffers_win%left%data_red3D)
-                  DEALLOCATE (multrec(ithread, irow3D_send, icol3D_send)%p)
-                  CALL dbcsr_work_destroy( &
-                     product_matrix3D%mats(irow3D_send, icol3D_send)%matrix%wms(ithread+1))
+                     buffers_win%left%meta_red3D)
 !$OMP BARRIER
 !$OMP MASTER
-                  DEALLOCATE (product_matrix3D%mats(irow3D_send, icol3D_send)%matrix%wms)
                   CALL timeset(routineN//"_red3D_size", handle2)
                   CALL mp_waitall(requests_reduction_size)
                   CALL timestop(handle2)
                   CALL ensure_array_size(buffers_win%right%meta_red3D, &
-                                         ub=product_matrix_size_recv(imeta), &
-                                         nocopy=.TRUE., memory_type=memtype_mpi_buffer)
+                                         ub=product_matrix_size_recv(1), &
+                                         nocopy=.TRUE.)
                   product_matrix_meta_send => &
-                     buffers_win%left%meta_red3D(1:product_matrix_size_send(imeta))
+                     buffers_win%left%meta_red3D(1:product_matrix_size_send(1))
                   product_matrix_meta_recv => &
-                     buffers_win%right%meta_red3D(1:product_matrix_size_recv(imeta))
+                     buffers_win%right%meta_red3D(1:product_matrix_size_recv(1))
                   CALL mp_isendrecv(product_matrix_meta_send, proc3D_send, &
                                     product_matrix_meta_recv, proc3D_recv, &
                                     layers_3D_C_reduction%grp3D, &
                                     requests_reduction(1), requests_reduction(2))
-                  CALL dbcsr_data_ensure_size(buffers_win%right%data_red3D, &
-                                              product_matrix_size_recv(idata), &
-                                              nocopy=.TRUE.)
-                  CALL dbcsr_data_set_pointer( &
-                     area=data_send, &
-                     rsize=product_matrix_size_send(idata), &
-                     csize=1, &
-                     pointee=buffers_win%left%data_red3D)
-                  CALL dbcsr_data_set_pointer( &
-                     area=data_get, &
-                     rsize=product_matrix_size_recv(idata), &
-                     csize=1, &
-                     pointee=buffers_win%right%data_red3D)
-                  CALL dbcsr_isendrecv_any(data_send, proc3D_send, &
-                                           data_get, proc3D_recv, &
-                                           layers_3D_C_reduction%grp3D, &
-                                           requests_reduction(3), requests_reduction(4))
-                  CALL count_mpi_statistics(dbcsr_mpi_statistics%data_size(1, :), &
-                                            product_matrix_size_send(idata), &
-                                            dbcsr_mpi_statistics%data_size_breakdown(:, :, 1), data_type_byte)
+                  DO myt = 1, nthreads
+                     CALL dbcsr_data_ensure_size(layers_3D_C_reduction%data_red3D(myt), &
+                                                 product_matrix_size_recv(myt+1), &
+                                                 nocopy=.TRUE.)
+                     CALL dbcsr_data_set_pointer( &
+                        area=data_send, &
+                        rsize=product_matrix_size_send(myt+1), &
+                        csize=1, &
+                        pointee=product_matrix3D%mats(irow3D_send, icol3D_send)%matrix%wms(myt)%data_area)
+                     CALL dbcsr_data_set_pointer( &
+                        area=data_get, &
+                        rsize=product_matrix_size_recv(myt+1), &
+                        csize=1, &
+                        pointee=layers_3D_C_reduction%data_red3D(myt))
+                     CALL dbcsr_isendrecv_any(data_send, proc3D_send, &
+                                              data_get, proc3D_recv, &
+                                              layers_3D_C_reduction%grp3D, &
+                                              requests_reduction(3+(myt-1)*2), &
+                                              requests_reduction(4+(myt-1)*2))
+                     CALL count_mpi_statistics(dbcsr_mpi_statistics%data_size(1, :), &
+                                               product_matrix_size_send(myt+1), &
+                                               dbcsr_mpi_statistics%data_size_breakdown(:, :, 1), &
+                                               data_type_byte)
+                  ENDDO
 !$OMP END MASTER
                ENDIF
 !$OMP END PARALLEL
@@ -1911,7 +2014,7 @@ CONTAINS
                ileft_buffer_calc = MIN(ileft_buffer_calc, nbuffers_norms)
                ! check if right matrix was already initialized
                IF (.NOT. right_buffer_p%matrix%valid) THEN
-                  IF (has_acc) CALL dbcsr_data_host2dev(right_buffer_p%data(1))
+                  IF (has_acc) CALL dbcsr_data_host2dev(right_buffer_p%data)
                   ! Repoint indices of matrices
                   CALL make_meta(right_buffer_p, &
                                  right_row_total_nimages, &
@@ -1919,20 +2022,28 @@ CONTAINS
                                  right_buffer_p%vpcol, &
                                  imgdist=imgdist_right, do_merge_rows=.FALSE., &
                                  global_indices=right_global_indices)
+                  CALL ensure_array_size(k_sizes, ub=array_size(right_buffer_p%matrix%local_rows))
+                  CALL local_filter(array_data(right_buffer_p%matrix%row_blk_size), &
+                                    array_size(right_buffer_p%matrix%local_rows), &
+                                    array_data(right_buffer_p%matrix%local_rows), &
+                                    k_sizes)
                   IF (otf_filtering) THEN
                      CALL calculate_norms(right_buffer_p%matrix, &
-                                          right_norms(:, iright_buffer_calc))
+                                          right_norms(:, iright_buffer_calc), &
+                                          k_sizes, n_sizes(icol3D)%sizes)
                   ENDIF
                   IF (has_acc) THEN
                      CALL acc_transpose_blocks(right_buffer_p%matrix, &
-                                               right_buffer_p%trs_stackbuf(1), &
+                                               right_buffer_p%trs_stackbuf, &
+                                               k_sizes, n_sizes(icol3D)%sizes, &
                                                row_blk_sizes2enum, enum2row_blk_sizes, &
-                                               col_blk_sizes2enum, enum2col_blk_sizes)
+                                               col_blk_sizes2enum, enum2col_blk_sizes, &
+                                               noresize=.TRUE.)
                   ENDIF
                ENDIF
                ! check if left matrix was already initialized
                IF (.NOT. left_buffer_p%matrix%valid) THEN
-                  IF (has_acc) CALL dbcsr_data_host2dev(left_buffer_p%data(1))
+                  IF (has_acc) CALL dbcsr_data_host2dev(left_buffer_p%data)
                   ! Repoint indices of matrices
                   CALL make_meta(left_buffer_p, &
                                  left_col_total_nimages, &
@@ -1943,7 +2054,8 @@ CONTAINS
                                  nthreads=nthreads)
                   IF (otf_filtering) THEN
                      CALL calculate_norms(left_buffer_p%matrix, &
-                                          left_norms(:, ileft_buffer_calc))
+                                          left_norms(:, ileft_buffer_calc), &
+                                          m_sizes(irow3D)%sizes, k_sizes)
                   ENDIF
                ENDIF
                !
@@ -1952,7 +2064,7 @@ CONTAINS
 !$OMP SHARED (left_buffer_p, ileft_buffer_calc, &
 !$OMP         right_buffer_p, iright_buffer_calc, &
 !$OMP         left_norms,right_norms, &
-!$OMP         multrec, irow3D, icol3D, handle2) &
+!$OMP         multrec, irow3D, icol3D, handle2, k_sizes) &
 !$OMP PRIVATE (ithread) &
 !$OMP REDUCTION (+: flop)
                ithread = 0
@@ -1962,7 +2074,8 @@ CONTAINS
                                               right=right_buffer_p%matrix, &
                                               flop=flop, &
                                               a_norms=left_norms(:, ileft_buffer_calc), &
-                                              b_norms=right_norms(:, iright_buffer_calc))
+                                              b_norms=right_norms(:, iright_buffer_calc), &
+                                              k_sizes=k_sizes)
 !$OMP END PARALLEL
                CALL timestop(handle2)
             ENDIF
@@ -1973,6 +2086,12 @@ CONTAINS
                   CALL timeset(routineN//"_red3D_data", handle2)
                   CALL mp_waitall(requests_reduction)
                   CALL timestop(handle2)
+                  DO myt = 0, nthreads-1
+                     DEALLOCATE (multrec(myt, irow3D_send, icol3D_send)%p)
+                     CALL dbcsr_work_destroy( &
+                        product_matrix3D%mats(irow3D_send, icol3D_send)%matrix%wms(myt+1))
+                  ENDDO
+                  DEALLOCATE (product_matrix3D%mats(irow3D_send, icol3D_send)%matrix%wms)
                   CALL dbcsr_release(product_matrix3D%mats(irow3D_send, icol3D_send)%matrix)
                ENDIF
                irow3D_send = irow3D
@@ -2003,36 +2122,25 @@ CONTAINS
                   product_matrix3D%mats(irow3D_send, icol3D_send)%matrix%nblks = &
                      product_matrix3D%mats(irow3D_send, icol3D_send)%matrix%nblks+ &
                      dbcsr_mm_multrec_get_nblks(multrec(ithread, irow3D_send, icol3D_send)%p)
-!$OMP ATOMIC
-                  product_matrix3D%mats(irow3D_send, icol3D_send)%matrix%nze = &
-                     product_matrix3D%mats(irow3D_send, icol3D_send)%matrix%nze+ &
-                     dbcsr_mm_multrec_get_nze(multrec(ithread, irow3D_send, icol3D_send)%p)
 !$OMP BARRIER
 !$OMP MASTER
-                  ! First (nthreads+1)*2 positions are reserved for
-                  ! the offset sizes of each thread for meta and data
+                  ! First (nthreads+1) positions are reserved for
+                  ! the offset sizes of each thread for meta
                   CALL ensure_array_size(buffers_win%left%meta_red3D, &
                                          ub=product_matrix3D%mats(irow3D_send, icol3D_send)% &
-                                         matrix%nblks*3+(nthreads+1)*2, &
-                                         nocopy=.TRUE., memory_type=memtype_mpi_buffer)
-                  CALL dbcsr_data_ensure_size(buffers_win%left%data_red3D, &
-                                              product_matrix3D%mats(irow3D_send, icol3D_send)%matrix%nze, &
-                                              nocopy=.TRUE.)
+                                         matrix%nblks*3+(nthreads+1), &
+                                         nocopy=.TRUE.)
                   ! Set the offsets
-                  buffers_win%left%meta_red3D(1) = (nthreads+1)*2
-                  buffers_win%left%meta_red3D(nthreads+2) = 0
-                  DO myt = 1, nthreads
-                     buffers_win%left%meta_red3D(myt+1) = &
-                        buffers_win%left%meta_red3D(myt)+ &
-                        dbcsr_mm_multrec_get_nblks(multrec(myt-1, irow3D_send, icol3D_send)%p)*3
-                     buffers_win%left%meta_red3D(myt+nthreads+2) = &
-                        buffers_win%left%meta_red3D(myt+nthreads+1)+ &
-                        dbcsr_mm_multrec_get_nze(multrec(myt-1, irow3D_send, icol3D_send)%p)
+                  buffers_win%left%meta_red3D(1) = nthreads+1
+                  DO myt = 0, nthreads-1
+                     buffers_win%left%meta_red3D(myt+2) = &
+                        buffers_win%left%meta_red3D(myt+1)+ &
+                        dbcsr_mm_multrec_get_nblks(multrec(myt, irow3D_send, icol3D_send)%p)*3
+                     product_matrix_size_send(myt+2) = &
+                        dbcsr_mm_multrec_get_nze(multrec(myt, irow3D_send, icol3D_send)%p)
                   ENDDO
                   ! Send/recv data and meta sizes
-                  product_matrix_size_send(idata) = &
-                     buffers_win%left%meta_red3D((nthreads+1)*2)
-                  product_matrix_size_send(imeta) = &
+                  product_matrix_size_send(1) = &
                      buffers_win%left%meta_red3D(nthreads+1)
                   proc3D_send = (icol3D_send-1)*nrows3D+irow3D_send-1
                   !
@@ -2051,12 +2159,12 @@ CONTAINS
                ENDIF
                ! Reduce to the local layer
                IF (istep_k .GT. final_step_k+1) THEN
-                  IF (dbcsr_data_get_size_referenced(buffers_win%right%data_red3D) .GT. 0) THEN
+                  IF (dbcsr_data_get_size_referenced(layers_3D_C_reduction%data_red3D(ithread+1)) .GT. 0) THEN
                      CALL timeset(routineN//"_red3D", handle2)
                      CALL dbcsr_mm_multrec_red3D(multrec(ithread, myrow3D, mycol3D)%p, &
                                                  buffers_win%right%meta_red3D, &
-                                                 buffers_win%right%data_red3D, flop, &
-                                                 g2l_map_rows, g2l_map_cols)
+                                                 layers_3D_C_reduction%data_red3D(ithread+1), &
+                                                 flop, g2l_map_rows, g2l_map_cols)
                      CALL timestop(handle2)
                   ENDIF
                ENDIF
@@ -2067,8 +2175,8 @@ CONTAINS
          ! Swap temporary buffers for the first tick
          IF (do_square_layers3D .AND. first_k .AND. &
              istep_k .LT. last_step_k) THEN
-            iright_buffer_comm = right_buffers(iright_buffer_comm)%b%coord3D
-            ileft_buffer_comm = left_buffers(ileft_buffer_comm)%b%coord3D
+            iright_buffer_comm = right_buffers(iright_buffer_comm)%coord3D
+            ileft_buffer_comm = left_buffers(ileft_buffer_comm)%coord3D
             CALL swap_buffers(right_buffers(iright_buffer_comm), right_buffers(nbuffers))
             CALL swap_buffers(left_buffers(ileft_buffer_comm), left_buffers(nbuffers))
          ENDIF
@@ -2101,6 +2209,8 @@ CONTAINS
       !
       ! Deallocate 3D layers
       IF (do_layers3D) THEN
+         DEALLOCATE (product_matrix_size_send, product_matrix_size_recv)
+         DEALLOCATE (requests_reduction)
          DO icol3D = 1, ncols3D
             DO irow3D = 1, nrows3D
                IF (irow3D .NE. myrow3D .OR. icol3D .NE. mycol3D) THEN
@@ -2125,24 +2235,43 @@ CONTAINS
       DEALLOCATE (g2l_map_rows, g2l_map_cols)
       CALL dbcsr_finalize(product_matrix)
       !
+      DO irow3D = 1, nrows3D
+         DEALLOCATE (m_sizes(irow3D)%sizes)
+      ENDDO
+      DEALLOCATE (m_sizes)
+      DO icol3D = 1, ncols3D
+         DEALLOCATE (n_sizes(icol3D)%sizes)
+      ENDDO
+      DEALLOCATE (n_sizes)
+      IF (ASSOCIATED(k_sizes)) DEALLOCATE (k_sizes)
+      !
       CALL dbcsr_data_clear_pointer(data_get)
       CALL dbcsr_data_release(data_get)
       !
       ! clean-up of communication buffers
-      DO ileft_buffer_comm = 1, nbuffers
-         DEALLOCATE (left_buffers(ileft_buffer_comm)%b%data)
-         NULLIFY (left_buffers(ileft_buffer_comm)%b%matrix%index)
-         CALL dbcsr_release(left_buffers(ileft_buffer_comm)%b%matrix)
-         DEALLOCATE (left_buffers(ileft_buffer_comm)%b)
-      ENDDO
-      DO iright_buffer_comm = 1, nbuffers
-         DEALLOCATE (right_buffers(iright_buffer_comm)%b%data)
-         NULLIFY (right_buffers(iright_buffer_comm)%b%matrix%index)
-         CALL dbcsr_release(right_buffers(iright_buffer_comm)%b%matrix)
-         IF (has_acc) THEN
-            DEALLOCATE (right_buffers(iright_buffer_comm)%b%trs_stackbuf)
+      DO v_ki = 1, nbuffers
+         CALL dbcsr_data_clear_pointer(left_buffers(v_ki)%data)
+         IF (left_buffers(v_ki)%data%d%memory_type%acc_devalloc) THEN
+            CALL acc_event_destroy(left_buffers(v_ki)%data%d%acc_ready)
          ENDIF
-         DEALLOCATE (right_buffers(iright_buffer_comm)%b)
+         CALL dbcsr_data_release(left_buffers(v_ki)%data)
+         NULLIFY (left_buffers(v_ki)%matrix%index)
+         CALL dbcsr_release(left_buffers(v_ki)%matrix)
+         !
+         CALL dbcsr_data_clear_pointer(right_buffers(v_ki)%data)
+         IF (right_buffers(v_ki)%data%d%memory_type%acc_devalloc) THEN
+            CALL acc_event_destroy(right_buffers(v_ki)%data%d%acc_ready)
+         ENDIF
+         CALL dbcsr_data_release(right_buffers(v_ki)%data)
+         NULLIFY (right_buffers(v_ki)%matrix%index)
+         CALL dbcsr_release(right_buffers(v_ki)%matrix)
+         IF (has_acc) THEN
+            CALL dbcsr_data_clear_pointer(right_buffers(v_ki)%trs_stackbuf)
+            IF (right_buffers(v_ki)%trs_stackbuf%d%memory_type%acc_devalloc) THEN
+               CALL acc_event_destroy(right_buffers(v_ki)%trs_stackbuf%d%acc_ready)
+            ENDIF
+            CALL dbcsr_data_release(right_buffers(v_ki)%trs_stackbuf)
+         ENDIF
       ENDDO
       DEALLOCATE (left_buffers, right_buffers)
       DEALLOCATE (do_comm_left, do_comm_right)
@@ -2202,7 +2331,7 @@ CONTAINS
       ENDIF
       !
       IF (do_win_create(1)) THEN
-         CALL dbcsr_win_create_any(buffer%data(1), buffer%subgrp, buffer%data_win)
+         CALL dbcsr_win_create_any(buffer%data, buffer%subgrp, buffer%data_win)
          CALL mp_win_lock_all(buffer%data_win)
       ENDIF
       IF (do_win_create(2)) THEN
@@ -2241,51 +2370,68 @@ CONTAINS
 !> \param buffer_2 ...
 !> \param buffers ...
 !> \param nbuffers ...
+!> \param data_size ...
 !> \param meta_size ...
 !> \param matrix ...
 !> \param imgdist ...
 !> \author Alfio Lazzaro
 ! **************************************************************************************************
-   SUBROUTINE setup_buffers(buffer_1, buffer_2, buffers, nbuffers, meta_size, matrix, imgdist)
-      TYPE(dbcsr_buffer), INTENT(INOUT)                  :: buffer_1, buffer_2
-      TYPE(dbcsr_buffer_p), ALLOCATABLE, DIMENSION(:), &
+   SUBROUTINE setup_buffers(buffer_1, buffer_2, buffers, nbuffers, data_size, meta_size, matrix, imgdist)
+      TYPE(dbcsr_buffer), INTENT(INOUT), TARGET          :: buffer_1, buffer_2
+      TYPE(dbcsr_buffer), ALLOCATABLE, DIMENSION(:), &
          INTENT(INOUT)                                   :: buffers
-      INTEGER, INTENT(IN)                                :: nbuffers, meta_size
+      INTEGER, INTENT(IN)                                :: nbuffers, data_size, meta_size
       TYPE(dbcsr_type), INTENT(IN)                       :: matrix
       TYPE(dbcsr_imagedistribution_obj), INTENT(INOUT)   :: imgdist
 
       INTEGER                                            :: ibuffer, jbuffer
-      LOGICAL                                            :: has_trs_stackbuff
+      INTEGER, DIMENSION(:), POINTER                     :: meta_p
+      LOGICAL                                            :: has_trs_stackbuf
+      TYPE(dbcsr_buffer), POINTER                        :: buffer_p
 
       ALLOCATE (buffers(nbuffers))
-      has_trs_stackbuff = ALLOCATED(buffer_1%trs_stackbuf) .OR. ALLOCATED(buffer_2%trs_stackbuf)
+      has_trs_stackbuf = dbcsr_data_valid(buffer_1%trs_stackbuf) .OR. dbcsr_data_valid(buffer_2%trs_stackbuf)
       DO ibuffer = 1, nbuffers
-         ALLOCATE (buffers(ibuffer)%b)
-         ALLOCATE (buffers(ibuffer)%b%data(1))
-         IF (has_trs_stackbuff) THEN
-            ALLOCATE (buffers(ibuffer)%b%trs_stackbuf(1))
-         ENDIF
          jbuffer = (ibuffer-1)/2
          IF (MOD(ibuffer, 2) .EQ. 1) THEN
-            buffers(ibuffer)%b%data(1) = buffer_1%data(jbuffer+1)
-            buffers(ibuffer)%b%meta => &
-               buffer_1%meta(meta_size*jbuffer+1: &
-                             meta_size*(jbuffer+1))
-            IF (has_trs_stackbuff) THEN
-               buffers(ibuffer)%b%trs_stackbuf(1) = buffer_1%trs_stackbuf(jbuffer+1)
-            ENDIF
+            buffer_p => buffer_1
          ELSE
-            buffers(ibuffer)%b%data(1) = buffer_2%data(jbuffer+1)
-            buffers(ibuffer)%b%meta => &
-               buffer_2%meta(meta_size*jbuffer+1: &
-                             meta_size*(jbuffer+1))
-            IF (has_trs_stackbuff) THEN
-               buffers(ibuffer)%b%trs_stackbuf(1) = buffer_2%trs_stackbuf(jbuffer+1)
-            ENDIF
+            buffer_p => buffer_2
          ENDIF
-         CALL setup_buffer_matrix_image(buffers(ibuffer)%b%matrix, imgdist, matrix, &
-                                        buffers(ibuffer)%b%data(1), &
-                                        buffers(ibuffer)%b%meta)
+         ! Use slices for the 3D buffers
+         CALL dbcsr_data_init(buffers(ibuffer)%data)
+         CALL dbcsr_data_new(buffers(ibuffer)%data, dbcsr_data_get_type(buffer_p%data), &
+                             memory_type=dbcsr_data_get_memory_type(buffer_p%data))
+         IF (buffers(ibuffer)%data%d%memory_type%acc_devalloc) THEN
+            CALL acc_event_create(buffers(ibuffer)%data%d%acc_ready)
+         ENDIF
+         CALL dbcsr_data_set_pointer( &
+            area=buffers(ibuffer)%data, &
+            rsize=data_size, &
+            csize=1, &
+            pointee=buffer_p%data, &
+            source_lb=data_size*jbuffer+1)
+         ! Use meta_p pointer to avoid warning target-lifetime
+         meta_p => buffer_p%meta(meta_size*jbuffer+1: &
+                                 meta_size*(jbuffer+1))
+         buffers(ibuffer)%meta => meta_p
+         IF (has_trs_stackbuf) THEN
+            CALL dbcsr_data_init(buffers(ibuffer)%trs_stackbuf)
+            CALL dbcsr_data_new(buffers(ibuffer)%trs_stackbuf, dbcsr_data_get_type(buffer_p%trs_stackbuf), &
+                                memory_type=dbcsr_data_get_memory_type(buffer_p%trs_stackbuf))
+            IF (buffers(ibuffer)%trs_stackbuf%d%memory_type%acc_devalloc) THEN
+               CALL acc_event_create(buffers(ibuffer)%trs_stackbuf%d%acc_ready)
+            ENDIF
+            CALL dbcsr_data_set_pointer( &
+               area=buffers(ibuffer)%trs_stackbuf, &
+               rsize=meta_size/3, &
+               csize=1, &
+               pointee=buffer_p%trs_stackbuf, &
+               source_lb=(meta_size/3)*jbuffer+1)
+         ENDIF
+         CALL setup_buffer_matrix_image(buffers(ibuffer)%matrix, imgdist, matrix, &
+                                        buffers(ibuffer)%data, &
+                                        buffers(ibuffer)%meta)
       ENDDO
    END SUBROUTINE setup_buffers
 
@@ -2335,9 +2481,9 @@ CONTAINS
 !> \author Alfio Lazzaro
 ! **************************************************************************************************
    SUBROUTINE swap_buffers(buffers_1, buffers_2)
-      TYPE(dbcsr_buffer_p), INTENT(INOUT)                :: buffers_1, buffers_2
+      TYPE(dbcsr_buffer), INTENT(INOUT)                  :: buffers_1, buffers_2
 
-      TYPE(dbcsr_buffer_p)                               :: tmp
+      TYPE(dbcsr_buffer)                                 :: tmp
 
       tmp = buffers_1
       buffers_1 = buffers_2
@@ -2393,11 +2539,11 @@ CONTAINS
          area=data_get, &
          rsize=size_layers3D(idata), &
          csize=1, &
-         pointee=buffer%data(1), &
+         pointee=buffer%data, &
          source_lb=1)
       CALL dbcsr_rget_any(data_get, recv_proc, &
                           data_win, &
-                          buffer_win%data(1), &
+                          buffer_win%data, &
                           disp=displ_layers3D(idata), &
                           request=buffer%get_requests(2))
       CALL count_mpi_statistics(dbcsr_mpi_statistics%data_size(1, :), &
@@ -2406,7 +2552,7 @@ CONTAINS
       dbcsr_mpi_statistics%nexchanged = dbcsr_mpi_statistics%nexchanged+1
       !
       ! Set the referenced sizes to the actual data moved via MPI
-      CALL dbcsr_data_set_size_referenced(buffer%data(1), size_layers3D(idata))
+      CALL dbcsr_data_set_size_referenced(buffer%data, size_layers3D(idata))
       buffer%matrix%valid = .FALSE.
    END SUBROUTINE rma_transfer
 
@@ -2501,7 +2647,7 @@ CONTAINS
       TYPE(dbcsr_memtype_type), INTENT(IN)               :: data_memory_type
       TYPE(dbcsr_memtype_type), INTENT(IN), OPTIONAL     :: trs_memory_type
 
-      INTEGER                                            :: idata, my_num_data
+      INTEGER                                            :: my_num_data
       LOGICAL                                            :: new_trs_stackbuf
 
       my_num_data = 1
@@ -2517,19 +2663,10 @@ CONTAINS
       !
       IF (buffer%is_valid) THEN
          ! Invalid buffers if data_type is different
-         IF (dbcsr_data_get_type(buffer%data(1)) .NE. data_type .OR. &
-             SIZE(buffer%data) .LT. my_num_data .OR. &
-             (new_trs_stackbuf .AND. SIZE(buffer%trs_stackbuf) .LT. my_num_data)) THEN
-            DO idata = 1, SIZE(buffer%data)
-               CALL dbcsr_data_release(buffer%data(idata))
-            ENDDO
-            DEALLOCATE (buffer%data)
-            CALL dbcsr_data_release(buffer%data_red3D)
+         IF (dbcsr_data_get_type(buffer%data) .NE. data_type) THEN
+            CALL dbcsr_data_release(buffer%data)
             IF (new_trs_stackbuf) THEN
-               DO idata = 1, SIZE(buffer%trs_stackbuf)
-                  CALL dbcsr_data_release(buffer%trs_stackbuf(idata))
-               ENDDO
-               DEALLOCATE (buffer%trs_stackbuf)
+               CALL dbcsr_data_release(buffer%trs_stackbuf)
             ENDIF
             buffer%is_valid = .FALSE.
          ENDIF
@@ -2537,33 +2674,27 @@ CONTAINS
       !
       IF (.NOT. buffer%is_valid) THEN
          ! First initialization
-         ALLOCATE (buffer%data(my_num_data))
-         IF (new_trs_stackbuf) ALLOCATE (buffer%trs_stackbuf(my_num_data))
-         DO idata = 1, my_num_data
-            CALL dbcsr_data_init(buffer%data(idata))
-            CALL dbcsr_data_new(buffer%data(idata), data_type=data_type, &
-                                data_size=data_size, memory_type=data_memory_type)
-            CALL dbcsr_data_set_size_referenced(buffer%data(idata), data_size)
-            IF (new_trs_stackbuf) THEN
-               CALL dbcsr_data_init(buffer%trs_stackbuf(idata))
-               CALL dbcsr_data_new(buffer%trs_stackbuf(idata), &
-                                   data_type=dbcsr_type_int_4, data_size=2*meta_size, &
-                                   memory_type=trs_memory_type)
-            ENDIF
-         ENDDO
-         CALL dbcsr_data_init(buffer%data_red3D)
-         CALL dbcsr_data_new(buffer%data_red3D, data_type=data_type, &
-                             data_size=1, memory_type=memtype_mpi_buffer)
+         CALL dbcsr_data_init(buffer%data)
+         CALL dbcsr_data_new(buffer%data, data_type=data_type, &
+                             data_size=data_size*my_num_data, memory_type=data_memory_type)
+         CALL dbcsr_data_set_size_referenced(buffer%data, data_size*my_num_data)
+         IF (new_trs_stackbuf) THEN
+            CALL dbcsr_data_init(buffer%trs_stackbuf)
+            CALL dbcsr_data_new(buffer%trs_stackbuf, &
+                                data_type=dbcsr_type_int_4, data_size=(meta_size/3)*my_num_data, &
+                                memory_type=trs_memory_type)
+         ENDIF
          buffer%is_valid = .TRUE.
       ELSE
          IF (PRESENT(num_data)) THEN
-            DO idata = 1, my_num_data
-               CALL dbcsr_data_ensure_size(buffer%data(idata), data_size, nocopy=.TRUE.)
-            ENDDO
+            CALL dbcsr_data_ensure_size(buffer%data, data_size*my_num_data, nocopy=.TRUE.)
+            IF (new_trs_stackbuf) THEN
+               CALL dbcsr_data_ensure_size(buffer%trs_stackbuf, (meta_size/3)*my_num_data, nocopy=.TRUE.)
+            ENDIF
          ELSE
             ! Case for MPI windows
             ! data_before_resize keeps the pointer to previous data in the case of reallocation
-            CALL dbcsr_data_ensure_size(buffer%data(1), data_size, nocopy=.TRUE., &
+            CALL dbcsr_data_ensure_size(buffer%data, data_size, nocopy=.TRUE., &
                                         area_resize=buffer%data_before_resize)
          ENDIF
       ENDIF
@@ -2596,6 +2727,11 @@ CONTAINS
       CALL buffer_release(buffers_2%left)
       CALL buffer_release(buffers_win%right)
       CALL buffer_release(buffers_win%left)
+      !
+      IF (dbcsr_data_valid(make_buffers_data_send)) CALL dbcsr_data_release(make_buffers_data_send)
+      IF (dbcsr_data_valid(make_buffers_data_recv)) CALL dbcsr_data_release(make_buffers_data_recv)
+      IF (ASSOCIATED(make_buffers_meta_send)) CALL memory_deallocate(make_buffers_meta_send, memtype_mpi_buffer)
+      IF (ASSOCIATED(make_buffers_meta_recv)) CALL memory_deallocate(make_buffers_meta_recv, memtype_mpi_buffer)
    END SUBROUTINE buffers_release
 
 ! **************************************************************************************************
@@ -2606,8 +2742,6 @@ CONTAINS
 ! **************************************************************************************************
    SUBROUTINE buffer_release(buffer)
       TYPE(dbcsr_buffer), INTENT(INOUT)                  :: buffer
-
-      INTEGER                                            :: idata
 
       IF (buffer%has_rma_win) THEN
          CALL mp_win_unlock_all(buffer%data_win)
@@ -2623,21 +2757,13 @@ CONTAINS
       ENDIF
       !
       IF (buffer%is_valid) THEN
-         DO idata = 1, SIZE(buffer%data)
-            CALL dbcsr_data_release(buffer%data(idata))
-            IF (ALLOCATED(buffer%trs_stackbuf)) THEN
-               CALL dbcsr_data_release(buffer%trs_stackbuf(idata))
-            ENDIF
-         ENDDO
-         DEALLOCATE (buffer%data)
+         CALL dbcsr_data_release(buffer%data)
+         IF (dbcsr_data_valid(buffer%trs_stackbuf)) THEN
+            CALL dbcsr_data_release(buffer%trs_stackbuf)
+         ENDIF
          IF (dbcsr_data_valid(buffer%data_before_resize)) THEN
             CALL dbcsr_data_release(buffer%data_before_resize)
          ENDIF
-         IF (ALLOCATED(buffer%trs_stackbuf)) THEN
-            DEALLOCATE (buffer%trs_stackbuf)
-         ENDIF
-         IF (dbcsr_data_valid(buffer%data_red3D)) &
-            CALL dbcsr_data_release(buffer%data_red3D)
          buffer%is_valid = .FALSE.
       ENDIF
       IF (ASSOCIATED(buffer%meta)) THEN
@@ -2692,7 +2818,7 @@ CONTAINS
       buffer%matrix%index(dbcsr_slot_nblks) = &
          (buffer%meta_size-size_index)/3
       buffer%matrix%index(dbcsr_slot_nze) = &
-         dbcsr_data_get_size_referenced(buffer%data(1))
+         dbcsr_data_get_size_referenced(buffer%data)
       buffer%matrix%index(dbcsr_slot_dense) = 0
       buffer%matrix%index(dbcsr_slot_nblkrows_total:dbcsr_slot_nfullcols_local) = &
          global_indices(:)

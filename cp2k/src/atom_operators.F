@@ -17,15 +17,16 @@ MODULE atom_operators
    USE atom_types,                      ONLY: &
         atom_basis_gridrep, atom_basis_type, atom_compare_grids, atom_integrals, &
         atom_potential_type, atom_state, cgto_basis, ecp_pseudo, gth_pseudo, gto_basis, lmat, &
-        no_pseudo, num_basis, release_atom_basis, sto_basis, upf_pseudo
+        no_pseudo, num_basis, release_atom_basis, sgp_pseudo, sto_basis, upf_pseudo
    USE atom_utils,                      ONLY: &
         atom_solve, contract2, contract2add, contract4, coulomb_potential_numeric, integrate_grid, &
         numpot_matrix, slater_density, wigner_slater_functional
    USE dkh_main,                        ONLY: dkh_atom_transformation
-   USE erf_fn,                          ONLY: erfc
+   USE erf_fn,                          ONLY: erf,&
+                                              erfc
    USE input_constants,                 ONLY: &
-        barrier_conf, do_dkh0_atom, do_dkh1_atom, do_dkh2_atom, do_dkh3_atom, do_dkh4_atom, &
-        do_dkh5_atom, do_nonrel_atom, do_sczoramp_atom, do_zoramp_atom, poly_conf
+        barrier_conf, do_dkh0_atom, do_dkh1_atom, do_dkh2_atom, do_dkh3_atom, do_nonrel_atom, &
+        do_sczoramp_atom, do_zoramp_atom, poly_conf
    USE kinds,                           ONLY: dp
    USE lapack,                          ONLY: lapack_sgesv
    USE mathconstants,                   ONLY: gamma1,&
@@ -131,6 +132,8 @@ CONTAINS
                         x = (basis%grid%rad(i)-ron)/om
                         x = 1._dp-x
                         cpot(i) = -6._dp*x**5+15._dp*x**4-10._dp*x**3+1._dp
+                        x = (rc-basis%grid%rad(i))**2/om/(basis%grid%rad(i)-ron)
+                        cpot(i) = cpot(i)*x
                      ELSE
                         cpot(i) = 1.0_dp
                      END IF
@@ -424,6 +427,8 @@ CONTAINS
                END DO
             CASE (upf_pseudo)
                CALL upfint_setup(integrals, basis, potential)
+            CASE (sgp_pseudo)
+               CALL sgpint_setup(integrals, basis, potential)
             CASE DEFAULT
                CPABORT("")
             END SELECT
@@ -499,6 +504,8 @@ CONTAINS
                END DO
             CASE (upf_pseudo)
                CALL upfint_setup(integrals, basis, potential)
+            CASE (sgp_pseudo)
+               CALL sgpint_setup(integrals, basis, potential)
             CASE DEFAULT
                CPABORT("")
             END SELECT
@@ -582,6 +589,8 @@ CONTAINS
 
             CASE (upf_pseudo)
                CALL upfint_setup(integrals, basis, potential)
+            CASE (sgp_pseudo)
+               CALL sgpint_setup(integrals, basis, potential)
             CASE DEFAULT
                CPABORT("")
             END SELECT
@@ -712,6 +721,81 @@ CONTAINS
 !> \brief ...
 !> \param integrals ...
 !> \param basis ...
+!> \param potential ...
+! **************************************************************************************************
+   SUBROUTINE sgpint_setup(integrals, basis, potential)
+      TYPE(atom_integrals), INTENT(INOUT)                :: integrals
+      TYPE(atom_basis_type), INTENT(INOUT)               :: basis
+      TYPE(atom_potential_type), INTENT(IN)              :: potential
+
+      CHARACTER(len=*), PARAMETER :: routineN = 'sgpint_setup', routineP = moduleN//':'//routineN
+
+      INTEGER                                            :: i, ia, j, l, m, n, na
+      REAL(KIND=dp)                                      :: a, c, rc, zval
+      REAL(KIND=dp), ALLOCATABLE, DIMENSION(:)           :: cpot, pgauss
+      REAL(KIND=dp), ALLOCATABLE, DIMENSION(:, :)        :: qmat
+      REAL(KIND=dp), DIMENSION(:), POINTER               :: rad
+
+      rad => basis%grid%rad
+      m = basis%grid%nr
+
+      ! local pseudopotential
+      integrals%core = 0._dp
+      ALLOCATE (cpot(m))
+      cpot = 0.0_dp
+      zval = potential%sgp_pot%zion
+      DO i = 1, m
+         rc = rad(i)/potential%sgp_pot%ac_local/SQRT(2.0_dp)
+         cpot(i) = cpot(i)-zval/rad(i)*erf(rc)
+      END DO
+      DO i = 1, potential%sgp_pot%n_local
+         cpot(:) = cpot(:)+potential%sgp_pot%c_local(i)*EXP(-potential%sgp_pot%a_local(i)*rad(:)**2)
+      END DO
+      CALL numpot_matrix(integrals%core, cpot, basis, 0)
+      DEALLOCATE (cpot)
+
+      ! nonlocal pseudopotential
+      integrals%hnl = 0.0_dp
+      IF (potential%sgp_pot%has_nonlocal) THEN
+         ALLOCATE (pgauss(1:m))
+         n = potential%sgp_pot%n_nonlocal
+         !
+         DO l = 0, potential%sgp_pot%lmax
+            CPASSERT(l <= UBOUND(basis%nbas, 1))
+            IF (.NOT. potential%sgp_pot%is_nonlocal(l)) CYCLE
+            ! overlap (a|p)
+            na = basis%nbas(l)
+            ALLOCATE (qmat(na, n))
+            DO i = 1, n
+               pgauss(:) = 0.0_dp
+               DO j = 1, n
+                  a = potential%sgp_pot%a_nonlocal(j)
+                  c = potential%sgp_pot%c_nonlocal(j, i, l)
+                  pgauss(:) = pgauss(:)+c*EXP(-a*rad(:)**2)*rad(:)**l
+               END DO
+               DO ia = 1, na
+                  qmat(ia, i) = SUM(basis%bf(:, ia, l)*pgauss(:)*basis%grid%wr(:))
+               END DO
+            END DO
+            DO i = 1, na
+               DO j = i, na
+                  DO ia = 1, n
+                     integrals%hnl(i, j, l) = integrals%hnl(i, j, l) &
+                                              +qmat(i, ia)*qmat(j, ia)*potential%sgp_pot%h_nonlocal(ia, l)
+                  END DO
+                  integrals%hnl(j, i, l) = integrals%hnl(i, j, l)
+               END DO
+            END DO
+            DEALLOCATE (qmat)
+         END DO
+         DEALLOCATE (pgauss)
+      END IF
+
+   END SUBROUTINE sgpint_setup
+! **************************************************************************************************
+!> \brief ...
+!> \param integrals ...
+!> \param basis ...
 !> \param reltyp ...
 !> \param zcore ...
 !> \param alpha ...
@@ -750,10 +834,6 @@ CONTAINS
          dkhorder = 2
       CASE (do_dkh3_atom)
          dkhorder = 3
-      CASE (do_dkh4_atom)
-         dkhorder = 4
-      CASE (do_dkh5_atom)
-         dkhorder = 5
       END SELECT
 
       SELECT CASE (reltyp)
@@ -843,7 +923,7 @@ CONTAINS
 
          END IF
 
-      CASE (do_dkh0_atom, do_dkh1_atom, do_dkh2_atom, do_dkh3_atom, do_dkh4_atom, do_dkh5_atom)
+      CASE (do_dkh0_atom, do_dkh1_atom, do_dkh2_atom, do_dkh3_atom)
 
          NULLIFY (integrals%tzora)
 

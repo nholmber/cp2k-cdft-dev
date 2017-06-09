@@ -16,10 +16,10 @@ MODULE input_cp2k_atom
    USE input_constants,                 ONLY: &
         atom_basis_run, atom_energy_run, atom_no_run, atom_pseudo_run, barrier_conf, &
         contracted_gto, do_analytic, do_dkh0_atom, do_dkh1_atom, do_dkh2_atom, do_dkh3_atom, &
-        do_dkh4_atom, do_dkh5_atom, do_gapw_gcs, do_gapw_gct, do_gapw_log, do_nonrel_atom, &
-        do_numeric, do_rhf_atom, do_rks_atom, do_rohf_atom, do_sczoramp_atom, do_semi_analytic, &
-        do_uhf_atom, do_uks_atom, do_zoramp_atom, ecp_pseudo, gaussian, geometrical_gto, &
-        gth_pseudo, no_conf, no_pseudo, numerical, poly_conf, slater, upf_pseudo
+        do_gapw_gcs, do_gapw_gct, do_gapw_log, do_nonrel_atom, do_numeric, do_rhf_atom, &
+        do_rks_atom, do_rohf_atom, do_sczoramp_atom, do_semi_analytic, do_uhf_atom, do_uks_atom, &
+        do_zoramp_atom, ecp_pseudo, gaussian, geometrical_gto, gth_pseudo, no_conf, no_pseudo, &
+        numerical, poly_conf, sgp_pseudo, slater, upf_pseudo
    USE input_cp2k_xc,                   ONLY: create_xc_section
    USE input_keyword_types,             ONLY: keyword_create,&
                                               keyword_release,&
@@ -439,15 +439,6 @@ CONTAINS
       CALL section_add_subsection(section, print_key)
       CALL section_release(print_key)
 
-      ! Print key section
-      CALL cp_print_key_section_create(print_key, "ENERGIES_MINUS_KINETIC", &
-                                       description="Print out the total energy and orbital energies without "// &
-                                       "the kinetic energy component. Useful for atomic calculations used"// &
-                                       "during SCPTB parametrization", &
-                                       print_level=debug_print_level, filename="__STD_OUT__")
-      CALL section_add_subsection(section, print_key)
-      CALL section_release(print_key)
-
       ! Print key section: ADMM Analysis
       CALL cp_print_key_section_create(print_key, "ADMM", &
                                        description="Analysis of ADMM approximation to exact exchange", &
@@ -710,7 +701,7 @@ CONTAINS
 
       CALL keyword_create(keyword, name="RELATIVISTIC", &
                           description="Type of scalar relativistic method to be used", &
-                          usage="RELATIVISTIC (OFF|ZORA(MP)|scZORA(MP)|DKH(0)|DKH(1)|DKH(2)|DKH(3)|DKH(4)|(DKH(5))", &
+                          usage="RELATIVISTIC (OFF|ZORA(MP)|scZORA(MP)|DKH(0)|DKH(1)|DKH(2)|DKH(3))", &
                           default_i_val=do_nonrel_atom, &
                           enum_c_vals=(/"OFF                      ", &
                                         "ZORA(MP)                 ", &
@@ -718,20 +709,16 @@ CONTAINS
                                         "DKH(0)                   ", &
                                         "DKH(1)                   ", &
                                         "DKH(2)                   ", &
-                                        "DKH(3)                   ", &
-                                        "DKH(4)                   ", &
-                                        "DKH(5)                   "/), &
+                                        "DKH(3)                   "/), &
                           enum_i_vals=(/do_nonrel_atom, do_zoramp_atom, do_sczoramp_atom, do_dkh0_atom, &
-                                        do_dkh1_atom, do_dkh2_atom, do_dkh3_atom, do_dkh4_atom, do_dkh5_atom/), &
+                                        do_dkh1_atom, do_dkh2_atom, do_dkh3_atom/), &
                           enum_desc=s2a("Use no scalar relativistic method", &
                                         "Use ZORA method with atomic model potential", &
                                         "Use scaled ZORA method with atomic model potential", &
                                         "Use Douglas-Kroll-Hess Hamiltonian of order 0", &
                                         "Use Douglas-Kroll-Hess Hamiltonian of order 1", &
                                         "Use Douglas-Kroll-Hess Hamiltonian of order 2", &
-                                        "Use Douglas-Kroll-Hess Hamiltonian of order 3", &
-                                        "Use Douglas-Kroll-Hess Hamiltonian of order 4", &
-                                        "Use Douglas-Kroll-Hess Hamiltonian of order 5"))
+                                        "Use Douglas-Kroll-Hess Hamiltonian of order 3"))
       CALL section_add_keyword(section, keyword)
       CALL keyword_release(keyword)
 
@@ -968,11 +955,13 @@ CONTAINS
                           enum_c_vals=(/"NONE                     ", &
                                         "GTH                      ", &
                                         "UPF                      ", &
+                                        "SGP                      ", &
                                         "ECP                      "/), &
-                          enum_i_vals=(/no_pseudo, gth_pseudo, upf_pseudo, ecp_pseudo/), &
+                          enum_i_vals=(/no_pseudo, gth_pseudo, upf_pseudo, sgp_pseudo, ecp_pseudo/), &
                           enum_desc=s2a("Do not use pseudopotentials", &
                                         "Use Goedecker-Teter-Hutter pseudopotentials", &
                                         "Use UPF norm-conserving pseudopotentials", &
+                                        "Use SGP norm-conserving pseudopotentials", &
                                         "Use ECP semi-local pseudopotentials"))
       CALL section_add_keyword(section, keyword)
       CALL keyword_release(keyword)

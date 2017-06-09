@@ -9,7 +9,7 @@ QMMM/QS/regtest-cdft                                        parallel mpiranks>1
 QS/regtest-cdft-4-3
 QS/regtest-cdft-4-2
 QS/regtest-cdft-4-1
-QS/regtest-cdft-3                                           parallel mpiranks>1
+QS/regtest-cdft-3                                           parallel mpiranks==2||mpiranks==4||mpiranks==6||mpiranks==16||mpiranks==24
 QS/regtest-cdft-2
 QS/regtest-cdft-1
 Fist/regtest-plumed2                                        plumed2
@@ -60,6 +60,8 @@ QS/regtest-almo-2
 QS/regtest-gapw-4                                           libint
 QS/regtest-hfx-wfn-fitting                                  libint
 QS/regtest-gw                                               libint
+QS/regtest-gw-cubic                                         libint
+QS/regtest-gw-ic-model
 QS/regtest-gapw
 Fist/regtest-5
 QS/regtest-plus_u
@@ -136,7 +138,6 @@ QS/regtest-hybrid-2                                         libint
 Fist/regtest-1-3
 ATOM/regtest-2
 SE/regtest-4
-SCPTB/regtest-1
 QS/regtest-stress
 QS/regtest-meta
 QS/regtest-gpw-9                                            libxc
@@ -216,4 +217,5 @@ optimize_input/regtest-1
 FE/regtest-2
 Fist/regtest-quip                                           quip
 Fist/regtest-field
+QS/regtest-kind
 QMMM/QS/regtest-lrigpw

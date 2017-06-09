@@ -26,11 +26,8 @@ MODULE dbcsr_mm
                                               default_resize_factor,&
                                               has_acc
    USE dbcsr_data_methods,              ONLY: dbcsr_data_set_size_referenced,&
-                                              dbcsr_scalar,&
                                               dbcsr_scalar_are_equal,&
-                                              dbcsr_scalar_fill_all,&
                                               dbcsr_scalar_one,&
-                                              dbcsr_scalar_set_type,&
                                               dbcsr_scalar_zero
    USE dbcsr_dist_methods,              ONLY: &
         dbcsr_distribution_col_dist, dbcsr_distribution_get_num_images_1d, &
@@ -45,9 +42,9 @@ MODULE dbcsr_mm
                                               dbcsr_memtype_setup
    USE dbcsr_methods,                   ONLY: &
         dbcsr_col_block_offsets, dbcsr_col_block_sizes, dbcsr_destroy_array, dbcsr_distribution, &
-        dbcsr_get_data_type, dbcsr_get_matrix_type, dbcsr_has_symmetry, dbcsr_image_dist_release, &
-        dbcsr_nblkcols_total, dbcsr_nfullcols_total, dbcsr_nfullrows_total, dbcsr_release, &
-        dbcsr_release_locals, dbcsr_row_block_offsets
+        dbcsr_get_matrix_type, dbcsr_has_symmetry, dbcsr_image_dist_release, dbcsr_nblkcols_total, &
+        dbcsr_nfullcols_total, dbcsr_nfullrows_total, dbcsr_release, dbcsr_release_locals, &
+        dbcsr_row_block_offsets
    USE dbcsr_mm_3D,                     ONLY: buffers_release,&
                                               dbcsr_make_buffers,&
                                               make_layers_3D_C_reduction,&
@@ -72,7 +69,6 @@ MODULE dbcsr_mm
                                               dbcsr_mp_numnodes
    USE dbcsr_operations,                ONLY: dbcsr_conjg,&
                                               dbcsr_copy,&
-                                              dbcsr_filter,&
                                               dbcsr_may_be_dense,&
                                               dbcsr_scale
    USE dbcsr_toollib,                   ONLY: uppercase
@@ -166,6 +162,7 @@ CONTAINS
       CHARACTER(len=*), PARAMETER :: routineN = 'dbcsr_multiply_lib_finalize', &
          routineP = moduleN//':'//routineN
 
+      CHARACTER(len=1000)                                :: msg
       INTEGER                                            :: ilimit, isqrt, isqrt2, ithread
       INTEGER(KIND=int_8)                                :: total_nexchanged
       INTEGER(KIND=int_8), &
@@ -193,7 +190,7 @@ CONTAINS
       CALL buffers_release()
 
       ! Release 3D communicators
-      CALL release_layers_3D_C_reduction()
+      CALL release_layers_3D_C_reduction(release_buffers=.TRUE.)
 
       total_max_memory = max_memory
       CALL mp_max(total_max_memory, group)
@@ -258,12 +255,13 @@ CONTAINS
          isqrt2 = NINT(SQRT(REAL(dbcsr_mpi_statistics%last_mpi_ranks_used*2, KIND=real_8)))
          IF (isqrt*isqrt .NE. dbcsr_mpi_statistics%last_mpi_ranks_used) THEN
             WRITE (UNIT=output_unit, FMT="(T2,A)") REPEAT("-", 79)
-            WRITE (UNIT=output_unit, FMT="(T2,A)") &
-               "Warning: using a non-square number of MPI ranks might lead to poor performance."
-            WRITE (UNIT=output_unit, FMT="(T2,A,I0)") &
-               "         used ranks: ", dbcsr_mpi_statistics%last_mpi_ranks_used
-            WRITE (UNIT=output_unit, FMT="(T2,A,2(I0,1X))") &
-               "         suggested : ", isqrt**2, isqrt2**2
+            WRITE (UNIT=msg, FMT="(A,I0,A,2(I0,1X))") &
+               "Using a non-square number of MPI ranks might lead to poor performance."// &
+               REPEAT(" ", 25)// &
+               "Used ranks: ", dbcsr_mpi_statistics%last_mpi_ranks_used, &
+               REPEAT(" ", 50)// &
+               "Suggested: ", isqrt**2, isqrt2**2
+            CPWARN(msg)
          ENDIF
       ENDIF
       IF (ASSOCIATED(memtype_trsbuffer_1%pool)) &
@@ -403,7 +401,6 @@ CONTAINS
       TYPE(dbcsr_imagedistribution_obj)                  :: dense_rdist_left, dense_rdist_right, &
                                                             rdist_left, rdist_right
       TYPE(dbcsr_mp_obj)                                 :: mp_obj
-      TYPE(dbcsr_scalar_type)                            :: eps_any
       TYPE(dbcsr_type)                                   :: matrix_left, matrix_right, product_matrix
 
       CALL timeset(routineN, handle)
@@ -439,10 +436,8 @@ CONTAINS
                                   acc_hostalloc=.TRUE., acc_devalloc=.TRUE., acc_stream=stream_1)
          CALL dbcsr_memtype_setup(memtype_trsbuffer_2, has_pool=.TRUE., &
                                   acc_hostalloc=.TRUE., acc_devalloc=.TRUE., acc_stream=stream_2)
-         IF (.NOT. dbcsr_cfg%use_mpi_rma) THEN
-            CALL dbcsr_mempool_limit_capacity(memtype_trsbuffer_1%pool, capacity=1)
-            CALL dbcsr_mempool_limit_capacity(memtype_trsbuffer_2%pool, capacity=1)
-         ENDIF
+         CALL dbcsr_mempool_limit_capacity(memtype_trsbuffer_1%pool, capacity=1)
+         CALL dbcsr_mempool_limit_capacity(memtype_trsbuffer_2%pool, capacity=1)
       ENDIF
 
       CALL dbcsr_memtype_setup(memtype_mpi_buffer, mpi=.TRUE.)
@@ -925,15 +920,6 @@ CONTAINS
       IF (ab_dense) THEN
          CALL array_release(m_map)
          CALL array_release(n_map)
-      ENDIF
-      !
-      ! if filtering is requested remove small blocks, unless the sparsity needs to be kept.
-      !
-      IF (PRESENT(filter_eps) .AND. .NOT. keep_sparsity) THEN
-         eps_any = dbcsr_scalar(filter_eps)
-         CALL dbcsr_scalar_fill_all(eps_any)
-         CALL dbcsr_scalar_set_type(eps_any, dbcsr_get_data_type(matrix_c))
-         CALL dbcsr_filter(matrix_c, eps_any, quick=.FALSE.)
       ENDIF
       !
       ! To support the canonical multiply (all non-transposed blocks),
