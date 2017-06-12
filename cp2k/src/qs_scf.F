@@ -1526,12 +1526,9 @@ CONTAINS
       INTEGER                                            :: handle, i, ispin, iter_count, lp, &
                                                             max_linesearch, max_scf, nspins, &
                                                             nsteps, nvar, output_unit
-      LOGICAL                                            :: continue_ls, converged, do_linesearch, &
-                                                            found_solution, reached_maxls, &
-                                                            reuse_stashed, should_exit, should_stop, &
-                                                            continue_ls_exit
-      REAL(KIND=dp)                                      :: alpha, alpha_ls, variable_diff(2), &
-                                                            norm_ls
+      LOGICAL :: continue_ls, continue_ls_exit, converged, do_linesearch, found_solution, &
+         reached_maxls, should_exit, should_stop
+      REAL(KIND=dp)                                      :: alpha, alpha_ls, norm_ls
       REAL(KIND=dp), DIMENSION(:), POINTER               :: energy, variables_next
       REAL(KIND=dp), DIMENSION(:, :), POINTER            :: gradient, inv_jacobian
       REAL(KIND=dp), EXTERNAL                            :: dnrm2
@@ -1620,14 +1617,14 @@ CONTAINS
          max_linesearch = scf_control%outer_scf%max_ls
          continue_ls = scf_control%outer_scf%continue_ls
          continue_ls_exit = .FALSE.
-         IF (para_env%mepos == para_env%source) print *, 'LS CONTINUEs', continue_ls
+         IF (para_env%mepos == para_env%source) PRINT*, 'LS CONTINUEs', continue_ls
          found_solution = .FALSE.
          ALLOCATE (gradient(nvar, max_scf))
          gradient = scf_env%outer_scf%gradient
          ALLOCATE (energy(max_scf))
          energy = scf_env%outer_scf%energy
          reached_maxls = .FALSE.
-         ALLOCATE(variables_next(nvar))
+         ALLOCATE (variables_next(nvar))
          ! Broyden optimizers: perform update of inv_jacobian if necessary
          IF (scf_control%outer_scf%broyden_update) THEN
             CALL outer_loop_optimize(scf_env, scf_control)
@@ -1685,7 +1682,8 @@ CONTAINS
                IF (.NOT. continue_ls) THEN
                   should_exit = .TRUE.
                ELSE
-                  ! But line search continues until a better solution is found or max steps are reached
+                  ! But line search continues for at least one more iteration in an attempt to find a better solution
+                  ! if max number of steps is not exceeded
                   IF (found_solution) THEN
                      ! Check if the norm also decreased w.r.t. to previously found solution
                      IF (dnrm2(nvar, scf_env%outer_scf%gradient(:, iter_count+1), 1) .GT. norm_ls) THEN
@@ -1710,6 +1708,8 @@ CONTAINS
                         CALL duplicate_mo_set(mos_ls(ispin)%mo_set, mos(ispin)%mo_set)
                      END DO
                      alpha = alpha*0.5_dp
+                     ! Exit on last iteration
+                     IF (i == max_linesearch) continue_ls_exit = .TRUE.
                   END IF
                END IF
             ELSE
@@ -1728,58 +1728,33 @@ CONTAINS
                                                 p_rmpv(ispin)%matrix)
                   CALL deallocate_mo_set(mos_ls(ispin)%mo_set)
                END DO
+               CALL qs_rho_update_rho(rho, qs_env=qs_env)
                CALL qs_ks_did_change(qs_env%ks_env, rho_changed=.TRUE.)
                DEALLOCATE (mos_ls)
                should_exit = .TRUE.
             END IF
-            IF (.NOT. should_exit) THEN
-               ! Decide which state to use as the initial guess for the next iteration
-               ! The state with CDFT variables closest to the next iterate in the L2 norm is chosen
-               variables_next(:) = scf_env%outer_scf%variables(:, iter_count)-alpha* &
-                                      MATMUL(inv_jacobian, scf_env%outer_scf%gradient(:, iter_count))
-               variable_diff(1) = dnrm2(nvar, variables_next(:)-scf_env%outer_scf%variables(:, iter_count), 1)
-               variable_diff(2) = dnrm2(nvar, variables_next(:)-scf_env%outer_scf%variables(:, iter_count+1), 1)
-               IF (para_env%mepos == para_env%source) THEN
-                     print *, 'Variable diff', variable_diff, variables_next
-               END IF
-               IF (variable_diff(1) .LE. variable_diff(2)) THEN
-                  ! Use converged state from previous CDFT SCF iteration
-                  reuse_stashed = .TRUE.
-                  IF (para_env%mepos == para_env%source) THEN
-                     print *, 'Reusing base state'
-                  END IF
-               ELSE
-                  ! Use current line search state if SCF converged
-                  reuse_stashed = .NOT. converged
-                  IF (para_env%mepos == para_env%source) THEN
-                     print *, 'Reusing LS state', reuse_stashed
-                  END IF
-               END IF
-               reuse_stashed = .FALSE.
-            END IF
-            ! Reset everything to last converged state
-            scf_env%outer_scf%variables(:, iter_count+1) = 0.0_dp
-            scf_env%outer_scf%gradient = gradient
-            scf_env%outer_scf%energy = energy
             ! Reached max steps and SCF converged: continue with last iterated step size
-            IF (i == max_linesearch .AND. converged .AND. .NOT. found_solution) THEN
+            IF (.NOT. should_exit .AND. &
+                (i == max_linesearch .AND. converged .AND. .NOT. found_solution)) THEN
                should_exit = .TRUE.
                reached_maxls = .TRUE.
             END IF
+            ! Reset outer SCF environment to last converged state
+            scf_env%outer_scf%variables(:, iter_count+1) = 0.0_dp
+            scf_env%outer_scf%gradient = gradient
+            scf_env%outer_scf%energy = energy
             ! Exit line search if a suitable step size was found
             IF (should_exit) EXIT
             ! Reset the electronic structure
-            IF (reuse_stashed) THEN
-               cdft_control%total_steps = nsteps
-               DO ispin = 1, nspins
-                  CALL deallocate_mo_set(mos(ispin)%mo_set)
-                  CALL duplicate_mo_set(mos(ispin)%mo_set, mos_stashed(ispin)%mo_set)
-                  CALL calculate_density_matrix(mos(ispin)%mo_set, &
-                                                p_rmpv(ispin)%matrix)
-               END DO
-               CALL qs_rho_update_rho(rho, qs_env=qs_env)
-               CALL qs_ks_did_change(qs_env%ks_env, rho_changed=.TRUE.)
-            END IF
+            cdft_control%total_steps = nsteps
+            DO ispin = 1, nspins
+               CALL deallocate_mo_set(mos(ispin)%mo_set)
+               CALL duplicate_mo_set(mos(ispin)%mo_set, mos_stashed(ispin)%mo_set)
+               CALL calculate_density_matrix(mos(ispin)%mo_set, &
+                                             p_rmpv(ispin)%matrix)
+            END DO
+            CALL qs_rho_update_rho(rho, qs_env=qs_env)
+            CALL qs_ks_did_change(qs_env%ks_env, rho_changed=.TRUE.)
          END DO
          scf_control%outer_scf%newton_step = alpha
          IF (.NOT. should_exit) THEN
