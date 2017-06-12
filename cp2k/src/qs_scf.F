@@ -1720,6 +1720,9 @@ CONTAINS
                                       MATMUL(inv_jacobian, scf_env%outer_scf%gradient(:, iter_count))
                variable_diff(1) = dnrm2(nvar, variables_next(:)-scf_env%outer_scf%gradient(:, iter_count), 1)
                variable_diff(2) = dnrm2(nvar, variables_next(:)-scf_env%outer_scf%gradient(:, iter_count+1), 1)
+               IF (para_env%mepos == para_env%source) THEN
+                     print *, 'Variable diff', variable_diff, variables_next
+               END IF
                IF (variable_diff(1) .LE. variable_diff(2)) THEN
                   ! Use converged state from previous CDFT SCF iteration
                   reuse_stashed = .TRUE.

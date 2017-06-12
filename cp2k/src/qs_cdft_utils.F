@@ -790,6 +790,8 @@ CONTAINS
                                       i_val=qs_control%cdft_control%constraint_control%max_scf)
             CALL section_vals_val_get(outer_scf_section, "MAX_LS", &
                                       i_val=qs_control%cdft_control%constraint_control%max_ls)
+            CALL section_vals_val_get(outer_scf_section, "CONTINUE_LS", &
+                                      l_val=qs_control%cdft_control%constraint_control%continue_ls)
             CALL section_vals_val_get(outer_scf_section, "EXTRAPOLATION_ORDER", &
                                       i_val=qs_control%cdft_control%constraint_control%extrapolation_order)
             CALL section_vals_val_get(outer_scf_section, "JACOBIAN_TYPE", &
