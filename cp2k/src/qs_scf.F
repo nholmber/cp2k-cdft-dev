@@ -1528,9 +1528,9 @@ CONTAINS
                                                             nsteps, nvar, output_unit
       LOGICAL                                            :: continue_ls, converged, do_linesearch, &
                                                             found_solution, reached_maxls, &
-                                                            should_exit, should_stop
-      REAL(KIND=dp)                                      :: alpha, alpha_ls
-      REAL(KIND=dp), DIMENSION(:), POINTER               :: energy
+                                                            reuse_stashed, should_exit, should_stop
+      REAL(KIND=dp)                                      :: alpha, alpha_ls, variable_diff(2)
+      REAL(KIND=dp), DIMENSION(:), POINTER               :: energy, variables_next
       REAL(KIND=dp), DIMENSION(:, :), POINTER            :: gradient, inv_jacobian
       REAL(KIND=dp), EXTERNAL                            :: dnrm2
       TYPE(cdft_control_type), POINTER                   :: cdft_control
@@ -1617,12 +1617,14 @@ CONTAINS
          max_scf = scf_control%outer_scf%max_scf+1
          max_linesearch = scf_control%outer_scf%max_ls
          continue_ls = scf_control%outer_scf%continue_ls
+         IF (para_env%mepos == para_env%source) print *, 'LS CONTINUEs', continue_ls
          found_solution = .FALSE.
          ALLOCATE (gradient(nvar, max_scf))
          gradient = scf_env%outer_scf%gradient
          ALLOCATE (energy(max_scf))
          energy = scf_env%outer_scf%energy
          reached_maxls = .FALSE.
+         ALLOCATE(variables_next(nvar))
          ! Broyden optimizers: perform update of inv_jacobian if necessary
          IF (scf_control%outer_scf%broyden_update) THEN
             CALL outer_loop_optimize(scf_env, scf_control)
@@ -1635,7 +1637,11 @@ CONTAINS
             WRITE (output_unit, FMT="(/,A)") &
                " ================================== LINE SEARCH STARTED  =================================="
             WRITE (output_unit, FMT="(A,I5,A)") &
-               " Evaluating optimal step size for optimizer using a maximum of", max_linesearch, ' steps'
+               " Evaluating optimal step size for optimizer using a maximum of", max_linesearch, " steps"
+            IF (continue_ls) THEN
+               WRITE (output_unit, FMT="(A)") &
+                  " Line search continues until best step size is found or max steps are reached"
+            END IF
             WRITE (output_unit, '(A,I10,A,I10)') &
                " Energy evaluation: ", cdft_control%ienergy, ", CDFT SCF iteration: ", iter_count
          END IF
@@ -1707,6 +1713,27 @@ CONTAINS
                   should_exit = .TRUE.
                END IF
             END IF
+            IF (.NOT. should_exit) THEN
+               ! Decide which state to use as the initial guess for the next iteration
+               ! The state with CDFT variables closest to the next iterate in the L2 norm is chosen
+               variables_next(:) = scf_env%outer_scf%variables(:, iter_count)-alpha* &
+                                      MATMUL(inv_jacobian, scf_env%outer_scf%gradient(:, iter_count))
+               variable_diff(1) = dnrm2(nvar, variables_next(:)-scf_env%outer_scf%gradient(:, iter_count), 1)
+               variable_diff(2) = dnrm2(nvar, variables_next(:)-scf_env%outer_scf%gradient(:, iter_count+1), 1)
+               IF (variable_diff(1) .LE. variable_diff(2)) THEN
+                  ! Use converged state from previous CDFT SCF iteration
+                  reuse_stashed = .TRUE.
+                  IF (para_env%mepos == para_env%source) THEN
+                     print *, 'Reusing base state'
+                  END IF
+               ELSE
+                  ! Use current line search state if SCF converged
+                  reuse_stashed = .NOT. converged
+                  IF (para_env%mepos == para_env%source) THEN
+                     print *, 'Reusing LS state', reuse_stashed
+                  END IF
+               END IF
+            END IF
             ! Reset everything to last converged state
             scf_env%outer_scf%variables(:, iter_count+1) = 0.0_dp
             scf_env%outer_scf%gradient = gradient
@@ -1716,17 +1743,20 @@ CONTAINS
                should_exit = .TRUE.
                reached_maxls = .TRUE.
             END IF
-            ! If a suitable step size was found, do not reset the electronic structure so we can continue from it
+            ! Exit line search if a suitable step size was found
             IF (should_exit) EXIT
-            cdft_control%total_steps = nsteps
-            DO ispin = 1, nspins
-               CALL deallocate_mo_set(mos(ispin)%mo_set)
-               CALL duplicate_mo_set(mos(ispin)%mo_set, mos_stashed(ispin)%mo_set)
-               CALL calculate_density_matrix(mos(ispin)%mo_set, &
-                                             p_rmpv(ispin)%matrix)
-            END DO
-            CALL qs_rho_update_rho(rho, qs_env=qs_env)
-            CALL qs_ks_did_change(qs_env%ks_env, rho_changed=.TRUE.)
+            ! Reset the electronic structure
+            IF (reuse_stashed) THEN
+               cdft_control%total_steps = nsteps
+               DO ispin = 1, nspins
+                  CALL deallocate_mo_set(mos(ispin)%mo_set)
+                  CALL duplicate_mo_set(mos(ispin)%mo_set, mos_stashed(ispin)%mo_set)
+                  CALL calculate_density_matrix(mos(ispin)%mo_set, &
+                                                p_rmpv(ispin)%matrix)
+               END DO
+               CALL qs_rho_update_rho(rho, qs_env=qs_env)
+               CALL qs_ks_did_change(qs_env%ks_env, rho_changed=.TRUE.)
+            END IF
          END DO
          scf_control%outer_scf%newton_step = alpha
          IF (.NOT. should_exit) THEN
