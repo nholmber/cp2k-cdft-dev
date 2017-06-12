@@ -1617,7 +1617,6 @@ CONTAINS
          max_linesearch = scf_control%outer_scf%max_ls
          continue_ls = scf_control%outer_scf%continue_ls
          continue_ls_exit = .FALSE.
-         IF (para_env%mepos == para_env%source) PRINT*, 'LS CONTINUEs', continue_ls
          found_solution = .FALSE.
          ALLOCATE (gradient(nvar, max_scf))
          gradient = scf_env%outer_scf%gradient
@@ -1738,6 +1737,7 @@ CONTAINS
                 (i == max_linesearch .AND. converged .AND. .NOT. found_solution)) THEN
                should_exit = .TRUE.
                reached_maxls = .TRUE.
+               alpha = alpha*2.0_dp
             END IF
             ! Reset outer SCF environment to last converged state
             scf_env%outer_scf%variables(:, iter_count+1) = 0.0_dp
