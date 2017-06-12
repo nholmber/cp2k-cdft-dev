@@ -5442,6 +5442,15 @@ CONTAINS
       CALL section_add_keyword(section, keyword)
       CALL keyword_release(keyword)
 
+      CALL keyword_create(keyword, name="CONTINUE_LS", &
+                          description="Continue backtracking line search until MAX_LS steps are reached or the "// &
+                          "norm of the CDFT gradient no longer decreases. Default (false) behavior exits the "// &
+                          "line search procedure on the first step that the gradient decreases.", &
+                          usage="CONTINUE_LS TRUE", &
+                          default_l_val=.FALSE., lone_keyword_l_val=.TRUE.)
+      CALL section_add_keyword(section, keyword)
+      CALL keyword_release(keyword)
+
       CALL keyword_create(keyword, name="STEP_SIZE", &
                           description="The initial step_size used in the optimizer (currently steepest descent)."// &
                           "Note that in cases where a sadle point is sought for (DDAPC_CONSTRAINT),"// &

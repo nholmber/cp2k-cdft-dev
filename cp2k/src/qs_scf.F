@@ -1524,11 +1524,12 @@ CONTAINS
 
       CHARACTER(len=default_path_length)                 :: project_name
       INTEGER                                            :: handle, i, ispin, iter_count, lp, &
-                                                            max_linesearch, max_scf, nspins, nsteps, nvar, &
-                                                            output_unit
-      LOGICAL                                            :: converged, do_linesearch, should_exit, &
-                                                            should_stop, reached_maxls
-      REAL(KIND=dp)                                      :: alpha
+                                                            max_linesearch, max_scf, nspins, &
+                                                            nsteps, nvar, output_unit
+      LOGICAL                                            :: continue_ls, converged, do_linesearch, &
+                                                            found_solution, reached_maxls, &
+                                                            should_exit, should_stop
+      REAL(KIND=dp)                                      :: alpha, alpha_ls
       REAL(KIND=dp), DIMENSION(:), POINTER               :: energy
       REAL(KIND=dp), DIMENSION(:, :), POINTER            :: gradient, inv_jacobian
       REAL(KIND=dp), EXTERNAL                            :: dnrm2
@@ -1538,7 +1539,7 @@ CONTAINS
       TYPE(dbcsr_p_type), DIMENSION(:), POINTER          :: p_rmpv
       TYPE(dbcsr_p_type), DIMENSION(:, :), POINTER       :: rho_ao_kp
       TYPE(dft_control_type), POINTER                    :: dft_control
-      TYPE(mo_set_p_type), DIMENSION(:), POINTER         :: mos, mos_stashed
+      TYPE(mo_set_p_type), DIMENSION(:), POINTER         :: mos, mos_ls, mos_stashed
       TYPE(qs_energy_type), POINTER                      :: energy_qs
       TYPE(qs_ks_env_type), POINTER                      :: ks_env
       TYPE(qs_rho_type), POINTER                         :: rho
@@ -1550,7 +1551,7 @@ CONTAINS
       NULLIFY (energy, gradient, p_rmpv, rho_ao_kp, mos, rho, &
                mos_stashed, ks_env, scf_env, scf_control, dft_control, &
                cdft_control, inv_jacobian, para_env, &
-               tmp_logger, energy_qs)
+               tmp_logger, energy_qs, mos_ls)
       logger => cp_get_default_logger()
 
       CPASSERT(ASSOCIATED(qs_env))
@@ -1615,6 +1616,8 @@ CONTAINS
          nvar = SIZE(scf_env%outer_scf%variables, 1)
          max_scf = scf_control%outer_scf%max_scf+1
          max_linesearch = scf_control%outer_scf%max_ls
+         continue_ls = scf_control%outer_scf%continue_ls
+         found_solution = .FALSE.
          ALLOCATE (gradient(nvar, max_scf))
          gradient = scf_env%outer_scf%gradient
          ALLOCATE (energy(max_scf))
@@ -1632,7 +1635,7 @@ CONTAINS
             WRITE (output_unit, FMT="(/,A)") &
                " ================================== LINE SEARCH STARTED  =================================="
             WRITE (output_unit, FMT="(A,I5,A)") &
-               " Evaluating optimal step size for optimizer using a maximum of", max_linesearch, 'steps'
+               " Evaluating optimal step size for optimizer using a maximum of", max_linesearch, ' steps'
             WRITE (output_unit, '(A,I10,A,I10)') &
                " Energy evaluation: ", cdft_control%ienergy, ", CDFT SCF iteration: ", iter_count
          END IF
@@ -1669,21 +1672,49 @@ CONTAINS
             IF (dnrm2(nvar, scf_env%outer_scf%gradient(:, iter_count+1), 1) .LT. &
                 dnrm2(nvar, scf_env%outer_scf%gradient(:, iter_count), 1)) THEN
                ! Optimal step size found
-               should_exit = .TRUE.
+               IF (.NOT. continue_ls) THEN
+                  should_exit = .TRUE.
+               ELSE
+                  ! But line search continues until a better solution is found or max steps are reached
+                  should_exit = .FALSE.
+                  alpha = alpha*0.5_dp
+                  found_solution = .TRUE.
+                  ALLOCATE (mos_ls(nspins))
+                  DO ispin = 1, nspins
+                     CALL duplicate_mo_set(mos_ls(ispin)%mo_set, mos(ispin)%mo_set)
+                  END DO
+                  alpha_ls = alpha
+               END IF
             ELSE
-               ! Gradient increased => alpha is too large (if the gradient function is smooth)
-               should_exit = .FALSE.
-               ! Update alpha using Armijo's scheme
-               alpha = alpha*0.5_dp
+               IF (.NOT. found_solution) THEN
+                  ! Gradient increased => alpha is too large (if the gradient function is smooth)
+                  should_exit = .FALSE.
+                  ! Update alpha using Armijo's scheme
+                  alpha = alpha*0.5_dp
+               ELSE
+                  ! Gradient increased but a suitable alpha was already located previously
+                  ! Use it and exit
+                  alpha = alpha_ls
+                  DO ispin = 1, nspins
+                     CALL deallocate_mo_set(mos(ispin)%mo_set)
+                     CALL duplicate_mo_set(mos(ispin)%mo_set, mos_ls(ispin)%mo_set)
+                     CALL calculate_density_matrix(mos(ispin)%mo_set, &
+                                                   p_rmpv(ispin)%matrix)
+                     CALL deallocate_mo_set(mos_stashed(ispin)%mo_set)
+                  END DO
+                  !CALL qs_ks_did_change(qs_env%ks_env, rho_changed=.TRUE.)
+                  DEALLOCATE (mos_ls)
+                  should_exit = .TRUE.
+               END IF
             END IF
             ! Reset everything to last converged state
             scf_env%outer_scf%variables(:, iter_count+1) = 0.0_dp
             scf_env%outer_scf%gradient = gradient
             scf_env%outer_scf%energy = energy
             ! Reached max steps and SCF converged: continue with last iterated step size
-            IF (i == max_linesearch .AND. converged) THEN
-              should_exit = .TRUE.
-              reached_maxls = .TRUE.
+            IF (i == max_linesearch .AND. converged .AND. .NOT. found_solution) THEN
+               should_exit = .TRUE.
+               reached_maxls = .TRUE.
             END IF
             ! If a suitable step size was found, do not reset the electronic structure so we can continue from it
             IF (should_exit) EXIT

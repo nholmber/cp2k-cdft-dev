@@ -96,6 +96,8 @@ MODULE scf_control_types
 !>                  Jacobian rebuild
 !> \param broyden_update logical which determines if a Broyden update is needed
 !> \param max_ls the maximum number of backtracking line search steps to perform
+!> \param continue_ls continue line search until max steps are reached or the optimized quantity
+!>                    no longer improves
 !> \par History
 !>      09.2002 created [fawzi]
 !> \author Fawzi Mohamed
@@ -105,6 +107,7 @@ MODULE scf_control_types
       LOGICAL       :: have_scf
       LOGICAL       :: build_jacobian
       LOGICAL       :: broyden_update
+      LOGICAL       :: continue_ls
       INTEGER       :: max_scf
       REAL(KIND=dp) :: eps_scf, step_size, &
                        jacobian_step, &
@@ -295,6 +298,7 @@ CONTAINS
       scf_control%outer_scf%max_ls = 0
       scf_control%outer_scf%build_jacobian = .FALSE.
       scf_control%outer_scf%broyden_update = .FALSE.
+      scf_control%outer_scf%continue_ls = .FALSE.
 
       ! Smearing of the MO occupations
 
@@ -528,7 +532,7 @@ CONTAINS
                                    i_val=scf_control%outer_scf%optimizer)
          CALL section_vals_val_get(outer_scf_section, "MAX_SCF", &
                                    i_val=scf_control%outer_scf%max_scf)
-         CALL section_vals_val_get(outer_scf_section, "MAX_SCF", &
+         CALL section_vals_val_get(outer_scf_section, "MAX_LS", &
                                    i_val=scf_control%outer_scf%max_ls)
          CALL section_vals_val_get(outer_scf_section, "EXTRAPOLATION_ORDER", &
                                    i_val=scf_control%outer_scf%extrapolation_order)
@@ -538,6 +542,8 @@ CONTAINS
                                    r_val=scf_control%outer_scf%jacobian_step)
          CALL section_vals_val_get(outer_scf_section, "BROYDEN_TYPE", &
                                    i_val=scf_control%outer_scf%broyden_type)
+         CALL section_vals_val_get(outer_scf_section, "CONTINUE_LS", &
+                                   l_val=scf_control%outer_scf%continue_ls)
          IF (exists .AND. ABS(scf_control%outer_scf%step_size) .LE. 1.0_dp) THEN
             scf_control%outer_scf%newton_step = ABS(scf_control%outer_scf%step_size)
             ! Permanent copy needed in case line search is performed

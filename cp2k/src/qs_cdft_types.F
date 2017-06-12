@@ -229,6 +229,7 @@ MODULE qs_cdft_types
       LOGICAL                              :: have_scf
       LOGICAL                              :: build_jacobian
       LOGICAL                              :: broyden_update
+      LOGICAL                              :: continue_ls
       INTEGER                              :: max_scf, &
                                               ijacobian
       REAL(KIND=dp)                        :: eps_scf, step_size, &
@@ -511,6 +512,7 @@ CONTAINS
       cdft_control%constraint_control%max_ls = 0
       cdft_control%constraint_control%build_jacobian = .FALSE.
       cdft_control%constraint_control%broyden_update = .FALSE.
+      cdft_control%constraint_control%continue_ls = .FALSE.
       cdft_control%constraint%iter_count = 0
       NULLIFY (cdft_control%constraint%variables)
       NULLIFY (cdft_control%constraint%gradient)
