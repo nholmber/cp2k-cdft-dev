@@ -1728,7 +1728,7 @@ CONTAINS
                                                 p_rmpv(ispin)%matrix)
                   CALL deallocate_mo_set(mos_ls(ispin)%mo_set)
                END DO
-               !CALL qs_ks_did_change(qs_env%ks_env, rho_changed=.TRUE.)
+               CALL qs_ks_did_change(qs_env%ks_env, rho_changed=.TRUE.)
                DEALLOCATE (mos_ls)
                should_exit = .TRUE.
             END IF
@@ -1755,6 +1755,7 @@ CONTAINS
                      print *, 'Reusing LS state', reuse_stashed
                   END IF
                END IF
+               reuse_stashed = .FALSE.
             END IF
             ! Reset everything to last converged state
             scf_env%outer_scf%variables(:, iter_count+1) = 0.0_dp
