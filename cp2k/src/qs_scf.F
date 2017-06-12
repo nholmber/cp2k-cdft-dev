@@ -1528,8 +1528,10 @@ CONTAINS
                                                             nsteps, nvar, output_unit
       LOGICAL                                            :: continue_ls, converged, do_linesearch, &
                                                             found_solution, reached_maxls, &
-                                                            reuse_stashed, should_exit, should_stop
-      REAL(KIND=dp)                                      :: alpha, alpha_ls, variable_diff(2)
+                                                            reuse_stashed, should_exit, should_stop, &
+                                                            continue_ls_exit
+      REAL(KIND=dp)                                      :: alpha, alpha_ls, variable_diff(2), &
+                                                            norm_ls
       REAL(KIND=dp), DIMENSION(:), POINTER               :: energy, variables_next
       REAL(KIND=dp), DIMENSION(:, :), POINTER            :: gradient, inv_jacobian
       REAL(KIND=dp), EXTERNAL                            :: dnrm2
@@ -1617,6 +1619,7 @@ CONTAINS
          max_scf = scf_control%outer_scf%max_scf+1
          max_linesearch = scf_control%outer_scf%max_ls
          continue_ls = scf_control%outer_scf%continue_ls
+         continue_ls_exit = .FALSE.
          IF (para_env%mepos == para_env%source) print *, 'LS CONTINUEs', continue_ls
          found_solution = .FALSE.
          ALLOCATE (gradient(nvar, max_scf))
@@ -1641,6 +1644,7 @@ CONTAINS
             IF (continue_ls) THEN
                WRITE (output_unit, FMT="(A)") &
                   " Line search continues until best step size is found or max steps are reached"
+               WRITE (output_unit, FMT="(A)") " "
             END IF
             WRITE (output_unit, '(A,I10,A,I10)') &
                " Energy evaluation: ", cdft_control%ienergy, ", CDFT SCF iteration: ", iter_count
@@ -1682,44 +1686,59 @@ CONTAINS
                   should_exit = .TRUE.
                ELSE
                   ! But line search continues until a better solution is found or max steps are reached
-                  should_exit = .FALSE.
-                  alpha = alpha*0.5_dp
-                  found_solution = .TRUE.
-                  ALLOCATE (mos_ls(nspins))
-                  DO ispin = 1, nspins
-                     CALL duplicate_mo_set(mos_ls(ispin)%mo_set, mos(ispin)%mo_set)
-                  END DO
-                  alpha_ls = alpha
+                  IF (found_solution) THEN
+                     ! Check if the norm also decreased w.r.t. to previously found solution
+                     IF (dnrm2(nvar, scf_env%outer_scf%gradient(:, iter_count+1), 1) .GT. norm_ls) THEN
+                        ! Norm increased => accept previous solution and exit
+                        continue_ls_exit = .TRUE.
+                     END IF
+                  END IF
+                  ! Store current state and the value of alpha
+                  IF (.NOT. continue_ls_exit) THEN
+                     should_exit = .FALSE.
+                     alpha_ls = alpha
+                     found_solution = .TRUE.
+                     norm_ls = dnrm2(nvar, scf_env%outer_scf%gradient(:, iter_count+1), 1)
+                     IF (.NOT. ASSOCIATED(mos_ls)) THEN
+                        ALLOCATE (mos_ls(nspins))
+                     ELSE
+                        DO ispin = 1, nspins
+                           CALL deallocate_mo_set(mos_ls(ispin)%mo_set)
+                        END DO
+                     END IF
+                     DO ispin = 1, nspins
+                        CALL duplicate_mo_set(mos_ls(ispin)%mo_set, mos(ispin)%mo_set)
+                     END DO
+                     alpha = alpha*0.5_dp
+                  END IF
                END IF
             ELSE
-               IF (.NOT. found_solution) THEN
-                  ! Gradient increased => alpha is too large (if the gradient function is smooth)
-                  should_exit = .FALSE.
-                  ! Update alpha using Armijo's scheme
-                  alpha = alpha*0.5_dp
-               ELSE
-                  ! Gradient increased but a suitable alpha was already located previously
-                  ! Use it and exit
-                  alpha = alpha_ls
-                  DO ispin = 1, nspins
-                     CALL deallocate_mo_set(mos(ispin)%mo_set)
-                     CALL duplicate_mo_set(mos(ispin)%mo_set, mos_ls(ispin)%mo_set)
-                     CALL calculate_density_matrix(mos(ispin)%mo_set, &
-                                                   p_rmpv(ispin)%matrix)
-                     CALL deallocate_mo_set(mos_stashed(ispin)%mo_set)
-                  END DO
-                  !CALL qs_ks_did_change(qs_env%ks_env, rho_changed=.TRUE.)
-                  DEALLOCATE (mos_ls)
-                  should_exit = .TRUE.
-               END IF
+               ! Gradient increased => alpha is too large (if the gradient function is smooth)
+               should_exit = .FALSE.
+               ! Update alpha using Armijo's scheme
+               alpha = alpha*0.5_dp
+            END IF
+            IF (continue_ls_exit) THEN
+               ! Continuation of line search did not yield a better alpha, use previously located solution and exit
+               alpha = alpha_ls
+               DO ispin = 1, nspins
+                  CALL deallocate_mo_set(mos(ispin)%mo_set)
+                  CALL duplicate_mo_set(mos(ispin)%mo_set, mos_ls(ispin)%mo_set)
+                  CALL calculate_density_matrix(mos(ispin)%mo_set, &
+                                                p_rmpv(ispin)%matrix)
+                  CALL deallocate_mo_set(mos_ls(ispin)%mo_set)
+               END DO
+               !CALL qs_ks_did_change(qs_env%ks_env, rho_changed=.TRUE.)
+               DEALLOCATE (mos_ls)
+               should_exit = .TRUE.
             END IF
             IF (.NOT. should_exit) THEN
                ! Decide which state to use as the initial guess for the next iteration
                ! The state with CDFT variables closest to the next iterate in the L2 norm is chosen
                variables_next(:) = scf_env%outer_scf%variables(:, iter_count)-alpha* &
                                       MATMUL(inv_jacobian, scf_env%outer_scf%gradient(:, iter_count))
-               variable_diff(1) = dnrm2(nvar, variables_next(:)-scf_env%outer_scf%gradient(:, iter_count), 1)
-               variable_diff(2) = dnrm2(nvar, variables_next(:)-scf_env%outer_scf%gradient(:, iter_count+1), 1)
+               variable_diff(1) = dnrm2(nvar, variables_next(:)-scf_env%outer_scf%variables(:, iter_count), 1)
+               variable_diff(2) = dnrm2(nvar, variables_next(:)-scf_env%outer_scf%variables(:, iter_count+1), 1)
                IF (para_env%mepos == para_env%source) THEN
                      print *, 'Variable diff', variable_diff, variables_next
                END IF
