@@ -832,7 +832,6 @@ CONTAINS
             END IF
             CALL section_vals_val_get(outer_scf_section, "JACOBIAN_RESTART", &
                                       l_val=qs_control%cdft_control%constraint_control%jacobian_restart)
-            qs_control%cdft_control%constraint_control%optimizer
             SELECT CASE (qs_control%cdft_control%constraint_control%optimizer)
             CASE DEFAULT
                qs_control%cdft_control%constraint_control%jacobian_restart = .FALSE.
