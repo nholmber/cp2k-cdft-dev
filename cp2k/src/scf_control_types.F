@@ -109,12 +109,14 @@ MODULE scf_control_types
       LOGICAL       :: build_jacobian
       LOGICAL       :: broyden_update
       LOGICAL       :: continue_ls
+      LOGICAL       :: jacobian_restart
       INTEGER       :: max_scf
       REAL(KIND=dp) :: eps_scf, step_size, &
                        jacobian_step, &
                        newton_step, &
                        newton_step_save, &
                        factor_ls
+      REAL(KIND=dp), DIMENSION(:), POINTER :: jacobian_vector
       INTEGER       :: TYPE
       INTEGER       :: optimizer
       INTEGER       :: diis_buffer_length
@@ -302,6 +304,8 @@ CONTAINS
       scf_control%outer_scf%build_jacobian = .FALSE.
       scf_control%outer_scf%broyden_update = .FALSE.
       scf_control%outer_scf%continue_ls = .FALSE.
+      scf_control%outer_scf%jacobian_restart = .FALSE.
+      NULLIFY(scf_control%outer_scf%jacobian_vector)
 
       ! Smearing of the MO occupations
 
@@ -357,6 +361,9 @@ CONTAINS
             ENDIF
             DEALLOCATE (scf_control%smear)
 
+            IF (ASSOCIATED(scf_control%outer_scf%jacobian_vector)) &
+               DEALLOCATE(scf_control%outer_scf%jacobian_vector)
+
             ! Maximum overlap method orbital indices lists
             ! mom_deoccA, mom_deoccB, mom_occA, mom_occB
             ! points to memory allocated by input file parser,
@@ -390,7 +397,7 @@ CONTAINS
       INTEGER                                            :: cholesky_flag, handle, ialgo
       INTEGER, DIMENSION(:), POINTER                     :: added_mos, tmplist
       LOGICAL                                            :: do_mixing, exists
-      REAL(KIND=dp), DIMENSION(:), POINTER               :: roks_parameter
+      REAL(KIND=dp), DIMENSION(:), POINTER               :: roks_parameter, rtmplist
       TYPE(section_vals_type), POINTER                   :: mixing_section, outer_scf_section, &
                                                             scf_section, smear_section
 
@@ -572,6 +579,20 @@ CONTAINS
                CALL cp_abort(__LOCATION__, &
                              "Both values to keyword JACOBIAN_FREQ cannot be zero.")
             scf_control%outer_scf%jacobian_freq(:) = tmplist(1:2)
+         END IF
+         CALL section_vals_val_get(outer_scf_section, "JACOBIAN_RESTART", &
+                                   l_val=scf_control%outer_scf%jacobian_restart)
+         SELECT CASE (scf_control%outer_scf%optimizer)
+         CASE DEFAULT
+            scf_control%outer_scf%jacobian_restart = .FALSE.
+         CASE (outer_scf_optimizer_newton, outer_scf_optimizer_newton_ls, outer_scf_optimizer_broyden)
+            ! Use parsed value
+         END SELECT
+         IF (scf_control%outer_scf%jacobian_restart) THEN
+            CALL section_vals_val_get(outer_scf_section, "JACOBIAN_VECTOR", &
+                                      r_vals=rtmplist)
+            ALLOCATE(scf_control%outer_scf%jacobian_vector(SIZE(rtmplist)))
+            scf_control%outer_scf%jacobian_vector = rtmplist
          END IF
       END IF
 

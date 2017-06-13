@@ -46,7 +46,9 @@ MODULE qs_scf
    USE atomic_kind_types,               ONLY: atomic_kind_type
    USE cp_control_types,                ONLY: dft_control_type
    USE cp_dbcsr_operations,             ONLY: copy_dbcsr_to_fm
-   USE cp_files,                        ONLY: open_file
+   USE cp_files,                        ONLY: open_file, &
+                                              close_file, &
+                                              get_unit_number
    USE cp_fm_types,                     ONLY: cp_fm_create,&
                                               cp_fm_release,&
                                               cp_fm_to_fm,&
@@ -1237,6 +1239,28 @@ CONTAINS
             scf_control%outer_scf%ijacobian = 0
          END IF
       END IF
+      IF (scf_control%outer_scf%jacobian_restart) THEN
+         ! Restart from previously calculated inverse Jacobian
+         should_build = .FALSE.
+         nvar = SIZE(scf_env%outer_scf%variables, 1)
+         CPASSERT(ASSOCIATED(scf_control%outer_scf%jacobian_vector))
+         IF (SIZE(scf_control%outer_scf%jacobian_vector) /= nvar**2) &
+            CALL cp_abort(__LOCATION__, &
+                          "Too many or too few values defined for restarting inverse Jacobian.")
+         IF (.NOT. ASSOCIATED(scf_env%outer_scf%inv_jacobian)) &
+            ALLOCATE (scf_env%outer_scf%inv_jacobian(nvar, nvar))
+         inv_jacobian => scf_env%outer_scf%inv_jacobian
+         iwork = 1
+         DO i = 1, nvar
+            DO j = 1, nvar
+               inv_jacobian(i, j) = scf_control%outer_scf%jacobian_vector(iwork)
+               iwork = iwork + 1
+            END DO
+         END DO
+         DEALLOCATE(scf_control%outer_scf%jacobian_vector)
+         scf_control%outer_scf%jacobian_restart = .FALSE.
+         scf_control%outer_scf%broyden_update = .FALSE.
+      END IF
       IF (should_build) THEN
          scf_env%outer_scf%deallocate_jacobian = .FALSE.
          ! Actually need to (re)build the Jacobian
@@ -1246,7 +1270,7 @@ CONTAINS
             IF (.NOT. ASSOCIATED(cdft_control)) &
                CALL cp_abort(__LOCATION__, &
                              "Optimizers that need the explicit Jacobian can"// &
-                             " only be used together with a valid CDFT constraint")
+                             " only be used together with a valid CDFT constraint.")
             ! Redirect output from Jacobian calculation to a new file by creating a temporary logger
             project_name = logger%iter_info%project_name
             IF (para_env%mepos == para_env%source) THEN
@@ -1447,6 +1471,7 @@ CONTAINS
             IF (output_unit > 0) THEN
                WRITE (output_unit, FMT="(/,A)") &
                   " ================================== JACOBIAN CALCULATED =================================="
+               CALL close_file(unit_number=output_unit)
             END IF
          ELSE
             ! Build a strictly diagonal Jacobian from history and invert it
@@ -1503,6 +1528,25 @@ CONTAINS
                ! No history => will fall back to SD optimizer in outer_loop_optimize
             END IF
          END IF
+      END IF
+      IF (ASSOCIATED(scf_env%outer_scf%inv_jacobian) .AND. para_env%mepos == para_env%source) THEN
+         inv_jacobian => scf_env%outer_scf%inv_jacobian
+         nvar = SIZE(inv_jacobian, 1)
+         output_unit = get_unit_number()
+         project_name = logger%iter_info%project_name
+         lp = LEN_TRIM(project_name)
+         project_name(lp+1:LEN(project_name)) = ".inverseJacobian"
+         CALL open_file(file_name=project_name, file_status="UNKNOWN", &
+                        file_action="WRITE", file_position="APPEND", &
+                        unit_number=output_unit)
+         WRITE(output_unit, FMT="(/,A)") "Inverse Jacobian matrix in row major order"
+         WRITE(output_unit, FMT="(A,I10)") "Iteration: ", scf_env%outer_scf%iter_count
+         DO i = 1, nvar
+            DO j = 1, nvar
+               WRITE(output_unit, *) inv_jacobian(i, j)
+            END DO
+         END DO
+         CALL close_file(unit_number=output_unit)
       END IF
       CALL timestop(handle)
 
@@ -1641,12 +1685,11 @@ CONTAINS
             IF (continue_ls) THEN
                WRITE (output_unit, FMT="(A)") &
                   " Line search continues until best step size is found or max steps are reached"
-               WRITE (output_unit, FMT="(A)") " "
             END IF
-            WRITE (output_unit, '(A,I10,A,I10)') &
-               " Energy evaluation: ", cdft_control%ienergy, ", CDFT SCF iteration: ", iter_count
-            WRITE (output_unit, '(A,F5.3)') &
+            WRITE (output_unit, '(/,A,F5.3)') &
                " Step size update factor: ", factor
+            WRITE (output_unit, '(/,A,I10,A,I10)') &
+               " Energy evaluation: ", cdft_control%ienergy, ", CDFT SCF iteration: ", iter_count
          END IF
          ! Perform backtracking line search
          CALL cp_add_default_logger(tmp_logger)
@@ -1778,6 +1821,7 @@ CONTAINS
          IF (output_unit > 0) THEN
             WRITE (output_unit, FMT="(/,A)") &
                " ================================== LINE SEARCH COMPLETE =================================="
+            CALL close_file(unit_number=output_unit)
          END IF
       END IF
 

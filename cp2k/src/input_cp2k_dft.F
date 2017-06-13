@@ -5401,6 +5401,21 @@ CONTAINS
       CALL section_add_keyword(section, keyword)
       CALL keyword_release(keyword)
 
+      CALL keyword_create(keyword, name="JACOBIAN_RESTART", &
+                          description="Restart the inverse Jacobian using the vector defined with keyword JACOBIAN_VECTOR.", &
+                          usage="JACOBIAN_RESTART TRUE", &
+                          default_l_val=.FALSE., lone_keyword_l_val=.TRUE.)
+      CALL section_add_keyword(section, keyword)
+      CALL keyword_release(keyword)
+
+      CALL keyword_create(keyword, name="JACOBIAN_VECTOR", &
+                          description="Defines the inverse Jacobian matrix. Useful for restarting calculations. "// &
+                          "Expects n^2 values where n is the total number of constraints. "// &
+                          "The matrix should be given in row major order.", &
+                          usage="JACOBIAN_VECTOR 1.0 0.0", n_var=-1, type_of_var=real_t)
+      CALL section_add_keyword(section, keyword)
+      CALL keyword_release(keyword)
+
       CALL keyword_create(keyword, name="BISECT_TRUST_COUNT", &
                           description="Maximum number of times the same point will be used in bisection,"// &
                           " a small number guards against the effect of wrongly converged states.", &
