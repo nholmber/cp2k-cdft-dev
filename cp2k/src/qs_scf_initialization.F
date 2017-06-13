@@ -351,6 +351,7 @@ CONTAINS
             dft_control%qs_control%cdft_control%ot_control%max_scf = scf_control%outer_scf%max_scf
             dft_control%qs_control%cdft_control%ot_control%max_ls = scf_control%outer_scf%max_ls
             dft_control%qs_control%cdft_control%ot_control%continue_ls = scf_control%outer_scf%continue_ls
+            dft_control%qs_control%cdft_control%ot_control%factor_ls = scf_control%outer_scf%factor_ls
             dft_control%qs_control%cdft_control%ot_control%eps_scf = scf_control%outer_scf%eps_scf
             dft_control%qs_control%cdft_control%ot_control%step_size = scf_control%outer_scf%step_size
             dft_control%qs_control%cdft_control%ot_control%type = scf_control%outer_scf%type

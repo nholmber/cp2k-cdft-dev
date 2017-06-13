@@ -792,6 +792,12 @@ CONTAINS
                                       i_val=qs_control%cdft_control%constraint_control%max_ls)
             CALL section_vals_val_get(outer_scf_section, "CONTINUE_LS", &
                                       l_val=qs_control%cdft_control%constraint_control%continue_ls)
+            CALL section_vals_val_get(outer_scf_section, "FACTOR_LS", &
+                                      r_val=qs_control%cdft_control%constraint_control%factor_ls)
+            IF (qs_control%cdft_control%constraint_control%factor_ls .LE. 0.0_dp .OR. &
+                qs_control%cdft_control%constraint_control%factor_ls .GE. 1.0_dp) &
+               CALL cp_abort(__LOCATION__, &
+                             "Illegal value for keyword FACTOR_LS.")
             CALL section_vals_val_get(outer_scf_section, "EXTRAPOLATION_ORDER", &
                                       i_val=qs_control%cdft_control%constraint_control%extrapolation_order)
             CALL section_vals_val_get(outer_scf_section, "JACOBIAN_TYPE", &

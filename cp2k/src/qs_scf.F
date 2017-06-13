@@ -1528,7 +1528,7 @@ CONTAINS
                                                             nsteps, nvar, output_unit
       LOGICAL :: continue_ls, continue_ls_exit, converged, do_linesearch, found_solution, &
          reached_maxls, should_exit, should_stop
-      REAL(KIND=dp)                                      :: alpha, alpha_ls, norm_ls
+      REAL(KIND=dp)                                      :: alpha, alpha_ls, factor, norm_ls
       REAL(KIND=dp), DIMENSION(:), POINTER               :: energy, variables_next
       REAL(KIND=dp), DIMENSION(:, :), POINTER            :: gradient, inv_jacobian
       REAL(KIND=dp), EXTERNAL                            :: dnrm2
@@ -1616,6 +1616,7 @@ CONTAINS
          max_scf = scf_control%outer_scf%max_scf+1
          max_linesearch = scf_control%outer_scf%max_ls
          continue_ls = scf_control%outer_scf%continue_ls
+         factor = scf_control%outer_scf%factor_ls
          continue_ls_exit = .FALSE.
          found_solution = .FALSE.
          ALLOCATE (gradient(nvar, max_scf))
@@ -1644,6 +1645,8 @@ CONTAINS
             END IF
             WRITE (output_unit, '(A,I10,A,I10)') &
                " Energy evaluation: ", cdft_control%ienergy, ", CDFT SCF iteration: ", iter_count
+            WRITE (output_unit, '(A,F5.3)') &
+               " Step size update factor: ", factor
          END IF
          ! Perform backtracking line search
          CALL cp_add_default_logger(tmp_logger)
@@ -1706,7 +1709,7 @@ CONTAINS
                      DO ispin = 1, nspins
                         CALL duplicate_mo_set(mos_ls(ispin)%mo_set, mos(ispin)%mo_set)
                      END DO
-                     alpha = alpha*0.5_dp
+                     alpha = alpha*factor
                      ! Exit on last iteration
                      IF (i == max_linesearch) continue_ls_exit = .TRUE.
                   END IF
@@ -1715,7 +1718,7 @@ CONTAINS
                ! Gradient increased => alpha is too large (if the gradient function is smooth)
                should_exit = .FALSE.
                ! Update alpha using Armijo's scheme
-               alpha = alpha*0.5_dp
+               alpha = alpha*factor
             END IF
             IF (continue_ls_exit) THEN
                ! Continuation of line search did not yield a better alpha, use previously located solution and exit
@@ -1737,7 +1740,7 @@ CONTAINS
                 (i == max_linesearch .AND. converged .AND. .NOT. found_solution)) THEN
                should_exit = .TRUE.
                reached_maxls = .TRUE.
-               alpha = alpha*2.0_dp
+               alpha = alpha*(1.0_dp/factor)
             END IF
             ! Reset outer SCF environment to last converged state
             scf_env%outer_scf%variables(:, iter_count+1) = 0.0_dp

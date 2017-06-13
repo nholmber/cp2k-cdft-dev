@@ -5442,6 +5442,13 @@ CONTAINS
       CALL section_add_keyword(section, keyword)
       CALL keyword_release(keyword)
 
+      CALL keyword_create(keyword, name="FACTOR_LS", &
+                          description="Control parameter for backtracking line search. The step size is reduced by "// &
+                          "this factor on every line search iteration. Value must be between 0 and 1 (exclusive).", &
+                          usage="FACTOR_LS 0.5", default_r_val=0.5_dp)
+      CALL section_add_keyword(section, keyword)
+      CALL keyword_release(keyword)
+
       CALL keyword_create(keyword, name="CONTINUE_LS", &
                           description="Continue backtracking line search until MAX_LS steps are reached or the "// &
                           "norm of the CDFT gradient no longer decreases. Default (false) behavior exits the "// &

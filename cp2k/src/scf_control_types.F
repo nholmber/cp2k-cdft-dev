@@ -96,8 +96,9 @@ MODULE scf_control_types
 !>                  Jacobian rebuild
 !> \param broyden_update logical which determines if a Broyden update is needed
 !> \param max_ls the maximum number of backtracking line search steps to perform
-!> \param continue_ls continue line search until max steps are reached or the optimized quantity
-!>                    no longer improves
+!> \param continue_ls continue line search until max steps are reached or until the gradient
+!>                    no longer decreases
+!> \param factor_ls line search parameter used in generating a new step size
 !> \par History
 !>      09.2002 created [fawzi]
 !> \author Fawzi Mohamed
@@ -112,7 +113,8 @@ MODULE scf_control_types
       REAL(KIND=dp) :: eps_scf, step_size, &
                        jacobian_step, &
                        newton_step, &
-                       newton_step_save
+                       newton_step_save, &
+                       factor_ls
       INTEGER       :: TYPE
       INTEGER       :: optimizer
       INTEGER       :: diis_buffer_length
@@ -294,6 +296,7 @@ CONTAINS
       scf_control%outer_scf%jacobian_step = 0.0_dp
       scf_control%outer_scf%newton_step = 1.0_dp
       scf_control%outer_scf%newton_step_save = 1.0_dp
+      scf_control%outer_scf%factor_ls = 0.5_dp
       scf_control%outer_scf%ijacobian = 0
       scf_control%outer_scf%max_ls = 0
       scf_control%outer_scf%build_jacobian = .FALSE.
@@ -544,6 +547,12 @@ CONTAINS
                                    i_val=scf_control%outer_scf%broyden_type)
          CALL section_vals_val_get(outer_scf_section, "CONTINUE_LS", &
                                    l_val=scf_control%outer_scf%continue_ls)
+         CALL section_vals_val_get(outer_scf_section, "FACTOR_LS", &
+                                   r_val=scf_control%outer_scf%factor_ls)
+         IF (scf_control%outer_scf%factor_ls .LE. 0.0_dp .OR. &
+             scf_control%outer_scf%factor_ls .GE. 1.0_dp) &
+            CALL cp_abort(__LOCATION__, &
+                          "Illegal value for keyword FACTOR_LS.")
          IF (exists .AND. ABS(scf_control%outer_scf%step_size) .LE. 1.0_dp) THEN
             scf_control%outer_scf%newton_step = ABS(scf_control%outer_scf%step_size)
             ! Permanent copy needed in case line search is performed
