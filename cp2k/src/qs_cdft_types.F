@@ -497,7 +497,7 @@ CONTAINS
       cdft_control%ot_control%jacobian_type = -1
       cdft_control%ot_control%jacobian_step = 0.0_dp
       cdft_control%ot_control%jacobian_restart = .FALSE.
-      NULLIFY(cdft_control%ot_control%jacobian_vector)
+      NULLIFY (cdft_control%ot_control%jacobian_vector)
       cdft_control%ot_control%newton_step = 1.0_dp
       cdft_control%ot_control%newton_step_save = 1.0_dp
       cdft_control%constraint_control%have_scf = .FALSE.
@@ -512,7 +512,7 @@ CONTAINS
       cdft_control%constraint_control%jacobian_freq = 1
       cdft_control%constraint_control%jacobian_step = 0.0_dp
       cdft_control%constraint_control%jacobian_restart = .FALSE.
-      NULLIFY(cdft_control%constraint_control%jacobian_vector)
+      NULLIFY (cdft_control%constraint_control%jacobian_vector)
       cdft_control%constraint_control%newton_step = 1.0_dp
       cdft_control%constraint_control%newton_step_save = 1.0_dp
       cdft_control%constraint_control%factor_ls = 0.5_dp
@@ -568,9 +568,9 @@ CONTAINS
             DEALLOCATE (cdft_control%hirshfeld_control)
          END IF
          IF (ASSOCIATED(cdft_control%ot_control%jacobian_vector)) &
-            DEALLOCATE(cdft_control%ot_control%jacobian_vector)
+            DEALLOCATE (cdft_control%ot_control%jacobian_vector)
          IF (ASSOCIATED(cdft_control%constraint_control%jacobian_vector)) &
-            DEALLOCATE(cdft_control%constraint_control%jacobian_vector)
+            DEALLOCATE (cdft_control%constraint_control%jacobian_vector)
          IF (ASSOCIATED(cdft_control%constraint%variables)) &
             DEALLOCATE (cdft_control%constraint%variables)
          IF (ASSOCIATED(cdft_control%constraint%count)) &

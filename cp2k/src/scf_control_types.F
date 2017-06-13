@@ -305,7 +305,7 @@ CONTAINS
       scf_control%outer_scf%broyden_update = .FALSE.
       scf_control%outer_scf%continue_ls = .FALSE.
       scf_control%outer_scf%jacobian_restart = .FALSE.
-      NULLIFY(scf_control%outer_scf%jacobian_vector)
+      NULLIFY (scf_control%outer_scf%jacobian_vector)
 
       ! Smearing of the MO occupations
 
@@ -362,7 +362,7 @@ CONTAINS
             DEALLOCATE (scf_control%smear)
 
             IF (ASSOCIATED(scf_control%outer_scf%jacobian_vector)) &
-               DEALLOCATE(scf_control%outer_scf%jacobian_vector)
+               DEALLOCATE (scf_control%outer_scf%jacobian_vector)
 
             ! Maximum overlap method orbital indices lists
             ! mom_deoccA, mom_deoccB, mom_occA, mom_occB
@@ -591,7 +591,7 @@ CONTAINS
          IF (scf_control%outer_scf%jacobian_restart) THEN
             CALL section_vals_val_get(outer_scf_section, "JACOBIAN_VECTOR", &
                                       r_vals=rtmplist)
-            ALLOCATE(scf_control%outer_scf%jacobian_vector(SIZE(rtmplist)))
+            ALLOCATE (scf_control%outer_scf%jacobian_vector(SIZE(rtmplist)))
             scf_control%outer_scf%jacobian_vector = rtmplist
          END IF
       END IF

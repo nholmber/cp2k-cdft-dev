@@ -368,14 +368,15 @@ CONTAINS
             dft_control%qs_control%cdft_control%ot_control%broyden_type = scf_control%outer_scf%broyden_type
             dft_control%qs_control%cdft_control%ot_control%broyden_update = scf_control%outer_scf%broyden_update
             IF (scf_control%outer_scf%jacobian_restart) THEN
+               ! This code block should not do anything
                dft_control%qs_control%cdft_control%ot_control%jacobian_restart = .TRUE.
                nvariables = SIZE(scf_control%outer_scf%jacobian_vector)
                IF (ASSOCIATED(dft_control%qs_control%cdft_control%ot_control%jacobian_vector)) &
                   CPABORT("")
-               ALLOCATE(dft_control%qs_control%cdft_control%ot_control%jacobian_vector(nvariables))
+               ALLOCATE (dft_control%qs_control%cdft_control%ot_control%jacobian_vector(nvariables))
                IF (ASSOCIATED(dft_control%qs_control%cdft_control%constraint_control%jacobian_vector)) &
                   CPABORT("")
-               ALLOCATE(dft_control%qs_control%cdft_control%constraint_control%jacobian_vector(nvariables))
+               ALLOCATE (dft_control%qs_control%cdft_control%constraint_control%jacobian_vector(nvariables))
                dft_control%qs_control%cdft_control%constraint_control%jacobian_vector = scf_control%outer_scf%jacobian_vector
                dft_control%qs_control%cdft_control%ot_control%jacobian_vector = scf_control%outer_scf%jacobian_vector
             END IF

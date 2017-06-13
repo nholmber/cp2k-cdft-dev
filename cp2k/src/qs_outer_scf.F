@@ -598,13 +598,15 @@ CONTAINS
          scf_control%outer_scf%build_jacobian = cdft_control%ot_control%build_jacobian
          scf_control%outer_scf%broyden_type = cdft_control%ot_control%broyden_type
          scf_control%outer_scf%broyden_update = cdft_control%ot_control%broyden_update
-         IF (cdft_control%ot_control%jacobian_restart) THEN
-            ! Deallocate everything if inverse Jacobian was restarted
-            IF (.NOT. scf_control%outer_scf%jacobian_restart) THEN
-               CPASSERT(ASSOCIATED(cdft_control%ot_control%jacobian_vector))
-               DEALLOCATE(cdft_control%ot_control%jacobian_vector)
-               cdft_control%ot_control%jacobian_restart = .FALSE.
-            END IF
+         IF (cdft_control%constraint_control%jacobian_restart) THEN
+            ! Transfer restart vector for inverse Jacobian matrix
+            ! (qs_calculate_inverse_jacobian handles deallocation of transferred vector)
+            scf_control%outer_scf%jacobian_restart = .TRUE.
+            ALLOCATE (scf_control%outer_scf% &
+                      jacobian_vector(SIZE(cdft_control%constraint_control%jacobian_vector)))
+            scf_control%outer_scf%jacobian_vector = cdft_control%constraint_control%jacobian_vector
+            DEALLOCATE (cdft_control%constraint_control%jacobian_vector)
+            cdft_control%constraint_control%jacobian_restart = .FALSE.
          END IF
          ! Switch data in scf_env: first save current values for constraint
          cdft_control%constraint%iter_count = scf_env%outer_scf%iter_count

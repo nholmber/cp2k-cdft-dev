@@ -46,9 +46,9 @@ MODULE qs_scf
    USE atomic_kind_types,               ONLY: atomic_kind_type
    USE cp_control_types,                ONLY: dft_control_type
    USE cp_dbcsr_operations,             ONLY: copy_dbcsr_to_fm
-   USE cp_files,                        ONLY: open_file, &
-                                              close_file, &
-                                              get_unit_number
+   USE cp_files,                        ONLY: close_file,&
+                                              get_unit_number,&
+                                              open_file
    USE cp_fm_types,                     ONLY: cp_fm_create,&
                                               cp_fm_release,&
                                               cp_fm_to_fm,&
@@ -1254,10 +1254,10 @@ CONTAINS
          DO i = 1, nvar
             DO j = 1, nvar
                inv_jacobian(i, j) = scf_control%outer_scf%jacobian_vector(iwork)
-               iwork = iwork + 1
+               iwork = iwork+1
             END DO
          END DO
-         DEALLOCATE(scf_control%outer_scf%jacobian_vector)
+         DEALLOCATE (scf_control%outer_scf%jacobian_vector)
          scf_control%outer_scf%jacobian_restart = .FALSE.
          scf_control%outer_scf%broyden_update = .FALSE.
       END IF
@@ -1539,11 +1539,11 @@ CONTAINS
          CALL open_file(file_name=project_name, file_status="UNKNOWN", &
                         file_action="WRITE", file_position="APPEND", &
                         unit_number=output_unit)
-         WRITE(output_unit, FMT="(/,A)") "Inverse Jacobian matrix in row major order"
-         WRITE(output_unit, FMT="(A,I10)") "Iteration: ", scf_env%outer_scf%iter_count
+         WRITE (output_unit, FMT="(/,A)") "Inverse Jacobian matrix in row major order"
+         WRITE (output_unit, FMT="(A,I10)") "Iteration: ", scf_env%outer_scf%iter_count
          DO i = 1, nvar
             DO j = 1, nvar
-               WRITE(output_unit, *) inv_jacobian(i, j)
+               WRITE (output_unit, *) inv_jacobian(i, j)
             END DO
          END DO
          CALL close_file(unit_number=output_unit)
