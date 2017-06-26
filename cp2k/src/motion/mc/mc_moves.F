@@ -30,10 +30,10 @@ MODULE mc_moves
                                               use_fist_force
    USE global_types,                    ONLY: global_environment_type
    USE kinds,                           ONLY: default_string_length,&
-                                              dp,&
-                                              dp_size
+                                              dp
    USE mathconstants,                   ONLY: pi
    USE mc_coordinates,                  ONLY: check_for_overlap,&
+                                              cluster_search,&
                                               create_discrete_array,&
                                               generate_cbmc_swap_config,&
                                               get_center_of_mass
@@ -55,7 +55,6 @@ MODULE mc_moves
                                               rng_stream_type
    USE particle_list_types,             ONLY: particle_list_type
    USE physcon,                         ONLY: angstrom
-   USE termination,                     ONLY: stop_memory
 #include "../../base/base_uses.f90"
 
    IMPLICIT NONE
@@ -71,7 +70,7 @@ MODULE mc_moves
 
    PUBLIC :: mc_conformation_change, mc_molecule_translation, &
              mc_molecule_rotation, mc_volume_move, mc_avbmc_move, &
-             mc_hmc_move
+             mc_hmc_move, mc_cluster_translation
 
 CONTAINS
 
@@ -153,8 +152,8 @@ CONTAINS
       CHARACTER(default_string_length)                   :: name
       CHARACTER(default_string_length), DIMENSION(:), &
          POINTER                                         :: names
-      INTEGER :: atom_number, end_atom, end_mol, group, handle, imol_type, imolecule, ipart, &
-         istat, jbox, molecule_number, nunits_mol, source, start_mol
+      INTEGER :: atom_number, end_atom, end_mol, group, handle, imol_type, imolecule, ipart, jbox, &
+         molecule_number, nunits_mol, source, start_mol
       INTEGER, DIMENSION(:), POINTER                     :: mol_type, nunits
       INTEGER, DIMENSION(:, :), POINTER                  :: nchains
       LOGICAL                                            :: ionode, lbias, loverlap
@@ -185,12 +184,8 @@ CONTAINS
 
 ! do some allocation
       nunits_mol = nunits(molecule_type)
-      ALLOCATE (r_old(1:3, 1:nunits_mol), STAT=istat)
-      IF (istat /= 0) CALL stop_memory(routineN, moduleN, __LINE__, &
-                                       "r", 3*nunits_mol*dp_size)
-      ALLOCATE (r_new(1:3, 1:nunits_mol), STAT=istat)
-      IF (istat /= 0) CALL stop_memory(routineN, moduleN, __LINE__, &
-                                       "r_new", 3*nunits_mol*dp_size)
+      ALLOCATE (r_old(1:3, 1:nunits_mol))
+      ALLOCATE (r_new(1:3, 1:nunits_mol))
 
 ! find out some bounds for mol_type
       start_mol = 1
@@ -450,8 +445,8 @@ CONTAINS
       CHARACTER(len=*), PARAMETER :: routineN = 'mc_molecule_translation', &
          routineP = moduleN//':'//routineN
 
-      INTEGER :: atom_number, end_atom, end_mol, group, handle, imolecule, ipart, iparticle, &
-         istat, jbox, molecule_number, move_direction, nunits_mol, source, start_mol
+      INTEGER :: atom_number, end_atom, end_mol, group, handle, imolecule, ipart, iparticle, jbox, &
+         molecule_number, move_direction, nunits_mol, source, start_mol
       INTEGER, DIMENSION(:), POINTER                     :: mol_type, nunits, nunits_tot
       INTEGER, DIMENSION(:, :), POINTER                  :: nchains
       LOGICAL                                            :: ionode, lbias, loverlap
@@ -488,9 +483,7 @@ CONTAINS
       end_mol = start_mol+SUM(nchains(:, box_number))-1
 
 ! do some allocation
-      ALLOCATE (r_old(1:3, 1:nunits_tot(box_number)), STAT=istat)
-      IF (istat /= 0) CALL stop_memory(routineN, moduleN, __LINE__, &
-                                       "r", 3*nunits_tot(box_number)*dp_size)
+      ALLOCATE (r_old(1:3, 1:nunits_tot(box_number)))
 
 ! find the index of the last atom of this molecule, and the molecule number
       nunits_mol = nunits(molecule_type)
@@ -675,8 +668,8 @@ CONTAINS
       CHARACTER(len=*), PARAMETER :: routineN = 'mc_molecule_rotation', &
          routineP = moduleN//':'//routineN
 
-      INTEGER :: atom_number, dir, end_atom, end_mol, group, handle, ii, imolecule, ipart, istat, &
-         iunit, jbox, molecule_number, nunits_mol, source, start_mol
+      INTEGER :: atom_number, dir, end_atom, end_mol, group, handle, ii, imolecule, ipart, iunit, &
+         jbox, molecule_number, nunits_mol, source, start_mol
       INTEGER, DIMENSION(:), POINTER                     :: mol_type, nunits, nunits_tot
       INTEGER, DIMENSION(:, :), POINTER                  :: nchains
       LOGICAL                                            :: ionode, lbias, loverlap, lx, ly
@@ -718,9 +711,7 @@ CONTAINS
       NULLIFY (particles, subsys)
 
 ! do some allocation
-      ALLOCATE (r_old(1:3, 1:nunits_tot(box_number)), STAT=istat)
-      IF (istat /= 0) CALL stop_memory(routineN, moduleN, __LINE__, &
-                                       "r", 3*nunits_tot(box_number)*dp_size)
+      ALLOCATE (r_old(1:3, 1:nunits_tot(box_number)))
 
 ! initialize some stuff
       lx = .FALSE.
@@ -984,8 +975,8 @@ CONTAINS
       CHARACTER(LEN=200)                                 :: fft_lib
       CHARACTER(LEN=40)                                  :: dat_file
       INTEGER :: cl, end_atom, end_mol, group, handle, iatom, idim, imolecule, iside, &
-         iside_change, istat, iunit, jbox, nunits_mol, output_unit, print_level, source, &
-         start_atom, start_mol
+         iside_change, iunit, jbox, nunits_mol, output_unit, print_level, source, start_atom, &
+         start_mol
       INTEGER, DIMENSION(:), POINTER                     :: mol_type, nunits, nunits_tot
       INTEGER, DIMENSION(:, :), POINTER                  :: nchains
       LOGICAL                                            :: ionode, ldiscrete, lincrease, loverlap, &
@@ -1030,9 +1021,7 @@ CONTAINS
       NULLIFY (particles_old, cell_old, oldsys, cell_test, cell)
 
 ! do some allocation
-      ALLOCATE (r(1:3, 1:nunits_tot(box_number)), STAT=istat)
-      IF (istat /= 0) CALL stop_memory(routineN, moduleN, __LINE__, &
-                                       "r", 3*nunits_tot(box_number)*dp_size)
+      ALLOCATE (r(1:3, 1:nunits_tot(box_number)))
 
 ! record the attempt
       moves%volume%attempts = moves%volume%attempts+1
@@ -1328,8 +1317,7 @@ CONTAINS
          routineP = moduleN//':'//routineN
 
       INTEGER                                            :: bond_number, group, handle, i, iatom, &
-                                                            ibond, ipart, istat, natom, nbond, &
-                                                            source
+                                                            ibond, ipart, natom, nbond, source
       INTEGER, ALLOCATABLE, DIMENSION(:)                 :: atom_a, atom_b, counter
       INTEGER, ALLOCATABLE, DIMENSION(:, :)              :: connection, connectivity
       INTEGER, DIMENSION(:), POINTER                     :: nunits
@@ -1366,22 +1354,12 @@ CONTAINS
                              bond_list=bond_list)
       bond_number = CEILING(rand*REAL(nbond, dp))
 
-      ALLOCATE (connection(1:natom, 1:2), STAT=istat)
-      IF (istat /= 0) CALL stop_memory(routineN, moduleN, __LINE__, &
-                                       "connection", 2*natom*dp_size)
+      ALLOCATE (connection(1:natom, 1:2))
 ! assume at most six bonds per atom
-      ALLOCATE (connectivity(1:6, 1:natom), STAT=istat)
-      IF (istat /= 0) CALL stop_memory(routineN, moduleN, __LINE__, &
-                                       "connectivity", 6*natom*dp_size)
-      ALLOCATE (counter(1:natom), STAT=istat)
-      IF (istat /= 0) CALL stop_memory(routineN, moduleN, __LINE__, &
-                                       "counter", natom)
-      ALLOCATE (atom_a(1:natom), STAT=istat)
-      IF (istat /= 0) CALL stop_memory(routineN, moduleN, __LINE__, &
-                                       "atom_a", natom)
-      ALLOCATE (atom_b(1:natom), STAT=istat)
-      IF (istat /= 0) CALL stop_memory(routineN, moduleN, __LINE__, &
-                                       "atom_b", natom)
+      ALLOCATE (connectivity(1:6, 1:natom))
+      ALLOCATE (counter(1:natom))
+      ALLOCATE (atom_a(1:natom))
+      ALLOCATE (atom_b(1:natom))
       connection(:, :) = 0
       connectivity(:, :) = 0
       counter(:) = 0
@@ -1506,8 +1484,8 @@ CONTAINS
          routineP = moduleN//':'//routineN
 
       INTEGER                                            :: bend_number, group, handle, i, iatom, &
-                                                            ibond, ipart, istat, natom, nbend, &
-                                                            nbond, source
+                                                            ibond, ipart, natom, nbend, nbond, &
+                                                            source
       INTEGER, ALLOCATABLE, DIMENSION(:)                 :: atom_a, atom_c, counter
       INTEGER, ALLOCATABLE, DIMENSION(:, :)              :: connection, connectivity
       INTEGER, DIMENSION(:), POINTER                     :: nunits
@@ -1546,22 +1524,12 @@ CONTAINS
                              bend_list=bend_list, bond_list=bond_list, nbond=nbond)
       bend_number = CEILING(rand*REAL(nbend, dp))
 
-      ALLOCATE (connection(1:natom, 1:2), STAT=istat)
-      IF (istat /= 0) CALL stop_memory(routineN, moduleN, __LINE__, &
-                                       "connection", 2*natom*dp_size)
+      ALLOCATE (connection(1:natom, 1:2))
 ! assume at most six bonds per atom
-      ALLOCATE (connectivity(1:6, 1:natom), STAT=istat)
-      IF (istat /= 0) CALL stop_memory(routineN, moduleN, __LINE__, &
-                                       "connectivity", 6*natom*dp_size)
-      ALLOCATE (counter(1:natom), STAT=istat)
-      IF (istat /= 0) CALL stop_memory(routineN, moduleN, __LINE__, &
-                                       "counter", natom)
-      ALLOCATE (atom_a(1:natom), STAT=istat)
-      IF (istat /= 0) CALL stop_memory(routineN, moduleN, __LINE__, &
-                                       "atom_a", natom)
-      ALLOCATE (atom_c(1:natom), STAT=istat)
-      IF (istat /= 0) CALL stop_memory(routineN, moduleN, __LINE__, &
-                                       "atom_c", natom)
+      ALLOCATE (connectivity(1:6, 1:natom))
+      ALLOCATE (counter(1:natom))
+      ALLOCATE (atom_a(1:natom))
+      ALLOCATE (atom_c(1:natom))
       connection(:, :) = 0
       connectivity(:, :) = 0
       counter(:) = 0
@@ -1776,7 +1744,7 @@ CONTAINS
          routineP = moduleN//':'//routineN
 
       INTEGER                                            :: group, handle, i, iatom, ibond, ipart, &
-                                                            istat, natom, nbond, ntorsion, source, &
+                                                            natom, nbond, ntorsion, source, &
                                                             torsion_number
       INTEGER, ALLOCATABLE, DIMENSION(:)                 :: atom_a, atom_d, counter
       INTEGER, ALLOCATABLE, DIMENSION(:, :)              :: connection, connectivity
@@ -1819,22 +1787,12 @@ CONTAINS
                              ntorsion=ntorsion, torsion_list=torsion_list)
       torsion_number = CEILING(rand*REAL(ntorsion, dp))
 
-      ALLOCATE (connection(1:natom, 1:2), STAT=istat)
-      IF (istat /= 0) CALL stop_memory(routineN, moduleN, __LINE__, &
-                                       "connection", 2*natom*dp_size)
+      ALLOCATE (connection(1:natom, 1:2))
 ! assume at most six bonds per atom
-      ALLOCATE (connectivity(1:6, 1:natom), STAT=istat)
-      IF (istat /= 0) CALL stop_memory(routineN, moduleN, __LINE__, &
-                                       "connectivity", 6*natom*dp_size)
-      ALLOCATE (counter(1:natom), STAT=istat)
-      IF (istat /= 0) CALL stop_memory(routineN, moduleN, __LINE__, &
-                                       "counter", natom)
-      ALLOCATE (atom_a(1:natom), STAT=istat)
-      IF (istat /= 0) CALL stop_memory(routineN, moduleN, __LINE__, &
-                                       "atom_a", natom)
-      ALLOCATE (atom_d(1:natom), STAT=istat)
-      IF (istat /= 0) CALL stop_memory(routineN, moduleN, __LINE__, &
-                                       "atom_d", natom)
+      ALLOCATE (connectivity(1:6, 1:natom))
+      ALLOCATE (counter(1:natom))
+      ALLOCATE (atom_a(1:natom))
+      ALLOCATE (atom_d(1:natom))
       connection(:, :) = 0
       connectivity(:, :) = 0
       counter(:) = 0
@@ -2005,9 +1963,8 @@ CONTAINS
 
       CHARACTER(len=*), PARAMETER :: routineN = 'mc_avbmc_move', routineP = moduleN//':'//routineN
 
-      INTEGER                                            :: end_mol, group, handle, ipart, istat, &
-                                                            jbox, natom, nswapmoves, source, &
-                                                            start_mol
+      INTEGER                                            :: end_mol, group, handle, ipart, jbox, &
+                                                            natom, nswapmoves, source, start_mol
       INTEGER, DIMENSION(:), POINTER                     :: avbmc_atom, mol_type, nunits, nunits_tot
       INTEGER, DIMENSION(:, :), POINTER                  :: nchains
       LOGICAL                                            :: ionode, lbias, ldum, lin, loverlap
@@ -2051,9 +2008,7 @@ CONTAINS
                particles_force, subsys_force)
 
 ! do some allocation
-      ALLOCATE (r_new(1:3, 1:nunits_tot(box_number)), STAT=istat)
-      IF (istat /= 0) CALL stop_memory(routineN, moduleN, __LINE__, &
-                                       "r_new", 3*nunits_tot(box_number)*dp_size)
+      ALLOCATE (r_new(1:3, 1:nunits_tot(box_number)))
 
 ! now we need to grab and save coordinates, in case we reject
 ! are we biasing this move?
@@ -2404,7 +2359,7 @@ CONTAINS
 
       CHARACTER(LEN=*), PARAMETER :: routineN = 'mc_hmc_move', routineP = moduleN//':'//routineN
 
-      INTEGER                                            :: group, handle, iatom, istat, source
+      INTEGER                                            :: group, handle, iatom, source
       INTEGER, DIMENSION(:), POINTER                     :: nunits_tot
       LOGICAL                                            :: ionode
       REAL(KIND=dp)                                      :: BETA, energy_term, exp_max_val, &
@@ -2430,9 +2385,7 @@ CONTAINS
       NULLIFY (particles_old, oldsys, hmc_ekin)
 
 ! do some allocation
-      ALLOCATE (r(1:3, 1:nunits_tot(box_number)), STAT=istat)
-      IF (istat /= 0) CALL stop_memory(routineN, moduleN, __LINE__, &
-                                       "r", 3*nunits_tot(box_number)*dp_size)
+      ALLOCATE (r(1:3, 1:nunits_tot(box_number)))
       ALLOCATE (hmc_ekin)
 
 ! record the attempt
@@ -2507,5 +2460,269 @@ CONTAINS
       CALL timestop(handle)
 
    END SUBROUTINE mc_hmc_move
+
+! *****************************************************************************
+!> \brief translates the cluster randomly in either the x,y, or z
+!>direction
+!> \param mc_par the mc parameters for the force env
+!> \param force_env the force environment used in the move
+!> \param bias_env the force environment used to bias the move, if any (it may
+!>            be null if lbias=.false. in mc_par)
+!> \param moves the structure that keeps track of how many moves have been
+!>               accepted/rejected
+!> \param move_updates the structure that keeps track of how many moves have
+!>               been accepted/rejected since the last time the displacements
+!>               were updated
+!> \param box_number ...
+!> \param bias_energy the biased energy of the system before the move
+!> \param lreject set to .true. if there is an overlap
+!> \param rng_stream the random number stream that we draw from
+!> \author Himanshu Goel
+!> \note     Designed for parallel use.
+! **************************************************************************************************
+
+   SUBROUTINE mc_cluster_translation(mc_par, force_env, bias_env, moves, &
+                                     move_updates, box_number, bias_energy, lreject, rng_stream)
+
+      TYPE(mc_simpar_type), POINTER                      :: mc_par
+      TYPE(force_env_type), POINTER                      :: force_env, bias_env
+      TYPE(mc_moves_type), POINTER                       :: moves, move_updates
+      INTEGER, INTENT(IN)                                :: box_number
+      REAL(KIND=dp), INTENT(INOUT)                       :: bias_energy
+      LOGICAL, INTENT(OUT)                               :: lreject
+      TYPE(rng_stream_type), POINTER                     :: rng_stream
+
+      CHARACTER(len=*), PARAMETER :: routineN = 'mc_cluster_translation', &
+         routineP = moduleN//':'//routineN
+
+      INTEGER :: cstart, end_mol, group, handle, imol, ipart, iparticle, iunit, jbox, jpart, &
+         junit, move_direction, nend, nunit, source, start_mol, total_clus, total_clusafmo
+      INTEGER, ALLOCATABLE, DIMENSION(:, :)              :: cluster
+      INTEGER, DIMENSION(:), POINTER                     :: mol_type, nunits, nunits_tot
+      INTEGER, DIMENSION(:, :), POINTER                  :: nchains
+      LOGICAL                                            :: ionode, lbias, loverlap
+      REAL(KIND=dp)                                      :: BETA, bias_energy_new, bias_energy_old, &
+                                                            dis_mol, exp_max_val, exp_min_val, &
+                                                            rand, rmcltrans, value, w
+      REAL(KIND=dp), ALLOCATABLE, DIMENSION(:, :)        :: r_old
+      TYPE(cp_subsys_type), POINTER                      :: subsys
+      TYPE(mc_molecule_info_type), POINTER               :: mc_molecule_info
+      TYPE(particle_list_type), POINTER                  :: particles
+
+!   *** Local Counters ***
+! begin the timing of the subroutine
+
+      CALL timeset(routineN, handle)
+
+! nullify some pointers
+      NULLIFY (particles, subsys)
+
+! get a bunch of stuff from mc_par
+      CALL get_mc_par(mc_par, lbias=lbias, &
+                      BETA=BETA, exp_max_val=exp_max_val, &
+                      exp_min_val=exp_min_val, rmcltrans=rmcltrans, ionode=ionode, source=source, &
+                      group=group, mc_molecule_info=mc_molecule_info)
+      CALL get_mc_molecule_info(mc_molecule_info, nunits_tot=nunits_tot, &
+                                nchains=nchains, nunits=nunits, mol_type=mol_type)
+
+! find out some bounds for mol_type
+      start_mol = 1
+      DO jbox = 1, box_number-1
+         start_mol = start_mol+SUM(nchains(:, jbox))
+      ENDDO
+      end_mol = start_mol+SUM(nchains(:, box_number))-1
+
+! do some allocation
+      ALLOCATE (r_old(1:3, 1:nunits_tot(box_number)))
+
+! Allocating cluster matrix size
+      nend = SUM(nchains(:, box_number))
+      ALLOCATE (cluster(nend, nend))
+      DO ipart = 1, nend
+         DO jpart = 1, nend
+            cluster(ipart, jpart) = 0
+         END DO
+      END DO
+
+! Get cluster information in cluster matrix from cluster_search subroutine
+      IF (lbias) THEN
+         CALL cluster_search(mc_par, bias_env, cluster, nchains(:, box_number), &
+                             nunits, mol_type(start_mol:end_mol), total_clus)
+      ELSE
+         CALL cluster_search(mc_par, force_env, cluster, nchains(:, box_number), &
+                             nunits, mol_type(start_mol:end_mol), total_clus)
+      ENDIF
+
+      IF (lbias) THEN
+
+! grab the coordinates
+         CALL force_env_get(bias_env, subsys=subsys)
+         CALL cp_subsys_get(subsys, particles=particles)
+
+! save the coordinates
+         DO ipart = 1, nunits_tot(box_number)
+            r_old(1:3, ipart) = particles%els(ipart)%r(1:3)
+         ENDDO
+
+! save the energy
+         bias_energy_old = bias_energy
+      ELSE
+
+! grab the coordinates
+         CALL force_env_get(force_env, subsys=subsys)
+         CALL cp_subsys_get(subsys, particles=particles)
+      ENDIF
+
+! record the attempt
+      moves%cltrans%attempts = moves%cltrans%attempts+1
+      move_updates%cltrans%attempts = move_updates%cltrans%attempts+1
+      moves%bias_cltrans%attempts = moves%bias_cltrans%attempts+1
+      move_updates%bias_cltrans%attempts = move_updates%bias_cltrans%attempts+1
+      IF (.NOT. lbias) THEN
+         moves%cltrans%qsuccesses = moves%cltrans%qsuccesses+1
+         move_updates%cltrans%qsuccesses = move_updates%cltrans%qsuccesses+1
+         moves%bias_cltrans%qsuccesses = moves%bias_cltrans%qsuccesses+1
+         move_updates%bias_cltrans%qsuccesses = move_updates%bias_cltrans%qsuccesses+1
+      ENDIF
+
+! call a random number to figure out which direction we're moving
+      IF (ionode) rand = next_random_number(rng_stream)
+      CALL mp_bcast(rand, source, group)
+      move_direction = INT(3*rand)+1
+
+! call a random number to figure out how far we're moving
+      IF (ionode) rand = next_random_number(rng_stream)
+      CALL mp_bcast(rand, source, group)
+      dis_mol = rmcltrans*(rand-0.5E0_dp)*2.0E0_dp
+
+! choosing cluster
+      IF (ionode) rand = next_random_number(rng_stream)
+      CALL mp_bcast(rand, source, group)
+      jpart = INT(1+rand*total_clus)
+
+! do the cluster move
+      DO cstart = 1, nend
+         imol = 0
+         IF (cluster(jpart, cstart) .NE. 0) THEN
+            imol = cluster(jpart, cstart)
+            iunit = 1
+            DO ipart = 1, imol-1
+               nunit = nunits(mol_type(ipart+start_mol-1))
+               iunit = iunit+nunit
+            END DO
+            nunit = nunits(mol_type(imol+start_mol-1))
+            junit = iunit+nunit-1
+            DO iparticle = iunit, junit
+               particles%els(iparticle)%r(move_direction) = &
+                  particles%els(iparticle)%r(move_direction)+dis_mol
+            ENDDO
+         END IF
+      END DO
+      CALL cp_subsys_set(subsys, particles=particles)
+
+!Make cluster matrix null
+      DO ipart = 1, nend
+         DO jpart = 1, nend
+            cluster(ipart, jpart) = 0
+         END DO
+      END DO
+
+! checking the number of cluster are same or got changed after cluster translation move
+      IF (lbias) THEN
+         CALL cluster_search(mc_par, bias_env, cluster, nchains(:, box_number), &
+                             nunits, mol_type(start_mol:end_mol), total_clusafmo)
+      ELSE
+         CALL cluster_search(mc_par, force_env, cluster, nchains(:, box_number), &
+                             nunits, mol_type(start_mol:end_mol), total_clusafmo)
+      ENDIF
+
+! figure out if there is any overlap...need the number of the molecule
+      lreject = .FALSE.
+      IF (lbias) THEN
+         CALL check_for_overlap(bias_env, nchains(:, box_number), &
+                                nunits(:), loverlap, mol_type(start_mol:end_mol))
+      ELSE
+         CALL check_for_overlap(force_env, nchains(:, box_number), &
+                                nunits(:), loverlap, mol_type(start_mol:end_mol))
+         IF (loverlap) lreject = .TRUE.
+      ENDIF
+
+! check if cluster size changes then reject the move
+      IF (lbias) THEN
+         IF (total_clusafmo .NE. total_clus) THEN
+            loverlap = .TRUE.
+         END IF
+      ELSE
+         IF (total_clusafmo .NE. total_clus) THEN
+            loverlap = .TRUE.
+            lreject = .TRUE.
+         END IF
+      ENDIF
+
+! if we're biasing with a cheaper potential, check for acceptance
+      IF (lbias) THEN
+
+! here's where we bias the moves
+         IF (loverlap) THEN
+            w = 0.0E0_dp
+         ELSE
+            CALL force_env_calc_energy_force(bias_env, calc_force=.FALSE.)
+            CALL force_env_get(bias_env, &
+                               potential_energy=bias_energy_new)
+! accept or reject the move based on the Metropolis rule
+            value = -BETA*(bias_energy_new-bias_energy_old)
+            IF (value .GT. exp_max_val) THEN
+               w = 10.0_dp
+            ELSEIF (value .LT. exp_min_val) THEN
+               w = 0.0_dp
+            ELSE
+               w = EXP(value)
+            ENDIF
+
+         ENDIF
+
+         IF (w .GE. 1.0E0_dp) THEN
+            w = 1.0E0_dp
+            rand = 0.0E0_dp
+         ELSE
+            IF (ionode) rand = next_random_number(rng_stream)
+            CALL mp_bcast(rand, source, group)
+         ENDIF
+         IF (rand .LT. w) THEN
+
+! accept the move
+            moves%bias_cltrans%successes = moves%bias_cltrans%successes+1
+            move_updates%bias_cltrans%successes = move_updates%bias_cltrans%successes+1
+            moves%cltrans%qsuccesses = moves%cltrans%qsuccesses+1
+            move_updates%cltrans%successes = &
+               move_updates%cltrans%successes+1
+            moves%qcltrans_dis = moves%qcltrans_dis+ABS(dis_mol)
+            bias_energy = bias_energy+bias_energy_new- &
+                          bias_energy_old
+
+         ELSE
+
+! reject the move
+! restore the coordinates
+            CALL force_env_get(bias_env, subsys=subsys)
+            CALL cp_subsys_get(subsys, particles=particles)
+            DO ipart = 1, nunits_tot(box_number)
+               particles%els(ipart)%r(1:3) = r_old(1:3, ipart)
+            ENDDO
+            CALL cp_subsys_set(subsys, particles=particles)
+
+         ENDIF
+
+      ENDIF
+
+! deallocate some stuff
+      DEALLOCATE (cluster)
+      DEALLOCATE (r_old)
+
+! end the timing
+      CALL timestop(handle)
+
+   END SUBROUTINE mc_cluster_translation
+
 END MODULE mc_moves
 
