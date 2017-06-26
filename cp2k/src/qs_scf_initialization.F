@@ -320,6 +320,11 @@ CONTAINS
       ! Test kpoints
       IF (do_kpoints) &
          CPABORT("CDFT calculation not possible with kpoints")
+      ! Check that OUTER_SCF section in DFT&SCF is active
+      ! This section must always be active to facilitate
+      ! switching of the CDFT and SCF control parameters in outer_loop_switch
+      IF (.NOT. scf_control%outer_scf%have_scf) &
+         CPABORT("Section SCF&OUTER_SCF must be active for CDFT calculations.")
       ! Initialize CDFT and outer_loop variables (constraint settings active in scf_control)
       IF (dft_control%qs_control%cdft_control%constraint_control%have_scf) THEN
          nhistory = dft_control%qs_control%cdft_control%constraint_control%max_scf+1
