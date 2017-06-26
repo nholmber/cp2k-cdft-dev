@@ -6,8 +6,12 @@ HeH-noconstraint.inp                                   1      2e-13             
 # These tests use different optimizers for the CDFT constraint
 # Newton: test different finite different schemes
 HeH-cdft-newton-fd1backward.inp                       1       9e-04             -2.80114428543899
+# Use restart for inverse Jacobian
+HeH-cdft-newton-fd1backward-restjacobian.inp		  1       9e-04             -2.80114428543899
 HeH-cdft-newton-fd2.inp                               1       9e-04             -2.71354237564800
 HeH-cdft-newton-fd1central.inp                        1       3e-04             -2.76375295298293
 # Newton: use backtracking line search
 HeH-cdft-newton-ls-fd2backward.inp                    1       2e-03             -2.44853002459689
+# Continue line search as long as constraint gradient norm decreases
+HeH-cdft-newton-contls-fd2backward.inp                1       2e-03             -2.43211811930261
 #EOF

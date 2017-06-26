@@ -1571,7 +1571,8 @@ CONTAINS
                                                             max_linesearch, max_scf, nspins, &
                                                             nsteps, nvar, output_unit
       LOGICAL :: continue_ls, continue_ls_exit, converged, do_linesearch, found_solution, &
-         reached_maxls, should_exit, should_stop
+         reached_maxls, should_exit, should_stop, sign_changed
+      LOGICAL, ALLOCATABLE, DIMENSION(:)                 :: positive_sign
       REAL(KIND=dp)                                      :: alpha, alpha_ls, factor, norm_ls
       REAL(KIND=dp), DIMENSION(:), POINTER               :: energy, variables_next
       REAL(KIND=dp), DIMENSION(:, :), POINTER            :: gradient, inv_jacobian
@@ -1719,6 +1720,13 @@ CONTAINS
                                   energy_qs, cdft_control%total_steps, &
                                   should_stop=.FALSE., outer_loop_converged=.FALSE., cdft_loop=.FALSE.)
             scf_env%outer_scf%iter_count = scf_env%outer_scf%iter_count-1
+            ! Store sign of initial gradient for each variable for continue_ls
+            IF (continue_ls .AND. .NOT. ALLOCATED(positive_sign)) THEN
+               ALLOCATE (positive_sign(nvar))
+               DO ispin = 1, nvar
+                  positive_sign(ispin) = scf_env%outer_scf%gradient(ispin, iter_count+1) .GE. 0.0_dp
+               END DO
+            END IF
             ! Check if the L2 norm of the gradient decreased
             inv_jacobian => scf_env%outer_scf%inv_jacobian
             IF (dnrm2(nvar, scf_env%outer_scf%gradient(:, iter_count+1), 1) .LT. &
@@ -1742,6 +1750,13 @@ CONTAINS
                      alpha_ls = alpha
                      found_solution = .TRUE.
                      norm_ls = dnrm2(nvar, scf_env%outer_scf%gradient(:, iter_count+1), 1)
+                     ! Check if the sign of the gradient has changed for all variables (w.r.t initial gradient)
+                     ! In this case we should exit because further line search steps will just increase the norm
+                     sign_changed = .TRUE.
+                     DO ispin = 1, nvar
+                        sign_changed = sign_changed .AND. (positive_sign(ispin) .NEQV. &
+                                                           scf_env%outer_scf%gradient(ispin, iter_count+1) .GE. 0.0_dp)
+                     END DO
                      IF (.NOT. ASSOCIATED(mos_ls)) THEN
                         ALLOCATE (mos_ls(nspins))
                      ELSE
@@ -1755,6 +1770,12 @@ CONTAINS
                      alpha = alpha*factor
                      ! Exit on last iteration
                      IF (i == max_linesearch) continue_ls_exit = .TRUE.
+                     ! Exit if constraint target is satisfied to requested tolerance
+                     IF (SQRT(MAXVAL(scf_env%outer_scf%gradient(:, scf_env%outer_scf%iter_count+1)**2)) .LT. &
+                         scf_control%outer_scf%eps_scf) &
+                        continue_ls_exit = .TRUE.
+                     ! Exit if line search jumped over the optimal step length
+                     IF (sign_changed) continue_ls_exit = .TRUE.
                   END IF
                END IF
             ELSE
@@ -1818,6 +1839,7 @@ CONTAINS
             CALL deallocate_mo_set(mos_stashed(ispin)%mo_set)
          END DO
          DEALLOCATE (mos_stashed, gradient, energy)
+         IF (ALLOCATED(positive_sign)) DEALLOCATE (positive_sign)
          IF (output_unit > 0) THEN
             WRITE (output_unit, FMT="(/,A)") &
                " ================================== LINE SEARCH COMPLETE =================================="
