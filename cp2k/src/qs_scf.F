@@ -1085,19 +1085,17 @@ CONTAINS
                CALL get_mo_set(mo_set=mos(ispin)%mo_set, uniform_occupation=my_uocc)
                uniform_occupation = uniform_occupation .AND. my_uocc
             END DO
-            NULLIFY(cdft_control%occupations)
-            NULLIFY(cdft_control%homo)
             IF (.NOT. uniform_occupation) THEN
                ALLOCATE(cdft_control%occupations(dft_control%nspins))
                ALLOCATE(cdft_control%homo(dft_control%nspins))
-               DO ispin = 1, nspin
+               DO ispin = 1, dft_control%nspins
                   CALL get_mo_set(mo_set=mos(ispin)%mo_set, &
                                   nmo=nmo, &
                                   homo=homo, &
                                   occupation_numbers=mo_occupations)
                   ALLOCATE (cdft_control%occupations(ispin)%array(nmo))
                   cdft_control%occupations(ispin)%array(1:nmo) = mo_occupations(1:nmo)
-                  cdft_control%homo(ispin) = homo(1:nmo)
+                  cdft_control%homo(ispin) = homo
                END DO
             END IF
          END IF

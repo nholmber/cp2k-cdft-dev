@@ -1406,6 +1406,7 @@ CONTAINS
          CALL cp_fm_set_all(sigma, alpha=0.0_dp)
          determinant = 1.0_dp
          ! TODO: Notify if some singular values fall below my_eps_svd
+         print *, 'Singular values', diag
          DO i = 1, n
             IF (diag(i) < my_eps_svd) THEN
                diag(i) = 0.0_dp

@@ -18,7 +18,8 @@ MODULE mixed_cdft_methods
    USE cp_control_types,                ONLY: dft_control_type
    USE cp_dbcsr_diag,                   ONLY: cp_dbcsr_syevd
    USE cp_dbcsr_operations,             ONLY: cp_dbcsr_sm_fm_multiply
-   USE cp_fm_basic_linalg,              ONLY: cp_fm_invert,&
+   USE cp_fm_basic_linalg,              ONLY: cp_fm_column_scale,&
+                                              cp_fm_invert,&
                                               cp_fm_transpose
    USE cp_fm_struct,                    ONLY: cp_fm_struct_create,&
                                               cp_fm_struct_release,&
@@ -1137,6 +1138,7 @@ CONTAINS
          NULLIFY (fm_struct_mo, mo_mo_fmstruct)
          CALL cp_fm_get_info(mixed_mo_coeff(1, ispin)%matrix, ncol_global=ncol_mo(ispin), nrow_global=nrow_mo(ispin))
          nao = nrow_mo(ispin)
+         !nmo = 15
          nmo = ncol_mo(ispin)
          CALL cp_fm_struct_create(fm_struct_mo, nrow_global=nao, ncol_global=nmo, &
                                   context=mixed_cdft%blacs_env, para_env=force_env%para_env)
@@ -1168,6 +1170,14 @@ CONTAINS
             END DO
          END DO
          CALL cp_fm_struct_release(mo_mo_fmstruct)
+         ! Scale MOs with occupation_numbers
+         IF (ALLOCATED(mixed_cdft%occupations)) THEN
+            DO iforce_eval = 1, nforce_eval
+               !CALL cp_fm_to_fm(mixed_mo_coeff(iforce_eval, ispin)%matrix, tmp2)
+               CALL cp_fm_column_scale(mixed_mo_coeff(iforce_eval, ispin)%matrix, &
+                                       mixed_cdft%occupations(iforce_eval, ispin)%array)
+            END DO
+         END IF
          ! calculate the MO overlaps (C_j)^T S C_i
          ipermutation = 0
          DO istate = 1, nforce_eval
@@ -1207,7 +1217,9 @@ CONTAINS
                   DO ivar = 1, nvar
                      b(ispin, ivar, ipermutation) = b(ispin, ivar, ipermutation)+ &
                                                     w_matrix_mo(jstate, istate, ivar)%matrix%local_data(k, j)* &
-                                                    inverse_mat%local_data(k, j)
+                                                    inverse_mat%local_data(k, j) *&
+                                                    mixed_cdft%occupations(jstate, ispin)%array(j) *&
+                                                    mixed_cdft%occupations(istate, ispin)%array(j)
                   END DO
                END DO
             END DO
@@ -1218,7 +1230,9 @@ CONTAINS
                   DO ivar = 1, nvar
                      a(ispin, ivar, ipermutation) = a(ispin, ivar, ipermutation)+ &
                                                     w_matrix_mo(istate, jstate, ivar)%matrix%local_data(k, j)* &
-                                                    Tinverse%local_data(k, j)
+                                                    Tinverse%local_data(k, j) *&
+                                                    mixed_cdft%occupations(jstate, ispin)%array(j) *&
+                                                    mixed_cdft%occupations(istate, ispin)%array(j)
                   END DO
                END DO
             END DO
