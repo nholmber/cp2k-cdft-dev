@@ -1024,7 +1024,7 @@ CONTAINS
       CHARACTER(LEN=default_path_length)                 :: file_name
       INTEGER :: check_ao(2), check_mo(2), handle, iforce_eval, info, iounit, ipermutation, ispin, &
          istate, ivar, j, jstate, k, nao, ncol_local, nforce_eval, nmo, npermutations, nrow_local, &
-         nspins, nvar, work_array_size, mounit
+         nspins, nvar, work_array_size, mounit, moeigvalunit
       INTEGER                                            :: myprow, mypcol, irow_local, icol_local,&
                                                             ncol_global, nrow_global, nprow, npcol, &
                                                             i, ipcol, iprow
