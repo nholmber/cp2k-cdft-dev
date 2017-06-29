@@ -1764,7 +1764,7 @@ CONTAINS
 
       IF (print_mo) &
          CALL cp_print_key_finished_output(mounit, logger, force_env_section, &
-                                           "MIXED%MIXED_CDFT%PRINT%PROGRAM_RUN_INFO", on_file)
+                                           "MIXED%MIXED_CDFT%PRINT%PROGRAM_RUN_INFO", on_file=.TRUE.)
 
       CALL cp_print_key_finished_output(iounit, logger, force_env_section, &
                                         "MIXED%MIXED_CDFT%PRINT%PROGRAM_RUN_INFO")
