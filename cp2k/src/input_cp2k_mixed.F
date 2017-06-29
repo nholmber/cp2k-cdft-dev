@@ -268,6 +268,7 @@ CONTAINS
       CALL section_add_keyword(subsection, keyword)
       CALL keyword_release(keyword)
 
+      NULLIFY(sub2section)
       CALL create_print_mixed_cdft_section(sub2section)
       CALL section_add_subsection(subsection, sub2section)
       CALL section_release(sub2section)
