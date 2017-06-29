@@ -564,7 +564,7 @@ CONTAINS
 
       logger => cp_get_default_logger()
       CALL force_env_get(force_env=force_env, force_env_section=force_env_section)
-      print_section => section_vals_get_subs_vals(force_env_section, "MIXED%PRINT%PROGRAM_RUN_INFO")
+      print_section => section_vals_get_subs_vals(force_env_section, "MIXED%MIXED_CDFT%PRINT%PROGRAM_RUN_INFO")
       iounit = cp_print_key_unit_nr(logger, print_section, '', extension='.mixedLog')
       is_match = .TRUE.
       nforce_eval = SIZE(force_env%sub_force_env)
@@ -921,7 +921,7 @@ CONTAINS
          CALL cp_blacs_env_release(blacs_env)
       END IF
       CALL cp_print_key_finished_output(iounit, logger, force_env_section, &
-                                        "MIXED%PRINT%PROGRAM_RUN_INFO")
+                                        "MIXED%MIXED_CDFT%PRINT%PROGRAM_RUN_INFO")
 
    END SUBROUTINE mixed_cdft_init_structures
 
