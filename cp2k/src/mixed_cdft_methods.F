@@ -1084,7 +1084,7 @@ CONTAINS
       iounit = cp_print_key_unit_nr(logger, print_section, '', extension='.mixedLog')
       IF (section_get_lval(print_section, "MO_OVERLAP_MATRIX")) THEN
          print_mo = .TRUE.
-         mounit = cp_print_key_unit_nr(logger, print_section, extension='.moOverlap', on_file="TRUE")
+         mounit = cp_print_key_unit_nr(logger, print_section, extension='.moOverlap', on_file=.TRUE.)
       ELSE
          print_mo = .FALSE.
       END IF
@@ -1378,7 +1378,7 @@ CONTAINS
       ! Compute coupling also with the wavefunction overlap method, see Migliore2009
       ! Requires the unconstrained KS ground state wavefunction as input
       IF (mixed_cdft%wfn_overlap_method) THEN
-         IF (.NOT. uniform_occupation) THEN
+         IF (.NOT. uniform_occupation) &
             CALL cp_abort(__LOCATION__, &
                           "Wavefunction overlap method supports only uniformly occupied MOs.")
          ! Create mo_set for input wfn
