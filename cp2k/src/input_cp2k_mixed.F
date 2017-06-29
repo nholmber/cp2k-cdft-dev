@@ -517,16 +517,16 @@ CONTAINS
 
       CALL keyword_create(keyword, "MO_OVERLAP_MATRIX", &
                           description="Controls the printing of the MO overlap matrices between CDFT states. "// &
-                          "The matrices are printed out in plain text.",
+                          "The matrices are printed out in plain text.",&
                           usage="MO_OVERLAP_MATRIX TRUE", type_of_var=logical_t, &
                           default_l_val=.FALSE., lone_keyword_l_val=.TRUE.)
       CALL section_add_keyword(print_key, keyword)
       CALL keyword_release(keyword)
 
       CALL keyword_create(keyword, "MO_OVERLAP_EIGENVALUES", &
-                          description="Controls the printing of the eigenvalues/singular values of the CDFT MO overlap "// &
-                          "matrices. The product of the eigenvalues/singular values is the CDFT MO overlap. "// &
-                          "Useful mainly for checking which singular values will get screened for a particular EPS_SVD.",
+                          description="Controls the printing of the eigenvalues/singular values of the CDFT MO overlap "//&
+                          "matrices. The product of the eigenvalues/singular values is the CDFT MO overlap. "//&
+                          "Useful mainly for checking which singular values will get screened for a particular EPS_SVD.",&
                           usage="MO_OVERLAP_EIGENVALUES TRUE", type_of_var=logical_t, &
                           default_l_val=.FALSE., lone_keyword_l_val=.TRUE.)
       CALL section_add_keyword(print_key, keyword)
