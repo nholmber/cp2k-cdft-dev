@@ -16,7 +16,8 @@ MODULE cp_fm_basic_linalg
         cp_fm_create, cp_fm_get_element, cp_fm_get_info, cp_fm_get_submatrix, cp_fm_p_type, &
         cp_fm_release, cp_fm_set_all, cp_fm_set_element, cp_fm_set_submatrix, cp_fm_to_fm, &
         cp_fm_type
-   USE cp_log_handling,                 ONLY: cp_to_string
+   USE cp_log_handling,                 ONLY: cp_logger_get_default_io_unit,&
+                                              cp_to_string
    USE kahan_sum,                       ONLY: accurate_dot_product,&
                                               accurate_sum
    USE kinds,                           ONLY: dp,&
@@ -1288,6 +1289,7 @@ CONTAINS
 !> \param det_a the determinant of matrix_a
 !> \param eps_svd optional parameter to active SVD based inversion, singular values below eps_svd
 !>                are screened
+!> \param eigval optionally return matrix eigenvalues/singular values
 !> \par History
 !>      note of Jan Wilhelm (12.2015)
 !>      - computation of determinant corrected
@@ -1295,11 +1297,13 @@ CONTAINS
 !>      12.2016 added option to use SVD instead of LU [Nico Holmberg]
 !> \author Florian Schiffmann(02.2007)
 ! **************************************************************************************************
-   SUBROUTINE cp_fm_invert(matrix_a, matrix_inverse, det_a, eps_svd)
+   SUBROUTINE cp_fm_invert(matrix_a, matrix_inverse, det_a, eps_svd, eigval)
 
       TYPE(cp_fm_type), POINTER                :: matrix_a, matrix_inverse
       REAL(KIND=dp), INTENT(OUT), OPTIONAL     :: det_a
       REAL(KIND=dp), INTENT(IN), OPTIONAL      :: eps_svd
+      REAL(KIND=dp), DIMENSION(:), POINTER, &
+         INTENT(OUT), OPTIONAL                 :: eigval
 
       CHARACTER(LEN=*), PARAMETER :: routineN = 'cp_fm_invert', &
                                      routineP = moduleN//':'//routineN
@@ -1312,8 +1316,10 @@ CONTAINS
 
 #if defined(__SCALAPACK)
       TYPE(cp_fm_type), POINTER                :: u, vt, sigma, inv_sigma_ut
-      INTEGER                                  :: i, info, liwork, lwork, group, exponent_of_minus_one
+      INTEGER                                  :: i, info, iounit, liwork, lwork,&
+                                                  group, exponent_of_minus_one
       INTEGER, DIMENSION(9)                    :: desca
+      LOGICAL                                  :: quenched
       REAL(KIND=dp)                            :: alpha, beta
       REAL(KIND=dp), DIMENSION(:), POINTER     :: diag
       REAL(KIND=dp), ALLOCATABLE, DIMENSION(:) :: work
@@ -1342,7 +1348,7 @@ CONTAINS
          desca(:) = matrix_lu%matrix_struct%descriptor(:)
          CALL pdgetrf(n, n, a(1, 1), 1, 1, desca, ipivot, info)
 
-         IF (PRESENT(det_a)) THEN
+         IF (PRESENT(det_a) .OR. PRESENT(eigval)) THEN
 
             ALLOCATE (diag(n))
             diag(:) = 0.0_dp
@@ -1358,6 +1364,11 @@ CONTAINS
                   exponent_of_minus_one = exponent_of_minus_one+1
                END IF
             ENDDO
+            IF (PRESENT(eigval)) THEN
+               CPASSERT (.NOT. ASSOCIATED(eigval))
+               ALLOCATE(eigval(n))
+               eigval(:) = diag
+            END IF
             DEALLOCATE (diag)
 
             group = matrix_lu%matrix_struct%para_env%group
@@ -1405,11 +1416,16 @@ CONTAINS
                            name="SINGULAR_VALUE_MATRIX")
          CALL cp_fm_set_all(sigma, alpha=0.0_dp)
          determinant = 1.0_dp
-         ! TODO: Notify if some singular values fall below my_eps_svd
-         print *, 'Singular values', diag
+         quenched = .FALSE.
+         IF (PRESENT(eigval)) THEN
+            CPASSERT (.NOT. ASSOCIATED(eigval))
+            ALLOCATE(eigval(n))
+            eigval(:) = diag
+         END IF
          DO i = 1, n
             IF (diag(i) < my_eps_svd) THEN
                diag(i) = 0.0_dp
+               quenched = .TRUE.
             ELSE
                determinant = determinant*diag(i)
                diag(i) = 1.0_dp/diag(i)
@@ -1417,6 +1433,14 @@ CONTAINS
             CALL cp_fm_set_element(sigma, i, i, diag(i))
          END DO
          DEALLOCATE (diag)
+         IF (quenched) THEN
+            iounit = cp_logger_get_default_io_unit()
+            IF (iounit > 0) THEN
+               WRITE(iounit, *) &
+                  "SVD| Note: linear dependencies were detected in matrix inversion using SVD. "//&
+                  "At least one singular value has been quenched."
+            END IF
+         END IF
          ! Sigma^-1 * U^T
          CALL cp_fm_create(matrix=inv_sigma_ut, &
                            matrix_struct=matrix_a%matrix_struct, &
@@ -1444,6 +1468,9 @@ CONTAINS
       ELSE
          CPABORT("Matrix inversion using SVD NYI without SCALAPACK.")
       END IF
+      IF (PRESENT(eigval)) &
+         CALL cp_abort(__LOCATION__, &
+                       "NYI. Eigenvalues not available for return without SCALAPACK.")
 #endif
       CALL cp_fm_release(matrix_lu)
       DEALLOCATE (ipivot)

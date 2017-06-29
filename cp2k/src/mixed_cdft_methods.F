@@ -1030,7 +1030,7 @@ CONTAINS
                                                             i, ipcol, iprow
       INTEGER, ALLOCATABLE, DIMENSION(:)                 :: ncol_mo, nrow_mo
       LOGICAL                                            :: exist, natom_mismatch, uniform_occupation, &
-                                                            use_lowdin, use_rotation, print_mo
+                                                            use_lowdin, use_rotation, print_mo, print_mo_eigval
       REAL(KIND=dp)                                      :: c(2), maxocc, sum_a(2), sum_b(2)
       REAL(KIND=dp), ALLOCATABLE, DIMENSION(:)           :: coupling_lowdin, coupling_nonortho, &
                                                             coupling_rotation, coupling_wfn, &
@@ -1039,6 +1039,7 @@ CONTAINS
                                                             S_mat_copy, strength, tmp_mat, &
                                                             W_diagonal, W_mat, Wad, Wda
       REAL(KIND=dp), ALLOCATABLE, DIMENSION(:, :, :)     :: a, b, overlaps
+      REAL(KIND=dp), DIMENSION(:), POINTER               :: mo_eigval
       REAL(KIND=dp), EXTERNAL                            :: dnrm2
       TYPE(atomic_kind_type), DIMENSION(:), POINTER      :: atomic_kind_set
       TYPE(cp_blacs_env_type), POINTER                   :: blacs_env
@@ -1071,7 +1072,7 @@ CONTAINS
                mixed_env, mixed_cdft, qs_env, dft_control, fm_struct_mo, density_matrix_diff, &
                mo_mo_fmstruct, inverse_mat, mo_overlap, Tinverse, tmp2, mo_overlap_wfn, &
                w_matrix_mo, mixed_mo_coeff, mixed_matrix_s, density_matrix, blacs_env, &
-               energy_qs, mo_set, particle_set, qs_kind_set, atomic_kind_set, w_matrix)
+               energy_qs, mo_set, particle_set, qs_kind_set, atomic_kind_set, w_matrix, mo_eigval)
       logger => cp_get_default_logger()
       CPASSERT(ASSOCIATED(force_env))
       CALL timeset(routineN, handle)
@@ -1087,6 +1088,12 @@ CONTAINS
          mounit = cp_print_key_unit_nr(logger, print_section, extension='.moOverlap', on_file=.TRUE.)
       ELSE
          print_mo = .FALSE.
+      END IF
+      IF (section_get_lval(print_section, "MO_OVERLAP_EIGENVALUES")) THEN
+         print_mo_eigval = .TRUE.
+         moeigvalunit = cp_print_key_unit_nr(logger, print_section, extension='.moOverlapEigval', on_file=.TRUE.)
+      ELSE
+         print_mo_eigval = .FALSE.
       END IF
       !unformattedunit = cp_print_key_unit_nr(logger, print_section, '', extension='.mixedLog', &
       !                                 file_form="UNFORMATTED")
@@ -1239,8 +1246,31 @@ CONTAINS
          DO ipermutation = 1, npermutations
             ! Invert and calculate determinant of MO overlaps
             CALL map_permutation_to_states(nforce_eval, ipermutation, istate, jstate)
-            CALL cp_fm_invert(mo_overlap(ipermutation)%matrix, inverse_mat, &
-                              S_det(ipermutation, ispin), eps_svd=mixed_cdft%eps_svd)
+            IF (print_mo_eigval) THEN
+               NULLIFY(mo_eigval)
+               CALL cp_fm_invert(mo_overlap(ipermutation)%matrix, inverse_mat, &
+                                 S_det(ipermutation, ispin), eps_svd=mixed_cdft%eps_svd, &
+                                 eigval=mo_eigval)
+               IF (moeigvalunit > 0) THEN
+                  IF (mixed_cdft%eps_svd == 0.0_dp) THEN
+                     WRITE(moeigvalunit, '(A,I3,A,I3,A,I3,A)') &
+                        "# MO Overlap matrix eigenvalues for CDFT states ", istate, " and ", jstate,&
+                        " (spin ", ispin, " )"
+                  ELSE
+                     WRITE(moeigvalunit, '(A,I3,A,I3,A,I3,A)') &
+                        "# MO Overlap matrix singular values for CDFT states ", istate, " and ", jstate,&
+                        " (spin ", ispin, " )"
+                  END IF
+                  WRITE(moeigvalunit, '(A10, A12)') "# Index", ADJUSTL("Value")
+                  DO j = 1, SIZE(mo_eigval)
+                     WRITE(moeigvalunit, '(I10, F12.8)') j, mo_eigval(j)
+                  END DO
+               END IF
+               DEALLOCATE(mo_eigval)
+            ELSE
+               CALL cp_fm_invert(mo_overlap(ipermutation)%matrix, inverse_mat, &
+                                 S_det(ipermutation, ispin), eps_svd=mixed_cdft%eps_svd)
+            END IF
             CALL cp_fm_get_info(inverse_mat, nrow_local=nrow_local, ncol_local=ncol_local)
             ! Calculate <Psi_i | w_j(r) | Psi_j> for ivar:th constraint
             DO j = 1, ncol_local
@@ -1765,7 +1795,9 @@ CONTAINS
       IF (print_mo) &
          CALL cp_print_key_finished_output(mounit, logger, force_env_section, &
                                            "MIXED%MIXED_CDFT%PRINT%PROGRAM_RUN_INFO", on_file=.TRUE.)
-
+      IF (print_mo_eigval) &
+         CALL cp_print_key_finished_output(moeigvalunit, logger, force_env_section, &
+                                           "MIXED%MIXED_CDFT%PRINT%PROGRAM_RUN_INFO", on_file=.TRUE.)
       CALL cp_print_key_finished_output(iounit, logger, force_env_section, &
                                         "MIXED%MIXED_CDFT%PRINT%PROGRAM_RUN_INFO")
       CALL timestop(handle)
