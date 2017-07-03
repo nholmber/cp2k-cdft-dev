@@ -1023,9 +1023,10 @@ CONTAINS
 
       CHARACTER(LEN=default_path_length)                 :: file_name
       INTEGER :: check_ao(2), check_mo(2), handle, i, iforce_eval, info, iounit, ipermutation, &
-         ispin, istate, ivar, j, jstate, k, mounit, nao, ncol_global, ncol_local, nforce_eval, &
-         nmo, npermutations, nrow_global, nrow_local, nspins, nvar, work_array_size
-      INTEGER, ALLOCATABLE, DIMENSION(:)                 :: homo, ncol_mo, nrow_mo
+         ispin, istate, ivar, j, jstate, k, moeigvalunit, mounit, nao, ncol_global, ncol_local, &
+         nforce_eval, nmo, npermutations, nrow_global, nrow_local, nspins, nvar, work_array_size
+      INTEGER, ALLOCATABLE, DIMENSION(:)                 :: ncol_mo, nrow_mo
+      INTEGER, ALLOCATABLE, DIMENSION(:, :)              :: homo
       LOGICAL                                            :: exist, natom_mismatch, print_mo, &
                                                             print_mo_eigval, uniform_occupation, &
                                                             use_lowdin, use_rotation
@@ -1168,7 +1169,7 @@ CONTAINS
          IF (uniform_occupation) THEN
             nmo = ncol_mo(ispin)
          ELSE
-            nmo = nrow_mo
+            nmo = nrow_mo(ispin)
             ! Find indices of highest (fractionally) occupied molecular orbital
             homo(:, ispin) = nmo
             DO istate = 1, nforce_eval
