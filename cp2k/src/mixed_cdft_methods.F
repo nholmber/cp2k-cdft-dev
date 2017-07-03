@@ -1173,7 +1173,7 @@ CONTAINS
             homo(:, ispin) = nmo
             DO istate = 1, nforce_eval
                DO j = nmo, 1, -1
-                  IF (mixed_cdft%occupations(istate, ispin)%array(j) .GT. eps_occupied) THEN
+                  IF (mixed_cdft%occupations(istate, ispin)%array(j) .GE. eps_occupied) THEN
                      homo(istate, ispin) = j
                      EXIT
                   END IF
