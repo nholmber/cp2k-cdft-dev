@@ -1183,10 +1183,11 @@ CONTAINS
             ! Although it would be possible to handle the nonsquare situation as well,
             ! all CDFT states should be in the same spin state for meaningful results
             nmo = MAXVAL(homo(:, ispin))
+            ! Also check that the number of electrons is conserved (using a fixed sensible threshold)
             nelectron_mismatch = .FALSE.
             nelectron_tot = SUM(mixed_cdft%occupations(1, ispin)%array(1:nmo))
             DO istate = 2, nforce_eval
-               IF (ABS(SUM(mixed_cdft%occupations(istate, ispin)%array(1:nmo))-nelectron_tot) .GT. eps_occupied) &
+               IF (ABS(SUM(mixed_cdft%occupations(istate, ispin)%array(1:nmo))-nelectron_tot) .GT. 1.0E-4_dp) &
                   nelectron_mismatch = .TRUE.
             END DO
             IF (ANY(homo(:, ispin) /= nmo)) THEN
