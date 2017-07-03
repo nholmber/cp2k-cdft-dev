@@ -1027,11 +1027,10 @@ CONTAINS
          nforce_eval, nmo, npermutations, nrow_global, nrow_local, nspins, nvar, work_array_size
       INTEGER, ALLOCATABLE, DIMENSION(:)                 :: ncol_mo, nrow_mo
       INTEGER, ALLOCATABLE, DIMENSION(:, :)              :: homo
-      LOGICAL                                            :: exist, natom_mismatch, print_mo, &
-                                                            print_mo_eigval, uniform_occupation, &
-                                                            use_lowdin, use_rotation
-      REAL(KIND=dp)                                      :: c(2), eps_occupied, maxocc, sum_a(2), &
-                                                            sum_b(2)
+      LOGICAL :: exist, natom_mismatch, nelectron_mismatch, print_mo, print_mo_eigval, &
+         uniform_occupation, use_lowdin, use_rotation
+      REAL(KIND=dp)                                      :: c(2), eps_occupied, maxocc, &
+                                                            nelectron_tot, sum_a(2), sum_b(2)
       REAL(KIND=dp), ALLOCATABLE, DIMENSION(:)           :: coupling_lowdin, coupling_nonortho, &
                                                             coupling_rotation, coupling_wfn, &
                                                             eigenv, energy, evals, Sda, work
@@ -1184,6 +1183,12 @@ CONTAINS
             ! Although it would be possible to handle the nonsquare situation as well,
             ! all CDFT states should be in the same spin state for meaningful results
             nmo = MAXVAL(homo(:, ispin))
+            nelectron_mismatch = .FALSE.
+            nelectron_tot = SUM(mixed_cdft%occupations(1, ispin)%array(1:nmo))
+            DO istate = 2, nforce_eval
+               IF (ABS(SUM(mixed_cdft%occupations(istate, ispin)%array(1:nmo))-nelectron) .GT. eps_occupied) &
+                  nelectron_mismatch = .TRUE.
+            END DO
             IF (ANY(homo(:, ispin) /= nmo)) THEN
                IF (ispin == 1) THEN
                   CALL cp_warn(__LOCATION__, &
@@ -1192,6 +1197,16 @@ CONTAINS
                ELSE
                   CALL cp_warn(__LOCATION__, &
                                "The number of occupied beta MOs is not constant across all CDFT states. "// &
+                               "Calculation proceeds but the results will likely be meaningless.")
+               END IF
+            ELSE IF (nelectron_mismatch) THEN
+               IF (ispin == 1) THEN
+                  CALL cp_warn(__LOCATION__, &
+                               "The number of alpha electrons is not constant across all CDFT states. "// &
+                               "Calculation proceeds but the results will likely be meaningless.")
+               ELSE
+                  CALL cp_warn(__LOCATION__, &
+                               "The number of beta electrons is not constant across all CDFT states. "// &
                                "Calculation proceeds but the results will likely be meaningless.")
                END IF
             END IF
