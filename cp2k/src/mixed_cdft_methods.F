@@ -1169,7 +1169,7 @@ CONTAINS
          IF (uniform_occupation) THEN
             nmo = ncol_mo(ispin)
          ELSE
-            nmo = nrow_mo(ispin)
+            nmo = ncol_mo(ispin)
             ! Find indices of highest (fractionally) occupied molecular orbital
             homo(:, ispin) = nmo
             DO istate = 1, nforce_eval
