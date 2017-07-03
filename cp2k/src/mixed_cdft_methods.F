@@ -1179,7 +1179,10 @@ CONTAINS
                   END IF
                END DO
             END DO
-            nmo = MAXVAL(homo(, ispin))
+            ! Make matrices square by using the largest homo and emit warning if a state has fewer occupied MOs
+            ! Although it would be possible to handle the nonsquare situation as well,
+            ! all CDFT states should be in the same spin state for meaningful results
+            nmo = MAXVAL(homo(:, ispin))
             IF (ANY(homo(:, ispin) /= nmo)) THEN
                IF (ispin == 1) THEN
                   CALL cp_warn(__LOCATION__, &
