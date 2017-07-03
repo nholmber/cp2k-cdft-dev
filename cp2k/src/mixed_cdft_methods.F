@@ -1186,7 +1186,7 @@ CONTAINS
             nelectron_mismatch = .FALSE.
             nelectron_tot = SUM(mixed_cdft%occupations(1, ispin)%array(1:nmo))
             DO istate = 2, nforce_eval
-               IF (ABS(SUM(mixed_cdft%occupations(istate, ispin)%array(1:nmo))-nelectron) .GT. eps_occupied) &
+               IF (ABS(SUM(mixed_cdft%occupations(istate, ispin)%array(1:nmo))-nelectron_tot) .GT. eps_occupied) &
                   nelectron_mismatch = .TRUE.
             END DO
             IF (ANY(homo(:, ispin) /= nmo)) THEN
