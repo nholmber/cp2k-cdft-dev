@@ -569,7 +569,7 @@ CONTAINS
          IF (ALLOCATED(cdft_control%occupations)) THEN
             DO i = 1, SIZE(cdft_control%occupations)
                IF (ASSOCIATED(cdft_control%occupations(i)%array)) &
-                  DEALLOCATE(cdft_control%occupations(i)%array)
+                  DEALLOCATE (cdft_control%occupations(i)%array)
             END DO
             DEALLOCATE (cdft_control%occupations)
          END IF

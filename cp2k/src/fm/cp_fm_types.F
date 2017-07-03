@@ -2179,8 +2179,8 @@ CONTAINS
                           nrow_block=nrow_block, para_env=para_env)
 
       IF (unit > 0) THEN
-         IF (PRESENT(header)) WRITE(unit, *) header
-         WRITE(unit, "(A2, A8, A10, A24)") "#", "Row",  "Column",  ADJUSTL("Value")
+         IF (PRESENT(header)) WRITE (unit, *) header
+         WRITE (unit, "(A2, A8, A10, A24)") "#", "Row", "Column", ADJUSTL("Value")
       END IF
 
 #if defined(__SCALAPACK)
@@ -2233,10 +2233,10 @@ CONTAINS
             DO j = 1, i_block
                DO k = (j-1)*nrow_global+1, nrow_global*j
                   WRITE (unit, "(I10, I10, ES24.12)") irow, icol, vecbuf(k)
-                  irow = irow + 1
+                  irow = irow+1
                   IF (irow > nrow_global) THEN
                      irow = 1
-                     icol = icol + 1
+                     icol = icol+1
                   END IF
                END DO
             END DO
@@ -2255,6 +2255,7 @@ CONTAINS
          DO j = 1, ncol_global
             DO i = 1, nrow_global
                WRITE (unit, "(I10, I10, ES24.12)") i, j, fm%local_data(i, j)
+            END DO
          END DO
       END IF
 
@@ -2262,7 +2263,6 @@ CONTAINS
       CALL timestop(handle)
 
    END SUBROUTINE cp_fm_write_formatted
-
 
 ! **************************************************************************************************
 !> \brief ...

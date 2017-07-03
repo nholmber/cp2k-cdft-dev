@@ -925,8 +925,8 @@ CONTAINS
 
       CHARACTER(len=*), PARAMETER :: routineN = 'cdft_scf', routineP = moduleN//':'//routineN
 
-      INTEGER                                            :: handle, iatom, ispin, ivar, nmo, &
-                                                            nvar, output_unit, homo
+      INTEGER                                            :: handle, homo, iatom, ispin, ivar, nmo, &
+                                                            nvar, output_unit
       LOGICAL                                            :: cdft_loop_converged, converged, &
                                                             exit_cdft_loop, first_iteration, &
                                                             my_uocc, uniform_occupation
@@ -1086,8 +1086,8 @@ CONTAINS
                uniform_occupation = uniform_occupation .AND. my_uocc
             END DO
             IF (.NOT. uniform_occupation) THEN
-               ALLOCATE(cdft_control%occupations(dft_control%nspins))
-               ALLOCATE(cdft_control%homo(dft_control%nspins))
+               ALLOCATE (cdft_control%occupations(dft_control%nspins))
+               ALLOCATE (cdft_control%homo(dft_control%nspins))
                DO ispin = 1, dft_control%nspins
                   CALL get_mo_set(mo_set=mos(ispin)%mo_set, &
                                   nmo=nmo, &

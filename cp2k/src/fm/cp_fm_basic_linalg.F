@@ -16,8 +16,7 @@ MODULE cp_fm_basic_linalg
         cp_fm_create, cp_fm_get_element, cp_fm_get_info, cp_fm_get_submatrix, cp_fm_p_type, &
         cp_fm_release, cp_fm_set_all, cp_fm_set_element, cp_fm_set_submatrix, cp_fm_to_fm, &
         cp_fm_type
-   USE cp_log_handling,                 ONLY: cp_logger_get_default_io_unit,&
-                                              cp_to_string
+   USE cp_log_handling,                 ONLY: cp_to_string
    USE kahan_sum,                       ONLY: accurate_dot_product,&
                                               accurate_sum
    USE kinds,                           ONLY: dp,&
@@ -1316,8 +1315,7 @@ CONTAINS
 
 #if defined(__SCALAPACK)
       TYPE(cp_fm_type), POINTER                :: u, vt, sigma, inv_sigma_ut
-      INTEGER                                  :: i, info, iounit, liwork, lwork,&
-                                                  group, exponent_of_minus_one
+      INTEGER                                  :: i, info, liwork, lwork, group, exponent_of_minus_one
       INTEGER, DIMENSION(9)                    :: desca
       LOGICAL                                  :: quenched
       REAL(KIND=dp)                            :: alpha, beta
@@ -1365,8 +1363,8 @@ CONTAINS
                END IF
             ENDDO
             IF (PRESENT(eigval)) THEN
-               CPASSERT (.NOT. ASSOCIATED(eigval))
-               ALLOCATE(eigval(n))
+               CPASSERT(.NOT. ASSOCIATED(eigval))
+               ALLOCATE (eigval(n))
                eigval(:) = diag
             END IF
             DEALLOCATE (diag)
@@ -1418,8 +1416,8 @@ CONTAINS
          determinant = 1.0_dp
          quenched = .FALSE.
          IF (PRESENT(eigval)) THEN
-            CPASSERT (.NOT. ASSOCIATED(eigval))
-            ALLOCATE(eigval(n))
+            CPASSERT(.NOT. ASSOCIATED(eigval))
+            ALLOCATE (eigval(n))
             eigval(:) = diag
          END IF
          DO i = 1, n
@@ -1433,14 +1431,10 @@ CONTAINS
             CALL cp_fm_set_element(sigma, i, i, diag(i))
          END DO
          DEALLOCATE (diag)
-         IF (quenched) THEN
-            iounit = cp_logger_get_default_io_unit()
-            IF (iounit > 0) THEN
-               WRITE(iounit, *) &
-                  "SVD| Note: linear dependencies were detected in matrix inversion using SVD. "//&
-                  "At least one singular value has been quenched."
-            END IF
-         END IF
+         IF (quenched) &
+            CALL cp_warn(__LOCATION__, &
+                         "Linear dependencies were detected in the SVD inversion of matrix "//TRIM(ADJUSTL(matrix_a%name))// &
+                         " At least one singular value has been quenched.")
          ! Sigma^-1 * U^T
          CALL cp_fm_create(matrix=inv_sigma_ut, &
                            matrix_struct=matrix_a%matrix_struct, &

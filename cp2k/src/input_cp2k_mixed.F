@@ -244,6 +244,18 @@ CONTAINS
       CALL section_add_keyword(subsection, keyword)
       CALL keyword_release(keyword)
 
+      CALL keyword_create(keyword, name="EPS_OCCUPIED", &
+                          description="Threshold for determining which molecular orbitals are considered occupied"// &
+                          " when fractional and/or empty orbitals are employed. Can and usually should be less than"// &
+                          " the threshold EPS_FERMI_DIRAC defined in section SCF&SMEAR. Note that the number occupied"// &
+                          " MOs should be constant in each CDFT state, since the CDFT coupling is only defined between"// &
+                          " states in the same spin state. Fractionally occupied MOs might exhibit linear dependencies"// &
+                          " and a singular value decomposition (EPS_SVD) can be used for removing these.", &
+                          usage="EPS_OCCUPIED <REAL>", type_of_var=real_t, &
+                          default_r_val=1.0E-6_dp, repeats=.FALSE.)
+      CALL section_add_keyword(subsection, keyword)
+      CALL keyword_release(keyword)
+
       CALL keyword_create(keyword, name="LOAD_SCALE", &
                           description="Control parameter for dynamic load balancing during a mixed CDFT calculation."// &
                           " See code for details.", &
@@ -268,7 +280,7 @@ CONTAINS
       CALL section_add_keyword(subsection, keyword)
       CALL keyword_release(keyword)
 
-      NULLIFY(sub2section)
+      NULLIFY (sub2section)
       CALL create_print_mixed_cdft_section(sub2section)
       CALL section_add_subsection(subsection, sub2section)
       CALL section_release(sub2section)
@@ -518,16 +530,16 @@ CONTAINS
 
       CALL keyword_create(keyword, "MO_OVERLAP_MATRIX", &
                           description="Controls the printing of the MO overlap matrices between CDFT states. "// &
-                          "The matrices are printed out in plain text.",&
+                          "The matrices are printed out in plain text.", &
                           usage="MO_OVERLAP_MATRIX TRUE", type_of_var=logical_t, &
                           default_l_val=.FALSE., lone_keyword_l_val=.TRUE.)
       CALL section_add_keyword(print_key, keyword)
       CALL keyword_release(keyword)
 
       CALL keyword_create(keyword, "MO_OVERLAP_EIGENVALUES", &
-                          description="Controls the printing of the eigenvalues/singular values of the CDFT MO overlap "//&
-                          "matrices. The product of the eigenvalues/singular values is the CDFT MO overlap. "//&
-                          "Useful mainly for checking which singular values will get screened for a particular EPS_SVD.",&
+                          description="Controls the printing of the eigenvalues/singular values of the CDFT MO overlap "// &
+                          "matrices. The product of the eigenvalues/singular values is the CDFT MO overlap. "// &
+                          "Useful mainly for checking which singular values will get screened for a particular EPS_SVD.", &
                           usage="MO_OVERLAP_EIGENVALUES TRUE", type_of_var=logical_t, &
                           default_l_val=.FALSE., lone_keyword_l_val=.TRUE.)
       CALL section_add_keyword(print_key, keyword)
@@ -537,6 +549,5 @@ CONTAINS
       CALL section_release(print_key)
 
    END SUBROUTINE create_print_mixed_cdft_section
-
 
 END MODULE input_cp2k_mixed

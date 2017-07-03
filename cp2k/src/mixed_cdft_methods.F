@@ -1022,16 +1022,15 @@ CONTAINS
          routineP = moduleN//':'//routineN
 
       CHARACTER(LEN=default_path_length)                 :: file_name
-      INTEGER :: check_ao(2), check_mo(2), handle, iforce_eval, info, iounit, ipermutation, ispin, &
-         istate, ivar, j, jstate, k, nao, ncol_local, nforce_eval, nmo, npermutations, nrow_local, &
-         nspins, nvar, work_array_size, mounit, moeigvalunit
-      INTEGER                                            :: myprow, mypcol, irow_local, icol_local,&
-                                                            ncol_global, nrow_global, nprow, npcol, &
-                                                            i, ipcol, iprow
-      INTEGER, ALLOCATABLE, DIMENSION(:)                 :: ncol_mo, nrow_mo
-      LOGICAL                                            :: exist, natom_mismatch, uniform_occupation, &
-                                                            use_lowdin, use_rotation, print_mo, print_mo_eigval
-      REAL(KIND=dp)                                      :: c(2), maxocc, sum_a(2), sum_b(2)
+      INTEGER :: check_ao(2), check_mo(2), handle, i, iforce_eval, info, iounit, ipermutation, &
+         ispin, istate, ivar, j, jstate, k, mounit, nao, ncol_global, ncol_local, nforce_eval, &
+         nmo, npermutations, nrow_global, nrow_local, nspins, nvar, work_array_size
+      INTEGER, ALLOCATABLE, DIMENSION(:)                 :: homo, ncol_mo, nrow_mo
+      LOGICAL                                            :: exist, natom_mismatch, print_mo, &
+                                                            print_mo_eigval, uniform_occupation, &
+                                                            use_lowdin, use_rotation
+      REAL(KIND=dp)                                      :: c(2), eps_occupied, maxocc, sum_a(2), &
+                                                            sum_b(2)
       REAL(KIND=dp), ALLOCATABLE, DIMENSION(:)           :: coupling_lowdin, coupling_nonortho, &
                                                             coupling_rotation, coupling_wfn, &
                                                             eigenv, energy, evals, Sda, work
@@ -1095,8 +1094,6 @@ CONTAINS
       ELSE
          print_mo_eigval = .FALSE.
       END IF
-      !unformattedunit = cp_print_key_unit_nr(logger, print_section, '', extension='.mixedLog', &
-      !                                 file_form="UNFORMATTED")
       CALL get_mixed_env(mixed_env, cdft_control=mixed_cdft)
       CPASSERT(ASSOCIATED(mixed_cdft))
       ! Move needed arrays from individual CDFT states to the mixed CDFT env
@@ -1155,6 +1152,13 @@ CONTAINS
             END DO
          END DO
       END IF
+      IF (.NOT. uniform_occupation) THEN
+         ALLOCATE (homo(nforce_eval, nspins))
+         CALL section_vals_val_get(mixed_cdft_section, "EPS_OCCUPIED", r_val=eps_occupied)
+         IF (eps_occupied .GT. 1.0_dp .OR. eps_occupied .LT. 0.0_dp) &
+            CALL cp_abort(__LOCATION__, &
+                          "Keyword EPS_OCCUPIED only accepts values between 0.0 and 1.0")
+      END IF
       DO ispin = 1, nspins
          ! Create the MOxMO fm struct (mo_mo_fm_pools%struct)
          ! The number of MOs/AOs is equal to the number of columns/rows of mo_coeff(:,:)%matrix
@@ -1164,7 +1168,29 @@ CONTAINS
          IF (uniform_occupation) THEN
             nmo = ncol_mo(ispin)
          ELSE
-            nmo = MAXVAL(mixed_cdft%homo(:, ispin))
+            nmo = nrow_mo
+            ! Find indices of highest (fractionally) occupied molecular orbital
+            homo(:, ispin) = nmo
+            DO istate = 1, nforce_eval
+               DO j = nmo, 1, -1
+                  IF (mixed_cdft%occupations(istate, ispin)%array(j) .GT. eps_occupied) THEN
+                     homo(istate, ispin) = j
+                     EXIT
+                  END IF
+               END DO
+            END DO
+            nmo = MAXVAL(homo(, ispin))
+            IF (ANY(homo(:, ispin) /= nmo)) THEN
+               IF (ispin == 1) THEN
+                  CALL cp_warn(__LOCATION__, &
+                               "The number of occupied alpha MOs is not constant across all CDFT states. "// &
+                               "Calculation proceeds but the results will likely be meaningless.")
+               ELSE
+                  CALL cp_warn(__LOCATION__, &
+                               "The number of occupied beta MOs is not constant across all CDFT states. "// &
+                               "Calculation proceeds but the results will likely be meaningless.")
+               END IF
+            END IF
          END IF
          CALL cp_fm_struct_create(fm_struct_mo, nrow_global=nao, ncol_global=nmo, &
                                   context=mixed_cdft%blacs_env, para_env=force_env%para_env)
@@ -1204,10 +1230,11 @@ CONTAINS
                CALL cp_fm_create(mixed_mo_coeff(iforce_eval, ispin)%matrix, &
                                  matrix_struct=tmp2%matrix_struct, &
                                  name="MO_COEFF_"//TRIM(ADJUSTL(cp_to_string(iforce_eval)))//"_" &
-                                       //TRIM(ADJUSTL(cp_to_string(ispin)))//"_MATRIX")
+                                 //TRIM(ADJUSTL(cp_to_string(ispin)))//"_MATRIX")
                CALL cp_fm_to_fm(tmp2, mixed_mo_coeff(iforce_eval, ispin)%matrix)
                CALL cp_fm_column_scale(mixed_mo_coeff(iforce_eval, ispin)%matrix, &
                                        mixed_cdft%occupations(iforce_eval, ispin)%array(1:nmo))
+               DEALLOCATE (mixed_cdft%occupations(iforce_eval, ispin)%array)
             END DO
          END IF
          ! calculate the MO overlaps (C_j)^T S C_i
@@ -1222,10 +1249,10 @@ CONTAINS
                             tmp2, 0.0_dp, mo_overlap(ipermutation)%matrix)
                IF (print_mo) &
                   CALL cp_fm_write_formatted(mo_overlap(ipermutation)%matrix, mounit, &
-                                            "# MO overlap matrix (step "//TRIM(ADJUSTL(cp_to_string(mixed_cdft%sim_step)))//&
-                                            "): CDFT states "//TRIM(ADJUSTL(cp_to_string(istate)))//" and "//&
-                                            TRIM(ADJUSTL(cp_to_string(jstate)))//" (spin "//&
-                                            TRIM(ADJUSTL(cp_to_string(ispin)))//")")
+                                             "# MO overlap matrix (step "//TRIM(ADJUSTL(cp_to_string(mixed_cdft%sim_step)))// &
+                                             "): CDFT states "//TRIM(ADJUSTL(cp_to_string(istate)))//" and "// &
+                                             TRIM(ADJUSTL(cp_to_string(jstate)))//" (spin "// &
+                                             TRIM(ADJUSTL(cp_to_string(ispin)))//")")
             END DO
          END DO
          ! calculate the MO-representations of the restraint matrices of all CDFT states
@@ -1247,26 +1274,26 @@ CONTAINS
             ! Invert and calculate determinant of MO overlaps
             CALL map_permutation_to_states(nforce_eval, ipermutation, istate, jstate)
             IF (print_mo_eigval) THEN
-               NULLIFY(mo_eigval)
+               NULLIFY (mo_eigval)
                CALL cp_fm_invert(mo_overlap(ipermutation)%matrix, inverse_mat, &
                                  S_det(ipermutation, ispin), eps_svd=mixed_cdft%eps_svd, &
                                  eigval=mo_eigval)
                IF (moeigvalunit > 0) THEN
                   IF (mixed_cdft%eps_svd == 0.0_dp) THEN
-                     WRITE(moeigvalunit, '(A,I3,A,I3,A,I3,A)') &
-                        "# MO Overlap matrix eigenvalues for CDFT states ", istate, " and ", jstate,&
+                     WRITE (moeigvalunit, '(A,I3,A,I3,A,I3,A)') &
+                        "# MO Overlap matrix eigenvalues for CDFT states ", istate, " and ", jstate, &
                         " (spin ", ispin, " )"
                   ELSE
-                     WRITE(moeigvalunit, '(A,I3,A,I3,A,I3,A)') &
-                        "# MO Overlap matrix singular values for CDFT states ", istate, " and ", jstate,&
+                     WRITE (moeigvalunit, '(A,I3,A,I3,A,I3,A)') &
+                        "# MO Overlap matrix singular values for CDFT states ", istate, " and ", jstate, &
                         " (spin ", ispin, " )"
                   END IF
-                  WRITE(moeigvalunit, '(A10, A12)') "# Index", ADJUSTL("Value")
+                  WRITE (moeigvalunit, '(A10, A12)') ADJUSTL("# Index"), ADJUSTL("Value")
                   DO j = 1, SIZE(mo_eigval)
-                     WRITE(moeigvalunit, '(I10, F12.8)') j, mo_eigval(j)
+                     WRITE (moeigvalunit, '(I10, F12.8)') j, mo_eigval(j)
                   END DO
                END IF
-               DEALLOCATE(mo_eigval)
+               DEALLOCATE (mo_eigval)
             ELSE
                CALL cp_fm_invert(mo_overlap(ipermutation)%matrix, inverse_mat, &
                                  S_det(ipermutation, ispin), eps_svd=mixed_cdft%eps_svd)
@@ -1279,9 +1306,6 @@ CONTAINS
                      b(ispin, ivar, ipermutation) = b(ispin, ivar, ipermutation)+ &
                                                     w_matrix_mo(jstate, istate, ivar)%matrix%local_data(k, j)* &
                                                     inverse_mat%local_data(k, j)
-                                                    !*&
-                                                    !mixed_cdft%occupations(jstate, ispin)%array(j) *&
-                                                    !mixed_cdft%occupations(istate, ispin)%array(j)
                   END DO
                END DO
             END DO
@@ -1292,9 +1316,7 @@ CONTAINS
                   DO ivar = 1, nvar
                      a(ispin, ivar, ipermutation) = a(ispin, ivar, ipermutation)+ &
                                                     w_matrix_mo(istate, jstate, ivar)%matrix%local_data(k, j)* &
-                                                    Tinverse%local_data(k, j) !*&
-                                                    !mixed_cdft%occupations(jstate, ispin)%array(j) *&
-                                                    !mixed_cdft%occupations(istate, ispin)%array(j)
+                                                    Tinverse%local_data(k, j)
                   END DO
                END DO
             END DO
@@ -1338,6 +1360,10 @@ CONTAINS
       DEALLOCATE (mo_overlap)
       IF (mixed_cdft%calculate_metric) &
          DEALLOCATE (density_matrix)
+      IF (.NOT. uniform_occupation) THEN
+         DEALLOCATE (homo)
+         DEALLOCATE (mixed_cdft%occupations)
+      END IF
       ! solve eigenstates for the projector matrix
       ALLOCATE (Sda(npermutations))
       DO ipermutation = 1, npermutations

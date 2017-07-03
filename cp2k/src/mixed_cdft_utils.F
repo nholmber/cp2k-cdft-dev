@@ -980,7 +980,7 @@ CONTAINS
       CALL get_mixed_env(mixed_env, cdft_control=mixed_cdft)
       CPASSERT(ASSOCIATED(mixed_cdft))
       ! Get nspins and query for non-uniform occupation numbers
-      ALLOCATE(has_occupation_numbers(nforce_eval))
+      ALLOCATE (has_occupation_numbers(nforce_eval))
       has_occupation_numbers = .FALSE.
       DO iforce_eval = 1, nforce_eval
          IF (.NOT. ASSOCIATED(force_env%sub_force_env(iforce_eval)%force_env)) CYCLE
@@ -994,7 +994,7 @@ CONTAINS
          CPASSERT(ASSOCIATED(dft_control))
          nspins = dft_control%nspins
          IF (force_env_qs%para_env%mepos == force_env_qs%para_env%source) &
-            has_occupation_numbers(iforce_eval) = ALLOCATED(dft_control%qs_control%cdft_control%homo)
+            has_occupation_numbers(iforce_eval) = ALLOCATED(dft_control%qs_control%cdft_control%occupations)
       END DO
       CALL mp_sum(has_occupation_numbers(1), force_env%para_env%group)
       DO iforce_eval = 2, nforce_eval
@@ -1004,7 +1004,7 @@ CONTAINS
                           "Mixing of uniform and non-uniform occupations is not allowed.")
       END DO
       uniform_occupation = .NOT. has_occupation_numbers(1)
-      DEALLOCATE(has_occupation_numbers)
+      DEALLOCATE (has_occupation_numbers)
       ! Get number of weight functions per state as well as the type of each constraint
       nvar = SIZE(dft_control%qs_control%cdft_control%target)
       IF (.NOT. ALLOCATED(mixed_cdft%is_charge_constraint)) THEN
@@ -1041,10 +1041,8 @@ CONTAINS
       NULLIFY (matrix_s_tmp%matrix)
       IF (mixed_cdft%calculate_metric) ALLOCATE (matrix_p_tmp(nforce_eval, nspins))
       IF (.NOT. uniform_occupation) THEN
-         ALLOCATE(mixed_cdft%occupations(nforce_eval, nspins))
-         ALLOCATE(mixed_cdft%homo(nforce_eval, nspins))
-         mixed_cdft%homo(:, :) = 0
-         ALLOCATE(occno_tmp(nforce_eval, nspins))
+         ALLOCATE (mixed_cdft%occupations(nforce_eval, nspins))
+         ALLOCATE (occno_tmp(nforce_eval, nspins))
       END IF
       DO iforce_eval = 1, nforce_eval
          ! Temporary arrays need to be nulled on every process
@@ -1059,7 +1057,7 @@ CONTAINS
             IF (ASSOCIATED(matrix_p_tmp)) &
                NULLIFY (matrix_p_tmp(iforce_eval, ispin)%matrix)
             IF (.NOT. uniform_occupation) &
-               NULLIFY(occno_tmp(iforce_eval, ispin)%array)
+               NULLIFY (occno_tmp(iforce_eval, ispin)%array)
          END DO
          IF (.NOT. ASSOCIATED(force_env%sub_force_env(iforce_eval)%force_env)) CYCLE
          ! From this point onward, we access data local to the sub_force_envs
@@ -1136,17 +1134,12 @@ CONTAINS
                IF (ncol_mo(ispin) /= SIZE(dft_control%qs_control%cdft_control%occupations(ispin)%array)) &
                   CPABORT("Array dimensions dont match.")
                IF (force_env_qs%para_env%mepos == force_env_qs%para_env%source) THEN
-                  print *, 'Copying to occno_tmp', force_env_qs%para_env%mepos
-                  print *, 'Occ and homo', dft_control%qs_control%cdft_control%homo(ispin), &
-                     dft_control%qs_control%cdft_control%occupations(ispin)%array
-                  ALLOCATE(occno_tmp(iforce_eval, ispin)%array(ncol_mo(ispin)))
-                  mixed_cdft%homo(iforce_eval, ispin) = dft_control%qs_control%cdft_control%homo(ispin)
+                  ALLOCATE (occno_tmp(iforce_eval, ispin)%array(ncol_mo(ispin)))
                   occno_tmp(iforce_eval, ispin)%array = dft_control%qs_control%cdft_control%occupations(ispin)%array
                END IF
-               DEALLOCATE(dft_control%qs_control%cdft_control%occupations(ispin)%array)
+               DEALLOCATE (dft_control%qs_control%cdft_control%occupations(ispin)%array)
             END DO
-            DEALLOCATE(dft_control%qs_control%cdft_control%occupations)
-            DEALLOCATE(dft_control%qs_control%cdft_control%homo)
+            DEALLOCATE (dft_control%qs_control%cdft_control%occupations)
          END IF
       END DO
       ! Create needed fm structs
@@ -1236,28 +1229,16 @@ CONTAINS
       IF (.NOT. uniform_occupation) THEN
          DO iforce_eval = 1, nforce_eval
             DO ispin = 1, nspins
-               ALLOCATE(mixed_cdft%occupations(iforce_eval, ispin)%array(ncol_mo(ispin)))
+               ALLOCATE (mixed_cdft%occupations(iforce_eval, ispin)%array(ncol_mo(ispin)))
                mixed_cdft%occupations(iforce_eval, ispin)%array = 0.0_dp
                IF (ASSOCIATED(occno_tmp(iforce_eval, ispin)%array)) THEN
-                  print *, 'occno_tmp', force_env%para_env%mepos, occno_tmp(iforce_eval, ispin)%array
                   mixed_cdft%occupations(iforce_eval, ispin)%array = occno_tmp(iforce_eval, ispin)%array
-                  DEALLOCATE(occno_tmp(iforce_eval, ispin)%array)
+                  DEALLOCATE (occno_tmp(iforce_eval, ispin)%array)
                END IF
                CALL mp_sum(mixed_cdft%occupations(iforce_eval, ispin)%array, force_env%para_env%group)
             END DO
          END DO
-         DEALLOCATE(occno_tmp)
-         CALL mp_sum(mixed_cdft%homo, force_env%para_env%group)
-         IF (force_env%para_env%mepos == force_env%para_env%source) THEN
-            print *, 'These are the copied occupation numbers'
-            DO iforce_eval = 1, nforce_eval
-               DO ispin = 1, nspins
-                  print *, 'iforce_eval, ispin', iforce_eval, ispin
-                  print *, 'Occ',  mixed_cdft%occupations(iforce_eval, ispin)%array
-                  print *, 'homo', mixed_cdft%homo(iforce_eval, ispin)
-               END DO
-            END DO
-         END IF
+         DEALLOCATE (occno_tmp)
       END IF
       DEALLOCATE (matrix_s_tmp, mixed_matrix_s_tmp)
       DEALLOCATE (ncol_mo, nrow_mo)
