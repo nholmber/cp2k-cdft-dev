@@ -224,6 +224,8 @@ MODULE qs_cdft_types
          POINTER                           :: gradient
       REAL(KIND=dp), DIMENSION(:, :), &
          POINTER                           :: inv_jacobian
+      REAL(KIND=dp), DIMENSION(:, :), &
+         POINTER                           :: hessian
       INTEGER, DIMENSION(:), POINTER       :: count
    END TYPE qs_outer_scf_type
 
@@ -533,6 +535,7 @@ CONTAINS
       NULLIFY (cdft_control%constraint%energy)
       NULLIFY (cdft_control%constraint%count)
       NULLIFY (cdft_control%constraint%inv_jacobian)
+      NULLIFY (cdft_control%constraint%hessian)
       cdft_control%constraint%deallocate_jacobian = .TRUE.
    END SUBROUTINE cdft_control_create
 
@@ -598,6 +601,8 @@ CONTAINS
             DEALLOCATE (cdft_control%constraint%energy)
          IF (ASSOCIATED(cdft_control%constraint%inv_jacobian)) &
             DEALLOCATE (cdft_control%constraint%inv_jacobian)
+         IF (ASSOCIATED(cdft_control%constraint%hessian)) &
+            DEALLOCATE (cdft_control%constraint%hessian)
          DEALLOCATE (cdft_control)
       END IF
    END SUBROUTINE cdft_control_release

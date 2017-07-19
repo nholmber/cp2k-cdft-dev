@@ -87,7 +87,8 @@ MODULE input_cp2k_dft
         wfi_use_guess_method_nr, wfi_use_prev_p_method_nr, wfi_use_prev_rho_r_method_nr, &
         wfi_use_prev_wf_method_nr, xas_1s_type, xas_2p_type, xas_2s_type, xas_dip_len, &
         xas_dip_vel, xas_dscf, xas_none, xas_tp_fh, xas_tp_flex, xas_tp_hh, xas_tp_xfh, &
-        xas_tp_xhh, xes_tp_val
+        xas_tp_xhh, xes_tp_val, outer_scf_optimizer_halley, outer_scf_optimizer_halley_ls, &
+        halley_type_1, halley_type_2, halley_type_3
    USE input_cp2k_almo,                 ONLY: create_almo_scf_section
    USE input_cp2k_distribution,         ONLY: create_distribution_section
    USE input_cp2k_field,                ONLY: create_efield_section,&
@@ -5323,24 +5324,29 @@ CONTAINS
                           description="Method used to bring the outer loop to a stationary point", &
                           usage="OPTIMIZER SD", &
                           default_i_val=outer_scf_optimizer_none, &
-                          enum_c_vals=s2a("SD", "DIIS", "NONE", "BISECT", "BROYDEN", "NEWTON", "SECANT", "NEWTON_LS"), &
+                          enum_c_vals=s2a("SD", "DIIS", "NONE", "BISECT", "BROYDEN", "NEWTON", "SECANT", "NEWTON_LS", &
+                                          "HALLEY", "HALLEY_LS"), &
                           enum_desc=s2a("Takes steps in the direction of the gradient, multiplied by step_size", &
                                         "Uses a Direct Inversion in the Iterative Subspace method", &
                                         "Do nothing, useful only with the none type", &
                                         "Bisection of the gradient, useful for difficult one dimensional cases", &
                                         "Broyden's method. Variant defined in BROYDEN_TYPE.", &
-                                        "Newton's method. Only compatible with CDFT constraints", &
+                                        "Newton's method. Only compatible with CDFT constraints.", &
                                         "Secant method. Only for one dimensional cases. See Broyden for "// &
                                         "multidimensional cases.", &
                                         "Newton's method with backtracking line search to find the optimal step size. "// &
                                         "Only compatible with CDFT constraints. Starts from the regular Newton solution "// &
                                         "and successively reduces the step size until the L2 norm of the CDFT gradient "// &
                                         "decreases or MAX_LS steps is reached. Potentially very expensive because "// &
-                                        "each iteration performs a full SCF calculation."), &
+                                        "each iteration performs a full SCF calculation.", &
+                                        "Halley class methods which modify the Newton iteration using local curvature information. "// &
+                                        "Only compatible with CDFT constraints. Variant defined with keyword HALLEY_TYPE.", &
+                                        "Halley class methods with backtracking line search."), &
                           enum_i_vals=(/outer_scf_optimizer_sd, outer_scf_optimizer_diis, outer_scf_optimizer_none, &
                                         outer_scf_optimizer_bisect, outer_scf_optimizer_broyden, &
                                         outer_scf_optimizer_newton, outer_scf_optimizer_secant, &
-                                        outer_scf_optimizer_newton_ls/))
+                                        outer_scf_optimizer_newton_ls, outer_scf_optimizer_halley, &
+                                        outer_scf_optimizer_halley_ls/))
       CALL section_add_keyword(section, keyword)
       CALL keyword_release(keyword)
 
@@ -5368,17 +5374,32 @@ CONTAINS
       CALL section_add_keyword(section, keyword)
       CALL keyword_release(keyword)
 
+      CALL keyword_create(keyword, name="HALLEY_TYPE", &
+                          description="Specifies the Halley optimizer variant to use.", &
+                          usage="BROYDEN_TYPE HT2", &
+                          default_i_val=broyden_type_1, &
+                          enum_c_vals=s2a("HT1", "HT2", "HT3", &
+                          enum_desc=s2a("Halley's method.", &
+                                        "Chebyshev's method.", &
+                                        "Super-Halley's method."), &
+                          enum_i_vals=(/halley_type_1, halley_type_2, halley_type_3/))
+      CALL section_add_keyword(section, keyword)
+      CALL keyword_release(keyword)
+
+
       CALL keyword_create(keyword, name="JACOBIAN_TYPE", &
-                          description="Finite difference method used to calculate the inverse Jacobian "// &
-                          "needed by some optimizers. Compatible only with CDFT constraints.", &
+                          description="Finite difference method used to calculate the inverse Jacobian and possibly the "// &
+                          "Hessian as needed by some optimizers. Compatible only with CDFT constraints.", &
                           usage="JACOBIAN_TYPE FD1", &
                           default_i_val=jacobian_fd1, &
                           enum_c_vals=s2a("FD1", "FD1_BACKWARD", "FD2", "FD2_BACKWARD", "FD1_CENTRAL"), &
-                          enum_desc=s2a("First order forward difference (one extra energy evaluation per constraint)", &
-                                        "First order backward difference (one extra energy evaluation per constraint)", &
-                                        "Second order forward difference (two extra energy evaluations per constraint)", &
-                                        "Second order backward difference (two extra energy evaluations per constraint)", &
-                                        "First order central difference (two extra energy evaluations per constraint)"), &
+                          enum_desc=s2a("First order forward difference (one extra energy evaluation per constraint).", &
+                                        "First order backward difference (one extra energy evaluation per constraint).", &
+                                        "Second order forward difference (two extra energy evaluations per constraint).", &
+                                        "Second order backward difference (two extra energy evaluations per constraint).", &
+                                        "First order central difference (two extra energy evaluations per constraint). "// &
+                                        "Supports calculation of Hessian (four extra energy evaluations per unique "// &
+                                        "constraint pairs)."), &
                           enum_i_vals=(/jacobian_fd1, jacobian_fd1_backward, jacobian_fd2, &
                                         jacobian_fd2_backward, jacobian_fd1_central/))
       CALL section_add_keyword(section, keyword)

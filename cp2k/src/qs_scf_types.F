@@ -80,6 +80,7 @@ MODULE qs_scf_types
       REAL(KIND=dp), DIMENSION(:, :), POINTER :: variables
       REAL(KIND=dp), DIMENSION(:, :), POINTER :: gradient
       REAL(KIND=dp), DIMENSION(:, :), POINTER :: inv_jacobian
+      REAL(KIND=dp), DIMENSION(:, :), POINTER :: hessian
       INTEGER, DIMENSION(:), POINTER :: count
    END TYPE qs_outer_scf_type
 
@@ -174,6 +175,7 @@ CONTAINS
       NULLIFY (scf_env%outer_scf%energy)
       NULLIFY (scf_env%outer_scf%count)
       NULLIFY (scf_env%outer_scf%inv_jacobian)
+      NULLIFY (scf_env%outer_scf%hessian)
       scf_env%outer_scf%deallocate_jacobian = .TRUE.
       NULLIFY (scf_env%scf_work1)
       NULLIFY (scf_env%scf_work2)
@@ -335,6 +337,9 @@ CONTAINS
             END IF
             IF (ASSOCIATED(scf_env%outer_scf%inv_jacobian)) THEN
                DEALLOCATE (scf_env%outer_scf%inv_jacobian)
+            END IF
+            IF (ASSOCIATED(scf_env%outer_scf%hessian)) THEN
+               DEALLOCATE (scf_env%outer_scf%hessian)
             END IF
             IF (ASSOCIATED(scf_env%outer_scf%energy)) THEN
                DEALLOCATE (scf_env%outer_scf%energy)

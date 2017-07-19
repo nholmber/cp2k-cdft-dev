@@ -23,7 +23,8 @@ MODULE qs_scf_output
         outer_scf_hirshfeld_constraint, outer_scf_optimizer_bisect, outer_scf_optimizer_broyden, &
         outer_scf_optimizer_diis, outer_scf_optimizer_newton, outer_scf_optimizer_newton_ls, &
         outer_scf_optimizer_sd, outer_scf_optimizer_secant, radius_covalent, radius_single, &
-        radius_user, radius_vdw
+        radius_user, radius_vdw, outer_scf_optimizer_halley, outer_scf_optimizer_halley_ls, &
+        halley_type_1, halley_type_2, halley_type_3
    USE input_section_types,             ONLY: section_vals_get_subs_vals,&
                                               section_vals_type,&
                                               section_vals_val_get
@@ -795,6 +796,40 @@ CONTAINS
                "  Optimizer step size     : ", cdft_control%constraint_control%newton_step_save
          CASE (outer_scf_optimizer_secant)
             WRITE (output_unit, '(A)') "  Minimizer               : Secant"
+         CASE (outer_scf_optimizer_halley)
+            WRITE (output_unit, '(A)') "  Minimizer               : Halley"
+            SELECT CASE (cdft_control%constraint_control%halley_type)
+            CASE (halley_type_1)
+               WRITE (output_unit, '(A)') "                  variant : Halley's method"
+            CASE (halley_type_2)
+               WRITE (output_unit, '(A)') "                  variant : Chebyshev's method"
+            CASE (halley_type_3)
+               WRITE (output_unit, '(A)') "                  variant : super-Halley's method"
+            WRITE (output_unit, '(A,I4,A)') &
+               "  The Jacobian and Hessian are restarted every ", &
+               cdft_control%constraint_control%jacobian_freq(2), " energy evaluation"
+            WRITE (output_unit, '(A,I4,A)') &
+               "  or if the number of SCF iterations exceeds ", &
+               cdft_control%constraint_control%jacobian_freq(1)
+            WRITE (output_unit, '(A,F8.4)') &
+               "  Optimizer step size     : ", cdft_control%constraint_control%newton_step_save
+         CASE (outer_scf_optimizer_halley_ls)
+            WRITE (output_unit, '(A)') "  Minimizer               : Halley with backtracking line search"
+            SELECT CASE (cdft_control%constraint_control%halley_type)
+            CASE (halley_type_1)
+               WRITE (output_unit, '(A)') "                  variant : Halley's method"
+            CASE (halley_type_2)
+               WRITE (output_unit, '(A)') "                  variant : Chebyshev's method"
+            CASE (halley_type_3)
+               WRITE (output_unit, '(A)') "                  variant : super-Halley's method"
+            WRITE (output_unit, '(A,I4,A)') &
+               "  The Jacobian and Hessian are restarted every ", &
+               cdft_control%constraint_control%jacobian_freq(2), " energy evaluation"
+            WRITE (output_unit, '(A,I4,A)') &
+               "  or if the number of SCF iterations exceeds ", &
+               cdft_control%constraint_control%jacobian_freq(1)
+            WRITE (output_unit, '(A,F8.4)') &
+               "  Optimizer step size     : ", cdft_control%constraint_control%newton_step_save
          CASE DEFAULT
             CPABORT("")
          END SELECT

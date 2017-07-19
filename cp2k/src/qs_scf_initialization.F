@@ -371,6 +371,7 @@ CONTAINS
             dft_control%qs_control%cdft_control%ot_control%ijacobian = scf_control%outer_scf%ijacobian
             dft_control%qs_control%cdft_control%ot_control%build_jacobian = scf_control%outer_scf%build_jacobian
             dft_control%qs_control%cdft_control%ot_control%broyden_type = scf_control%outer_scf%broyden_type
+            dft_control%qs_control%cdft_control%ot_control%hessian_type = scf_control%outer_scf%hessian_type
             dft_control%qs_control%cdft_control%ot_control%broyden_update = scf_control%outer_scf%broyden_update
             IF (scf_control%outer_scf%jacobian_restart) THEN
                ! This code block should not do anything

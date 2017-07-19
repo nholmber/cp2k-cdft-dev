@@ -649,7 +649,9 @@ MODULE input_constants
                                                outer_scf_optimizer_broyden = 1005, &
                                                outer_scf_optimizer_newton = 1006, &
                                                outer_scf_optimizer_secant = 1007, &
-                                               outer_scf_optimizer_newton_ls = 1008
+                                               outer_scf_optimizer_newton_ls = 1008, &
+                                               outer_scf_optimizer_halley = 1009, &
+                                               outer_scf_optimizer_halley_ls = 1010
 
    ! outer scf broyden optimizer types
    INTEGER, PARAMETER, PUBLIC               :: broyden_type_1 = 1101, &
@@ -660,6 +662,11 @@ MODULE input_constants
                                                broyden_type_1_explicit_ls = 1106, &
                                                broyden_type_2_ls = 1107, &
                                                broyden_type_2_explicit_ls = 1108
+
+   ! outer scf halley optimizer types
+   INTEGER, PARAMETER, PUBLIC               :: halley_type_1 = 1201, &
+                                               halley_type_2 = 1202, &
+                                               halley_type_3 = 1203
 
    ! finite difference types for calculation of inverse jacobian
    INTEGER, PARAMETER, PUBLIC               :: jacobian_fd1 = 1, &

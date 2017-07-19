@@ -22,7 +22,8 @@ MODULE qs_outer_scf
         outer_scf_none, outer_scf_optimizer_bisect, outer_scf_optimizer_broyden, &
         outer_scf_optimizer_diis, outer_scf_optimizer_newton, outer_scf_optimizer_newton_ls, &
         outer_scf_optimizer_none, outer_scf_optimizer_sd, outer_scf_optimizer_secant, &
-        outer_scf_s2_constraint
+        outer_scf_s2_constraint, outer_scf_optimizer_halley, outer_scf_optimizer_halley_ls, &
+        halley_type_1, halley_type_2, halley_type_3
    USE kinds,                           ONLY: dp
    USE mathlib,                         ONLY: diamat_all
    USE qs_basis_gradient,               ONLY: qs_basis_center_gradient,&
@@ -202,14 +203,14 @@ CONTAINS
                                                             j, jbuf, nb, nvar, optimizer_type
       REAL(KIND=dp)                                      :: interval, scale, tmp
       REAL(KIND=dp), ALLOCATABLE, DIMENSION(:)           :: ev
-      REAL(KIND=dp), ALLOCATABLE, DIMENSION(:, :)        :: a, b, f, x
-      REAL(KIND=dp), DIMENSION(:, :), POINTER            :: inv_jacobian
+      REAL(KIND=dp), ALLOCATABLE, DIMENSION(:, :)        :: a, b, f, x, identity, tmp, inv_tmp, log_convex
+      REAL(KIND=dp), DIMENSION(:, :), POINTER            :: inv_jacobian, hessian
 
       CALL timeset(routineN, handle)
 
       ihistory = scf_env%outer_scf%iter_count
       optimizer_type = scf_control%outer_scf%optimizer
-      NULLIFY (inv_jacobian)
+      NULLIFY (inv_jacobian, hessian)
 
       IF (scf_control%outer_scf%type == outer_scf_basis_center_opt) THEN
          scf_env%outer_scf%variables(:, ihistory+1) = scf_env%outer_scf%variables(:, ihistory)
@@ -362,7 +363,7 @@ CONTAINS
                   ! Clean up
                   DEALLOCATE (f, x)
                END IF
-               ! Update variables x_(n+1) = x_n - J^(-1)*f(x_n)
+               ! Update variables x_(n+1) = x_n - alpha*J^(-1)*f(x_n)
                scf_env%outer_scf%variables(:, ihistory+1) = scf_env%outer_scf%variables(:, ihistory)- &
                                                             scf_control%outer_scf%newton_step* &
                                                             MATMUL(inv_jacobian, scf_env%outer_scf%gradient(:, ihistory))
@@ -370,9 +371,60 @@ CONTAINS
             CASE (outer_scf_optimizer_newton, outer_scf_optimizer_newton_ls)
                CPASSERT(ASSOCIATED(scf_env%outer_scf%inv_jacobian))
                inv_jacobian => scf_env%outer_scf%inv_jacobian
+               ! Update variables x_(n+1) = x_n - alpha*J^(-1)*f(x_n)
                scf_env%outer_scf%variables(:, ihistory+1) = scf_env%outer_scf%variables(:, ihistory)- &
                                                             scf_control%outer_scf%newton_step* &
                                                             MATMUL(inv_jacobian, scf_env%outer_scf%gradient(:, ihistory))
+            CASE (outer_scf_optimizer_halley, outer_scf_optimizer_halley_ls)
+               CPASSERT(ASSOCIATED(scf_env%outer_scf%inv_jacobian))
+               CPASSERT(ASSOCIATED(scf_env%outer_scf%hessian))
+               inv_jacobian => scf_env%outer_scf%inv_jacobian
+               hessian => scf_env%outer_scf%hessian
+               nvar = SIZE(scf_env%outer_scf%gradient, 1)
+               ALLOCATE(log_convex(nvar, nvar))
+               ! Calculate degree of logaritmic convexity L = J^(-1)*H*J^(-1)*f(x), where H is the Hessian
+               log_convex = MATMUL(inv_jacobian, hessian)
+               log_convex = MATMUL(log_convex, inv_jacobian)
+               log_convex = MATMUL(log_convex, scf_env%outer_scf%gradient(:, ihistory))
+               ! Calculate modifier to Newton's iteration
+               ! See e.g. Gutierrez, Hernandez, "A Family of Chebyshev–Halley Type Methods in Banach Spaces",
+               !          Bull. Austral. Math. Soc., 55 (1997), 113-130
+               ALLOCATE (modifier(nvar, nvar))
+               ALLOCATE (identity(nvar, nvar))
+               identity = 0.0_dp
+               DO i = 1, nvar
+                  identity(i, i) = 1.0_dp
+               END DO
+               SELECT CASE (scf_control%outer_scf%halley_type)
+               CASE (halley_type_1)
+                  ! Halley's method: modifier = I + 0.5*L*[I-0.5*L]^(-1)
+                  ALLOCATE (tmp(nvar, nvar), inv_tmp(nvar, nvar))
+                  tmp = identity - 0.5_dp*log_convex
+                  CALL invert_matrix(tmp, inv_tmp, inv_error)
+                  tmp = MATMUL(log_convex, inv_tmp)
+                  modifier = identity + 0.5_dp*tmp
+                  DEALLOCATE(tmp, inv_tmp)
+               CASE (halley_type_2)
+                  ! Chebyshev's method: modifier = I + 0.5*L
+                  modifier = identity + 0.5_dp*log_convex
+               CASE (halley_type_3)
+                  ! Super-Halley's method: modifier = I + 0.5*L*[I-L]^(-1)
+                  ALLOCATE (tmp(nvar, nvar), inv_tmp(nvar, nvar))
+                  tmp = identity - log_convex
+                  CALL invert_matrix(tmp, inv_tmp, inv_error)
+                  tmp = MATMUL(log_convex, inv_tmp)
+                  modifier = identity + 0.5_dp*tmp
+                  DEALLOCATE(tmp, inv_tmp)
+               CASE DEFAULT
+                  CALL cp_abort(__LOCATION__, &
+                                "Unknown Halley type: "// &
+                                cp_to_string(scf_control%outer_scf%halley_type))
+               END SELECT
+               ! Update variables x_(n+1) = x_n - alpha*modifier*J^(-1)*f(x_n)
+               modifier = scf_control%outer_scf%newton_step*MATMUL(modifier, inv_jacobian)
+               scf_env%outer_scf%variables(:, ihistory+1) = scf_env%outer_scf%variables(:, ihistory)- &
+                                                            MATMUL(modifier, scf_env%outer_scf%gradient(:, ihistory))
+               DEALLOCATE(identity, modifier)
             CASE DEFAULT
                CPABORT("")
             END SELECT
@@ -621,6 +673,12 @@ CONTAINS
                ALLOCATE (cdft_control%constraint%inv_jacobian(nvariables, nvariables))
             cdft_control%constraint%inv_jacobian = scf_env%outer_scf%inv_jacobian
          END IF
+         IF (ASSOCIATED(scf_env%outer_scf%hessian)) THEN
+            nvariables = SIZE(scf_env%outer_scf%hessian, 1)
+            IF (.NOT. ASSOCIATED(cdft_control%constraint%hessian)) &
+               ALLOCATE (cdft_control%constraint%hessian(nvariables, nvariables))
+            cdft_control%constraint%hessian = scf_env%outer_scf%hessian
+         END IF
          ! Now switch
          IF (ASSOCIATED(scf_env%outer_scf%energy)) &
             DEALLOCATE (scf_env%outer_scf%energy)
@@ -642,6 +700,8 @@ CONTAINS
          scf_env%outer_scf%deallocate_jacobian = .TRUE.
          IF (ASSOCIATED(scf_env%outer_scf%inv_jacobian)) &
             DEALLOCATE (scf_env%outer_scf%inv_jacobian)
+         IF (ASSOCIATED(scf_env%outer_scf%hessian)) &
+            DEALLOCATE (scf_env%outer_scf%hessian)
       CASE (ot2cdft)
          ! OT -> constraint
          scf_control%outer_scf%have_scf = cdft_control%constraint_control%have_scf
@@ -688,6 +748,12 @@ CONTAINS
                DEALLOCATE (scf_env%outer_scf%inv_jacobian)
             ALLOCATE (scf_env%outer_scf%inv_jacobian(nvariables, nvariables))
             scf_env%outer_scf%inv_jacobian = cdft_control%constraint%inv_jacobian
+         END IF
+         IF (ASSOCIATED(cdft_control%constraint%hessian)) THEN
+            IF (ASSOCIATED(scf_env%outer_scf%hessian)) &
+               DEALLOCATE (scf_env%outer_scf%hessian)
+            ALLOCATE (scf_env%outer_scf%hessian(nvariables, nvariables))
+            scf_env%outer_scf%hessian = cdft_control%constraint%hessian
          END IF
       CASE DEFAULT
          CPABORT("")

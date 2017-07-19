@@ -28,7 +28,8 @@ MODULE scf_control_types
         outer_scf_optimizer_broyden, outer_scf_optimizer_diis, outer_scf_optimizer_newton, &
         outer_scf_optimizer_newton_ls, outer_scf_optimizer_none, outer_scf_optimizer_sd, &
         outer_scf_optimizer_secant, outer_scf_s2_constraint, smear_energy_window, &
-        smear_fermi_dirac, smear_list
+        smear_fermi_dirac, smear_list, outer_scf_optimizer_halley, outer_scf_optimizer_halley_ls, &
+        halley_type_1, halley_type_2, halley_type_3
    USE input_cp2k_dft,                  ONLY: create_scf_section
    USE input_enumeration_types,         ONLY: enum_i2c,&
                                               enumeration_type
@@ -91,6 +92,7 @@ MODULE scf_control_types
 !> \param newton_step_save permanent copy of the above
 !> \param jacobian_type the finite difference scheme to compute the Jacobian
 !> \param broyden_type the variant of Broyden's method to use
+!> \param broyden_type the variant of Halley class methods to use
 !> \param jacobian_freq control parameters defining how often the Jacobian is built
 !> \param ijacobian counter to track how many outer_scf iterations have passed since the last
 !>                  Jacobian rebuild
@@ -124,6 +126,7 @@ MODULE scf_control_types
       INTEGER       :: bisect_trust_count
       INTEGER       :: jacobian_type
       INTEGER       :: broyden_type
+      INTEGER       :: halley_type
       INTEGER       :: jacobian_freq(2)
       INTEGER       :: ijacobian
       INTEGER       :: max_ls
@@ -552,6 +555,8 @@ CONTAINS
                                    r_val=scf_control%outer_scf%jacobian_step)
          CALL section_vals_val_get(outer_scf_section, "BROYDEN_TYPE", &
                                    i_val=scf_control%outer_scf%broyden_type)
+         CALL section_vals_val_get(outer_scf_section, "HALLEY_TYPE", &
+                                   i_val=scf_control%outer_scf%halley_type)
          CALL section_vals_val_get(outer_scf_section, "CONTINUE_LS", &
                                    l_val=scf_control%outer_scf%continue_ls)
          CALL section_vals_val_get(outer_scf_section, "FACTOR_LS", &
@@ -888,6 +893,38 @@ CONTAINS
                      "Optimizer step size: ", scf_control%outer_scf%newton_step_save
                CASE (outer_scf_optimizer_secant)
                   WRITE (output_unit, '(T25,A)') "Optimization with the secant method"
+               CASE (outer_scf_optimizer_halley)
+                  WRITE (output_unit, '(T25,A)') "Optimization with Halley class methods"
+                  SELECT CASE (scf_control%outer_scf%halley_type)
+                  CASE (halley_type_1)
+                     WRITE (output_unit, '(A)') "                  variant : Halley's method"
+                  CASE (halley_type_2)
+                     WRITE (output_unit, '(A)') "                  variant : Chebyshev's method"
+                  CASE (halley_type_3)
+                     WRITE (output_unit, '(A)') "                  variant : super-Halley's method"
+                  END SELECT
+                  WRITE (output_unit, '(T25,A,I4,A)') &
+                     "The Jacobian and Hessian are restarted every ", scf_control%outer_scf%jacobian_freq(2), " energy evaluation"
+                  WRITE (output_unit, '(T25,A,I4,A)') &
+                     " or if the number of SCF iterations exceeds ", scf_control%outer_scf%jacobian_freq(1)
+                  WRITE (output_unit, '(T25,A,F8.4)') &
+                     "Optimizer step size: ", scf_control%outer_scf%newton_step_save
+               CASE (outer_scf_optimizer_halley_ls)
+                  WRITE (output_unit, '(T25,A)') "Optimization with Halley class methods using backtracking line search"
+                  SELECT CASE (scf_control%outer_scf%halley_type)
+                  CASE (halley_type_1)
+                     WRITE (output_unit, '(A)') "                  variant : Halley's method"
+                  CASE (halley_type_2)
+                     WRITE (output_unit, '(A)') "                  variant : Chebyshev's method"
+                  CASE (halley_type_3)
+                     WRITE (output_unit, '(A)') "                  variant : super-Halley's method"
+                  END SELECT
+                  WRITE (output_unit, '(T25,A,I4,A)') &
+                     "The Jacobian and Hessian are restarted every ", scf_control%outer_scf%jacobian_freq(2), " energy evaluation"
+                  WRITE (output_unit, '(T25,A,I4,A)') &
+                     " or if the number of SCF iterations exceeds ", scf_control%outer_scf%jacobian_freq(1)
+                  WRITE (output_unit, '(T25,A,F8.4)') &
+                     "Optimizer step size: ", scf_control%outer_scf%newton_step_save
                CASE DEFAULT
                   CPABORT("")
                END SELECT
