@@ -60,7 +60,8 @@ MODULE qs_scf
                                               cp_logger_release,&
                                               cp_logger_type,&
                                               cp_rm_default_logger,&
-                                              cp_to_string
+                                              cp_to_string, &
+                                              cp_default_logger_stack_size
    USE cp_output_handling,              ONLY: cp_add_iter_level,&
                                               cp_iterate,&
                                               cp_p_file,&
@@ -86,7 +87,7 @@ MODULE qs_scf
         jacobian_fd2, jacobian_fd2_backward, ot2cdft, ot_precond_full_all, ot_precond_full_single, &
         ot_precond_full_single_inverse, ot_precond_none, ot_precond_s_inverse, &
         outer_scf_hirshfeld_constraint, outer_scf_optimizer_broyden, outer_scf_optimizer_newton, &
-        outer_scf_optimizer_newton_ls
+        outer_scf_optimizer_newton_ls, outer_scf_optimizer_halley, outer_scf_optimizer_halley_ls
    USE input_section_types,             ONLY: section_vals_get_subs_vals,&
                                               section_vals_type
    USE kinds,                           ONLY: default_path_length,&
@@ -1194,7 +1195,7 @@ CONTAINS
       INTEGER :: counter, handle, i, ihistory, ispin, iter_count, iwork, j, lp, max_scf, nspins, &
          nsteps, nvar, nwork, outer_scf_ihistory, output_unit, pwork, twork, ihessian, nhessian, nperturb, npermutations, &
          ipermutation
-      LOGICAL                                            :: build_hessian, converged,
+      LOGICAL                                            :: build_hessian, converged, &
                                                             explicit_jacobian, should_build, &
                                                             should_stop, use_md_history
       REAL(KIND=dp)                                      :: dh, inv_error
@@ -1202,7 +1203,8 @@ CONTAINS
       REAL(KIND=dp), ALLOCATABLE, DIMENSION(:, :)        :: jacobian
       REAL(KIND=dp), DIMENSION(:), POINTER               :: energy
       REAL(KIND=dp), DIMENSION(:, :), POINTER            :: gradient, gradient_history, &
-                                                            hessian, inv_jacobian, variable_history
+                                                            inv_jacobian, variable_history
+      REAL(KIND=dp), DIMENSION(:, :, :), POINTER         :: hessian
       TYPE(cdft_control_type), POINTER                   :: cdft_control
       TYPE(cp_1d_i_p_type), ALLOCATABLE, DIMENSION(:)    :: step_multiplier_hess
       TYPE(cp_logger_type), POINTER                      :: logger, tmp_logger
@@ -1224,6 +1226,7 @@ CONTAINS
                cdft_control, inv_jacobian, para_env, hessian, &
                tmp_logger, gradient_history, variable_history, energy_qs)
       logger => cp_get_default_logger()
+      print *, 'Logger stack size on entry', cp_default_logger_stack_size()
 
       CPASSERT(ASSOCIATED(qs_env))
       CALL get_qs_env(qs_env, scf_env=scf_env, ks_env=ks_env, &
@@ -1250,7 +1253,7 @@ CONTAINS
             scf_control%outer_scf%build_jacobian = .TRUE.
             explicit_jacobian = .TRUE.
          END SELECT
-      CASE (outer_scf_optimizer_halley)
+      CASE (outer_scf_optimizer_halley, outer_scf_optimizer_halley_ls)
          scf_control%outer_scf%build_jacobian = .TRUE.
          explicit_jacobian = .TRUE.
          build_hessian = .TRUE.
@@ -1322,6 +1325,8 @@ CONTAINS
                                   para_env=para_env, &
                                   default_global_unit_nr=output_unit, &
                                   close_global_unit_on_dealloc=.FALSE.)
+            CALL cp_add_default_logger(tmp_logger)
+            print *, 'Logger stack size start of JAcobian', cp_default_logger_stack_size()
             ! Save last converged state so we can roll back to it (mo_coeff and some outer_loop variables)
             nspins = dft_control%nspins
             ALLOCATE (mos_stashed(nspins))
@@ -1348,9 +1353,14 @@ CONTAINS
                CASE (jacobian_fd1_central)
                   ! Do nothing
                END SELECT
+               NULLIFY(scf_env%outer_scf%hessian)
                IF (.NOT. ASSOCIATED(scf_env%outer_scf%hessian)) &
-                  ALLOCATE (scf_env%outer_scf%hessian(nvar, nvar))
+                  ALLOCATE (scf_env%outer_scf%hessian(nvar, nvar, nvar))
                hessian => scf_env%outer_scf%hessian
+               print *, 'HEssian allocateD?', ASSOCIATED(hessian)
+               print *, 'Hessian size:', SIZE(hessian, 1), SIZE(hessian, 2), SIZE(hessian, 3)
+               print *, 'Hessian DIMENSION:', LBOUND(hessian, 1), UBOUND(hessian, 1), LBOUND(hessian, 2), UBOUND(hessian, 2), &
+                   LBOUND(hessian, 3), UBOUND(hessian, 3)
                hessian = 0.0_dp
             END IF
             nsteps = cdft_control%total_steps
@@ -1419,7 +1429,9 @@ CONTAINS
             DO i = 1, nvar
                jacobian(i, :) = coeff(0)*scf_env%outer_scf%gradient(i, iter_count)
                IF (build_hessian) THEN
-                  hessian(i, i) = -2.0_dp*scf_env%outer_scf%gradient(i, iter_count)
+                  DO j = 1, nvar
+                    hessian(i, j, j) = -2.0_dp*scf_env%outer_scf%gradient(i, iter_count)
+                  END DO
                END IF
             END DO
             ! Print some info
@@ -1448,7 +1460,6 @@ CONTAINS
                WRITE (output_unit, '(A,ES12.4)') " Step size          : ", scf_control%outer_scf%jacobian_step
             END IF
             ! Calculate the Jacobian by perturbing each Lagrangian and recalculating the energy self-consistently
-            CALL cp_add_default_logger(tmp_logger)
             DO i = 1, nvar
                IF (output_unit > 0) THEN
                   WRITE (output_unit, FMT="(A)") " "
@@ -1489,7 +1500,10 @@ CONTAINS
                      jacobian(j, i) = jacobian(j, i)+coeff(iwork)*scf_env%outer_scf%gradient(j, iter_count+1)
                   END DO
                   IF (build_hessian) THEN
-                     hessian(i, i) = hessian(i, i)+scf_env%outer_scf%gradient(i, iter_count+1)
+                     hessian => scf_env%outer_scf%hessian
+                     DO j = 1, nvar
+                        hessian(j, i, i) = hessian(j, i, i)+scf_env%outer_scf%gradient(j, iter_count+1)
+                     END DO
                   END IF
                   ! Reset everything to last converged state
                   scf_env%outer_scf%variables(:, iter_count+1) = 0.0_dp
@@ -1514,8 +1528,13 @@ CONTAINS
                   " ================================== JACOBIAN CALCULATED =================================="
                CALL close_file(unit_number=output_unit)
             END IF
+            print *, 'Logger stack size after JAcobian', cp_default_logger_stack_size()
             IF (build_hessian) THEN
+               hessian => scf_env%outer_scf%hessian
+               NULLIFY(tmp_logger)
+               logger => cp_get_default_logger()
                ! Build finite difference Hessian
+               project_name = logger%iter_info%project_name
                IF (para_env%mepos == para_env%source) THEN
                   lp = LEN_TRIM(project_name)
                   project_name(lp+1:LEN(project_name)) = "-HessianInfo.out"
@@ -1529,10 +1548,12 @@ CONTAINS
                                      para_env=para_env, &
                                      default_global_unit_nr=output_unit, &
                                      close_global_unit_on_dealloc=.FALSE.)
+               CALL cp_add_default_logger(tmp_logger)
+               print *, 'Logger stack size start of Hessian', cp_default_logger_stack_size()
                ! Print some info
                IF (output_unit > 0) THEN
                   WRITE (output_unit, FMT="(/,A)") &
-                     " ================================== HESSIAN CALCULATION =================================="
+                     " ================================== HESSIAN CALCULATION ================================="
                   WRITE (output_unit, FMT="(A)") &
                      " Evaluating CDFT Hessian using finite differences"
                   WRITE (output_unit, '(A,I10,A,I10)') &
@@ -1552,9 +1573,11 @@ CONTAINS
                   ! Diagonal term
                   ! d^2f(x0,y0)/dx^2 = [ f(x0+h,y0) - 2f(x0,y0) + f(x0-h,y0) ] / h^2
                   ! was already calculated during Jacobian evaluation and only requires finalizing
-                  DO i = 1, nvar
-                     ! NB. dh was set to 2*h
-                     hessian(i, i) = (dh/2.0)**2*hessian(i, i)
+                  DO j = 1, nvar
+                     DO i = 1, nvar
+                        ! NB. dh was set to 2*h
+                        hessian(j, i, i) = (dh/2.0)**2*hessian(j, i, i)
+                     END DO
                   END DO
                   ! For the off-diagonal term
                   ! d^2f(x0,y0)/dxdy = [ f(x0+h,y0+h) - f(x0+h,y0-h) - f(x0-h,y0+h) - f(x0-h,y0-h) ] / 4h^2
@@ -1582,6 +1605,7 @@ CONTAINS
                counter = 0
                ! Loop over unique (i, j) pairs
                DO ipermutation = 1, npermutations
+                  print *, 'I PERMUTATION LOOPING'
                   CALL map_permutation_to_states(nvar, ipermutation, i, j)
                   ! Loop over all 2D Lagrangian multiplier perturbations
                   DO ihessian = 1, nperturb
@@ -1613,8 +1637,9 @@ CONTAINS
                                            should_stop=.FALSE., outer_loop_converged=.FALSE., cdft_loop=.FALSE.)
                      scf_env%outer_scf%iter_count = scf_env%outer_scf%iter_count-1
                      ! Update Hessian
-                     hessian(i, j) = hessian(i, j)+coeff(ihessian)*scf_env%outer_scf%gradient(i, iter_count+1)
-                     hessian(j, i) = hessian(j, i)+coeff(ihessian)*scf_env%outer_scf%gradient(j, iter_count+1)
+                     hessian => scf_env%outer_scf%hessian
+                     hessian(i, i, j) = hessian(i, i, j)+coeff(ihessian)*scf_env%outer_scf%gradient(i, iter_count+1)
+                     hessian(j, i, j) = hessian(j, i, j)+coeff(ihessian)*scf_env%outer_scf%gradient(j, iter_count+1)
                      ! Reset everything to last converged state
                      scf_env%outer_scf%variables(:, iter_count+1) = 0.0_dp
                      scf_env%outer_scf%gradient = gradient
@@ -1631,10 +1656,13 @@ CONTAINS
                   END DO
                END DO
                ! Finalize off-diagonal terms of Hessian
-               DO i = 1, nvar
-                  DO j = 1, nvar
-                     IF (j == i) CYCLE
-                     hessian(i, j) = hessian(i, j)/(dh**2)
+               DO ihessian = 1, nhessian
+                  DO i = 1, nvar
+                     DO j = i+1, nvar
+                        hessian(ihessian, i, j) = hessian(ihessian, i, j)/(dh**2)
+                        ! Symmetry
+                        hessian(ihessian, j, i) = hessian(ihessian, i, j)
+                     END DO
                   END DO
                END DO
                DEALLOCATE(coeff)
@@ -1649,6 +1677,7 @@ CONTAINS
                      " ================================== HESSIAN CALCULATED =================================="
                   CALL close_file(unit_number=output_unit)
                END IF
+               print *, 'Logger stack size exit from HEssian', cp_default_logger_stack_size()
             END IF
             ! Finalize and invert Jacobian
             DO j = 1, nvar
@@ -1724,6 +1753,7 @@ CONTAINS
       END IF
       IF (ASSOCIATED(scf_env%outer_scf%inv_jacobian) .AND. para_env%mepos == para_env%source) THEN
          inv_jacobian => scf_env%outer_scf%inv_jacobian
+         logger => cp_get_default_logger()
          nvar = SIZE(inv_jacobian, 1)
          output_unit = get_unit_number()
          project_name = logger%iter_info%project_name
@@ -1743,6 +1773,7 @@ CONTAINS
       END IF
       IF (ASSOCIATED(scf_env%outer_scf%hessian) .AND. para_env%mepos == para_env%source) THEN
          hessian => scf_env%outer_scf%hessian
+         logger => cp_get_default_logger()
          nvar = SIZE(hessian, 1)
          output_unit = get_unit_number()
          project_name = logger%iter_info%project_name
@@ -1751,15 +1782,19 @@ CONTAINS
          CALL open_file(file_name=project_name, file_status="UNKNOWN", &
                         file_action="WRITE", file_position="APPEND", &
                         unit_number=output_unit)
-         WRITE (output_unit, FMT="(/,A)") "CDFT Hessian matrix in row major order"
-         WRITE (output_unit, FMT="(A,I10)") "Iteration: ", scf_env%outer_scf%iter_count
-         DO i = 1, nvar
-            DO j = 1, nvar
-               WRITE (output_unit, *) hessian(i, j)
+         DO ihessian = 1, nvar
+            WRITE (output_unit, FMT="(/,A,I3,A)") "CDFT Hessian matrix in row major order, constraint ( ", &
+               ihessian, " )"
+            WRITE (output_unit, FMT="(A,I10)") "Iteration: ", scf_env%outer_scf%iter_count
+            DO i = 1, nvar
+               DO j = 1, nvar
+                  WRITE (output_unit, *) hessian(ihessian, i, j)
+               END DO
             END DO
          END DO
          CALL close_file(unit_number=output_unit)
       END IF
+      print *, 'Logger stack size on exit', cp_default_logger_stack_size()
       CALL timestop(handle)
 
    END SUBROUTINE qs_calculate_inverse_jacobian

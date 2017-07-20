@@ -201,10 +201,13 @@ CONTAINS
 
       INTEGER                                            :: handle, i, ibuf, ihigh, ihistory, ilow, &
                                                             j, jbuf, nb, nvar, optimizer_type
-      REAL(KIND=dp)                                      :: interval, scale, tmp
+      REAL(KIND=dp)                                      :: interval, scale, tmp, inv_error
       REAL(KIND=dp), ALLOCATABLE, DIMENSION(:)           :: ev
-      REAL(KIND=dp), ALLOCATABLE, DIMENSION(:, :)        :: a, b, f, x, identity, tmp, inv_tmp, log_convex
-      REAL(KIND=dp), DIMENSION(:, :), POINTER            :: inv_jacobian, hessian
+      REAL(KIND=dp), ALLOCATABLE, DIMENSION(:, :)        :: a, b, f, x, identity, tmp_matrix, inv_tmp, log_convex, &
+                                                            modifier
+      REAL(KIND=dp), DIMENSION(:, :), POINTER            :: inv_jacobian
+      REAL(KIND=dp), DIMENSION(:, :, :), POINTER         :: hessian
+
 
       CALL timeset(routineN, handle)
 
@@ -383,48 +386,55 @@ CONTAINS
                nvar = SIZE(scf_env%outer_scf%gradient, 1)
                ALLOCATE(log_convex(nvar, nvar))
                ! Calculate degree of logaritmic convexity L = J^(-1)*H*J^(-1)*f(x), where H is the Hessian
-               log_convex = MATMUL(inv_jacobian, hessian)
-               log_convex = MATMUL(log_convex, inv_jacobian)
-               log_convex = MATMUL(log_convex, scf_env%outer_scf%gradient(:, ihistory))
+               !log_convex = MATMUL(inv_jacobian, hessian)
+               !log_convex = MATMUL(log_convex, inv_jacobian)
+               !log_convex = MATMUL(log_convex, scf_env%outer_scf%gradient(:, ihistory))
                ! Calculate modifier to Newton's iteration
                ! See e.g. Gutierrez, Hernandez, "A Family of Chebyshev–Halley Type Methods in Banach Spaces",
                !          Bull. Austral. Math. Soc., 55 (1997), 113-130
+               DO i = 1, nvar
+                  log_convex(i, :) = MATMUL(-1.0_dp*MATMUL(inv_jacobian, scf_env%outer_scf%gradient(:, ihistory)), &
+                                            hessian(i, :, :))
+               END DO
+               log_convex = MATMUL(inv_jacobian, log_convex)
                ALLOCATE (modifier(nvar, nvar))
                ALLOCATE (identity(nvar, nvar))
                identity = 0.0_dp
                DO i = 1, nvar
                   identity(i, i) = 1.0_dp
                END DO
-               SELECT CASE (scf_control%outer_scf%halley_type)
-               CASE (halley_type_1)
-                  ! Halley's method: modifier = I + 0.5*L*[I-0.5*L]^(-1)
-                  ALLOCATE (tmp(nvar, nvar), inv_tmp(nvar, nvar))
-                  tmp = identity - 0.5_dp*log_convex
-                  CALL invert_matrix(tmp, inv_tmp, inv_error)
-                  tmp = MATMUL(log_convex, inv_tmp)
-                  modifier = identity + 0.5_dp*tmp
-                  DEALLOCATE(tmp, inv_tmp)
-               CASE (halley_type_2)
-                  ! Chebyshev's method: modifier = I + 0.5*L
-                  modifier = identity + 0.5_dp*log_convex
-               CASE (halley_type_3)
-                  ! Super-Halley's method: modifier = I + 0.5*L*[I-L]^(-1)
-                  ALLOCATE (tmp(nvar, nvar), inv_tmp(nvar, nvar))
-                  tmp = identity - log_convex
-                  CALL invert_matrix(tmp, inv_tmp, inv_error)
-                  tmp = MATMUL(log_convex, inv_tmp)
-                  modifier = identity + 0.5_dp*tmp
-                  DEALLOCATE(tmp, inv_tmp)
-               CASE DEFAULT
-                  CALL cp_abort(__LOCATION__, &
-                                "Unknown Halley type: "// &
-                                cp_to_string(scf_control%outer_scf%halley_type))
-               END SELECT
+               modifier = identity + 0.5_dp * log_convex
+               !SELECT CASE (scf_control%outer_scf%halley_type)
+               !CASE (halley_type_1)
+               !   ! Halley's method: modifier = I + 0.5*L*[I-0.5*L]^(-1)
+               !   ALLOCATE (tmp_matrix(nvar, nvar), inv_tmp(nvar, nvar))
+               !   tmp_matrix = identity - 0.5_dp*log_convex
+               !   CALL invert_matrix(tmp_matrix, inv_tmp, inv_error)
+               !   tmp_matrix = MATMUL(log_convex, inv_tmp)
+               !   modifier = identity + 0.5_dp*tmp_matrix
+               !   DEALLOCATE(tmp_matrix, inv_tmp)
+               !CASE (halley_type_2)
+               !   ! Chebyshev's method: modifier = I + 0.5*L
+               !   modifier = identity + 0.5_dp*log_convex
+               !CASE (halley_type_3)
+               !   ! Super-Halley's method: modifier = I + 0.5*L*[I-L]^(-1)
+               !   ALLOCATE (tmp_matrix(nvar, nvar), inv_tmp(nvar, nvar))
+               !   tmp_matrix = identity - log_convex
+               !   CALL invert_matrix(tmp_matrix, inv_tmp, inv_error)
+               !   tmp_matrix = MATMUL(log_convex, inv_tmp)
+               !   modifier = identity + 0.5_dp*tmp_matrix
+               !   DEALLOCATE(tmp_matrix, inv_tmp)
+               !CASE DEFAULT
+               !   CALL cp_abort(__LOCATION__, &
+               !                 "Unknown Halley type: "// &
+               !                 cp_to_string(scf_control%outer_scf%halley_type))
+               !END SELECT
                ! Update variables x_(n+1) = x_n - alpha*modifier*J^(-1)*f(x_n)
                modifier = scf_control%outer_scf%newton_step*MATMUL(modifier, inv_jacobian)
                scf_env%outer_scf%variables(:, ihistory+1) = scf_env%outer_scf%variables(:, ihistory)- &
                                                             MATMUL(modifier, scf_env%outer_scf%gradient(:, ihistory))
                DEALLOCATE(identity, modifier)
+               DEALLOCATE(log_convex)
             CASE DEFAULT
                CPABORT("")
             END SELECT
@@ -676,7 +686,7 @@ CONTAINS
          IF (ASSOCIATED(scf_env%outer_scf%hessian)) THEN
             nvariables = SIZE(scf_env%outer_scf%hessian, 1)
             IF (.NOT. ASSOCIATED(cdft_control%constraint%hessian)) &
-               ALLOCATE (cdft_control%constraint%hessian(nvariables, nvariables))
+               ALLOCATE (cdft_control%constraint%hessian(nvariables, nvariables, nvariables))
             cdft_control%constraint%hessian = scf_env%outer_scf%hessian
          END IF
          ! Now switch
@@ -752,7 +762,7 @@ CONTAINS
          IF (ASSOCIATED(cdft_control%constraint%hessian)) THEN
             IF (ASSOCIATED(scf_env%outer_scf%hessian)) &
                DEALLOCATE (scf_env%outer_scf%hessian)
-            ALLOCATE (scf_env%outer_scf%hessian(nvariables, nvariables))
+            ALLOCATE (scf_env%outer_scf%hessian(nvariables, nvariables, nvariables))
             scf_env%outer_scf%hessian = cdft_control%constraint%hessian
          END IF
       CASE DEFAULT

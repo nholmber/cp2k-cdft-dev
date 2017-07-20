@@ -80,7 +80,8 @@ MODULE qs_scf_types
       REAL(KIND=dp), DIMENSION(:, :), POINTER :: variables
       REAL(KIND=dp), DIMENSION(:, :), POINTER :: gradient
       REAL(KIND=dp), DIMENSION(:, :), POINTER :: inv_jacobian
-      REAL(KIND=dp), DIMENSION(:, :), POINTER :: hessian
+      REAL(KIND=dp), DIMENSION(:, :, :), &
+         POINTER                              :: hessian
       INTEGER, DIMENSION(:), POINTER :: count
    END TYPE qs_outer_scf_type
 

@@ -805,6 +805,7 @@ CONTAINS
                WRITE (output_unit, '(A)') "                  variant : Chebyshev's method"
             CASE (halley_type_3)
                WRITE (output_unit, '(A)') "                  variant : super-Halley's method"
+            END SELECT
             WRITE (output_unit, '(A,I4,A)') &
                "  The Jacobian and Hessian are restarted every ", &
                cdft_control%constraint_control%jacobian_freq(2), " energy evaluation"
@@ -822,6 +823,7 @@ CONTAINS
                WRITE (output_unit, '(A)') "                  variant : Chebyshev's method"
             CASE (halley_type_3)
                WRITE (output_unit, '(A)') "                  variant : super-Halley's method"
+            END SELECT
             WRITE (output_unit, '(A,I4,A)') &
                "  The Jacobian and Hessian are restarted every ", &
                cdft_control%constraint_control%jacobian_freq(2), " energy evaluation"

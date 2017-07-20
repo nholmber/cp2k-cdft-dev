@@ -5339,8 +5339,9 @@ CONTAINS
                                         "and successively reduces the step size until the L2 norm of the CDFT gradient "// &
                                         "decreases or MAX_LS steps is reached. Potentially very expensive because "// &
                                         "each iteration performs a full SCF calculation.", &
-                                        "Halley class methods which modify the Newton iteration using local curvature information. "// &
-                                        "Only compatible with CDFT constraints. Variant defined with keyword HALLEY_TYPE.", &
+                                        "Halley class methods which modify the Newton iteration using local curvature "// &
+                                        "information. Only compatible with CDFT constraints. Variant defined with "// &
+                                        "keyword HALLEY_TYPE.", &
                                         "Halley class methods with backtracking line search."), &
                           enum_i_vals=(/outer_scf_optimizer_sd, outer_scf_optimizer_diis, outer_scf_optimizer_none, &
                                         outer_scf_optimizer_bisect, outer_scf_optimizer_broyden, &
@@ -5377,8 +5378,8 @@ CONTAINS
       CALL keyword_create(keyword, name="HALLEY_TYPE", &
                           description="Specifies the Halley optimizer variant to use.", &
                           usage="BROYDEN_TYPE HT2", &
-                          default_i_val=broyden_type_1, &
-                          enum_c_vals=s2a("HT1", "HT2", "HT3", &
+                          default_i_val=halley_type_1, &
+                          enum_c_vals=s2a("HT1", "HT2", "HT3"), &
                           enum_desc=s2a("Halley's method.", &
                                         "Chebyshev's method.", &
                                         "Super-Halley's method."), &

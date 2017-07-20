@@ -224,7 +224,7 @@ MODULE qs_cdft_types
          POINTER                           :: gradient
       REAL(KIND=dp), DIMENSION(:, :), &
          POINTER                           :: inv_jacobian
-      REAL(KIND=dp), DIMENSION(:, :), &
+      REAL(KIND=dp), DIMENSION(:, :, :), &
          POINTER                           :: hessian
       INTEGER, DIMENSION(:), POINTER       :: count
    END TYPE qs_outer_scf_type
@@ -251,6 +251,7 @@ MODULE qs_cdft_types
       INTEGER                              :: bisect_trust_count
       INTEGER                              :: jacobian_type
       INTEGER                              :: broyden_type
+      INTEGER                              :: halley_type
       INTEGER                              :: jacobian_freq(2)
       INTEGER                              :: max_ls
    END TYPE outer_scf_control_type
@@ -517,6 +518,7 @@ CONTAINS
       cdft_control%constraint_control%diis_buffer_length = -1
       cdft_control%constraint_control%jacobian_type = -1
       cdft_control%constraint_control%broyden_type = -1
+      cdft_control%constraint_control%halley_type = -1
       cdft_control%constraint_control%jacobian_freq = 1
       cdft_control%constraint_control%jacobian_step = 0.0_dp
       cdft_control%constraint_control%jacobian_restart = .FALSE.
