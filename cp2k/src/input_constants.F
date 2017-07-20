@@ -651,7 +651,8 @@ MODULE input_constants
                                                outer_scf_optimizer_secant = 1007, &
                                                outer_scf_optimizer_newton_ls = 1008, &
                                                outer_scf_optimizer_halley = 1009, &
-                                               outer_scf_optimizer_halley_ls = 1010
+                                               outer_scf_optimizer_halley_ls = 1010, &
+                                               outer_scf_optimizer_bfgs = 1011
 
    ! outer scf broyden optimizer types
    INTEGER, PARAMETER, PUBLIC               :: broyden_type_1 = 1101, &

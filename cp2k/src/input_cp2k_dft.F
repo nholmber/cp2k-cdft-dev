@@ -88,7 +88,7 @@ MODULE input_cp2k_dft
         wfi_use_prev_wf_method_nr, xas_1s_type, xas_2p_type, xas_2s_type, xas_dip_len, &
         xas_dip_vel, xas_dscf, xas_none, xas_tp_fh, xas_tp_flex, xas_tp_hh, xas_tp_xfh, &
         xas_tp_xhh, xes_tp_val, outer_scf_optimizer_halley, outer_scf_optimizer_halley_ls, &
-        halley_type_1, halley_type_2, halley_type_3
+        halley_type_1, halley_type_2, halley_type_3, outer_scf_optimizer_bfgs
    USE input_cp2k_almo,                 ONLY: create_almo_scf_section
    USE input_cp2k_distribution,         ONLY: create_distribution_section
    USE input_cp2k_field,                ONLY: create_efield_section,&
@@ -5325,7 +5325,7 @@ CONTAINS
                           usage="OPTIMIZER SD", &
                           default_i_val=outer_scf_optimizer_none, &
                           enum_c_vals=s2a("SD", "DIIS", "NONE", "BISECT", "BROYDEN", "NEWTON", "SECANT", "NEWTON_LS", &
-                                          "HALLEY", "HALLEY_LS"), &
+                                          "HALLEY", "HALLEY_LS", "BFGS"), &
                           enum_desc=s2a("Takes steps in the direction of the gradient, multiplied by step_size", &
                                         "Uses a Direct Inversion in the Iterative Subspace method", &
                                         "Do nothing, useful only with the none type", &
@@ -5342,12 +5342,13 @@ CONTAINS
                                         "Halley class methods which modify the Newton iteration using local curvature "// &
                                         "information. Only compatible with CDFT constraints. Variant defined with "// &
                                         "keyword HALLEY_TYPE.", &
-                                        "Halley class methods with backtracking line search."), &
+                                        "Halley class methods with backtracking line search.", &
+                                        "BFGS."), &
                           enum_i_vals=(/outer_scf_optimizer_sd, outer_scf_optimizer_diis, outer_scf_optimizer_none, &
                                         outer_scf_optimizer_bisect, outer_scf_optimizer_broyden, &
                                         outer_scf_optimizer_newton, outer_scf_optimizer_secant, &
                                         outer_scf_optimizer_newton_ls, outer_scf_optimizer_halley, &
-                                        outer_scf_optimizer_halley_ls/))
+                                        outer_scf_optimizer_halley_ls, outer_scf_optimizer_bfgs/))
       CALL section_add_keyword(section, keyword)
       CALL keyword_release(keyword)
 

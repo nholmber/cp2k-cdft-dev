@@ -24,7 +24,7 @@ MODULE qs_scf_output
         outer_scf_optimizer_diis, outer_scf_optimizer_newton, outer_scf_optimizer_newton_ls, &
         outer_scf_optimizer_sd, outer_scf_optimizer_secant, radius_covalent, radius_single, &
         radius_user, radius_vdw, outer_scf_optimizer_halley, outer_scf_optimizer_halley_ls, &
-        halley_type_1, halley_type_2, halley_type_3
+        halley_type_1, halley_type_2, halley_type_3, outer_scf_optimizer_bfgs
    USE input_section_types,             ONLY: section_vals_get_subs_vals,&
                                               section_vals_type,&
                                               section_vals_val_get
@@ -832,6 +832,8 @@ CONTAINS
                cdft_control%constraint_control%jacobian_freq(1)
             WRITE (output_unit, '(A,F8.4)') &
                "  Optimizer step size     : ", cdft_control%constraint_control%newton_step_save
+         CASE (outer_scf_optimizer_bfgs)
+            WRITE (output_unit, '(A)') "  Minimizer               : BFGS"
          CASE DEFAULT
             CPABORT("")
          END SELECT

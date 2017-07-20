@@ -29,7 +29,7 @@ MODULE scf_control_types
         outer_scf_optimizer_newton_ls, outer_scf_optimizer_none, outer_scf_optimizer_sd, &
         outer_scf_optimizer_secant, outer_scf_s2_constraint, smear_energy_window, &
         smear_fermi_dirac, smear_list, outer_scf_optimizer_halley, outer_scf_optimizer_halley_ls, &
-        halley_type_1, halley_type_2, halley_type_3
+        halley_type_1, halley_type_2, halley_type_3, outer_scf_optimizer_bfgs
    USE input_cp2k_dft,                  ONLY: create_scf_section
    USE input_enumeration_types,         ONLY: enum_i2c,&
                                               enumeration_type
@@ -927,6 +927,8 @@ CONTAINS
                      "Optimizer step size: ", scf_control%outer_scf%newton_step_save
                CASE DEFAULT
                   CPABORT("")
+               CASE (outer_scf_optimizer_bfgs)
+                  WRITE (output_unit, '(T25,A)') "Optimization with BFGS"
                END SELECT
                WRITE (output_unit, '(T25,A,T72,ES9.2)') "step_size", scf_control%outer_scf%step_size
             ELSE

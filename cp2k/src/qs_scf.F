@@ -87,7 +87,8 @@ MODULE qs_scf
         jacobian_fd2, jacobian_fd2_backward, ot2cdft, ot_precond_full_all, ot_precond_full_single, &
         ot_precond_full_single_inverse, ot_precond_none, ot_precond_s_inverse, &
         outer_scf_hirshfeld_constraint, outer_scf_optimizer_broyden, outer_scf_optimizer_newton, &
-        outer_scf_optimizer_newton_ls, outer_scf_optimizer_halley, outer_scf_optimizer_halley_ls
+        outer_scf_optimizer_newton_ls, outer_scf_optimizer_halley, outer_scf_optimizer_halley_ls, &
+        outer_scf_optimizer_bfgs
    USE input_section_types,             ONLY: section_vals_get_subs_vals,&
                                               section_vals_type
    USE kinds,                           ONLY: default_path_length,&
@@ -1197,8 +1198,10 @@ CONTAINS
          ipermutation
       LOGICAL                                            :: build_hessian, converged, &
                                                             explicit_jacobian, should_build, &
-                                                            should_stop, use_md_history
+                                                            should_stop, use_md_history, &
+                                                            use_norm
       REAL(KIND=dp)                                      :: dh, inv_error
+      REAL(KIND=dp), EXTERNAL                            :: dnrm2
       REAL(KIND=dp), ALLOCATABLE, DIMENSION(:)           :: coeff, step_multiplier
       REAL(KIND=dp), ALLOCATABLE, DIMENSION(:, :)        :: jacobian
       REAL(KIND=dp), DIMENSION(:), POINTER               :: energy
@@ -1226,7 +1229,6 @@ CONTAINS
                cdft_control, inv_jacobian, para_env, hessian, &
                tmp_logger, gradient_history, variable_history, energy_qs)
       logger => cp_get_default_logger()
-      print *, 'Logger stack size on entry', cp_default_logger_stack_size()
 
       CPASSERT(ASSOCIATED(qs_env))
       CALL get_qs_env(qs_env, scf_env=scf_env, ks_env=ks_env, &
@@ -1237,6 +1239,7 @@ CONTAINS
       should_build = .FALSE.
       use_md_history = .FALSE.
       build_hessian = .FALSE.
+      use_norm = .FALSE.
       iter_count = scf_env%outer_scf%iter_count
       SELECT CASE (scf_control%outer_scf%optimizer)
       CASE DEFAULT
@@ -1257,6 +1260,11 @@ CONTAINS
          scf_control%outer_scf%build_jacobian = .TRUE.
          explicit_jacobian = .TRUE.
          build_hessian = .TRUE.
+      CASE (outer_scf_optimizer_bfgs)
+         scf_control%outer_scf%build_jacobian = .TRUE.
+         explicit_jacobian = .TRUE.
+         build_hessian = .TRUE.
+         use_norm = .TRUE.
       END SELECT
       IF (scf_control%outer_scf%build_jacobian) THEN
          ! Check if an old Jacobian can be reused avoiding a rebuild
@@ -1326,7 +1334,6 @@ CONTAINS
                                   default_global_unit_nr=output_unit, &
                                   close_global_unit_on_dealloc=.FALSE.)
             CALL cp_add_default_logger(tmp_logger)
-            print *, 'Logger stack size start of JAcobian', cp_default_logger_stack_size()
             ! Save last converged state so we can roll back to it (mo_coeff and some outer_loop variables)
             nspins = dft_control%nspins
             ALLOCATE (mos_stashed(nspins))
@@ -1353,14 +1360,14 @@ CONTAINS
                CASE (jacobian_fd1_central)
                   ! Do nothing
                END SELECT
-               NULLIFY(scf_env%outer_scf%hessian)
-               IF (.NOT. ASSOCIATED(scf_env%outer_scf%hessian)) &
-                  ALLOCATE (scf_env%outer_scf%hessian(nvar, nvar, nvar))
+               IF (.NOT. ASSOCIATED(scf_env%outer_scf%hessian)) THEN
+                  IF (use_norm) THEN
+                     ALLOCATE (scf_env%outer_scf%hessian(1, nvar, nvar))
+                  ELSE
+                     ALLOCATE (scf_env%outer_scf%hessian(nvar, nvar, nvar))
+                  END IF
+               END IF
                hessian => scf_env%outer_scf%hessian
-               print *, 'HEssian allocateD?', ASSOCIATED(hessian)
-               print *, 'Hessian size:', SIZE(hessian, 1), SIZE(hessian, 2), SIZE(hessian, 3)
-               print *, 'Hessian DIMENSION:', LBOUND(hessian, 1), UBOUND(hessian, 1), LBOUND(hessian, 2), UBOUND(hessian, 2), &
-                   LBOUND(hessian, 3), UBOUND(hessian, 3)
                hessian = 0.0_dp
             END IF
             nsteps = cdft_control%total_steps
@@ -1430,7 +1437,13 @@ CONTAINS
                jacobian(i, :) = coeff(0)*scf_env%outer_scf%gradient(i, iter_count)
                IF (build_hessian) THEN
                   DO j = 1, nvar
-                    hessian(i, j, j) = -2.0_dp*scf_env%outer_scf%gradient(i, iter_count)
+                     IF (use_norm) THEN
+                        hessian(1, j, j) = -2.0_dp*dnrm2(nvar, scf_env%outer_scf%gradient(:, iter_count), 1)**2
+                        IF (para_env%mepos == para_env%source) &
+                        print * , ' Value of Diagonal hessian', j, hessian(1, j, j)
+                     ELSE
+                        hessian(i, j, j) = -2.0_dp*scf_env%outer_scf%gradient(i, iter_count)
+                     END IF
                   END DO
                END IF
             END DO
@@ -1501,9 +1514,17 @@ CONTAINS
                   END DO
                   IF (build_hessian) THEN
                      hessian => scf_env%outer_scf%hessian
-                     DO j = 1, nvar
-                        hessian(j, i, i) = hessian(j, i, i)+scf_env%outer_scf%gradient(j, iter_count+1)
-                     END DO
+                     IF (use_norm) THEN
+                        IF (para_env%mepos == para_env%source) &
+                        print * , ' Value of hessian in before update Jacobian', i, hessian(1, i, i)
+                        hessian(1, i, i) = hessian(1, i, i)+dnrm2(nvar, scf_env%outer_scf%gradient(:, iter_count+1), 1)**2
+                        IF (para_env%mepos == para_env%source) &
+                        print * , ' Value of hessian in after update Jacobian', i, hessian(1, i, i)
+                     ELSE
+                        DO j = 1, nvar
+                           hessian(j, i, i) = hessian(j, i, i)+scf_env%outer_scf%gradient(j, iter_count+1)
+                        END DO
+                     END IF
                   END IF
                   ! Reset everything to last converged state
                   scf_env%outer_scf%variables(:, iter_count+1) = 0.0_dp
@@ -1528,7 +1549,6 @@ CONTAINS
                   " ================================== JACOBIAN CALCULATED =================================="
                CALL close_file(unit_number=output_unit)
             END IF
-            print *, 'Logger stack size after JAcobian', cp_default_logger_stack_size()
             IF (build_hessian) THEN
                hessian => scf_env%outer_scf%hessian
                NULLIFY(tmp_logger)
@@ -1549,7 +1569,6 @@ CONTAINS
                                      default_global_unit_nr=output_unit, &
                                      close_global_unit_on_dealloc=.FALSE.)
                CALL cp_add_default_logger(tmp_logger)
-               print *, 'Logger stack size start of Hessian', cp_default_logger_stack_size()
                ! Print some info
                IF (output_unit > 0) THEN
                   WRITE (output_unit, FMT="(/,A)") &
@@ -1573,12 +1592,23 @@ CONTAINS
                   ! Diagonal term
                   ! d^2f(x0,y0)/dx^2 = [ f(x0+h,y0) - 2f(x0,y0) + f(x0-h,y0) ] / h^2
                   ! was already calculated during Jacobian evaluation and only requires finalizing
-                  DO j = 1, nvar
+                  IF (use_norm) THEN
                      DO i = 1, nvar
                         ! NB. dh was set to 2*h
-                        hessian(j, i, i) = (dh/2.0)**2*hessian(j, i, i)
+                        IF (para_env%mepos == para_env%source) &
+                        print * , ' Value of diagonal hessian before scaling', i, hessian(1, i, i)
+                        hessian(1, i, i) = (dh/2.0)**2*hessian(1, i, i)
+                        IF (para_env%mepos == para_env%source) &
+                        print * , ' Value of diagonal hessian after scaling', i, hessian(1, i, i)
                      END DO
-                  END DO
+                  ELSE
+                     DO j = 1, nvar
+                        DO i = 1, nvar
+                           ! NB. dh was set to 2*h
+                           hessian(j, i, i) = (dh/2.0)**2*hessian(j, i, i)
+                        END DO
+                     END DO
+                  END IF
                   ! For the off-diagonal term
                   ! d^2f(x0,y0)/dxdy = [ f(x0+h,y0+h) - f(x0+h,y0-h) - f(x0-h,y0+h) - f(x0-h,y0-h) ] / 4h^2
                   ! we use the full five-point stencil which is quite costly but should give more
@@ -1605,7 +1635,6 @@ CONTAINS
                counter = 0
                ! Loop over unique (i, j) pairs
                DO ipermutation = 1, npermutations
-                  print *, 'I PERMUTATION LOOPING'
                   CALL map_permutation_to_states(nvar, ipermutation, i, j)
                   ! Loop over all 2D Lagrangian multiplier perturbations
                   DO ihessian = 1, nperturb
@@ -1638,8 +1667,12 @@ CONTAINS
                      scf_env%outer_scf%iter_count = scf_env%outer_scf%iter_count-1
                      ! Update Hessian
                      hessian => scf_env%outer_scf%hessian
-                     hessian(i, i, j) = hessian(i, i, j)+coeff(ihessian)*scf_env%outer_scf%gradient(i, iter_count+1)
-                     hessian(j, i, j) = hessian(j, i, j)+coeff(ihessian)*scf_env%outer_scf%gradient(j, iter_count+1)
+                     IF (use_norm) THEN
+                        hessian(1, i, j) = coeff(ihessian)*dnrm2(nvar, scf_env%outer_scf%gradient(:, iter_count+1), 1)**2
+                     ELSE
+                        hessian(i, i, j) = hessian(i, i, j)+coeff(ihessian)*scf_env%outer_scf%gradient(i, iter_count+1)
+                        hessian(j, i, j) = hessian(j, i, j)+coeff(ihessian)*scf_env%outer_scf%gradient(j, iter_count+1)
+                     END IF
                      ! Reset everything to last converged state
                      scf_env%outer_scf%variables(:, iter_count+1) = 0.0_dp
                      scf_env%outer_scf%gradient = gradient
@@ -1656,7 +1689,7 @@ CONTAINS
                   END DO
                END DO
                ! Finalize off-diagonal terms of Hessian
-               DO ihessian = 1, nhessian
+               DO ihessian = 1, SIZE(hessian, 1)
                   DO i = 1, nvar
                      DO j = i+1, nvar
                         hessian(ihessian, i, j) = hessian(ihessian, i, j)/(dh**2)
@@ -1677,7 +1710,6 @@ CONTAINS
                      " ================================== HESSIAN CALCULATED =================================="
                   CALL close_file(unit_number=output_unit)
                END IF
-               print *, 'Logger stack size exit from HEssian', cp_default_logger_stack_size()
             END IF
             ! Finalize and invert Jacobian
             DO j = 1, nvar
@@ -1783,7 +1815,7 @@ CONTAINS
                         file_action="WRITE", file_position="APPEND", &
                         unit_number=output_unit)
          DO ihessian = 1, nvar
-            WRITE (output_unit, FMT="(/,A,I3,A)") "CDFT Hessian matrix in row major order, constraint ( ", &
+            WRITE (output_unit, FMT="(/,A,I2,A)") "CDFT Hessian matrix in row major order, constraint (", &
                ihessian, " )"
             WRITE (output_unit, FMT="(A,I10)") "Iteration: ", scf_env%outer_scf%iter_count
             DO i = 1, nvar
@@ -1794,7 +1826,6 @@ CONTAINS
          END DO
          CALL close_file(unit_number=output_unit)
       END IF
-      print *, 'Logger stack size on exit', cp_default_logger_stack_size()
       CALL timestop(handle)
 
    END SUBROUTINE qs_calculate_inverse_jacobian
@@ -1869,6 +1900,8 @@ CONTAINS
             IF (ASSOCIATED(scf_env%outer_scf%inv_jacobian)) &
                do_linesearch = .TRUE.
          END SELECT
+      CASE (outer_scf_optimizer_halley_ls)
+         do_linesearch = .TRUE.
       END SELECT
       IF (do_linesearch) THEN
          cdft_control => dft_control%qs_control%cdft_control

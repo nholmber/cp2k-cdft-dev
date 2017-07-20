@@ -23,9 +23,10 @@ MODULE qs_outer_scf
         outer_scf_optimizer_diis, outer_scf_optimizer_newton, outer_scf_optimizer_newton_ls, &
         outer_scf_optimizer_none, outer_scf_optimizer_sd, outer_scf_optimizer_secant, &
         outer_scf_s2_constraint, outer_scf_optimizer_halley, outer_scf_optimizer_halley_ls, &
-        halley_type_1, halley_type_2, halley_type_3
+        halley_type_1, halley_type_2, halley_type_3, outer_scf_optimizer_bfgs
    USE kinds,                           ONLY: dp
-   USE mathlib,                         ONLY: diamat_all
+   USE mathlib,                         ONLY: diamat_all, &
+                                              invert_matrix
    USE qs_basis_gradient,               ONLY: qs_basis_center_gradient,&
                                               qs_update_basis_center_pos,&
                                               return_basis_center_gradient_norm
@@ -435,6 +436,17 @@ CONTAINS
                                                             MATMUL(modifier, scf_env%outer_scf%gradient(:, ihistory))
                DEALLOCATE(identity, modifier)
                DEALLOCATE(log_convex)
+            CASE (outer_scf_optimizer_bfgs)
+               CPASSERT(ASSOCIATED(scf_env%outer_scf%hessian))
+               hessian => scf_env%outer_scf%hessian
+               nvar = SIZE(hessian, 2)
+               ALLOCATE (tmp_matrix(nvar, nvar))
+               CALL invert_matrix(hessian(1, :, :), tmp_matrix, inv_error)
+               print *, 'tmp_matrix',  tmp_matrix
+               scf_env%outer_scf%variables(:, ihistory+1) = scf_env%outer_scf%variables(:, ihistory)- &
+                                                            2.0*scf_control%outer_scf%newton_step* &
+                                                            MATMUL(tmp_matrix, scf_env%outer_scf%gradient(:, ihistory))
+               DEALLOCATE(tmp_matrix)
             CASE DEFAULT
                CPABORT("")
             END SELECT
@@ -630,7 +642,7 @@ CONTAINS
       CHARACTER(len=*), PARAMETER :: routineN = 'outer_loop_switch', &
          routineP = moduleN//':'//routineN
 
-      INTEGER                                            :: nvariables
+      INTEGER                                            :: nvariables, nhessians
 
       SELECT CASE (dir)
       CASE (cdft2ot)
@@ -684,9 +696,10 @@ CONTAINS
             cdft_control%constraint%inv_jacobian = scf_env%outer_scf%inv_jacobian
          END IF
          IF (ASSOCIATED(scf_env%outer_scf%hessian)) THEN
-            nvariables = SIZE(scf_env%outer_scf%hessian, 1)
+            nhessians = SIZE(scf_env%outer_scf%hessian, 1)
+            nvariables = SIZE(scf_env%outer_scf%hessian, 2)
             IF (.NOT. ASSOCIATED(cdft_control%constraint%hessian)) &
-               ALLOCATE (cdft_control%constraint%hessian(nvariables, nvariables, nvariables))
+               ALLOCATE (cdft_control%constraint%hessian(nhessians, nvariables, nvariables))
             cdft_control%constraint%hessian = scf_env%outer_scf%hessian
          END IF
          ! Now switch
@@ -760,9 +773,11 @@ CONTAINS
             scf_env%outer_scf%inv_jacobian = cdft_control%constraint%inv_jacobian
          END IF
          IF (ASSOCIATED(cdft_control%constraint%hessian)) THEN
+            nhessians = SIZE(cdft_control%constraint%hessian, 1)
+            nvariables = SIZE(cdft_control%constraint%hessian, 2)
             IF (ASSOCIATED(scf_env%outer_scf%hessian)) &
                DEALLOCATE (scf_env%outer_scf%hessian)
-            ALLOCATE (scf_env%outer_scf%hessian(nvariables, nvariables, nvariables))
+            ALLOCATE (scf_env%outer_scf%hessian(nhessians, nvariables, nvariables))
             scf_env%outer_scf%hessian = cdft_control%constraint%hessian
          END IF
       CASE DEFAULT
