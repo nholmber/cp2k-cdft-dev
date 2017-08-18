@@ -205,7 +205,7 @@ CONTAINS
       REAL(KIND=dp)                                      :: interval, scale, tmp, inv_error
       REAL(KIND=dp), ALLOCATABLE, DIMENSION(:)           :: ev
       REAL(KIND=dp), ALLOCATABLE, DIMENSION(:, :)        :: a, b, f, x, identity, tmp_matrix, inv_tmp, log_convex, &
-                                                            modifier
+                                                            modifier, s
       REAL(KIND=dp), DIMENSION(:, :), POINTER            :: inv_jacobian
       REAL(KIND=dp), DIMENSION(:, :, :), POINTER         :: hessian
 
@@ -386,6 +386,7 @@ CONTAINS
                hessian => scf_env%outer_scf%hessian
                nvar = SIZE(scf_env%outer_scf%gradient, 1)
                ALLOCATE(log_convex(nvar, nvar))
+               ALLOCATE(s(1, nvar))
                ! Calculate degree of logaritmic convexity L = J^(-1)*H*J^(-1)*f(x), where H is the Hessian
                !log_convex = MATMUL(inv_jacobian, hessian)
                !log_convex = MATMUL(log_convex, inv_jacobian)
@@ -393,10 +394,11 @@ CONTAINS
                ! Calculate modifier to Newton's iteration
                ! See e.g. Gutierrez, Hernandez, "A Family of Chebyshev–Halley Type Methods in Banach Spaces",
                !          Bull. Austral. Math. Soc., 55 (1997), 113-130
+               s(1, :) = MATMUL(inv_jacobian, scf_env%outer_scf%gradient(:, ihistory))
                DO i = 1, nvar
-                  log_convex(i, :) = MATMUL(-1.0_dp*MATMUL(inv_jacobian, scf_env%outer_scf%gradient(:, ihistory)), &
-                                            hessian(i, :, :))
+                  log_convex(i, :) = MATMUL(s(1, :), hessian(i, :, :))
                END DO
+               !log_convex = 0.5_dp
                log_convex = MATMUL(inv_jacobian, log_convex)
                ALLOCATE (modifier(nvar, nvar))
                ALLOCATE (identity(nvar, nvar))
@@ -443,7 +445,7 @@ CONTAINS
                ALLOCATE (tmp_matrix(nvar, nvar))
                CALL invert_matrix(hessian(1, :, :), tmp_matrix, inv_error)
                print *, 'tmp_matrix',  tmp_matrix
-               scf_env%outer_scf%variables(:, ihistory+1) = scf_env%outer_scf%variables(:, ihistory)- &
+               scf_env%outer_scf%variables(:, ihistory+1) = scf_env%outer_scf%variables(:, ihistory)+ &
                                                             2.0*scf_control%outer_scf%newton_step* &
                                                             MATMUL(tmp_matrix, scf_env%outer_scf%gradient(:, ihistory))
                DEALLOCATE(tmp_matrix)
