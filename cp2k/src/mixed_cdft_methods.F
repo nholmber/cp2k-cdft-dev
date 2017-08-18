@@ -1028,7 +1028,7 @@ CONTAINS
       INTEGER, ALLOCATABLE, DIMENSION(:)                 :: ncol_mo, nrow_mo
       INTEGER, ALLOCATABLE, DIMENSION(:, :)              :: homo
       LOGICAL :: exist, natom_mismatch, nelectron_mismatch, print_mo, print_mo_eigval, &
-         uniform_occupation, use_lowdin, use_rotation
+         should_scale, uniform_occupation, use_lowdin, use_rotation
       REAL(KIND=dp)                                      :: c(2), eps_occupied, maxocc, &
                                                             nelectron_tot, sum_a(2), sum_b(2)
       REAL(KIND=dp), ALLOCATABLE, DIMENSION(:)           :: coupling_lowdin, coupling_nonortho, &
@@ -1152,12 +1152,18 @@ CONTAINS
             END DO
          END DO
       END IF
+      should_scale = .FALSE.
       IF (.NOT. uniform_occupation) THEN
          ALLOCATE (homo(nforce_eval, nspins))
          CALL section_vals_val_get(mixed_cdft_section, "EPS_OCCUPIED", r_val=eps_occupied)
          IF (eps_occupied .GT. 1.0_dp .OR. eps_occupied .LT. 0.0_dp) &
             CALL cp_abort(__LOCATION__, &
                           "Keyword EPS_OCCUPIED only accepts values between 0.0 and 1.0")
+         IF (mixed_cdft%eps_svd == 0.0_dp) &
+            CALL cp_warn(__LOCATION__, &
+                         "The usage of SVD based matrix inversions with fractionally occupied "// &
+                         "orbitals is strongly recommended to screen nearly orthogonal states.")
+         CALL section_vals_val_get(mixed_cdft_section, "SCALE_WITH_OCCUPATION_NUMBERS", l_val=should_scale)
       END IF
       DO ispin = 1, nspins
          ! Create the MOxMO fm struct (mo_mo_fm_pools%struct)
@@ -1242,7 +1248,7 @@ CONTAINS
             END DO
          END DO
          CALL cp_fm_struct_release(mo_mo_fmstruct)
-         ! Remove empty MOs and scale rest with occupation numbers
+         ! Remove empty MOs and (possibly) scale rest with occupation numbers
          IF (.NOT. uniform_occupation) THEN
             DO iforce_eval = 1, nforce_eval
                CALL cp_fm_to_fm(mixed_mo_coeff(iforce_eval, ispin)%matrix, tmp2, nmo, 1, 1)
@@ -1252,8 +1258,9 @@ CONTAINS
                                  name="MO_COEFF_"//TRIM(ADJUSTL(cp_to_string(iforce_eval)))//"_" &
                                  //TRIM(ADJUSTL(cp_to_string(ispin)))//"_MATRIX")
                CALL cp_fm_to_fm(tmp2, mixed_mo_coeff(iforce_eval, ispin)%matrix)
-               CALL cp_fm_column_scale(mixed_mo_coeff(iforce_eval, ispin)%matrix, &
-                                       mixed_cdft%occupations(iforce_eval, ispin)%array(1:nmo))
+               IF (should_scale) &
+                  CALL cp_fm_column_scale(mixed_mo_coeff(iforce_eval, ispin)%matrix, &
+                                          mixed_cdft%occupations(iforce_eval, ispin)%array(1:nmo))
                DEALLOCATE (mixed_cdft%occupations(iforce_eval, ispin)%array)
             END DO
          END IF
@@ -1300,15 +1307,15 @@ CONTAINS
                                  eigval=mo_eigval)
                IF (moeigvalunit > 0) THEN
                   IF (mixed_cdft%eps_svd == 0.0_dp) THEN
-                     WRITE (moeigvalunit, '(A,I3,A,I3,A,I3,A)') &
+                     WRITE (moeigvalunit, '(A,I2,A,I2,A,I1,A)') &
                         "# MO Overlap matrix eigenvalues for CDFT states ", istate, " and ", jstate, &
                         " (spin ", ispin, " )"
                   ELSE
-                     WRITE (moeigvalunit, '(A,I3,A,I3,A,I3,A)') &
+                     WRITE (moeigvalunit, '(A,I2,A,I2,A,I1,A)') &
                         "# MO Overlap matrix singular values for CDFT states ", istate, " and ", jstate, &
                         " (spin ", ispin, " )"
                   END IF
-                  WRITE (moeigvalunit, '(A10, A12)') ADJUSTL("# Index"), ADJUSTL("Value")
+                  WRITE (moeigvalunit, '(A2, A8, A12)') ADJUSTL("#"), "Index", ADJUSTL("Value")
                   DO j = 1, SIZE(mo_eigval)
                      WRITE (moeigvalunit, '(I10, F12.8)') j, mo_eigval(j)
                   END DO

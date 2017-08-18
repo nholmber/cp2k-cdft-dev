@@ -211,7 +211,6 @@ MODULE qs_cdft_types
 !> \param matrix_s save the overlap matrix (for do_et)
 !> \param matrix_p save the density matrix (for calculate_metric)
 !> \param occupations occupation numbers in case non-uniform occupation (for do_et)
-!> \param homo indices of the homo in case non-uniform occupation (for do_et)
 ! **************************************************************************************************
    ! Copied from qs_scf_types to avoid circular dependency
    TYPE qs_outer_scf_type
@@ -261,7 +260,6 @@ MODULE qs_cdft_types
       LOGICAL                              :: need_pot, save_pot, do_et, &
                                               reuse_precond, purge_history, &
                                               should_purge, calculate_metric
-      INTEGER, DIMENSION(:), ALLOCATABLE   :: homo
       LOGICAL, DIMENSION(:), ALLOCATABLE   :: is_charge_constraint, &
                                               is_fragment_constraint
       REAL(KIND=dp), DIMENSION(:), POINTER :: strength, TARGET, value
@@ -564,8 +562,6 @@ CONTAINS
             DEALLOCATE (cdft_control%is_charge_constraint)
          IF (ALLOCATED(cdft_control%is_fragment_constraint)) &
             DEALLOCATE (cdft_control%is_fragment_constraint)
-         IF (ALLOCATED(cdft_control%homo)) &
-            DEALLOCATE (cdft_control%homo)
          IF (ALLOCATED(cdft_control%occupations)) THEN
             DO i = 1, SIZE(cdft_control%occupations)
                IF (ASSOCIATED(cdft_control%occupations(i)%array)) &

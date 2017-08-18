@@ -224,6 +224,17 @@ CONTAINS
       CALL section_add_keyword(subsection, keyword)
       CALL keyword_release(keyword)
 
+      CALL keyword_create(keyword, name="SCALE_WITH_OCCUPATION_NUMBERS", &
+                          description="Scale molecular orbitals with occupation numbers before calculating "// &
+                          "the electronic coupling. Affects only simulations which employ MO smearing. "// &
+                          "Disabling this keyword in conjunction with a properly selected EPS_OCCUPIED "// &
+                          "threshold might be useful in systems with a large number of fractionally "// &
+                          "occupied orbitals.", &
+                          usage="SCALE_WITH_OCCUPATION_NUMBERS FALSE", type_of_var=logical_t, &
+                          default_l_val=.TRUE., lone_keyword_l_val=.TRUE.)
+      CALL section_add_keyword(subsection, keyword)
+      CALL keyword_release(keyword)
+
       CALL keyword_create(keyword, name="WFN_RESTART_FILE_NAME", &
                           description="Name of the wavefunction restart file that defines the unconstrained"// &
                           " KS ground state, which is used to compute the electronic coupling with"// &
