@@ -16,8 +16,8 @@
       JACOBIAN_FREQ ${JACOBIAN_FREQ_1} ${JACOBIAN_FREQ_2}
       BISECT_TRUST_COUNT 8
       EXTRAPOLATION_ORDER 2
-      MAX_SCF  ${MAX_SCF}
-      STEP_SIZE -1.0
+      MAX_SCF  2
+      STEP_SIZE -0.843750028012
     &END
   &END CDFT
   &BECKE_CONSTRAINT
@@ -74,10 +74,8 @@
     @ENDIF
     @IF ( ${BECKE_FRAGMENT} == FALSE )
       &ATOM_GROUP
-        ATOMS 1..18
-        COEFF 1 1 1 1 1
-        COEFF -1 -1 -1 -1 -1 -1 -1 -1 -1
-        COEFF 1 1 1 1
+        ATOMS 1..2
+        COEFF 1 -1
       &END ATOM_GROUP
     @ENDIF
     &PROGRAM_RUN_INFO ON

@@ -35,23 +35,18 @@
     @ENDIF
     EPS_SCF 1.0E-5
     CHOLESKY INVERSE_DBCSR
-    MAX_SCF 200
-    ADDED_MOS 4 4
+    MAX_SCF ${MAX_SCF}
+    ADDED_MOS 2 2
     &DIAGONALIZATION
       ALGORITHM STANDARD
     &END DIAGONALIZATION
-    #&SMEAR
-    #  METHOD FERMI_DIRAC
-    #  ELECTRONIC_TEMPERATURE 300
-    #  ! CDFT couplings are only defined when the CDFT states are in the same spin state
-    #  FIXED_MAGNETIC_MOMENT 1
-    #&END SMEAR
-    #&MIXING
-    #  METHOD BROYDEN_MIXING
-    #  #ALPHA   0.1
-    #  #BETA    1.5
-    #  #NBROYDEN  8
-    #&END MIXING
+    &SMEAR
+      METHOD FERMI_DIRAC
+      ! Use extremely high electronic temperature to get fractionally occupied MOs
+      ELECTRONIC_TEMPERATURE 10000
+      ! CDFT couplings are only defined when the CDFT states are in the same spin state
+      FIXED_MAGNETIC_MOMENT 1
+    &END SMEAR
     &OUTER_SCF ON
       ! Outer_SCF section must be turned on to facilitate switching between CDFT SCF and Diag SCF loops
       EPS_SCF 1.0E-5
@@ -87,7 +82,8 @@
       ADD_LAST NUMERIC
       FILENAME ./${NAME}
       &EACH
-        QS_SCF 1
+        QS_SCF 0
+        JUST_ENERGY 1
       &END EACH
     &END MO
     &MULLIKEN OFF

@@ -1,23 +1,23 @@
 @SET RESTART_WFN          TRUE
-@SET WFN_FILE_1           HeH-cdft-newton-fd1-1_0.wfn
-@SET WFN_FILE_2           HeH-cdft-newton-fd1-1_0.wfn
-@SET PROJECT_NAME         HeH-mixed-cdft-md-newton-5-1
+@SET WFN_FILE_1           He2-cdft-diag-1-1_0.wfn
+@SET WFN_FILE_2           He2-cdft-diag-2-1_0.wfn
+@SET PROJECT_NAME         He2-mixed-cdft-diag-1
 @SET NAME                 ${PROJECT_NAME}
 
 @SET WRITE_WFN            0
 @SET CHARGE               1
 @SET WRITE_CUBE           FALSE
-@SET XYZFILE              thiophene-3.5A.xyz
+@SET XYZFILE              He2.xyz
 
 @SET BECKE_ACTIVE         TRUE
 @SET BECKE_FRAGMENT       FALSE
-@SET MAX_SCF              5
+@SET MAX_SCF              200
 ! He+ H
 @SET BECKE_TARGET_1       1.0
-@SET BECKE_STR_1          0.0
+@SET BECKE_STR_1         -0.843750056024
 ! He H+
 @SET BECKE_TARGET_2       -1.0
-@SET BECKE_STR_2          0.0
+@SET BECKE_STR_2          0.843750000000
 
 @SET BECKE_GLOBAL_CUTOFF  TRUE
 @SET BECKE_CUTOFF_ELEMENT FALSE
@@ -44,21 +44,9 @@
 
 &GLOBAL
   PROJECT ${PROJECT_NAME}
-  RUN_TYPE MD
+  RUN_TYPE ENERGY
   PRINT_LEVEL MEDIUM
 &END GLOBAL
-
-&MOTION
-  &MD
-    ENSEMBLE NVT
-    STEPS 1
-    TIMESTEP 0.5
-    TEMPERATURE 300
-    &THERMOSTAT
-      TYPE CSVR
-    &END THERMOSTAT
-  &END MD
-&END MOTION
 
 &MULTIPLE_FORCE_EVALS
   FORCE_EVAL_ORDER 2 3
@@ -73,6 +61,24 @@
     &MIXED_CDFT
       LAMBDA 1.0
       COUPLING 1
+      LOWDIN TRUE
+      ! Threshold for determining which MOs to include in coupling calculation
+      EPS_OCCUPIED 1.0E-4
+      ! Use SVD to invert MO overlap matrix. This is recommended with fractionally occupied MOs
+      ! because it allows nearly orthogonal MOs to be removed from the coupling calculation
+      ! (i.e. we calculate the pseudoinverse)
+      EPS_SVD 1.0E-2
+      ! By default, MOs get scaled with occupation numbers before coupling calculation
+      ! SCALE_WITH_OCCUPATION_NUMBERS FALSE
+      &PRINT
+        &PROGRAM_RUN_INFO
+          ! Print MO overlap eigenvalues/singular values
+          ! Useful for determing how changing the values of EPS_OCCUPIED/SVD
+          ! and SCALE_WITH_OCCUPATION_NUMBERS affect the value of the MO overlap
+          MO_OVERLAP_EIGENVALUES
+          MO_OVERLAP_MATRIX
+        &END
+      &END PRINT
     &END MIXED_CDFT
     &PRINT
       &PROGRAM_RUN_INFO
@@ -86,16 +92,17 @@
   METHOD QS
   @SET BECKE_STR    ${BECKE_STR_1}
   @SET BECKE_TARGET ${BECKE_TARGET_1}
-  @SET PROJECT_NAME ${NAME}-state-1
+  @SET PROJECT_NAME ${NAME}-state1
   @SET WFN_FILE     ${WFN_FILE_1}
   @include dft-common-params.inc
 &END FORCE_EVAL
 
+
 &FORCE_EVAL
   METHOD QS
-  @SET BECKE_STR    ${BECKE_STR_1}
-  @SET BECKE_TARGET ${BECKE_TARGET_1}
-  @SET PROJECT_NAME ${NAME}-state-2
-  @SET WFN_FILE     ${WFN_FILE_1}
+  @SET BECKE_STR    ${BECKE_STR_2}
+  @SET BECKE_TARGET ${BECKE_TARGET_2}
+  @SET PROJECT_NAME ${NAME}-state2
+  @SET WFN_FILE     ${WFN_FILE_2}
   @include dft-common-params.inc
 &END FORCE_EVAL
