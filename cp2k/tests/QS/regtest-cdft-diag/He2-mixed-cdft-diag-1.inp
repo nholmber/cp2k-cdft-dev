@@ -63,11 +63,11 @@
       COUPLING 1
       LOWDIN TRUE
       ! Threshold for determining which MOs to include in coupling calculation
-      EPS_OCCUPIED 1.0E-7
+      EPS_OCCUPIED 1.0E-2
       ! Use SVD to invert MO overlap matrix. This is recommended with fractionally occupied MOs
       ! because it allows nearly orthogonal MOs to be removed from the coupling calculation
       ! (i.e. we calculate the pseudoinverse)
-      EPS_SVD 1.0E-2
+      EPS_SVD 1.0E-7
       ! By default, MOs get scaled with occupation numbers before coupling calculation
       ! SCALE_WITH_OCCUPATION_NUMBERS FALSE
       &PRINT

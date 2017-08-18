@@ -1,7 +1,7 @@
 @SET RESTART_WFN          TRUE
 @SET WFN_FILE_1           He2-cdft-diag-1-1_0.wfn
 @SET WFN_FILE_2           He2-cdft-diag-2-1_0.wfn
-@SET PROJECT_NAME         He2-mixed-cdft-diag-4
+@SET PROJECT_NAME         He2-mixed-cdft-diag-6
 @SET NAME                 ${PROJECT_NAME}
 
 @SET WRITE_WFN            0
@@ -63,13 +63,13 @@
       COUPLING 1
       LOWDIN TRUE
       ! Threshold for determining which MOs to include in coupling calculation
-      EPS_OCCUPIED 1.0E-2
+      EPS_OCCUPIED 1.0E-3
       ! Use SVD to invert MO overlap matrix. This is recommended with fractionally occupied MOs
       ! because it allows nearly orthogonal MOs to be removed from the coupling calculation
       ! (i.e. we calculate the pseudoinverse)
-      EPS_SVD 1.0E-2
+      EPS_SVD 1.0E-1
       ! By default, MOs get scaled with occupation numbers before coupling calculation
-      ! SCALE_WITH_OCCUPATION_NUMBERS FALSE
+      SCALE_WITH_OCCUPATION_NUMBERS FALSE
       &PRINT
         &PROGRAM_RUN_INFO
           ! Print MO overlap eigenvalues/singular values
