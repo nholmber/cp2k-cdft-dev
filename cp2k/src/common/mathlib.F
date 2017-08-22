@@ -922,7 +922,7 @@ CONTAINS
       DO i = 1, n
          IF (sig(i) > rskip*MAXVAL(sig)) THEN
             IF (PRESENT(determinant))&
-               determinant = determinant*sig_plus(i, i)
+               determinant = determinant*sig(i)
             sig_plus(i, i) = 1._dp/sig(i)
          ELSE
             sig_plus(i, i) = 0.0_dp
