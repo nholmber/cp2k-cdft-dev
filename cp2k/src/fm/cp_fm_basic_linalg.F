@@ -23,7 +23,7 @@ MODULE cp_fm_basic_linalg
                                               int_8,&
                                               sp
    USE machine,                         ONLY: m_memory
-   USE mathlib,                         ONLY: get_pseudo_inverse_svd, &
+   USE mathlib,                         ONLY: get_pseudo_inverse_svd,&
                                               invert_matrix
    USE message_passing,                 ONLY: mp_sum
 #include "../base/base_uses.f90"
@@ -1466,7 +1466,6 @@ CONTAINS
       ELSE
          CALL get_pseudo_inverse_svd(matrix_a%local_data, matrix_inverse%local_data, eps_svd, &
                                      determinant, eigval)
-         !CPABORT("Matrix inversion using SVD NYI without SCALAPACK.")
       END IF
 #endif
       CALL cp_fm_release(matrix_lu)

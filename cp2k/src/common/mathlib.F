@@ -869,8 +869,8 @@ CONTAINS
       REAL(KIND=dp), DIMENSION(:, :)                     :: a, a_pinverse
       REAL(KIND=dp), INTENT(IN)                          :: rskip
       REAL(KIND=dp), INTENT(OUT), OPTIONAL               :: determinant
-      REAL(KIND=dp), DIMENSION(:), POINTER, &
-         INTENT(OUT), OPTIONAL                           :: sval
+      REAL(KIND=dp), DIMENSION(:), INTENT(OUT), &
+         OPTIONAL, POINTER                               :: sval
 
       CHARACTER(LEN=*), PARAMETER :: routineN = 'get_pseudo_inverse_svd', &
          routineP = moduleN//':'//routineN
@@ -921,7 +921,7 @@ CONTAINS
       ! set singular values that are too small to zero
       DO i = 1, n
          IF (sig(i) > rskip*MAXVAL(sig)) THEN
-            IF (PRESENT(determinant))&
+            IF (PRESENT(determinant)) &
                determinant = determinant*sig(i)
             sig_plus(i, i) = 1._dp/sig(i)
          ELSE
