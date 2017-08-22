@@ -1464,7 +1464,8 @@ CONTAINS
             CALL cp_abort(__LOCATION__, &
                           "NYI. Eigenvalues not available for return without SCALAPACK.")
       ELSE
-         CALL get_pseudo_inverse_svd(matrix_a%local_data, matrix_inverse%local_data, eps_svd, eigval)
+         CALL get_pseudo_inverse_svd(matrix_a%local_data, matrix_inverse%local_data, eps_svd, &
+                                     determinant, eigval)
          !CPABORT("Matrix inversion using SVD NYI without SCALAPACK.")
       END IF
 #endif

@@ -860,13 +860,15 @@ CONTAINS
 !> \param a matrix a
 !> \param a_pinverse pseudoinverse of matrix a
 !> \param rskip parameter for setting small singular values to zero
+!> \param determinant determinant of matrix a (optional output)
 !> \param sval array holding singular values of matrix a (optional output)
 !> \author Dorothea Golze [02.2015]
 ! **************************************************************************************************
-   SUBROUTINE get_pseudo_inverse_svd(a, a_pinverse, rskip, sval)
+   SUBROUTINE get_pseudo_inverse_svd(a, a_pinverse, rskip, determinant, sval)
 
       REAL(KIND=dp), DIMENSION(:, :)                     :: a, a_pinverse
       REAL(KIND=dp), INTENT(IN)                          :: rskip
+      REAL(KIND=dp), INTENT(OUT), OPTIONAL               :: determinant
       REAL(KIND=dp), DIMENSION(:), POINTER, &
          INTENT(OUT), OPTIONAL                           :: sval
 
@@ -888,6 +890,7 @@ CONTAINS
       sig_plus = 0.0_dp
       work = 0.0_dp
       iwork = 0
+      IF (PRESENT(determinant)) determinant = 1.0_dp
 
       ! work size query
       lwork = -1
@@ -919,6 +922,8 @@ CONTAINS
       DO i = 1, n
          IF (sig(i) > rskip*MAXVAL(sig)) THEN
             sig_plus(i, i) = 1._dp/sig(i)
+            IF (PRESENT(determinant))&
+               determinant = determinant*sig_plus(i, i)
          ELSE
             sig_plus(i, i) = 0.0_dp
          ENDIF
