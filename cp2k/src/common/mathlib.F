@@ -921,9 +921,9 @@ CONTAINS
       ! set singular values that are too small to zero
       DO i = 1, n
          IF (sig(i) > rskip*MAXVAL(sig)) THEN
-            sig_plus(i, i) = 1._dp/sig(i)
             IF (PRESENT(determinant))&
                determinant = determinant*sig_plus(i, i)
+            sig_plus(i, i) = 1._dp/sig(i)
          ELSE
             sig_plus(i, i) = 0.0_dp
          ENDIF
