@@ -76,8 +76,10 @@ MODULE lri_environment_types
       REAL(KIND=dp)                                           :: cond_num
       ! integrals (a,b,ai)
       REAL(KIND=dp), DIMENSION(:, :, :), POINTER              :: abaint
+      REAL(KIND=dp), DIMENSION(:), POINTER                    :: abascr
       ! integrals (a,b,b)
       REAL(KIND=dp), DIMENSION(:, :, :), POINTER              :: abbint
+      REAL(KIND=dp), DIMENSION(:), POINTER                    :: abbscr
       ! integrals (da/dA,b,dai/dA)
       REAL(KIND=dp), DIMENSION(:, :, :, :), POINTER           :: dabdaint
       ! integrals (da/dA,b,bi)
@@ -202,6 +204,8 @@ MODULE lri_environment_types
       REAL(KIND=dp)                                           :: cond_max
       ! parameter for checking distance between atom pairs
       REAL(KIND=dp)                                           :: delta
+      ! threshold for aba and abb integrals
+      REAL(KIND=dp)                                           :: eps_o3_int
       ! orbital basis set
       TYPE(gto_basis_set_p_type), DIMENSION(:), POINTER       :: orb_basis
       ! lri (fit) basis set
@@ -269,7 +273,6 @@ MODULE lri_environment_types
       TYPE(lri_list_p_type), DIMENSION(:), POINTER            :: lri_rhos
       ! coefficients of RI expansion and gradients (nspin)
       TYPE(lri_spin_type), DIMENSION(:), POINTER              :: lri_coefs
-      TYPE(lri_force_type), POINTER                           :: lri_force
    END TYPE lri_density_type
 
 ! **************************************************************************************************
@@ -465,7 +468,6 @@ CONTAINS
 
       NULLIFY (lri_density%lri_rhos)
       NULLIFY (lri_density%lri_coefs)
-      NULLIFY (lri_density%lri_force)
 
    END SUBROUTINE lri_density_create
 
@@ -484,10 +486,10 @@ CONTAINS
 
          CALL deallocate_lri_rhos(lri_density%lri_rhos)
          CALL deallocate_lri_coefs(lri_density%lri_coefs)
-         CALL deallocate_lri_force_components(lri_density%lri_force)
 
          DEALLOCATE (lri_density)
       END IF
+
       NULLIFY (lri_density)
 
    END SUBROUTINE lri_density_release
@@ -567,10 +569,14 @@ CONTAINS
          nfb = fbasb%nsgf
          nn = nfa+nfb
 
-         ALLOCATE (lrii%abaint(nba, nbb, nfa), &
-                   lrii%abbint(nba, nbb, nfb))
+         ALLOCATE (lrii%abaint(nba, nbb, nfa))
+         ALLOCATE (lrii%abascr(nfa))
          lrii%abaint = 0._dp
+         lrii%abascr = 0._dp
+         ALLOCATE (lrii%abbint(nba, nbb, nfb))
+         ALLOCATE (lrii%abbscr(nfb))
          lrii%abbint = 0._dp
+         lrii%abbscr = 0._dp
 
          ALLOCATE (lrii%sab(nfa, nfb))
          lrii%sab = 0._dp
@@ -850,26 +856,26 @@ CONTAINS
 
       nn = nfa+nfb
 
-      IF (.NOT. ASSOCIATED(lri_force)) THEN
-         ALLOCATE (lri_force)
+      CPASSERT(.NOT. ASSOCIATED(lri_force))
 
-         ALLOCATE (lri_force%st(nn))
-         lri_force%st = 0._dp
-         ALLOCATE (lri_force%dsst(nn, 3))
-         lri_force%dsst = 0._dp
-         ALLOCATE (lri_force%sdsst(nn, 3))
-         lri_force%sdsst = 0._dp
-         ALLOCATE (lri_force%dssn(nn, 3))
-         lri_force%dssn = 0._dp
-         ALLOCATE (lri_force%sdssn(nn, 3))
-         lri_force%sdssn = 0._dp
-         ALLOCATE (lri_force%sdt(nn, 3))
-         lri_force%sdt = 0._dp
-         ALLOCATE (lri_force%davec(nn, 3))
-         lri_force%davec = 0._dp
-         ALLOCATE (lri_force%dtvec(nn, 3))
-         lri_force%dtvec = 0._dp
-      ENDIF
+      ALLOCATE (lri_force)
+
+      ALLOCATE (lri_force%st(nn))
+      lri_force%st = 0._dp
+      ALLOCATE (lri_force%dsst(nn, 3))
+      lri_force%dsst = 0._dp
+      ALLOCATE (lri_force%sdsst(nn, 3))
+      lri_force%sdsst = 0._dp
+      ALLOCATE (lri_force%dssn(nn, 3))
+      lri_force%dssn = 0._dp
+      ALLOCATE (lri_force%sdssn(nn, 3))
+      lri_force%sdssn = 0._dp
+      ALLOCATE (lri_force%sdt(nn, 3))
+      lri_force%sdt = 0._dp
+      ALLOCATE (lri_force%davec(nn, 3))
+      lri_force%davec = 0._dp
+      ALLOCATE (lri_force%dtvec(nn, 3))
+      lri_force%dtvec = 0._dp
 
    END SUBROUTINE allocate_lri_force_components
 
@@ -961,8 +967,14 @@ CONTAINS
                            IF (ASSOCIATED(lri_int%abaint)) THEN
                               DEALLOCATE (lri_int%abaint)
                            END IF
+                           IF (ASSOCIATED(lri_int%abascr)) THEN
+                              DEALLOCATE (lri_int%abascr)
+                           END IF
                            IF (ASSOCIATED(lri_int%abbint)) THEN
                               DEALLOCATE (lri_int%abbint)
+                           END IF
+                           IF (ASSOCIATED(lri_int%abbscr)) THEN
+                              DEALLOCATE (lri_int%abbscr)
                            END IF
                            IF (ASSOCIATED(lri_int%dsab)) THEN
                               DEALLOCATE (lri_int%dsab)
