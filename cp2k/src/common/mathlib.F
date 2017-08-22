@@ -860,12 +860,15 @@ CONTAINS
 !> \param a matrix a
 !> \param a_pinverse pseudoinverse of matrix a
 !> \param rskip parameter for setting small singular values to zero
+!> \param sval array holding singular values of matrix a (optional output)
 !> \author Dorothea Golze [02.2015]
 ! **************************************************************************************************
-   SUBROUTINE get_pseudo_inverse_svd(a, a_pinverse, rskip)
+   SUBROUTINE get_pseudo_inverse_svd(a, a_pinverse, rskip, sval)
 
       REAL(KIND=dp), DIMENSION(:, :)                     :: a, a_pinverse
       REAL(KIND=dp), INTENT(IN)                          :: rskip
+      REAL(KIND=dp), DIMENSION(:), POINTER, &
+         INTENT(OUT), OPTIONAL                           :: sval
 
       CHARACTER(LEN=*), PARAMETER :: routineN = 'get_pseudo_inverse_svd', &
          routineP = moduleN//':'//routineN
@@ -904,6 +907,12 @@ CONTAINS
 
       IF (info /= 0) THEN
          CPABORT("SVD failed")
+      END IF
+
+      IF (PRESENT(sval)) THEN
+         CPASSERT(.NOT. ASSOCIATED(sval))
+         ALLOCATE (sval(n))
+         sval(:) = sig
       END IF
 
       ! set singular values that are too small to zero
