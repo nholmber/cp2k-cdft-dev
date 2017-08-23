@@ -30,6 +30,10 @@ MODULE et_coupling
    USE cp_para_types,                   ONLY: cp_para_env_type
    USE dbcsr_api,                       ONLY: dbcsr_deallocate_matrix_set,&
                                               dbcsr_p_type
+   USE input_constants,                 ONLY: cdft_alpha_constraint, &
+                                              cdft_beta_constraint, &
+                                              cdft_charge_constraint, &
+                                              cdft_magnetization_constraint
    USE input_section_types,             ONLY: section_vals_get_subs_vals,&
                                               section_vals_type
    USE kinds,                           ONLY: dp

@@ -1467,9 +1467,6 @@ CONTAINS
          CALL get_pseudo_inverse_svd(matrix_a%local_data, matrix_inverse%local_data, eps_svd, &
                                      determinant, eigval)
       END IF
-      IF (PRESENT(eigval)) &
-         CALL cp_abort(__LOCATION__, &
-                       "NYI. Eigenvalues not available for return without SCALAPACK.")
 #endif
       CALL cp_fm_release(matrix_lu)
       DEALLOCATE (ipivot)

@@ -1352,34 +1352,36 @@ CONTAINS
                END DO
             END DO
             ! Handle different constraint types
-            SELECT CASE (mixed_cdft%constraint_type(ivar, istate))
-            CASE (cdft_charge_constraint)
-               ! No action needed
-            CASE (cdft_magnetization_constraint)
-               IF (ispin == 2) a(ispin, ivar, ipermutation) = -a(ispin, ivar, ipermutation)
-            CASE (cdft_alpha_constraint)
-               ! Constraint applied to alpha electrons only, set integrals involving beta to zero
-               IF (ispin == 2) a(ispin, ivar, ipermutation) = 0.0_dp
-            CASE (cdft_beta_constraint)
-               ! Constraint applied to beta electrons only, set integrals involving alpha to zero
-               IF (ispin == 1) a(ispin, ivar, ipermutation) = 0.0_dp
-            CASE DEFAULT
-               CPABORT("Unknown constraint type.")
-            END SELECT
-            SELECT CASE (mixed_cdft%constraint_type(ivar, jstate))
-            CASE (cdft_charge_constraint)
-               ! No action needed
-            CASE (cdft_magnetization_constraint)
-               IF (ispin == 2) b(ispin, ivar, ipermutation) = -b(ispin, ivar, ipermutation)
-            CASE (cdft_alpha_constraint)
-               ! Constraint applied to alpha electrons only, set integrals involving beta to zero
-               IF (ispin == 2) b(ispin, ivar, ipermutation) = 0.0_dp
-            CASE (cdft_beta_constraint)
-               ! Constraint applied to beta electrons only, set integrals involving alpha to zero
-               IF (ispin == 1) b(ispin, ivar, ipermutation) = 0.0_dp
-            CASE DEFAULT
-               CPABORT("Unknown constraint type.")
-            END SELECT
+            DO ivar = 1, nvar
+               SELECT CASE (mixed_cdft%constraint_type(ivar, istate))
+               CASE (cdft_charge_constraint)
+                  ! No action needed
+               CASE (cdft_magnetization_constraint)
+                  IF (ispin == 2) a(ispin, ivar, ipermutation) = -a(ispin, ivar, ipermutation)
+               CASE (cdft_alpha_constraint)
+                  ! Constraint applied to alpha electrons only, set integrals involving beta to zero
+                  IF (ispin == 2) a(ispin, ivar, ipermutation) = 0.0_dp
+               CASE (cdft_beta_constraint)
+                  ! Constraint applied to beta electrons only, set integrals involving alpha to zero
+                  IF (ispin == 1) a(ispin, ivar, ipermutation) = 0.0_dp
+               CASE DEFAULT
+                  CPABORT("Unknown constraint type.")
+               END SELECT
+               SELECT CASE (mixed_cdft%constraint_type(ivar, jstate))
+               CASE (cdft_charge_constraint)
+                  ! No action needed
+               CASE (cdft_magnetization_constraint)
+                  IF (ispin == 2) b(ispin, ivar, ipermutation) = -b(ispin, ivar, ipermutation)
+               CASE (cdft_alpha_constraint)
+                  ! Constraint applied to alpha electrons only, set integrals involving beta to zero
+                  IF (ispin == 2) b(ispin, ivar, ipermutation) = 0.0_dp
+               CASE (cdft_beta_constraint)
+                  ! Constraint applied to beta electrons only, set integrals involving alpha to zero
+                  IF (ispin == 1) b(ispin, ivar, ipermutation) = 0.0_dp
+               CASE DEFAULT
+                  CPABORT("Unknown constraint type.")
+               END SELECT
+            END DO
             ! Compute density matrix difference P = P_j - P_i
             IF (mixed_cdft%calculate_metric) &
                CALL dbcsr_add(density_matrix_diff(ipermutation, ispin)%matrix, &

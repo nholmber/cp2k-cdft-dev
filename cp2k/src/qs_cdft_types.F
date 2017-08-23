@@ -86,6 +86,8 @@ MODULE qs_cdft_types
       INTEGER, POINTER, DIMENSION(:)       :: atoms
       ! Constraint type: charge constraint, magnetization density constraint, or spin channel specific constraint
       INTEGER                              :: constraint_type
+      ! Is the constraint fragment based
+      LOGICAL                              :: is_fragment_constraint
       ! Temporary array holding a component of the weight function gradient that only includes
       ! terms defined on constraint atoms
       REAL(kind=dp), ALLOCATABLE, &

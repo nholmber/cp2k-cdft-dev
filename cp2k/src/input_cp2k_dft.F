@@ -4273,17 +4273,17 @@ CONTAINS
       CALL keyword_release(keyword)
 
       CALL keyword_create(keyword, name="CONSTRAINT_TYPE ", &
-                          description="Determines what type of constraint to apply. "// &
+                          description="Determines what type of constraint to apply. ", &
                           usage="CONSTRAINT_TYPE (CHARGE|MAGNETIZATION|ALPHA|BETA)", &
                           enum_c_vals=s2a("CHARGE", "MAGNETIZATION", "ALPHA", "BETA"), &
                           enum_i_vals=(/cdft_charge_constraint, cdft_magnetization_constraint, &
                                         cdft_alpha_constraint, cdft_beta_constraint/), &
                           enum_desc=s2a("Total charge density constraint (rho_alpha + rho_beta).", &
                                         "Magnetization density constraint (rho_alpha - rho_beta).", &
-                                        "Alpha electron constraint.", &
-                                        "Beta electron constraint."), &
+                                        "Alpha spin density constraint.", &
+                                        "Beta spine density constraint."), &
                           default_i_val=cdft_charge_constraint)
-      CALL section_add_keyword(section, keyword)
+      CALL section_add_keyword(group_section, keyword)
       CALL keyword_release(keyword)
 
       CALL keyword_create(keyword, name="FRAGMENT_CONSTRAINT", &

@@ -1312,10 +1312,10 @@ CONTAINS
                      END IF
                   CASE (cdft_alpha_constraint)
                      sign = 1.0_dp
-                     IF (ispin == 2) CYCLE
+                     IF (ispin == 2) CYCLE
                   CASE (cdft_beta_constraint)
                      sign = 1.0_dp
-                     IF (ispin == 1) CYCLE
+                     IF (ispin == 1) CYCLE
                   CASE DEFAULT
                      CPABORT("Unknown constraint type.")
                   END SELECT
