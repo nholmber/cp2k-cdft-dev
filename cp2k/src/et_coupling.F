@@ -100,7 +100,17 @@ CONTAINS
 
       is_spin_constraint = .FALSE.
       IF (dft_control%qs_control%becke_constraint) THEN
-         is_spin_constraint = .NOT. dft_control%qs_control%becke_control%group(1)%is_charge_constraint
+         SELECT CASE (dft_control%qs_control%becke_control%group(1)%constraint_type)
+         CASE (cdft_charge_constraint)
+            is_spin_constraint = .FALSE.
+         CASE (cdft_magnetization_constraint)
+            is_spin_constraint = .TRUE.
+         CASE (cdft_alpha_constraint, cdft_beta_constraint)
+            CALL cp_abort(__LOCATION__, &
+                         "Unsupported constraint type for ET_COUPLING, switch to MIXED_CDFT.")
+         CASE DEFAULT
+            CPABORT("Unknown constraint type.")
+         END SELECT
       END IF
       ALLOCATE (rest_MO(2))
       ALLOCATE (a(dft_control%nspins))

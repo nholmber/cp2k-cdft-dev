@@ -88,7 +88,8 @@ MODULE input_cp2k_dft
         wfi_ps_method_nr, wfi_use_guess_method_nr, wfi_use_prev_p_method_nr, &
         wfi_use_prev_rho_r_method_nr, wfi_use_prev_wf_method_nr, xas_1s_type, xas_2p_type, &
         xas_2s_type, xas_dip_len, xas_dip_vel, xas_dscf, xas_none, xas_tp_fh, xas_tp_flex, &
-        xas_tp_hh, xas_tp_xfh, xas_tp_xhh, xes_tp_val
+        xas_tp_hh, xas_tp_xfh, xas_tp_xhh, xes_tp_val, cdft_charge_constraint, &
+        cdft_magnetization_constraint, cdft_alpha_constraint, cdft_beta_constraint
    USE input_cp2k_almo,                 ONLY: create_almo_scf_section
    USE input_cp2k_distribution,         ONLY: create_distribution_section
    USE input_cp2k_field,                ONLY: create_efield_section,&
@@ -4271,14 +4272,18 @@ CONTAINS
       CALL section_add_keyword(group_section, keyword)
       CALL keyword_release(keyword)
 
-      CALL keyword_create(keyword, name="CHARGE_CONSTRAINT", &
-                          description="Determines what type of constraint to apply. Default value (true) "// &
-                          "implies that a total charge density constraint (rho_alpha + rho_beta)"// &
-                          " is applied. Set to false to enable a magnetization density constraint "// &
-                          "(rho_alpha - rho_beta)", &
-                          usage="CHARGE_CONSTRAINT", &
-                          default_l_val=.TRUE., lone_keyword_l_val=.TRUE.)
-      CALL section_add_keyword(group_section, keyword)
+      CALL keyword_create(keyword, name="CONSTRAINT_TYPE ", &
+                          description="Determines what type of constraint to apply. "// &
+                          usage="CONSTRAINT_TYPE (CHARGE|MAGNETIZATION|ALPHA|BETA)", &
+                          enum_c_vals=s2a("CHARGE", "MAGNETIZATION", "ALPHA", "BETA"), &
+                          enum_i_vals=(/cdft_charge_constraint, cdft_magnetization_constraint, &
+                                        cdft_alpha_constraint, cdft_beta_constraint/), &
+                          enum_desc=s2a("Total charge density constraint (rho_alpha + rho_beta).", &
+                                        "Magnetization density constraint (rho_alpha - rho_beta).", &
+                                        "Alpha electron constraint.", &
+                                        "Beta electron constraint."), &
+                          default_i_val=cdft_charge_constraint)
+      CALL section_add_keyword(section, keyword)
       CALL keyword_release(keyword)
 
       CALL keyword_create(keyword, name="FRAGMENT_CONSTRAINT", &
