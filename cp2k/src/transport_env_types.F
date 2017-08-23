@@ -14,16 +14,12 @@
 ! **************************************************************************************************
 MODULE transport_env_types
 
-   USE ISO_C_BINDING,                   ONLY: C_BOOL,&
-                                              C_DOUBLE,&
-                                              C_FUNPTR,&
-                                              C_F_POINTER,&
-                                              C_INT,&
-                                              C_NULL_FUNPTR,&
-                                              C_NULL_PTR,&
-                                              C_PTR
+   USE ISO_C_BINDING,                   ONLY: &
+        C_ASSOCIATED, C_BOOL, C_DOUBLE, C_FUNPTR, C_F_POINTER, C_INT, C_NULL_FUNPTR, C_NULL_PTR, &
+        C_PTR
    USE dbcsr_api,                       ONLY: csr_destroy,&
                                               csr_type,&
+                                              dbcsr_deallocate_matrix,&
                                               dbcsr_release,&
                                               dbcsr_type
    USE kinds,                           ONLY: dp
@@ -54,6 +50,7 @@ MODULE transport_env_types
       INTEGER(C_INT)  :: rlaxis_integration_method
       INTEGER(C_INT)  :: linear_solver
       INTEGER(C_INT)  :: matrixinv_method
+      INTEGER(C_INT)  :: transport_neutral
       INTEGER(C_INT)  :: num_pole
       INTEGER(C_INT)  :: ordering
       INTEGER(C_INT)  :: row_ordering
@@ -82,6 +79,7 @@ MODULE transport_env_types
       REAL(C_DOUBLE)  :: energy_interval
       REAL(C_DOUBLE)  :: min_interval
       REAL(C_DOUBLE)  :: temperature
+      REAL(C_DOUBLE)  :: dens_mixing
       REAL(C_DOUBLE)  :: n_rand_beyn
       REAL(C_DOUBLE)  :: n_rand_cc_beyn
       REAL(C_DOUBLE)  :: svd_cutoff
@@ -98,9 +96,11 @@ MODULE transport_env_types
       TYPE(dbcsr_type)              :: template_matrix_sym
       TYPE(dbcsr_type)              :: template_matrix_nosym
       TYPE(dbcsr_type)              :: csr_sparsity
+      TYPE(dbcsr_type), POINTER        :: dm_imag => NULL()
       TYPE(csr_type)                   :: s_matrix
       TYPE(csr_type)                   :: ks_matrix
       TYPE(csr_type)                   :: p_matrix
+      TYPE(csr_type)                   :: imagp_matrix
       LOGICAL                          :: csr_screening
       INTEGER, DIMENSION(:), POINTER   :: contacts_data => NULL()
       INTEGER, DIMENSION(:), POINTER   :: nsgf => NULL()
@@ -145,12 +145,16 @@ CONTAINS
 
       CPASSERT(ASSOCIATED(transport_env))
 
-      CALL csr_destroy(transport_env%s_matrix)
-      CALL csr_destroy(transport_env%ks_matrix)
-      CALL csr_destroy(transport_env%p_matrix)
-      CALL dbcsr_release(transport_env%template_matrix_sym)
-      CALL dbcsr_release(transport_env%template_matrix_nosym)
-      CALL dbcsr_release(transport_env%csr_sparsity)
+      IF (C_ASSOCIATED(transport_env%ext_c_method_ptr)) THEN
+         CALL csr_destroy(transport_env%s_matrix)
+         CALL csr_destroy(transport_env%ks_matrix)
+         CALL csr_destroy(transport_env%p_matrix)
+         CALL csr_destroy(transport_env%imagp_matrix)
+         CALL dbcsr_release(transport_env%template_matrix_sym)
+         CALL dbcsr_release(transport_env%template_matrix_nosym)
+         CALL dbcsr_release(transport_env%csr_sparsity)
+         CALL dbcsr_deallocate_matrix(transport_env%dm_imag)
+      END IF
 
       transport_env%ext_c_method_ptr = C_NULL_FUNPTR
 

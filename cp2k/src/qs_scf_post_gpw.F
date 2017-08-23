@@ -193,6 +193,7 @@ MODULE qs_scf_post_gpw
    USE s_square_methods,                ONLY: compute_s_square
    USE scf_control_types,               ONLY: scf_control_type
    USE stm_images,                      ONLY: th_stm_image
+   USE transport,                       ONLY: qs_scf_post_transport
    USE wannier_states,                  ONLY: construct_wannier_states
    USE wannier_states_types,            ONLY: wannier_centres_type
    USE xray_diffraction,                ONLY: calculate_rhotot_elec_gspace,&
@@ -2714,6 +2715,9 @@ CONTAINS
       ! Write cube files from the implicit Poisson solver
       CALL qs_scf_post_ps_implicit(input, logger, qs_env)
 
+      ! post SCF Transport
+      CALL qs_scf_post_transport(qs_env)
+
       CALL section_vals_val_get(input, "DFT%PRINT%AO_MATRICES%OMIT_HEADERS", l_val=omit_headers)
       ! Write the density matrices
       IF (BTEST(cp_print_key_should_output(logger%iter_info, input, &
@@ -2807,8 +2811,7 @@ CONTAINS
       ! Compute the Mulliken charges
       print_key => section_vals_get_subs_vals(input, "DFT%PRINT%MULLIKEN")
       IF (BTEST(cp_print_key_should_output(logger%iter_info, print_key), cp_p_file)) THEN
-         unit_nr = cp_print_key_unit_nr(logger, input, "DFT%PRINT%MULLIKEN", extension=".mulliken", &
-                                        middle_name="", log_filename=.FALSE.)
+         unit_nr = cp_print_key_unit_nr(logger, input, "DFT%PRINT%MULLIKEN", extension=".mulliken", log_filename=.FALSE.)
          print_level = 1
          CALL section_vals_val_get(print_key, "PRINT_GOP", l_val=print_it)
          IF (print_it) print_level = 2
@@ -2826,8 +2829,7 @@ CONTAINS
          CALL get_qs_env(qs_env=qs_env, rho=rho)
          CALL qs_rho_get(rho, rho_r_valid=rho_r_valid)
          IF (rho_r_valid) THEN
-            unit_nr = cp_print_key_unit_nr(logger, input, "DFT%PRINT%HIRSHFELD", extension=".hirshfeld", &
-                                           middle_name="", log_filename=.FALSE.)
+            unit_nr = cp_print_key_unit_nr(logger, input, "DFT%PRINT%HIRSHFELD", extension=".hirshfeld", log_filename=.FALSE.)
             CALL hirshfeld_charges(qs_env, print_key, unit_nr)
             CALL cp_print_key_finished_output(unit_nr, logger, input, "DFT%PRINT%HIRSHFELD")
          END IF
@@ -2836,8 +2838,7 @@ CONTAINS
       ! MAO analysis
       print_key => section_vals_get_subs_vals(input, "DFT%PRINT%MAO_ANALYSIS")
       IF (BTEST(cp_print_key_should_output(logger%iter_info, print_key), cp_p_file)) THEN
-         unit_nr = cp_print_key_unit_nr(logger, input, "DFT%PRINT%MAO_ANALYSIS", extension=".mao", &
-                                        middle_name="", log_filename=.FALSE.)
+         unit_nr = cp_print_key_unit_nr(logger, input, "DFT%PRINT%MAO_ANALYSIS", extension=".mao", log_filename=.FALSE.)
          CALL mao_analysis(qs_env, print_key, unit_nr)
          CALL cp_print_key_finished_output(unit_nr, logger, input, "DFT%PRINT%MAO_ANALYSIS")
       END IF
@@ -2845,8 +2846,7 @@ CONTAINS
       ! MINBAS analysis
       print_key => section_vals_get_subs_vals(input, "DFT%PRINT%MINBAS_ANALYSIS")
       IF (BTEST(cp_print_key_should_output(logger%iter_info, print_key), cp_p_file)) THEN
-         unit_nr = cp_print_key_unit_nr(logger, input, "DFT%PRINT%MINBAS_ANALYSIS", extension=".mao", &
-                                        middle_name="", log_filename=.FALSE.)
+         unit_nr = cp_print_key_unit_nr(logger, input, "DFT%PRINT%MINBAS_ANALYSIS", extension=".mao", log_filename=.FALSE.)
          CALL minbas_analysis(qs_env, print_key, unit_nr)
          CALL cp_print_key_finished_output(unit_nr, logger, input, "DFT%PRINT%MINBAS_ANALYSIS")
       END IF
@@ -3104,7 +3104,7 @@ CONTAINS
             my_pos_cube = "APPEND"
          END IF
          unit_nr = cp_print_key_unit_nr(logger, input, "DFT%PRINT%IMPLICIT_PSOLVER%DIELECTRIC_CUBE", &
-                                        extension=".cube", middle_name="DIELCTRIC_CONSTANT", file_position=my_pos_cube)
+                                        extension=".cube", middle_name="DIELECTRIC_CONSTANT", file_position=my_pos_cube)
          CALL pw_env_get(pw_env, poisson_env=poisson_env, auxbas_pw_pool=auxbas_pw_pool)
          CALL pw_pool_create_pw(auxbas_pw_pool, aux_r%pw, use_data=REALDATA3D, in_space=REALSPACE)
 

@@ -11,11 +11,14 @@
 !> \author Dorothea Golze
 ! **************************************************************************************************
 MODULE lri_environment_init
-   USE atomic_kind_types,               ONLY: atomic_kind_type
+   USE atomic_kind_types,               ONLY: atomic_kind_type,&
+                                              get_atomic_kind_set
    USE basis_set_types,                 ONLY: copy_gto_basis_set,&
                                               gto_basis_set_type
-   USE bibliography,                    ONLY: Golze2017,&
+   USE bibliography,                    ONLY: Golze2017a,&
+                                              Golze2017b,&
                                               cite_reference
+   USE cp_control_types,                ONLY: dft_control_type
    USE generic_shg_integrals,           ONLY: int_overlap_aba_shg
    USE generic_shg_integrals_init,      ONLY: contraction_matrix_shg,&
                                               contraction_matrix_shg_mix,&
@@ -52,25 +55,31 @@ CONTAINS
 
 ! **************************************************************************************************
 !> \brief initializes the lri env
+!> \param ri_type ...
 !> \param qs_env ...
-!> \param force_env_section ...
+!> \param lri_section ...
 !> \param qs_kind_set ...
 ! **************************************************************************************************
-   SUBROUTINE lri_env_init(qs_env, force_env_section, qs_kind_set)
+   SUBROUTINE lri_env_init(ri_type, qs_env, lri_section, qs_kind_set)
 
+      CHARACTER(len=*), INTENT(IN)                       :: ri_type
       TYPE(qs_environment_type), POINTER                 :: qs_env
-      TYPE(section_vals_type), POINTER                   :: force_env_section
+      TYPE(section_vals_type), POINTER                   :: lri_section
       TYPE(qs_kind_type), DIMENSION(:), POINTER          :: qs_kind_set
 
       CHARACTER(len=*), PARAMETER :: routineN = 'lri_env_init', routineP = moduleN//':'//routineN
 
-      INTEGER                                            :: ikind, lmax_ikind_orb, lmax_ikind_ri, &
-                                                            maxl_orb, maxl_ri, nkind
+      INTEGER                                            :: i1, i2, iat, ikind, lmax_ikind_orb, &
+                                                            lmax_ikind_ri, maxl_orb, maxl_ri, &
+                                                            natom, nbas, nkind, nribas, nspin
+      INTEGER, ALLOCATABLE, DIMENSION(:)                 :: kind_of
+      REAL(KIND=dp), DIMENSION(:), POINTER               :: int_aux, norm
       TYPE(atomic_kind_type), DIMENSION(:), POINTER      :: atomic_kind_set
-      TYPE(gto_basis_set_type), POINTER                  :: lri_basis_set, orb_basis_set
+      TYPE(dft_control_type), POINTER                    :: dft_control
+      TYPE(gto_basis_set_type), POINTER                  :: orb_basis_set, ri_basis_set
       TYPE(lri_environment_type), POINTER                :: lri_env
 
-      NULLIFY (atomic_kind_set, lri_basis_set, lri_env, orb_basis_set)
+      NULLIFY (atomic_kind_set, ri_basis_set, lri_env, orb_basis_set)
       CALL lri_env_create(lri_env)
 
       ! initialize the basic basis sets (orb and ri)
@@ -80,14 +89,20 @@ CONTAINS
       maxl_orb = 0
       maxl_ri = 0
       DO ikind = 1, nkind
-         NULLIFY (orb_basis_set, lri_basis_set)
+         NULLIFY (orb_basis_set, ri_basis_set)
          CALL get_qs_kind(qs_kind_set(ikind), basis_set=orb_basis_set, basis_type="ORB")
-         CALL get_qs_kind(qs_kind_set(ikind), basis_set=lri_basis_set, basis_type="LRI")
+         IF (ri_type == "LRI") THEN
+            CALL get_qs_kind(qs_kind_set(ikind), basis_set=ri_basis_set, basis_type="LRI")
+         ELSE IF (ri_type == "RI") THEN
+            CALL get_qs_kind(qs_kind_set(ikind), basis_set=ri_basis_set, basis_type="RI_HXC")
+         ELSE
+            CPABORT('ri_type')
+         END IF
          NULLIFY (lri_env%orb_basis(ikind)%gto_basis_set)
          NULLIFY (lri_env%ri_basis(ikind)%gto_basis_set)
          IF (ASSOCIATED(orb_basis_set)) THEN
             CALL copy_gto_basis_set(orb_basis_set, lri_env%orb_basis(ikind)%gto_basis_set)
-            CALL copy_gto_basis_set(lri_basis_set, lri_env%ri_basis(ikind)%gto_basis_set)
+            CALL copy_gto_basis_set(ri_basis_set, lri_env%ri_basis(ikind)%gto_basis_set)
          END IF
          lmax_ikind_orb = MAXVAL(lri_env%orb_basis(ikind)%gto_basis_set%lmax)
          lmax_ikind_ri = MAXVAL(lri_env%ri_basis(ikind)%gto_basis_set%lmax)
@@ -95,31 +110,89 @@ CONTAINS
          maxl_ri = MAX(maxl_ri, lmax_ikind_ri)
       END DO
 
-      ! CG coefficients needed for lri integrals
-      IF (ASSOCIATED(lri_env%cg_shg)) THEN
-         CALL get_clebsch_gordon_coefficients(lri_env%cg_shg%cg_coeff, &
-                                              lri_env%cg_shg%cg_none0_list, &
-                                              lri_env%cg_shg%ncg_none0, &
-                                              maxl_orb, maxl_ri)
-      ENDIF
-      CALL lri_basis_init(lri_env)
       ! init keywords
-
       ! check for debug (OS scheme)
-      CALL section_vals_val_get(force_env_section, "DFT%QS%LRIGPW%DEBUG_LRI_INTEGRALS", &
+      CALL section_vals_val_get(lri_section, "DEBUG_LRI_INTEGRALS", &
                                 l_val=lri_env%debug)
       ! integrals based on solid harmonic Gaussians
-      CALL section_vals_val_get(force_env_section, "DFT%QS%LRIGPW%SHG_LRI_INTEGRALS", &
+      CALL section_vals_val_get(lri_section, "SHG_LRI_INTEGRALS", &
                                 l_val=lri_env%use_shg_integrals)
       ! how to calculate inverse/pseuodinverse of overlap
-      CALL section_vals_val_get(force_env_section, "DFT%QS%LRIGPW%LRI_OVERLAP_MATRIX", &
+      CALL section_vals_val_get(lri_section, "LRI_OVERLAP_MATRIX", &
                                 i_val=lri_env%lri_overlap_inv)
-      CALL section_vals_val_get(force_env_section, "DFT%QS%LRIGPW%MAX_CONDITION_NUM", &
+      CALL section_vals_val_get(lri_section, "MAX_CONDITION_NUM", &
                                 r_val=lri_env%cond_max)
-      !
+      ! integrals threshold (aba, abb)
+      CALL section_vals_val_get(lri_section, "EPS_O3_INT", &
+                                r_val=lri_env%eps_o3_int)
+      ! RI SINV
+      CALL section_vals_val_get(lri_section, "RI_SINV", &
+                                c_val=lri_env%ri_sinv_app)
+
+      IF (ri_type == "LRI") THEN
+         ! CG coefficients needed for lri integrals
+         IF (ASSOCIATED(lri_env%cg_shg)) THEN
+            CALL get_clebsch_gordon_coefficients(lri_env%cg_shg%cg_coeff, &
+                                                 lri_env%cg_shg%cg_none0_list, &
+                                                 lri_env%cg_shg%ncg_none0, &
+                                                 maxl_orb, maxl_ri)
+         ENDIF
+         CALL lri_basis_init(lri_env)
+      ELSE IF (ri_type == "RI") THEN
+         ALLOCATE (lri_env%ri_fit)
+         NULLIFY (lri_env%ri_fit%nvec)
+         NULLIFY (lri_env%ri_fit%bas_ptr)
+         CALL get_qs_env(qs_env=qs_env, natom=natom)
+         ! initialize pointers to RI basis vector
+         ALLOCATE (lri_env%ri_fit%bas_ptr(2, natom))
+         ALLOCATE (kind_of(natom))
+         CALL get_atomic_kind_set(atomic_kind_set, kind_of=kind_of)
+         nbas = 0
+         DO iat = 1, natom
+            ikind = kind_of(iat)
+            nribas = lri_env%ri_basis(ikind)%gto_basis_set%nsgf
+            lri_env%ri_fit%bas_ptr(1, iat) = nbas+1
+            lri_env%ri_fit%bas_ptr(2, iat) = nbas+nribas
+            nbas = nbas+nribas
+         END DO
+         ! initialize vector t
+         CALL get_qs_env(qs_env=qs_env, dft_control=dft_control)
+         nspin = dft_control%nspins
+         ALLOCATE (lri_env%ri_fit%tvec(nbas, nspin), lri_env%ri_fit%rm1t(nbas, nspin))
+         ! initialize vector a, expansion of density
+         ALLOCATE (lri_env%ri_fit%avec(nbas, nspin))
+         ! initialize vector fout, R^(-1)*(f-p*n)
+         ALLOCATE (lri_env%ri_fit%fout(nbas, nspin))
+         ! initialize vector with RI basis integrated
+         NULLIFY (norm, int_aux)
+         nbas = lri_env%ri_fit%bas_ptr(2, natom)
+         ALLOCATE (lri_env%ri_fit%nvec(nbas), lri_env%ri_fit%rm1n(nbas))
+         ikind = 0
+         DO iat = 1, natom
+            IF (ikind /= kind_of(iat)) THEN
+               ikind = kind_of(iat)
+               ri_basis_set => lri_env%ri_basis(ikind)%gto_basis_set
+               IF (ASSOCIATED(norm)) DEALLOCATE (norm)
+               IF (ASSOCIATED(int_aux)) DEALLOCATE (int_aux)
+               CALL basis_norm_s_func(ri_basis_set, norm)
+               CALL basis_int(ri_basis_set, int_aux, norm)
+            END IF
+            nbas = SIZE(int_aux)
+            i1 = lri_env%ri_fit%bas_ptr(1, iat)
+            i2 = lri_env%ri_fit%bas_ptr(2, iat)
+            lri_env%ri_fit%nvec(i1:i2) = int_aux(1:nbas)
+         END DO
+         IF (ASSOCIATED(norm)) DEALLOCATE (norm)
+         IF (ASSOCIATED(int_aux)) DEALLOCATE (int_aux)
+         DEALLOCATE (kind_of)
+      ELSE
+         CPABORT('ri_type')
+      END IF
+
       CALL set_qs_env(qs_env, lri_env=lri_env)
 
-      IF (lri_env%use_shg_integrals) CALL cite_reference(Golze2017)
+      CALL cite_reference(Golze2017b)
+      IF (lri_env%use_shg_integrals) CALL cite_reference(Golze2017a)
 
    END SUBROUTINE lri_env_init
 
@@ -136,7 +209,7 @@ CONTAINS
       INTEGER                                            :: ikind, nkind
       INTEGER, DIMENSION(:, :, :), POINTER               :: orb_index, ri_index
       REAL(KIND=dp), DIMENSION(:), POINTER               :: orb_norm_r, ri_int_fbas, ri_norm_r, &
-                                                            ri_norm_s
+                                                            ri_norm_s, screen
       REAL(KIND=dp), DIMENSION(:, :), POINTER            :: orb_ovlp, ri_ovlp, ri_ovlp_inv
       REAL(KIND=dp), DIMENSION(:, :, :), POINTER         :: ovlp3, scon_orb, scon_ri
       REAL(KIND=dp), DIMENSION(:, :, :, :), POINTER      :: dovlp3, scon_mix
@@ -184,14 +257,17 @@ CONTAINS
                   NULLIFY (ovlp3)
                   ALLOCATE (ovlp3(orb_basis%nsgf, orb_basis%nsgf, ri_basis%nsgf))
                   ALLOCATE (dovlp3(orb_basis%nsgf, orb_basis%nsgf, ri_basis%nsgf, 3))
+                  ALLOCATE (screen(ri_basis%nsgf))
                   CALL int_overlap_aba_shg(ovlp3, dovlp3, (/0.0_dp, 0.0_dp, 0.0_dp/), &
                                            orb_basis, orb_basis, ri_basis, scon_orb, &
                                            scon_mix, orb_index, ri_index, &
                                            lri_env%cg_shg%cg_coeff, &
                                            lri_env%cg_shg%cg_none0_list, &
                                            lri_env%cg_shg%ncg_none0, &
-                                           calculate_forces=.FALSE.)
+                                           calculate_forces=.FALSE., &
+                                           screen=screen)
                   lri_env%bas_prop(ikind)%ovlp3 => ovlp3
+                  DEALLOCATE (screen)
                   DEALLOCATE (orb_norm_r, ri_norm_r, ri_norm_s)
                   DEALLOCATE (dovlp3)
                   ALLOCATE (ri_ovlp_inv(ri_basis%nsgf, ri_basis%nsgf))

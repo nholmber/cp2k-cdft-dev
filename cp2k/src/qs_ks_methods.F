@@ -123,14 +123,10 @@ MODULE qs_ks_methods
                                               qmmm_modify_hartree_pot
    USE qs_ks_types,                     ONLY: qs_ks_env_type,&
                                               set_ks_env
-   USE qs_ks_utils,                     ONLY: calc_v_sic_rspace,&
-                                              calculate_zmp_potential,&
-                                              compute_matrix_vxc,&
-                                              low_spin_roks,&
-                                              print_densities,&
-                                              print_detailed_energy,&
-                                              sic_explicit_orbitals,&
-                                              sum_up_and_integrate
+   USE qs_ks_utils,                     ONLY: &
+        calc_v_sic_rspace, calculate_zmp_potential, compute_matrix_vxc, &
+        get_embed_potential_energy, low_spin_roks, print_densities, print_detailed_energy, &
+        sic_explicit_orbitals, sum_up_and_integrate
    USE qs_mo_types,                     ONLY: get_mo_set,&
                                               mo_set_p_type,&
                                               mo_set_type
@@ -170,7 +166,8 @@ MODULE qs_ks_methods
       TYPE(pw_p_type), DIMENSION(:), POINTER   :: v_rspace_new, &
                                                   v_rspace_new_aux_fit, &
                                                   v_tau_rspace, &
-                                                  v_tau_rspace_aux_fit
+                                                  v_tau_rspace_aux_fit, &
+                                                  v_rspace_embed
    END TYPE qs_potential_type
 
 CONTAINS
@@ -214,7 +211,7 @@ CONTAINS
       INTEGER                                            :: handle, iatom, img, ispin, nimages, ns, &
                                                             nspins
       LOGICAL :: do_adiabatic_rescaling, do_ddapc, do_hfx, do_ppl, gapw, gapw_xc, &
-         hfx_treat_lsd_in_core, just_energy_xc, lrigpw, my_print, use_virial
+         hfx_treat_lsd_in_core, just_energy_xc, lrigpw, my_print, rigpw, use_virial
       REAL(KIND=dp)                                      :: ecore_ppl, edisp, ee_ener, ekin_mol, &
                                                             mulliken_order_p
       REAL(KIND=dp), DIMENSION(3, 3)                     :: h_stress
@@ -231,7 +228,7 @@ CONTAINS
       TYPE(pw_env_type), POINTER                         :: pw_env
       TYPE(pw_p_type) :: rho_tot_gspace, v_efield_rspace, v_hartree_gspace, v_hartree_rspace, &
          v_minus_veps, v_sccs_rspace, v_sic_rspace, v_spin_ddapc_rest_r
-      TYPE(pw_p_type), DIMENSION(:), POINTER             :: rho_r, v_rspace_new, &
+      TYPE(pw_p_type), DIMENSION(:), POINTER             :: rho_r, v_rspace_embed, v_rspace_new, &
                                                             v_rspace_new_aux_fit, v_tau_rspace, &
                                                             v_tau_rspace_aux_fit
       TYPE(pw_p_type), POINTER                           :: rho0_s_rs, rho_core, rho_nlcc, vee, &
@@ -325,8 +322,12 @@ CONTAINS
 
       ! Check if LRIGPW is used
       lrigpw = dft_control%qs_control%lrigpw
-      IF (lrigpw) THEN
+      rigpw = dft_control%qs_control%rigpw
+      IF (lrigpw .OR. rigpw) THEN
          CPASSERT(nimages == 1)
+      ENDIF
+      IF (lrigpw .AND. rigpw) THEN
+         CPABORT(" LRI and RI are not compatible")
       ENDIF
 
       ! Check for GAPW method : additional terms for local densities
@@ -337,6 +338,9 @@ CONTAINS
       END IF
       IF ((gapw .AND. lrigpw) .OR. (gapw_xc .AND. lrigpw)) THEN
          CPABORT(" GAPW/GAPW_XC and LRIGPW are not compatible")
+      ENDIF
+      IF ((gapw .AND. rigpw) .OR. (gapw_xc .AND. rigpw)) THEN
+         CPABORT(" GAPW/GAPW_XC and RIGPW are not compatible")
       ENDIF
 
       do_ppl = dft_control%qs_control%do_ppl_method == do_ppl_grid
@@ -574,6 +578,14 @@ CONTAINS
          energy%exc = 0.
          CALL calculate_zmp_potential(qs_env, v_rspace_new, rho, exc=energy%exc)
       ELSE
+         ! Embedding potential
+         IF (dft_control%apply_embed_pot) THEN
+            NULLIFY (v_rspace_embed)
+            energy%embed_corr = 0.
+            CALL get_embed_potential_energy(qs_env, rho, v_rspace_embed, dft_control, &
+                                            energy%embed_corr, just_energy)
+         ENDIF
+         ! Everything else
          CALL qs_vxc_create(ks_env=ks_env, rho_struct=rho_struct, xc_section=xc_section, &
                             vxc_rho=v_rspace_new, vxc_tau=v_tau_rspace, exc=energy%exc, &
                             edisp=edisp, dispersion_env=qs_env%dispersion_env, &
@@ -587,6 +599,7 @@ CONTAINS
          IF (gapw .OR. gapw_xc) THEN
             CALL calculate_vxc_atom(qs_env, just_energy_xc)
          ENDIF
+
       ENDIF
 
       NULLIFY (rho_struct)
@@ -660,8 +673,8 @@ CONTAINS
          my_rho => rho_ao
          CALL sum_up_and_integrate(qs_env, ks_matrix, rho, my_rho, vppl_rspace, &
                                    v_rspace_new, v_rspace_new_aux_fit, v_tau_rspace, v_tau_rspace_aux_fit, &
-                                   v_efield_rspace, v_sic_rspace, v_spin_ddapc_rest_r, v_sccs_rspace, becke, &
-                                   cdft_control, calculate_forces)
+                                   v_efield_rspace, v_sic_rspace, v_spin_ddapc_rest_r, v_sccs_rspace, v_rspace_embed, &
+                                   becke, cdft_control, calculate_forces)
 
          IF (dft_control%qs_control%do_kg) THEN
             CPASSERT(nimages == 1)
@@ -821,6 +834,8 @@ CONTAINS
                      energy%efield+energy%efield_core+energy%ee+ &
                      energy%ee_core+energy%exc_aux_fit+energy%image_charge+ &
                      energy%sccs_pol+energy%sccs_mpc+energy%cdft
+
+      IF (dft_control%apply_embed_pot) energy%total = energy%total+energy%embed_corr
 
       IF (abnormal_value(energy%total)) &
          CPABORT("KS energy is an abnormal value (NaN/Inf).")

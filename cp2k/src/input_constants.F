@@ -238,6 +238,7 @@ MODULE input_constants
                                                do_method_gapw_xc = 2, &
                                                do_method_gpw = 3, &
                                                do_method_lrigpw = 4, &
+                                               do_method_rigpw = 5, &
                                                do_method_mndo = 7, &
                                                do_method_am1 = 8, &
                                                do_method_pm3 = 9, &
@@ -1024,7 +1025,9 @@ MODULE input_constants
                                                rlaxisint_trapezoidal = 32, &
                                                rlaxisint_readfromfile = 33, &
                                                rho_negf = 41, &
-                                               rho_qtbm = 42
+                                               rho_qtbm = 42, &
+                                               neutlead_bs = 51, &
+                                               neutlead_dos = 52
 
    ! Active Space Section: orbital selection methods
    INTEGER, PARAMETER, PUBLIC               :: casci_canonical = 100, &

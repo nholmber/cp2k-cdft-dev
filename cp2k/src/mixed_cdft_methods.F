@@ -1022,9 +1022,9 @@ CONTAINS
          routineP = moduleN//':'//routineN
 
       CHARACTER(LEN=default_path_length)                 :: file_name
-      INTEGER :: check_ao(2), check_mo(2), handle, i, iforce_eval, info, iounit, ipermutation, &
-         ispin, istate, ivar, j, jstate, k, moeigvalunit, mounit, nao, ncol_global, ncol_local, &
-         nforce_eval, nmo, npermutations, nrow_global, nrow_local, nspins, nvar, work_array_size
+      INTEGER :: check_ao(2), check_mo(2), handle, iforce_eval, info, iounit, ipermutation, ispin, &
+         istate, ivar, j, jstate, k, moeigvalunit, mounit, nao, ncol_local, nforce_eval, nmo, &
+         npermutations, nrow_local, nspins, nvar, work_array_size
       INTEGER, ALLOCATABLE, DIMENSION(:)                 :: ncol_mo, nrow_mo
       INTEGER, ALLOCATABLE, DIMENSION(:, :)              :: homo
       LOGICAL :: exist, natom_mismatch, nelectron_mismatch, print_mo, print_mo_eigval, &
@@ -1397,7 +1397,7 @@ CONTAINS
          IF (nspins == 2) THEN
             Sda(ipermutation) = ABS(S_det(ipermutation, 1)*S_det(ipermutation, 2))
          ELSE
-            Sda(ipermutation) = S_det(ipermutation, 2)**2
+            Sda(ipermutation) = S_det(ipermutation, 1)**2
          END IF
          ! Finalize <Psi_j | w_i(r) | Psi_i> by multiplication with Sda
          DO ivar = 1, nvar

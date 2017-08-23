@@ -141,7 +141,7 @@ CONTAINS
          CALL kpoint_sym_create(kpoint%kp_sym(1)%kpoint_sym)
       CASE ("MONKHORST-PACK", "MACDONALD")
 
-         IF (kpoint%full_grid) THEN
+         IF (.NOT. kpoint%symmetry) THEN
             ! we set up a random molecule to avoid any possible symmetry
             natom = 10
             ALLOCATE (coord(3, natom), scoord(3, natom), atype(natom))
@@ -187,10 +187,11 @@ CONTAINS
             NULLIFY (kpoint%kp_sym(ik)%kpoint_sym)
             CALL kpoint_sym_create(kpoint%kp_sym(ik)%kpoint_sym)
             kpsym => kpoint%kp_sym(ik)%kpoint_sym
-            IF (crys_sym%symlib .AND. .NOT. crys_sym%fullgrid) THEN
+            IF (crys_sym%symlib .AND. .NOT. crys_sym%fullgrid .AND. crys_sym%istriz == 1) THEN
                ! set up the symmetrization information
                kpsym%nwght = NINT(crys_sym%wkpoint(ik))
                ns = kpsym%nwght
+               ! to be done correctly
                IF (ns > 1) THEN
                   kpsym%apply_symmetry = .TRUE.
                   natom = SIZE(particle_set)
@@ -910,11 +911,6 @@ CONTAINS
 
       CALL timeset(routineN, handle)
 
-      ! test for full kpoint grid
-      IF (.NOT. kpoint%full_grid) &
-         CALL cp_abort(__LOCATION__, "k-points need FULL_GRID currently. "// &
-                       "Reduced grids not yet working correctly")
-
       IF (PRESENT(energy_weighted)) THEN
          wtype = energy_weighted
       ELSE
@@ -1343,11 +1339,15 @@ CONTAINS
             ELSE
                ! distributed matrices, most general code needed
                ! CALL dbcsr_get_stored_coordinates(pmat, row, col, pos)
+               CALL cp_abort(__LOCATION__, "k-points need FULL_GRID currently. "// &
+                             "Reduced grids not yet working correctly")
             END IF
          ELSE
             ! no atom permutations, this is always local
             ! ignore rotations for now
             CALL dbcsr_copy(smat, pmat)
+            CALL cp_abort(__LOCATION__, "k-points need FULL_GRID currently. "// &
+                          "Reduced grids not yet working correctly")
          END IF
       ELSE
          ! this is the identity operation, just copy the matrix
