@@ -54,11 +54,11 @@ MODULE mixed_cdft_methods
    USE hirshfeld_types,                 ONLY: hirshfeld_type
    USE input_constants,                 ONLY: becke_cutoff_element,&
                                               becke_cutoff_global,&
-                                              mix_cdft, &
-                                              cdft_charge_constraint, &
-                                              cdft_magnetization_constraint, &
-                                              cdft_alpha_constraint, &
-                                              cdft_beta_constraint
+                                              cdft_alpha_constraint,&
+                                              cdft_beta_constraint,&
+                                              cdft_charge_constraint,&
+                                              cdft_magnetization_constraint,&
+                                              mix_cdft
    USE input_section_types,             ONLY: section_get_lval,&
                                               section_vals_get,&
                                               section_vals_get_subs_vals,&
@@ -1353,7 +1353,7 @@ CONTAINS
             END DO
             ! Handle different constraint types
             DO ivar = 1, nvar
-               SELECT CASE (mixed_cdft%constraint_type(ivar, istate))
+               SELECT CASE (mixed_cdft%constraint_type (ivar, istate))
                CASE (cdft_charge_constraint)
                   ! No action needed
                CASE (cdft_magnetization_constraint)
@@ -1367,7 +1367,7 @@ CONTAINS
                CASE DEFAULT
                   CPABORT("Unknown constraint type.")
                END SELECT
-               SELECT CASE (mixed_cdft%constraint_type(ivar, jstate))
+               SELECT CASE (mixed_cdft%constraint_type (ivar, jstate))
                CASE (cdft_charge_constraint)
                   ! No action needed
                CASE (cdft_magnetization_constraint)

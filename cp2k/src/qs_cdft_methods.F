@@ -27,12 +27,12 @@ MODULE qs_cdft_methods
    USE hirshfeld_types,                 ONLY: get_hirshfeld_info,&
                                               hirshfeld_type,&
                                               set_hirshfeld_info
-   USE input_constants,                 ONLY: ref_charge_atomic,&
-                                              ref_charge_mulliken,&
-                                              cdft_charge_constraint, &
-                                              cdft_magnetization_constraint, &
-                                              cdft_alpha_constraint, &
-                                              cdft_beta_constraint
+   USE input_constants,                 ONLY: cdft_alpha_constraint,&
+                                              cdft_beta_constraint,&
+                                              cdft_charge_constraint,&
+                                              cdft_magnetization_constraint,&
+                                              ref_charge_atomic,&
+                                              ref_charge_mulliken
    USE input_section_types,             ONLY: section_vals_get_subs_vals,&
                                               section_vals_type
    USE kahan_sum,                       ONLY: accurate_dot_product,&
@@ -669,7 +669,7 @@ CONTAINS
                   DO igroup = 1, SIZE(group)
                      DO iatom = 1, natom
                         DO ispin = 1, dft_control%nspins
-                           SELECT CASE (group(igroup)%constraint_type)
+                           SELECT CASE (group (igroup)%constraint_type)
                            CASE (cdft_charge_constraint)
                               sign = 1.0_dp
                            CASE (cdft_magnetization_constraint)
@@ -705,7 +705,7 @@ CONTAINS
                   DO igroup = 1, SIZE(group)
                      DO iatom = 1, natom
                         DO ispin = 1, dft_control%nspins
-                           SELECT CASE (group(igroup)%constraint_type)
+                           SELECT CASE (group (igroup)%constraint_type)
                            CASE (cdft_charge_constraint)
                               sign = 1.0_dp
                            CASE (cdft_magnetization_constraint)
@@ -841,7 +841,7 @@ CONTAINS
       ! Calculate value of constraint i.e. int ( rho(r) w(r) dr)
       DO i = 1, dft_control%nspins
          DO igroup = 1, SIZE(group)
-            SELECT CASE (group(igroup)%constraint_type)
+            SELECT CASE (group (igroup)%constraint_type)
             CASE (cdft_charge_constraint)
                sign = 1.0_dp
             CASE (cdft_magnetization_constraint)
@@ -895,15 +895,15 @@ CONTAINS
          multiplier = 1.0_dp
          nfrag_spins = 1
          DO igroup = 1, SIZE(group)
-            SELECT CASE (group(igroup)%constraint_type)
+            SELECT CASE (group (igroup)%constraint_type)
             CASE (cdft_charge_constraint)
                ! Do nothing
             CASE (cdft_magnetization_constraint)
                needs_spin_density = .TRUE.
             CASE (cdft_alpha_constraint, cdft_beta_constraint)
                CALL cp_abort(__LOCATION__, &
-                            "Becke deformation density not yet compatible with "// &
-                            "spin specific constraints.")
+                             "Becke deformation density not yet compatible with "// &
+                             "spin specific constraints.")
             CASE DEFAULT
                CPABORT("Unknown constraint type.")
             END SELECT
@@ -1028,7 +1028,7 @@ CONTAINS
          DO i = 1, dft_control%nspins
             DO igroup = 1, SIZE(group)
                DO iatom = 1, SIZE(group(igroup)%atoms)
-                  SELECT CASE (group(igroup)%constraint_type)
+                  SELECT CASE (group (igroup)%constraint_type)
                   CASE (cdft_charge_constraint)
                      sign = 1.0_dp
                   CASE (cdft_magnetization_constraint)
@@ -1089,7 +1089,7 @@ CONTAINS
             IF (igroup > 1) WRITE (iw, '(T3,A)') ' '
             WRITE (iw, '(T3,A,T54,(3X,I18))') &
                'Atomic group                :', igroup
-            SELECT CASE (group(igroup)%constraint_type)
+            SELECT CASE (group (igroup)%constraint_type)
             CASE (cdft_charge_constraint)
                IF (group(igroup)%is_fragment_constraint) THEN
                   WRITE (iw, '(T3,A,T42,A)') &
@@ -1108,18 +1108,18 @@ CONTAINS
                END IF
             CASE (cdft_alpha_constraint)
                IF (group(igroup)%is_fragment_constraint) THEN
-                  WRITE (iw, '(T3,A,T42,A)') &
+                  WRITE (iw, '(T3,A,T38,A)') &
                      'Type of constraint          :', ADJUSTR('Alpha spin density constraint (frag.)')
                ELSE
-                  WRITE (iw, '(T3,A,T50,A)') &
+                  WRITE (iw, '(T3,A,T46,A)') &
                      'Type of constraint          :', ADJUSTR('Alpha spin density constraint')
                END IF
             CASE (cdft_beta_constraint)
                IF (group(igroup)%is_fragment_constraint) THEN
-                  WRITE (iw, '(T3,A,T42,A)') &
+                  WRITE (iw, '(T3,A,T39,A)') &
                      'Type of constraint          :', ADJUSTR('Beta spin density constraint (frag.)')
                ELSE
-                  WRITE (iw, '(T3,A,T50,A)') &
+                  WRITE (iw, '(T3,A,T47,A)') &
                      'Type of constraint          :', ADJUSTR('Beta spin density constraint')
                END IF
             CASE DEFAULT

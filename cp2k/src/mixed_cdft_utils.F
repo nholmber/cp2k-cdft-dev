@@ -402,10 +402,10 @@ CONTAINS
                   IF (.NOT. dft_control%qs_control%gapw) THEN
                      DEALLOCATE (dft_control%qs_control%becke_control%group(igroup)%coeff)
                      DEALLOCATE (dft_control%qs_control%becke_control%group(igroup)%atoms)
-                     IF (.NOT. dft_control%qs_control%becke_control%atomic_charges) &
-                        DEALLOCATE (dft_control%qs_control%becke_control%atoms)
                   END IF
                END DO
+               IF (.NOT. dft_control%qs_control%becke_control%atomic_charges) &
+                  DEALLOCATE (dft_control%qs_control%becke_control%atoms)
                IF (dft_control%qs_control%becke_control%cavity_confine) &
                   CALL release_hirshfeld_type(dft_control%qs_control%becke_control%cavity_env)
                IF (dft_control%qs_control%becke_control%cutoff_type == becke_cutoff_element) &

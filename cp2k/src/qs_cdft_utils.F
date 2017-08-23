@@ -31,10 +31,10 @@ MODULE qs_cdft_utils
                                               hirshfeld_type,&
                                               set_hirshfeld_info
    USE input_constants,                 ONLY: &
-        becke_cutoff_element, becke_cutoff_global, outer_scf_becke_constraint, &
-        outer_scf_cdft_constraint, outer_scf_hirshfeld_constraint, outer_scf_none, &
-        outer_scf_optimizer_broyden, outer_scf_optimizer_newton, outer_scf_optimizer_newton_ls, &
-        radius_covalent, radius_user, shape_function_gaussian, cdft_charge_constraint
+        becke_cutoff_element, becke_cutoff_global, cdft_charge_constraint, &
+        outer_scf_becke_constraint, outer_scf_cdft_constraint, outer_scf_hirshfeld_constraint, &
+        outer_scf_none, outer_scf_optimizer_broyden, outer_scf_optimizer_newton, &
+        outer_scf_optimizer_newton_ls, radius_covalent, radius_user, shape_function_gaussian
    USE input_section_types,             ONLY: section_vals_get,&
                                               section_vals_get_subs_vals,&
                                               section_vals_type,&
