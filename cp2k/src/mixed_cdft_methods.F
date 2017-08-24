@@ -1313,13 +1313,13 @@ CONTAINS
                   IF (mixed_cdft%eps_svd == 0.0_dp) THEN
                      WRITE (moeigvalunit, '(A,I2,A,I2,A,I1,A)') &
                         "# MO Overlap matrix eigenvalues for CDFT states ", istate, " and ", jstate, &
-                        " (spin ", ispin, " )"
+                        " (spin ", ispin, ")"
                   ELSE
                      WRITE (moeigvalunit, '(A,I2,A,I2,A,I1,A)') &
                         "# MO Overlap matrix singular values for CDFT states ", istate, " and ", jstate, &
-                        " (spin ", ispin, " )"
+                        " (spin ", ispin, ")"
                   END IF
-                  WRITE (moeigvalunit, '(A2, A8, A12)') ADJUSTL("#"), "Index", ADJUSTL("Value")
+                  WRITE (moeigvalunit, '(A1, A9, A12)') "#", "Index", ADJUSTL("Value")
                   DO j = 1, SIZE(mo_eigval)
                      WRITE (moeigvalunit, '(I10, F12.8)') j, mo_eigval(j)
                   END DO
@@ -1764,7 +1764,7 @@ CONTAINS
          info = 0
          CALL dsygv(1, 'V', 'U', nforce_eval, H_mat, nforce_eval, S_mat, nforce_eval, eigenv, work, work_array_size, info)
          IF (info /= 0) CPABORT("Diagonalization of H matrix failed.")
-         ! dsygvs returns eigenvectors (stored in columns of H_mat) that are normalized to H^T * S * H = I
+         ! dsygv returns eigenvectors (stored in columns of H_mat) that are normalized to H^T * S * H = I
          ! Renormalize eigenvectors to H^T * H = I
          DO ivar = 1, nforce_eval
             H_mat(:, ivar) = H_mat(:, ivar)/dnrm2(nforce_eval, H_mat(:, ivar), 1)
