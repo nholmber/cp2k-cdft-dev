@@ -254,10 +254,10 @@ CONTAINS
                END IF
 
                ! Calculate derivatives of overlap integrals (a,b), (fa,fb), (a,fa,b), (a,b,fb)
-               IF (ASSOCIATED(lrii%dsab)) DEALLOCATE (lrii%dsab)
-               IF (ASSOCIATED(lrii%dsoo)) DEALLOCATE (lrii%dsoo)
-               IF (ASSOCIATED(lrii%dabbint)) DEALLOCATE (lrii%dabbint)
-               IF (ASSOCIATED(lrii%dabdaint)) DEALLOCATE (lrii%dabdaint)
+               IF (ALLOCATED(lrii%dsab)) DEALLOCATE (lrii%dsab)
+               IF (ALLOCATED(lrii%dsoo)) DEALLOCATE (lrii%dsoo)
+               IF (ALLOCATED(lrii%dabbint)) DEALLOCATE (lrii%dabbint)
+               IF (ALLOCATED(lrii%dabdaint)) DEALLOCATE (lrii%dabdaint)
                ALLOCATE (lrii%dsab(nfa, nfb, 3))
                lrii%dsab = 0._dp
                ALLOCATE (lrii%dsoo(nba, nbb, 3))
@@ -362,11 +362,10 @@ CONTAINS
                ENDDO
 
                ! deallocate derivative integrals
-               IF (ASSOCIATED(lrii%dsab)) DEALLOCATE (lrii%dsab)
-               IF (ASSOCIATED(lrii%dsoo)) DEALLOCATE (lrii%dsoo)
-               IF (ASSOCIATED(lrii%dabbint)) DEALLOCATE (lrii%dabbint)
-               IF (ASSOCIATED(lrii%dabdaint)) DEALLOCATE (lrii%dabdaint)
-               NULLIFY (lrii%dsab, lrii%dsoo, lrii%dabbint, lrii%dabdaint)
+               IF (ALLOCATED(lrii%dsab)) DEALLOCATE (lrii%dsab)
+               IF (ALLOCATED(lrii%dsoo)) DEALLOCATE (lrii%dsoo)
+               IF (ALLOCATED(lrii%dabbint)) DEALLOCATE (lrii%dabbint)
+               IF (ALLOCATED(lrii%dabdaint)) DEALLOCATE (lrii%dabdaint)
 
                atom_a = atom_of_kind(iatom)
                atom_b = atom_of_kind(jatom)
@@ -380,12 +379,17 @@ CONTAINS
                DO k = 1, 3
                   force_a(k) = 2.0_dp*SUM(davec(1:nfa, k)*v_inta(1:nfa)) &
                                +2.0_dp*SUM(davec(nfa+1:nn, k)*v_intb(1:nfb))
-                  v_dadra(k) = v_dadra(k)+force_a(k)
                   !minus: using that davec/dRa = - davec/dRb
                   force_b(k) = -2.0_dp*SUM(davec(nfa+1:nn, k)*v_intb(1:nfb)) &
                                -2.0_dp*SUM(davec(1:nfa, k)*v_inta(1:nfa))
+               ENDDO
+
+!$OMP CRITICAL(addforces)
+               DO k = 1, 3
+                  v_dadra(k) = v_dadra(k)+force_a(k)
                   v_dadrb(k) = v_dadrb(k)+force_b(k)
                ENDDO
+!$OMP END CRITICAL(addforces)
 
                ! contribution to virial
                IF (use_virial) THEN

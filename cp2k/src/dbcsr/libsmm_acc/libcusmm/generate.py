@@ -8,7 +8,7 @@ from glob import glob
 from itertools import chain
 from optparse import OptionParser
 
-from kernels.cusmm_dnt_largeDB  import Kernel_dnt_largeDB
+from kernels.cusmm_dnt_largeDB1 import Kernel_dnt_largeDB1
 from kernels.cusmm_dnt_largeDB2 import Kernel_dnt_largeDB2
 from kernels.cusmm_dnt_medium   import Kernel_dnt_medium
 from kernels.cusmm_dnt_small    import Kernel_dnt_small
@@ -34,6 +34,7 @@ def main(argv):
     #triples += combinations(12,25)
     #triples += combinations(9,12)
     #triples += combinations(5,13,16,32)
+    triples += combinations(6,7,8)
 
     usage = "Generator of LibCuSMM. The Library for Cuda Small Matrix Multiplications."
     parser = OptionParser(usage)
