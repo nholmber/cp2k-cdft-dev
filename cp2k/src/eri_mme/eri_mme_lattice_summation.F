@@ -37,6 +37,7 @@ MODULE eri_mme_lattice_summation
       ellipsoid_bounds, &
       eri_mme_2c_get_bounds, &
       eri_mme_3c_get_bounds, &
+      get_l, &
       pgf_sum_2c_gspace_1d, &
       pgf_sum_2c_gspace_1d_deltal, &
       pgf_sum_2c_gspace_3d, &
@@ -755,7 +756,6 @@ CONTAINS
       INTEGER, INTENT(IN), OPTIONAL                      :: order
 
       CHARACTER(LEN=*), PARAMETER :: routineN = 'pgf_sum_3c_1d', routineP = moduleN//':'//routineN
-      LOGICAL, PARAMETER                                 :: debug = .FALSE.
 
       COMPLEX(KIND=dp), ALLOCATABLE, DIMENSION(:, :, :)  :: S_G_c
       INTEGER                                            :: l_max, m_max, n_max, sum_method, &
@@ -1271,8 +1271,6 @@ CONTAINS
       INTEGER, INTENT(IN)                                :: method
       INTEGER, INTENT(OUT), OPTIONAL                     :: method_out
       INTEGER, INTENT(IN), OPTIONAL                      :: order
-
-      LOGICAL, PARAMETER                                 :: debug = .FALSE.
 
       INTEGER                                            :: l_max, m_max, n_max, sum_method, &
                                                             sum_order
