@@ -787,7 +787,8 @@ CONTAINS
 
       CALL keyword_create(keyword, name="SMOOTHING_WIDTH", variants=s2a('zeta'), &
                           description="The width of the standard mollifier.", &
-                          usage="SMOOTHING_WIDTH <real>", unit_str="angstrom", default_r_val=0.2_dp)
+                          usage="SMOOTHING_WIDTH <real>", unit_str="angstrom", &
+                          default_r_val=cp_unit_to_cp2k(value=0.2_dp, unit_str="angstrom"))
       CALL section_add_keyword(section, keyword)
       CALL keyword_release(keyword)
 
@@ -845,7 +846,8 @@ CONTAINS
 
       CALL keyword_create(keyword, name="smoothing_width", variants=s2a('zeta'), &
                           description="The width of the standard mollifier.", &
-                          usage="smoothing_width <real>", unit_str="angstrom", default_r_val=0.2_dp)
+                          usage="smoothing_width <real>", unit_str="angstrom", &
+                          default_r_val=cp_unit_to_cp2k(value=0.2_dp, unit_str="angstrom"))
       CALL section_add_keyword(section, keyword)
       CALL keyword_release(keyword)
 
@@ -991,13 +993,15 @@ CONTAINS
 
       CALL keyword_create(keyword, name="THICKNESS", &
                           description="The thickness of the planar Dirichlet region.", &
-                          usage="THICKNESS <real>", default_r_val=0.75_dp, unit_str="angstrom")
+                          usage="THICKNESS <real>", unit_str="angstrom", &
+                          default_r_val=cp_unit_to_cp2k(value=0.75_dp, unit_str="angstrom"))
       CALL section_add_keyword(section, keyword)
       CALL keyword_release(keyword)
 
       CALL keyword_create(keyword, name="SMOOTHING_WIDTH", variants=s2a('SIGMA'), &
                           description="The width of the transition region between the Dirichlet subdomain and its surrounding.", &
-                          usage="SMOOTHING_WIDTH <real>", default_r_val=0.2_dp, unit_str="angstrom")
+                          usage="SMOOTHING_WIDTH <real>", unit_str="angstrom", &
+                          default_r_val=cp_unit_to_cp2k(value=0.2_dp, unit_str="angstrom"))
       CALL section_add_keyword(section, keyword)
       CALL keyword_release(keyword)
 
@@ -1087,13 +1091,15 @@ CONTAINS
 
       CALL keyword_create(keyword, name="THICKNESS", &
                           description="The thickness of the planar Dirichlet region.", &
-                          usage="THICKNESS <real>", default_r_val=0.75_dp, unit_str="angstrom")
+                          usage="THICKNESS <real>", unit_str="angstrom", &
+                          default_r_val=cp_unit_to_cp2k(value=0.75_dp, unit_str="angstrom"))
       CALL section_add_keyword(section, keyword)
       CALL keyword_release(keyword)
 
       CALL keyword_create(keyword, name="SMOOTHING_WIDTH", variants=s2a('SIGMA'), &
                           description="The width of the transition region between the Dirichlet subdomain and its surrounding.", &
-                          usage="SMOOTHING_WIDTH <real>", default_r_val=0.2_dp, unit_str="angstrom")
+                          usage="SMOOTHING_WIDTH <real>", unit_str="angstrom", &
+                          default_r_val=cp_unit_to_cp2k(value=0.2_dp, unit_str="angstrom"))
       CALL section_add_keyword(section, keyword)
       CALL keyword_release(keyword)
 
@@ -1160,7 +1166,8 @@ CONTAINS
       CALL keyword_release(keyword)
 
       CALL keyword_create(keyword, name="BASE_CENTER", &
-                          description="The y and z coordinates of the cylinder's base center.", &
+                          description="The y and z coordinates (x and z or x and y coordinates, "// &
+                          "depending on the choice of the parallel axis) of the cylinder's base center.", &
                           usage="BASE_CENTER <y(real)> <z(real)>", unit_str="angstrom", &
                           n_var=2, type_of_var=real_t)
       CALL section_add_keyword(section, keyword)
@@ -1168,7 +1175,8 @@ CONTAINS
 
       CALL keyword_create(keyword, name="BASE_RADIUS", &
                           description="The base radius of the cylinder.", &
-                          usage="BASE_RADIUS <real>", default_r_val=1.0_dp, unit_str="angstrom")
+                          usage="BASE_RADIUS <real>", unit_str="angstrom", &
+                          default_r_val=cp_unit_to_cp2k(value=1.0_dp, unit_str="angstrom"))
       CALL section_add_keyword(section, keyword)
       CALL keyword_release(keyword)
 
@@ -1197,13 +1205,15 @@ CONTAINS
 
       CALL keyword_create(keyword, name="THICKNESS", &
                           description="The thickness of the cylinder.", &
-                          usage="THICKNESS <real>", default_r_val=0.75_dp, unit_str="angstrom")
+                          usage="THICKNESS <real>", unit_str="angstrom", &
+                          default_r_val=cp_unit_to_cp2k(value=0.75_dp, unit_str="angstrom"))
       CALL section_add_keyword(section, keyword)
       CALL keyword_release(keyword)
 
       CALL keyword_create(keyword, name="SMOOTHING_WIDTH", variants=s2a('SIGMA'), &
                           description="The width of the transition region between the Dirichlet subdomain and its surrounding.", &
-                          usage="SMOOTHING_WIDTH <real>", default_r_val=0.2_dp, unit_str="angstrom")
+                          usage="SMOOTHING_WIDTH <real>", unit_str="angstrom", &
+                          default_r_val=cp_unit_to_cp2k(value=0.2_dp, unit_str="angstrom"))
       CALL section_add_keyword(section, keyword)
       CALL keyword_release(keyword)
 
@@ -1292,7 +1302,8 @@ CONTAINS
 
       CALL keyword_create(keyword, name="SMOOTHING_WIDTH", variants=s2a('SIGMA'), &
                           description="The width of the transition region between the Dirichlet subdomain and its surrounding.", &
-                          usage="SMOOTHING_WIDTH <real>", default_r_val=0.2_dp, unit_str="angstrom")
+                          usage="SMOOTHING_WIDTH <real>", unit_str="angstrom", &
+                          default_r_val=cp_unit_to_cp2k(value=0.2_dp, unit_str="angstrom"))
       CALL section_add_keyword(section, keyword)
       CALL keyword_release(keyword)
 
