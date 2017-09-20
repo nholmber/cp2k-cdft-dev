@@ -43,7 +43,8 @@ MODULE optimize_embedding_potential
                                               section_vals_val_get
    USE kinds,                           ONLY: default_path_length,&
                                               dp
-   USE message_passing,                 ONLY: mp_sum
+   USE message_passing,                 ONLY: mp_max,&
+                                              mp_sum
    USE opt_embed_pot_types,             ONLY: opt_embed_pot_type
    USE particle_list_types,             ONLY: particle_list_type
    USE particle_types,                  ONLY: particle_type
@@ -52,6 +53,7 @@ MODULE optimize_embedding_potential
    USE pw_methods,                      ONLY: pw_axpy,&
                                               pw_copy,&
                                               pw_integral_ab,&
+                                              pw_integrate_function,&
                                               pw_scale,&
                                               pw_zero
    USE pw_pool_types,                   ONLY: pw_pool_create_pw,&
@@ -85,7 +87,7 @@ MODULE optimize_embedding_potential
 
    PUBLIC :: prepare_embed_opt, init_embed_pot, release_opt_embed, calculate_embed_pot_grad, &
              opt_embed_step, print_rho_diff, step_control, max_dens_diff, print_emb_opt_info, &
-             conv_check_embed
+             conv_check_embed, make_subsys_embed_pot
 
 CONTAINS
 ! **************************************************************************************************
@@ -159,7 +161,7 @@ CONTAINS
          CALL pw_axpy(vppl%pw, const_pot%pw)
          CALL pw_copy(const_pot%pw, embed_pot%pw)
 
-         ! Give away plane waves pool for pseudo
+         ! Give back plane waves pool for pseudo
          CALL pw_pool_give_back_pw(auxbas_pw_pool, vppl%pw)
          CALL pw_pool_give_back_pw(auxbas_pw_pool, const_pot%pw)
       ENDIF
@@ -314,10 +316,43 @@ CONTAINS
       CALL cp_fm_release(opt_embed%prev_embed_pot_hess)
       CALL cp_fm_release(opt_embed%kinetic_mat)
       DEALLOCATE (opt_embed%w_func)
-      DEALLOCATE (opt_embed%const_pot)
+      IF (opt_embed%add_const_pot) DEALLOCATE (opt_embed%const_pot)
       DEALLOCATE (opt_embed%max_diff)
       DEALLOCATE (opt_embed%int_diff)
    END SUBROUTINE release_opt_embed
+
+! **************************************************************************************************
+!> \brief Creates a subsystem embedding potential
+!> \param qs_env ...
+!> \param embed_pot ...
+!> \param embed_pot_subsys ...
+!> \author Vladimir Rybkin
+! **************************************************************************************************
+   SUBROUTINE make_subsys_embed_pot(qs_env, embed_pot, embed_pot_subsys)
+      TYPE(qs_environment_type), POINTER                 :: qs_env
+      TYPE(pw_p_type), POINTER                           :: embed_pot, embed_pot_subsys
+
+      TYPE(pw_env_type), POINTER                         :: pw_env
+      TYPE(pw_pool_type), POINTER                        :: auxbas_pw_pool_subsys
+
+      ! Extract  plane waves environment
+      CALL get_qs_env(qs_env, pw_env=pw_env)
+
+      ! Prepare plane-waves pool
+      CALL pw_env_get(pw_env, auxbas_pw_pool=auxbas_pw_pool_subsys)
+
+      ! Create embedding potential and set to zero
+      NULLIFY (embed_pot_subsys)
+      ALLOCATE (embed_pot_subsys)
+      NULLIFY (embed_pot_subsys%pw)
+      CALL pw_pool_create_pw(auxbas_pw_pool_subsys, embed_pot_subsys%pw, &
+                             use_data=REALDATA3D, &
+                             in_space=REALSPACE)
+
+      ! Hard copy the grid
+      embed_pot_subsys%pw%cr3d(:, :, :) = embed_pot%pw%cr3d(:, :, :)
+
+   END SUBROUTINE make_subsys_embed_pot
 
 ! **************************************************************************************************
 !> \brief Calculates the derivative of the embedding potential wrt to the expansion coefficients
@@ -326,6 +361,7 @@ CONTAINS
 !> \param opt_embed ...
 !> \author Vladimir Rybkin
 ! **************************************************************************************************
+
    SUBROUTINE calculate_embed_pot_grad(qs_env, diff_rho_r, opt_embed)
       TYPE(qs_environment_type), POINTER                 :: qs_env
       TYPE(pw_p_type), ALLOCATABLE, DIMENSION(:)         :: diff_rho_r
@@ -429,10 +465,11 @@ CONTAINS
       INTEGER                                            :: handle, i_spin, l_global, LLL, &
                                                             nrow_local, nspins
       INTEGER, DIMENSION(:), POINTER                     :: row_indices
-      REAL(KIND=dp), ALLOCATABLE, DIMENSION(:)           :: wf_vector
+      REAL(KIND=dp), ALLOCATABLE, DIMENSION(:)           :: pot_grad, wf_vector
       TYPE(atomic_kind_type), DIMENSION(:), POINTER      :: atomic_kind_set
       TYPE(cell_type), POINTER                           :: cell
       TYPE(cp_fm_type), POINTER                          :: mo_coeff
+      TYPE(cp_para_env_type), POINTER                    :: para_env
       TYPE(dft_control_type), POINTER                    :: dft_control
       TYPE(mo_set_p_type), DIMENSION(:), POINTER         :: mos
       TYPE(particle_type), DIMENSION(:), POINTER         :: particle_set
@@ -446,12 +483,13 @@ CONTAINS
                       dft_control=dft_control, &
                       cell=cell, &
                       atomic_kind_set=atomic_kind_set, &
-                      mos=mos)
+                      mos=mos, para_env=para_env)
       ! Get MO coefficients: we need only the structure, therefore don't care about the spin
       CALL get_mo_set(mo_set=mos(1)%mo_set, mo_coeff=mo_coeff)
 
-      ! Create wf_vector
+      ! Create wf_vector and gradient
       ALLOCATE (wf_vector(dimen_aux))
+      ALLOCATE (pot_grad(dimen_aux))
 
       nspins = dft_control%nspins
 
@@ -462,15 +500,16 @@ CONTAINS
 
       ! Calculate the gradient
 
-      DO LLL = 1, nrow_local
-         l_global = row_indices(LLL)
+      DO LLL = 1, dimen_aux
 
          ! Integrate basis_function*rho
 
          wf_vector = 0.0_dp
-         wf_vector(l_global) = 1.0_dp
+         !wf_vector(l_global) = 1.0_dp
+         wf_vector(LLL) = 1.0_dp
 
          ! pseudo psi_L
+
          CALL calculate_wavefunction(mo_coeff, 1, psi_L, rho_g, atomic_kind_set, &
                                      qs_kind_set, cell, dft_control, particle_set, pw_env, &
                                      basis_type="RI_AUX", &
@@ -478,12 +517,17 @@ CONTAINS
 
          ! Calculate integral over rho*rho_basis_function
          DO i_spin = 1, nspins
-            embed_pot_grad%local_data(LLL, 1) = pw_integral_ab(psi_L%pw, rho_r(i_spin)%pw)
+            pot_grad(LLL) = pw_integral_ab(psi_L%pw, rho_r(i_spin)%pw)
          ENDDO
 
       ENDDO
 
-      DEALLOCATE (wf_vector)
+      DO LLL = 1, nrow_local
+         l_global = row_indices(LLL)
+         embed_pot_grad%local_data(LLL, 1) = pot_grad(l_global)
+      ENDDO
+
+      DEALLOCATE (wf_vector, pot_grad)
 
       CALL timestop(handle)
 
@@ -510,7 +554,6 @@ CONTAINS
 
       CALL timeset(routineN, handle)
 
-      !NULLIFY (ks_env, sab_orb, matrix_S_RI_aux, matrix_t)
       NULLIFY (ks_env, sab_orb, matrix_t)
 
       ! First, get the dbcsr structure from the overlap matrix
@@ -567,9 +610,8 @@ CONTAINS
       ENDIF
 
       ! Add regularization term to the Hessian
-
-      CALL cp_fm_scale_and_add(1.0_dp, opt_embed%embed_pot_Hess, 4.0_dp*opt_embed%lambda, &
-                               opt_embed%kinetic_mat)
+      !CALL cp_fm_scale_and_add(1.0_dp, opt_embed%embed_pot_Hess, 4.0_dp*opt_embed%lambda, &
+      !                         opt_embed%kinetic_mat)
 
       ! Else use the first initial Hessian. Now it's just the unit matrix: embed_pot_hess
       ! Second, invert the Hessian
@@ -617,6 +659,7 @@ CONTAINS
             diag_step%local_data(LLL, 1) = 0.0_dp
          ENDIF
       ENDDO
+      CALL cp_fm_trace(diag_step, diag_step, opt_embed%step_len)
 
       ! Transform step to a non-diagonal representation
       CALL cp_gemm(transa="N", transb="N", m=opt_embed%dimen_aux, n=1, &
@@ -642,6 +685,7 @@ CONTAINS
             CALL cp_fm_trace(diag_step, diag_step, opt_embed%step_len)
             CALL cp_fm_scale(opt_embed%trust_rad/opt_embed%step_len, diag_step)
          ENDIF
+         CALL cp_fm_trace(diag_step, diag_step, opt_embed%step_len)
          ! Transform step to a non-diagonal representation
          CALL cp_gemm(transa="N", transb="N", m=opt_embed%dimen_aux, n=1, &
                       k=opt_embed%dimen_aux, alpha=1.0_dp, &
@@ -696,10 +740,12 @@ CONTAINS
 
       INTEGER                                            :: handle, l_global, LLL, nrow_local
       INTEGER, DIMENSION(:), POINTER                     :: row_indices
+      REAL(KIND=dp)                                      :: coef_norm
       REAL(KIND=dp), ALLOCATABLE, DIMENSION(:)           :: wf_vector
       TYPE(atomic_kind_type), DIMENSION(:), POINTER      :: atomic_kind_set
       TYPE(cell_type), POINTER                           :: cell
       TYPE(cp_fm_type), POINTER                          :: mo_coeff
+      TYPE(cp_para_env_type), POINTER                    :: para_env
       TYPE(dft_control_type), POINTER                    :: dft_control
       TYPE(mo_set_p_type), DIMENSION(:), POINTER         :: mos
       TYPE(particle_type), DIMENSION(:), POINTER         :: particle_set
@@ -707,6 +753,8 @@ CONTAINS
       TYPE(pw_p_type)                                    :: psi_L, rho_g
       TYPE(pw_pool_type), POINTER                        :: auxbas_pw_pool
       TYPE(qs_kind_type), DIMENSION(:), POINTER          :: qs_kind_set
+
+      CALL cp_fm_trace(embed_pot_coef, embed_pot_coef, coef_norm)
 
       CALL timeset(routineN, handle)
       ! Get MO coefficients: we need only the structure, therefore don't care about the spin
@@ -716,8 +764,7 @@ CONTAINS
                       dft_control=dft_control, &
                       cell=cell, &
                       atomic_kind_set=atomic_kind_set, &
-                      pw_env=pw_env, &
-                      mos=mos)
+                      pw_env=pw_env, mos=mos, para_env=para_env)
       CALL get_mo_set(mo_set=mos(1)%mo_set, mo_coeff=mo_coeff)
 
       ! Get plane waves pool
@@ -736,6 +783,7 @@ CONTAINS
 
       ! Create wf_vector and auxiliary wave functions
       ALLOCATE (wf_vector(dimen_aux))
+      wf_vector = 0.0_dp
 
       CALL cp_fm_get_info(matrix=embed_pot_coef, &
                           nrow_local=nrow_local, &
@@ -746,6 +794,7 @@ CONTAINS
          l_global = row_indices(LLL)
          wf_vector(l_global) = embed_pot_coef%local_data(LLL, 1)
       ENDDO
+      CALL mp_sum(wf_vector, para_env%group)
 
       ! Calculate the variable part of the embedding potential
       CALL calculate_wavefunction(mo_coeff, 1, psi_L, rho_g, atomic_kind_set, &
@@ -1313,11 +1362,12 @@ CONTAINS
 !> \param diff_rho_r ...
 !> \retval max_diff ...
 ! **************************************************************************************************
-   FUNCTION max_dens_diff(diff_rho_r) RESULT(max_diff)
+   FUNCTION max_dens_diff(diff_rho_r) RESULT(total_max_diff)
       TYPE(pw_p_type)                                    :: diff_rho_r
-      REAL(KIND=dp)                                      :: max_diff
+      REAL(KIND=dp)                                      :: total_max_diff
 
       INTEGER                                            :: size_x, size_y, size_z
+      REAL(KIND=dp)                                      :: max_diff
       REAL(KIND=dp), ALLOCATABLE, DIMENSION(:, :, :)     :: grid_3d
 
       !, i_x, i_y, i_z
@@ -1335,6 +1385,8 @@ CONTAINS
 
       ! Find the maximum absolute value
       max_diff = MAXVAL(ABS(grid_3d))
+      total_max_diff = max_diff
+      CALL mp_max(total_max_diff, diff_rho_r%pw%pw_grid%para%group)
 
       ! Deallocate the density
       DEALLOCATE (grid_3d)
@@ -1421,14 +1473,24 @@ CONTAINS
 ! **************************************************************************************************
 !> \brief ...
 !> \param opt_embed ...
+!> \param diff_rho_r ...
+!> \param nspins ...
 !> \param output_unit ...
 ! **************************************************************************************************
-   SUBROUTINE conv_check_embed(opt_embed, output_unit)
+   SUBROUTINE conv_check_embed(opt_embed, diff_rho_r, nspins, output_unit)
       TYPE(opt_embed_pot_type)                           :: opt_embed
-      INTEGER                                            :: output_unit
+      TYPE(pw_p_type), ALLOCATABLE, DIMENSION(:)         :: diff_rho_r
+      INTEGER                                            :: nspins, output_unit
 
+      INTEGER                                            :: i_spin
       LOGICAL                                            :: conv_int_diff, conv_max_diff
       REAL(KIND=dp)                                      :: int_diff, max_diff
+
+      ! Calculate the convergence target values
+      DO i_spin = 1, nspins
+         opt_embed%max_diff(i_spin) = max_dens_diff(diff_rho_r(i_spin))
+         opt_embed%int_diff = pw_integrate_function(fun=diff_rho_r(i_spin)%pw, oprt='ABS')
+      ENDDO
 
       ! Find out the convergence
       max_diff = MAXVAL(opt_embed%max_diff)

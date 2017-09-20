@@ -73,7 +73,7 @@ CONTAINS
                                                             lmax_ikind_ri, maxl_orb, maxl_ri, &
                                                             natom, nbas, nkind, nribas, nspin
       INTEGER, ALLOCATABLE, DIMENSION(:)                 :: kind_of
-      REAL(KIND=dp), DIMENSION(:), POINTER               :: int_aux, norm
+      REAL(KIND=dp), DIMENSION(:), POINTER               :: int_aux, norm, radii
       TYPE(atomic_kind_type), DIMENSION(:), POINTER      :: atomic_kind_set
       TYPE(dft_control_type), POINTER                    :: dft_control
       TYPE(gto_basis_set_type), POINTER                  :: orb_basis_set, ri_basis_set
@@ -111,6 +111,9 @@ CONTAINS
       END DO
 
       ! init keywords
+      ! use exact one-center terms
+      CALL section_vals_val_get(lri_section, "EXACT_1C_TERMS", &
+                                l_val=lri_env%exact_1c_terms)
       ! check for debug (OS scheme)
       CALL section_vals_val_get(lri_section, "DEBUG_LRI_INTEGRALS", &
                                 l_val=lri_env%debug)
@@ -128,6 +131,17 @@ CONTAINS
       ! RI SINV
       CALL section_vals_val_get(lri_section, "RI_SINV", &
                                 c_val=lri_env%ri_sinv_app)
+      ! Distant Pair Approximation
+      CALL section_vals_val_get(lri_section, "DISTANT_PAIR_APPROXIMATION", &
+                                l_val=lri_env%distant_pair_approximation)
+      CALL section_vals_val_get(lri_section, "DISTANT_PAIR_METHOD", &
+                                c_val=lri_env%distant_pair_method)
+      CALL section_vals_val_get(lri_section, "DISTANT_PAIR_RADII", r_vals=radii)
+      CPASSERT(SIZE(radii) == 2)
+      CPASSERT(radii(2) > radii(1))
+      CPASSERT(radii(1) > 0.0_dp)
+      lri_env%r_in = radii(1)
+      lri_env%r_out = radii(2)
 
       IF (ri_type == "LRI") THEN
          ! CG coefficients needed for lri integrals
@@ -208,11 +222,12 @@ CONTAINS
 
       INTEGER                                            :: ikind, nkind
       INTEGER, DIMENSION(:, :, :), POINTER               :: orb_index, ri_index
+      REAL(KIND=dp), ALLOCATABLE, DIMENSION(:, :, :, :)  :: dovlp3
       REAL(KIND=dp), DIMENSION(:), POINTER               :: orb_norm_r, ri_int_fbas, ri_norm_r, &
                                                             ri_norm_s, screen
       REAL(KIND=dp), DIMENSION(:, :), POINTER            :: orb_ovlp, ri_ovlp, ri_ovlp_inv
-      REAL(KIND=dp), DIMENSION(:, :, :), POINTER         :: ovlp3, scon_orb, scon_ri
-      REAL(KIND=dp), DIMENSION(:, :, :, :), POINTER      :: dovlp3, scon_mix
+      REAL(KIND=dp), DIMENSION(:, :, :), POINTER         :: scon_orb, scon_ri
+      REAL(KIND=dp), DIMENSION(:, :, :, :), POINTER      :: scon_mix
       TYPE(gto_basis_set_type), POINTER                  :: orb_basis, ri_basis
 
       IF (ASSOCIATED(lri_env)) THEN
@@ -254,11 +269,10 @@ CONTAINS
                   lri_env%bas_prop(ikind)%scon_mix => scon_mix
                   lri_env%bas_prop(ikind)%orb_index => orb_index
                   lri_env%bas_prop(ikind)%ri_index => ri_index
-                  NULLIFY (ovlp3)
-                  ALLOCATE (ovlp3(orb_basis%nsgf, orb_basis%nsgf, ri_basis%nsgf))
+                  ALLOCATE (lri_env%bas_prop(ikind)%ovlp3(orb_basis%nsgf, orb_basis%nsgf, ri_basis%nsgf))
                   ALLOCATE (dovlp3(orb_basis%nsgf, orb_basis%nsgf, ri_basis%nsgf, 3))
                   ALLOCATE (screen(ri_basis%nsgf))
-                  CALL int_overlap_aba_shg(ovlp3, dovlp3, (/0.0_dp, 0.0_dp, 0.0_dp/), &
+                  CALL int_overlap_aba_shg(lri_env%bas_prop(ikind)%ovlp3, dovlp3, (/0.0_dp, 0.0_dp, 0.0_dp/), &
                                            orb_basis, orb_basis, ri_basis, scon_orb, &
                                            scon_mix, orb_index, ri_index, &
                                            lri_env%cg_shg%cg_coeff, &
@@ -266,7 +280,6 @@ CONTAINS
                                            lri_env%cg_shg%ncg_none0, &
                                            calculate_forces=.FALSE., &
                                            screen=screen)
-                  lri_env%bas_prop(ikind)%ovlp3 => ovlp3
                   DEALLOCATE (screen)
                   DEALLOCATE (orb_norm_r, ri_norm_r, ri_norm_s)
                   DEALLOCATE (dovlp3)
