@@ -48,6 +48,14 @@ MODULE cp_output_handling
                                               default_string_length
    USE machine,                         ONLY: m_mov
    USE memory_utilities,                ONLY: reallocate
+   USE message_passing,                 ONLY: file_amode_append, &
+                                              file_amode_create, &
+                                              file_amode_excl, &
+                                              file_amode_rdonly, &
+                                              file_amode_rdwr, &
+                                              file_amode_wronly, &
+                                              mp_file_close, &
+                                              mp_file_open
    USE string_utilities,                ONLY: compress,&
                                               s2a
 #include "../base/base_uses.f90"
@@ -804,11 +812,15 @@ CONTAINS
 !> \param do_backup ...
 !> \param on_file ...
 !> \param is_new_file true if this rank created a new (or rewound) file, false otherwise
+!> \param mpi_io True if the file should be opened in parallel on all processors belonging to
+!>               the communicator group. Automatically disabled if the file form or access mode
+!>               is unsuitable for MPI IO. Return value indicates whether MPI was actually used
+!>               and therefore the flag must also be passed to the file closing directive.
 !> \retval res ...
 ! **************************************************************************************************
    FUNCTION cp_print_key_unit_nr(logger, basis_section, print_key_path, extension, &
                                  middle_name, local, log_filename, ignore_should_output, file_form, file_position, &
-                                 file_action, file_status, do_backup, on_file, is_new_file) RESULT(res)
+                                 file_action, file_status, do_backup, on_file, is_new_file, mpi_io) RESULT(res)
       TYPE(cp_logger_type), POINTER                      :: logger
       TYPE(section_vals_type), POINTER                   :: basis_section
       CHARACTER(len=*), INTENT(IN), OPTIONAL             :: print_key_path
@@ -819,6 +831,8 @@ CONTAINS
                                                             file_status
       LOGICAL, INTENT(IN), OPTIONAL                      :: do_backup, on_file
       LOGICAL, INTENT(OUT), OPTIONAL                     :: is_new_file
+      LOGICAL, INTENT(INOUT), OPTIONAL                     :: is_new_file
+                                                            mpi_io
       INTEGER                                            :: res
 
       CHARACTER(len=*), PARAMETER :: routineN = 'cp_print_key_unit_nr', &
@@ -831,14 +845,15 @@ CONTAINS
                                                             outPath
       INTEGER                                            :: c_i_level, f_backup_level, i, &
                                                             my_backup_level, my_nbak, nbak, &
-                                                            s_backup_level, unit_nr
+                                                            s_backup_level, unit_nr, mpi_amode
       LOGICAL                                            :: do_log, found, my_do_backup, my_local, &
-                                                            my_on_file, my_should_output
+                                                            my_on_file, my_should_output, my_mpi_io
       TYPE(cp_iteration_info_type), POINTER              :: iteration_info
       TYPE(section_vals_type), POINTER                   :: print_key
 
       my_local = .FALSE.
       my_do_backup = .FALSE.
+      my_mpi_io = .FALSE.
       found = .FALSE.
       res = -1
       my_file_form = "FORMATTED"
@@ -854,6 +869,58 @@ CONTAINS
       IF (PRESENT(on_file)) my_on_file = on_file
       IF (PRESENT(local)) my_local = local
       IF (PRESENT(is_new_file)) is_new_file = .FALSE.
+      IF (PRESENT(mpi_io)) THEN
+#if defined(__parallel)
+         IF (logger%para_env%group_size > 1 .AND. mpi_io) THEN
+            my_mpi_io = .TRUE.
+         ELSE
+            my_mpi_io = .FALSE.
+         END IF
+         IF (my_mpi_io) THEN
+            ! Disable mpi io for unformatted access
+            SELECT CASE (my_file_form)
+            CASE ("FORMATTED")
+               ! Do nothing
+            CASE ("UNFORMATTED")
+               my_mpi_io = .FALSE.
+            CASE DEFAULT
+               CPABORT("Unknown MPI file form requested.")
+            END SELECT
+            ! Determine file access mode (limited choices)
+            SELECT CASE (my_file_action)
+            CASE ("WRITE")
+               mpi_amode = file_amode_wronly
+            CASE ("READ")
+               mpi_amode = file_amode_rdonly
+            CASE ("READWRITE")
+               mpi_amode = file_amode_rdwr
+            CASE DEFAULT
+               CPABORT("Unknown MPI file action requested.")
+            END SELECT
+            SELECT CASE (my_file_status)
+            CASE ("NEW")
+               mpi_amode = mpi_amode + file_amode_create + file_amode_excl
+            CASE ("REPLACE", "UNKNOWN", "OLD")
+               ! Do nothing
+            CASE ("SCRATCH")
+               ! Disable
+               my_mpi_io = .FALSE.
+            CASE DEFAULT
+               CPABORT("Unknown MPI file status requested.")
+            END SELECT
+            SELECT CASE (my_file_position)
+            CASE ("APPEND")
+               mpi_amode = mpi_amode + file_amode_append
+            CASE ("REWIND", "ASIS")
+               ! Do nothing
+            CASE DEFAULT
+               CPABORT("Unknown MPI file position requested.")
+            END SELECT
+         END IF
+#else
+         my_mpi_io = .FALSE.
+#endif
+      END IF
       NULLIFY (print_key)
       CPASSERT(ASSOCIATED(basis_section))
       CPASSERT(ASSOCIATED(logger))
@@ -864,7 +931,8 @@ CONTAINS
       IF (PRESENT(ignore_should_output)) my_should_output = my_should_output .OR. ignore_should_output
       IF (.NOT. my_should_output) RETURN
       IF (my_local .OR. &
-          logger%para_env%mepos == logger%para_env%source) THEN
+          logger%para_env%mepos == logger%para_env%source .OR. &
+          my_mpi_io) THEN
 
          CALL section_vals_val_get(print_key, "FILENAME", c_val=outPath)
          IF (outPath == '__STD_OUT__' .AND. .NOT. my_on_file) THEN
@@ -946,9 +1014,16 @@ CONTAINS
                   END IF
                END IF
             END IF
-            CALL open_file(file_name=filename, file_status=my_file_status, &
-                           file_form=my_file_form, file_action=my_file_action, &
-                           file_position=my_file_position, unit_number=res)
+
+            IF (.NOT. my_mpi_io) THEN
+               CALL open_file(file_name=filename, file_status=my_file_status, &
+                              file_form=my_file_form, file_action=my_file_action, &
+                              file_position=my_file_position, unit_number=res)
+            ELSE
+               CALL mp_file_open(groupid=logger%para_env%group, &
+                                 fh=res, filepath=filename, amode_status=mpi_amode)
+
+            END IF
             IF (do_log) THEN
                unit_nr = cp_logger_get_unit_nr(logger, local=my_local)
                IF (unit_nr > 0) &
@@ -976,6 +1051,7 @@ CONTAINS
 !> \param local ...
 !> \param ignore_should_output ...
 !> \param on_file ...
+!> \param mpi_io True if file was opened in parallel with MPI
 !> \par History
 !>      08.2002 created [fawzi]
 !> \author Fawzi Mohamed
@@ -984,25 +1060,30 @@ CONTAINS
 !>      not __STD_OUT__
 ! **************************************************************************************************
    SUBROUTINE cp_print_key_finished_output(unit_nr, logger, basis_section, &
-                                           print_key_path, local, ignore_should_output, on_file)
+                                           print_key_path, local, ignore_should_output, on_file, &
+                                           mpi_io)
       INTEGER, INTENT(INOUT)                             :: unit_nr
       TYPE(cp_logger_type), POINTER                      :: logger
       TYPE(section_vals_type), POINTER                   :: basis_section
       CHARACTER(len=*), INTENT(IN), OPTIONAL             :: print_key_path
-      LOGICAL, INTENT(IN), OPTIONAL                      :: local, ignore_should_output, on_file
+      LOGICAL, INTENT(IN), OPTIONAL                      :: local, ignore_should_output, on_file, &
+                                                            mpi_io
 
       CHARACTER(len=*), PARAMETER :: routineN = 'cp_print_key_finished_output', &
          routineP = moduleN//':'//routineN
 
       CHARACTER(len=default_string_length)               :: outPath
-      LOGICAL                                            :: my_local, my_on_file, my_should_output
+      LOGICAL                                            :: my_local, my_on_file, my_should_output, &
+                                                            my_mpi_io
       TYPE(section_vals_type), POINTER                   :: print_key
 
       my_local = .FALSE.
       my_on_file = .FALSE.
+      my_mpi_io = .FALSE.
       NULLIFY (print_key)
       IF (PRESENT(local)) my_local = local
       IF (PRESENT(on_file)) my_on_file = on_file
+      IF (PRESENT(mpi_io)) my_mpi_io = mpi_io
       CPASSERT(ASSOCIATED(basis_section))
       CPASSERT(ASSOCIATED(logger))
       CPASSERT(basis_section%ref_count > 0)
@@ -1011,11 +1092,16 @@ CONTAINS
                                                           print_key_path, used_print_key=print_key), cp_p_file)
       IF (PRESENT(ignore_should_output)) my_should_output = my_should_output .OR. ignore_should_output
       IF (my_should_output .AND. (my_local .OR. &
-                                  logger%para_env%source == logger%para_env%mepos)) THEN
+                                  logger%para_env%source == logger%para_env%mepos .OR. &
+                                  my_mpi_io)) THEN
          CALL section_vals_val_get(print_key, "FILENAME", c_val=outPath)
          IF (my_on_file .OR. outPath .NE. '__STD_OUT__') THEN
             CPASSERT(unit_nr > 0)
-            CALL close_file(unit_nr, "KEEP")
+            IF (.NOT. my_mpi_io) THEN
+               CALL close_file(unit_nr, "KEEP")
+            ELSE
+               CALL mp_file_close(unit_nr)
+            END IF
             unit_nr = -1
          ELSE
             unit_nr = -1

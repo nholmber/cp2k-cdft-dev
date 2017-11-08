@@ -96,6 +96,7 @@ MODULE message_passing
    INTEGER, PARAMETER, PUBLIC :: file_amode_wronly = MPI_MODE_WRONLY
    INTEGER, PARAMETER, PUBLIC :: file_amode_rdwr = MPI_MODE_RDWR
    INTEGER, PARAMETER, PUBLIC :: file_amode_excl = MPI_MODE_EXCL
+   INTEGER, PARAMETER, PUBLIC :: file_amode_append = MPI_MODE_APPEND
 #else
    LOGICAL, PARAMETER :: cp2k_is_parallel = .FALSE.
    INTEGER, PARAMETER, PUBLIC :: mp_any_tag = -1
@@ -115,6 +116,8 @@ MODULE message_passing
    INTEGER, PARAMETER, PUBLIC :: file_amode_wronly = 4
    INTEGER, PARAMETER, PUBLIC :: file_amode_rdwr = 8
    INTEGER, PARAMETER, PUBLIC :: file_amode_excl = 64
+   INTEGER, PARAMETER, PUBLIC :: file_amode_append = 128
+
 #endif
 
    ! we need to fix this to a given number (crossing fingers)
@@ -166,6 +169,7 @@ MODULE message_passing
    PUBLIC :: mp_file_write_at
    PUBLIC :: mp_file_write_at_all, mp_file_read_at_all
    PUBLIC :: mp_file_get_size
+   PUBLIC :: mp_file_get_position
 
    ! some 'advanced types' currently only used for dbcsr
    PUBLIC :: mp_type_descriptor_type
@@ -189,6 +193,7 @@ MODULE message_passing
    PUBLIC :: mp_file_type_hindexed_make_chv
    PUBLIC :: mp_file_type_set_view_chv
    PUBLIC :: mp_file_read_all_chv
+   PUBLIC :: mp_file_write_all_chv
 
    PUBLIC :: mp_get_library_version
 
@@ -3094,7 +3099,8 @@ CONTAINS
 #if defined(__parallel)
       INTEGER                                  :: my_info
 #else
-      CHARACTER(LEN=10)                        :: fstatus
+      CHARACTER(LEN=10)                        :: fstatus, fposition
+      INTEGER                                  :: amode
       LOGICAL                                  :: exists, is_open
 #endif
 
@@ -3109,9 +3115,16 @@ CONTAINS
 #else
       MARK_USED(groupid)
       MARK_USED(info)
-      IF ((amode_status .EQ. file_amode_create) .OR. &
-          (amode_status .EQ. file_amode_create+file_amode_wronly) .OR. &
-          (amode_status .EQ. file_amode_create+file_amode_wronly+file_amode_excl)) THEN
+      amode = amode_status
+      IF (amode .GT. file_amode_append) THEN
+         fposition = "APPEND"
+         amode = amode - file_amode_append
+      ELSE
+         fposition = "REWIND"
+      END IF
+      IF ((amode .EQ. file_amode_create) .OR. &
+          (amode .EQ. file_amode_create+file_amode_wronly) .OR. &
+          (amode .EQ. file_amode_create+file_amode_wronly+file_amode_excl)) THEN
          fstatus = "UNKNOWN"
       ELSE
          fstatus = "OLD"
@@ -3121,7 +3134,7 @@ CONTAINS
          INQUIRE (UNIT=fh, EXIST=exists, OPENED=is_open, IOSTAT=istat)
          IF (exists .AND. (.NOT. is_open) .AND. (istat == 0)) EXIT
       END DO
-      OPEN (UNIT=fh, FILE=filepath, STATUS=fstatus, ACCESS="STREAM")
+      OPEN (UNIT=fh, FILE=filepath, STATUS=fstatus, ACCESS="STREAM", POSITION=fposition)
 #endif
    END SUBROUTINE mp_file_open
 
@@ -3174,6 +3187,32 @@ CONTAINS
       INQUIRE (UNIT=fh, SIZE=file_size)
 #endif
    END SUBROUTINE mp_file_get_size
+
+! **************************************************************************************************
+!> \brief Returns the file position
+!> \param[in] fh file handle (file storage unit)
+!> \param[out] file_size  the file position
+!> \par MPI-I/O mapping   mpi_file_get_position
+!> \par STREAM-I/O mapping   INQUIRE
+!>
+!> \par History
+!>      11.2017 created [Nico Holmberg]
+! **************************************************************************************************
+   SUBROUTINE mp_file_get_position(fh, pos)
+      INTEGER, INTENT(IN)                                :: fh
+      INTEGER(kind=file_offset), INTENT(OUT)             :: pos
+
+      INTEGER                                            :: ierr
+
+      ierr = 0
+#if defined(__parallel)
+      CALL mpi_file_set_errhandler(fh, MPI_ERRORS_RETURN, ierr)
+      CALL mpi_file_get_position(fh, pos, ierr)
+      IF (ierr .NE. 0) CALL mp_stop(ierr, "mpi_file_set_errhandler @ mp_file_get_position")
+#else
+      INQUIRE (UNIT=fh, POS=pos)
+#endif
+   END SUBROUTINE mp_file_get_position
 
 ! **************************************************************************************************
 !> \brief (parallel) Blocking individual file write using explicit offsets
@@ -3691,6 +3730,58 @@ CONTAINS
       CALL mp_timestop(handle)
 
    END SUBROUTINE mp_file_read_all_chv
+
+! **************************************************************************************************
+!> \brief (parallel) Collective, blocking write of a character array to a file. File access pattern
+!                    determined by a previously set file view.
+!>        (serial)   Unformatted stream write using explicit offsets
+!> \param fh     the file handle associated with the output file
+!> \param msglen the message length of an individual vector component
+!> \param ndims  the number of vector components
+!> \param buffer the buffer where the data is placed
+!> \param type_descriptor container for the MPI type
+!> \author Nico Holmberg [05.2017]
+! **************************************************************************************************
+   SUBROUTINE mp_file_write_all_chv(fh, msglen, ndims, buffer, type_descriptor)
+      INTEGER, INTENT(IN)                       :: fh
+      INTEGER, INTENT(IN)                       :: msglen
+      INTEGER, INTENT(IN)                       :: ndims
+      CHARACTER(LEN=msglen), DIMENSION(ndims)   :: buffer
+      TYPE(mp_file_descriptor_type), &
+         INTENT(IN), OPTIONAL                   :: type_descriptor
+
+      CHARACTER(len=*), PARAMETER :: routineN = 'mp_file_read_all_chv', &
+         routineP = moduleN//':'//routineN
+
+      INTEGER                                   :: ierr, handle, i
+
+      i = 0
+      ierr = 0
+      CALL mp_timeset(routineN,handle)
+
+#if defined(__parallel)
+      MARK_USED(type_descriptor)
+      CALL MPI_File_write_all(fh, buffer, ndims*msglen, MPI_CHARACTER, MPI_STATUS_IGNORE, ierr)
+      IF (ierr /= 0)&
+         CPABORT("MPI_File_write_all @ "//routineN)
+#else
+      MARK_USED(msglen)
+      MARK_USED(ndims)
+      IF (.NOT. PRESENT(type_descriptor)) &
+         CALL cp_abort(__LOCATION__, &
+                       "Container for mp_file_descriptor_type must be present in serial call.")
+      IF (.NOT. type_descriptor%has_indexing) &
+         CALL cp_abort(__LOCATION__, &
+                       "File view has not been set in mp_file_descriptor_type.")
+      ! Use explicit offsets
+      DO i = 1, ndims
+         WRITE(fh, POS=type_descriptor%index_descriptor%chunks(i)) buffer(i)
+      END DO
+#endif
+
+      CALL mp_timestop(handle)
+
+   END SUBROUTINE mp_file_write_all_chv
 
 ! **************************************************************************************************
 !> \brief Releases the type used for MPI I/O
