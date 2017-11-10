@@ -48,13 +48,9 @@ MODULE cp_output_handling
                                               default_string_length
    USE machine,                         ONLY: m_mov
    USE memory_utilities,                ONLY: reallocate
-   USE message_passing,                 ONLY: file_amode_append, &
-                                              file_amode_create, &
-                                              file_amode_excl, &
-                                              file_amode_rdonly, &
-                                              file_amode_rdwr, &
-                                              file_amode_wronly, &
-                                              mp_file_close, &
+   USE message_passing,                 ONLY: mp_file_close,&
+                                              mp_file_delete,&
+                                              mp_file_get_amode,&
                                               mp_file_open
    USE string_utilities,                ONLY: compress,&
                                               s2a
@@ -831,8 +827,7 @@ CONTAINS
                                                             file_status
       LOGICAL, INTENT(IN), OPTIONAL                      :: do_backup, on_file
       LOGICAL, INTENT(OUT), OPTIONAL                     :: is_new_file
-      LOGICAL, INTENT(INOUT), OPTIONAL                     :: is_new_file
-                                                            mpi_io
+      LOGICAL, INTENT(INOUT), OPTIONAL                   :: mpi_io
       INTEGER                                            :: res
 
       CHARACTER(len=*), PARAMETER :: routineN = 'cp_print_key_unit_nr', &
@@ -843,17 +838,19 @@ CONTAINS
       CHARACTER(len=default_string_length)               :: my_file_action, my_file_form, &
                                                             my_file_position, my_file_status, &
                                                             outPath
-      INTEGER                                            :: c_i_level, f_backup_level, i, &
-                                                            my_backup_level, my_nbak, nbak, &
-                                                            s_backup_level, unit_nr, mpi_amode
+      INTEGER                                            :: c_i_level, f_backup_level, i, iounit, &
+                                                            mpi_amode, my_backup_level, my_nbak, &
+                                                            nbak, s_backup_level, unit_nr
       LOGICAL                                            :: do_log, found, my_do_backup, my_local, &
-                                                            my_on_file, my_should_output, my_mpi_io
+                                                            my_mpi_io, my_on_file, &
+                                                            my_should_output, replace
       TYPE(cp_iteration_info_type), POINTER              :: iteration_info
       TYPE(section_vals_type), POINTER                   :: print_key
 
       my_local = .FALSE.
       my_do_backup = .FALSE.
       my_mpi_io = .FALSE.
+      replace = .FALSE.
       found = .FALSE.
       res = -1
       my_file_form = "FORMATTED"
@@ -871,51 +868,15 @@ CONTAINS
       IF (PRESENT(is_new_file)) is_new_file = .FALSE.
       IF (PRESENT(mpi_io)) THEN
 #if defined(__parallel)
-         IF (logger%para_env%group_size > 1 .AND. mpi_io) THEN
+         IF (logger%para_env%num_pe > 1 .AND. mpi_io) THEN
             my_mpi_io = .TRUE.
          ELSE
             my_mpi_io = .FALSE.
          END IF
          IF (my_mpi_io) THEN
-            ! Disable mpi io for unformatted access
-            SELECT CASE (my_file_form)
-            CASE ("FORMATTED")
-               ! Do nothing
-            CASE ("UNFORMATTED")
-               my_mpi_io = .FALSE.
-            CASE DEFAULT
-               CPABORT("Unknown MPI file form requested.")
-            END SELECT
-            ! Determine file access mode (limited choices)
-            SELECT CASE (my_file_action)
-            CASE ("WRITE")
-               mpi_amode = file_amode_wronly
-            CASE ("READ")
-               mpi_amode = file_amode_rdonly
-            CASE ("READWRITE")
-               mpi_amode = file_amode_rdwr
-            CASE DEFAULT
-               CPABORT("Unknown MPI file action requested.")
-            END SELECT
-            SELECT CASE (my_file_status)
-            CASE ("NEW")
-               mpi_amode = mpi_amode + file_amode_create + file_amode_excl
-            CASE ("REPLACE", "UNKNOWN", "OLD")
-               ! Do nothing
-            CASE ("SCRATCH")
-               ! Disable
-               my_mpi_io = .FALSE.
-            CASE DEFAULT
-               CPABORT("Unknown MPI file status requested.")
-            END SELECT
-            SELECT CASE (my_file_position)
-            CASE ("APPEND")
-               mpi_amode = mpi_amode + file_amode_append
-            CASE ("REWIND", "ASIS")
-               ! Do nothing
-            CASE DEFAULT
-               CPABORT("Unknown MPI file position requested.")
-            END SELECT
+            CALL mp_file_get_amode(mpi_io, replace, mpi_amode, TRIM(my_file_form), &
+                                   TRIM(my_file_action), TRIM(my_file_status), TRIM(my_file_position))
+            replace = replace .AND. (logger%para_env%source == logger%para_env%mepos)
          END IF
 #else
          my_mpi_io = .FALSE.
@@ -1020,9 +981,10 @@ CONTAINS
                               file_form=my_file_form, file_action=my_file_action, &
                               file_position=my_file_position, unit_number=res)
             ELSE
+               IF (replace) CALL mp_file_delete(filename)
                CALL mp_file_open(groupid=logger%para_env%group, &
-                                 fh=res, filepath=filename, amode_status=mpi_amode)
-
+                                 fh=iounit, filepath=filename, amode_status=mpi_amode)
+               res = iounit
             END IF
             IF (do_log) THEN
                unit_nr = cp_logger_get_unit_nr(logger, local=my_local)
@@ -1073,8 +1035,8 @@ CONTAINS
          routineP = moduleN//':'//routineN
 
       CHARACTER(len=default_string_length)               :: outPath
-      LOGICAL                                            :: my_local, my_on_file, my_should_output, &
-                                                            my_mpi_io
+      LOGICAL                                            :: my_local, my_mpi_io, my_on_file, &
+                                                            my_should_output
       TYPE(section_vals_type), POINTER                   :: print_key
 
       my_local = .FALSE.

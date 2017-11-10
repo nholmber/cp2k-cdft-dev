@@ -1408,6 +1408,7 @@ CONTAINS
 
       CHARACTER(LEN=default_path_length)                 :: filename, my_pos_cube, title
       INTEGER                                            :: unit_nr
+      LOGICAL                                            :: mpi_io
       TYPE(cp_logger_type), POINTER                      :: logger
       TYPE(particle_list_type), POINTER                  :: particles
       TYPE(qs_subsys_type), POINTER                      :: subsys
@@ -1424,16 +1425,18 @@ CONTAINS
       logger => cp_get_default_logger()
       my_pos_cube = "REWIND"
       WRITE (filename, '(a4,I5.5,a1,I1.1)') "DIFF_", i_iter, "_", i_spin
+      mpi_io = .TRUE.
       unit_nr = cp_print_key_unit_nr(logger, input, "DFT%PRINT%E_DENSITY_CUBE", &
                                      extension=".cube", middle_name=TRIM(filename), file_position=my_pos_cube, &
-                                     log_filename=.FALSE.)
+                                     log_filename=.FALSE., mpi_io=mpi_io)
 
       WRITE (title, *) "EMBEDDING DENSITY DIFFERENCE ", " spin ", i_spin, " optimization step ", i_iter
       CALL cp_pw_to_cube(diff_rho_r(i_spin)%pw, unit_nr, title, &
                          particles=particles, &
-                         stride=section_get_ivals(dft_section, "PRINT%E_DENSITY_CUBE%STRIDE"))
+                         stride=section_get_ivals(dft_section, "PRINT%E_DENSITY_CUBE%STRIDE"), &
+                         mpi_io=mpi_io)
       CALL cp_print_key_finished_output(unit_nr, logger, input, &
-                                        "DFT%PRINT%E_DENSITY_CUBE")
+                                        "DFT%PRINT%E_DENSITY_CUBE", mpi_io=mpi_io)
 
    END SUBROUTINE print_rho_diff
 

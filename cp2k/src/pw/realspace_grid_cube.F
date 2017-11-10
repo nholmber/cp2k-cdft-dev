@@ -12,9 +12,10 @@ MODULE realspace_grid_cube
    USE cp_log_handling,                 ONLY: cp_logger_get_default_io_unit
    USE kinds,                           ONLY: dp
    USE message_passing,                 ONLY: &
-        file_amode_rdonly, file_offset, mp_bcast, mp_file_close, mp_file_get_position, mp_file_descriptor_type, &
-        mp_file_open, mp_file_read_all_chv, mp_file_type_free, mp_file_type_hindexed_make_chv, &
-        mp_file_type_set_view_chv, mp_maxloc, mp_recv, mp_send, mp_sum, mp_sync, mpi_character_size, mp_file_write_all_chv
+        file_amode_rdonly, file_offset, mp_bcast, mp_file_close, mp_file_descriptor_type, &
+        mp_file_get_position, mp_file_open, mp_file_read_all_chv, mp_file_type_free, &
+        mp_file_type_hindexed_make_chv, mp_file_type_set_view_chv, mp_file_write_all_chv, &
+        mp_file_write_at, mp_maxloc, mp_recv, mp_send, mp_sum, mp_sync, mpi_character_size
    USE pw_grid_types,                   ONLY: PW_MODE_LOCAL
    USE pw_types,                        ONLY: pw_type
 #include "../base/base_uses.f90"
@@ -41,6 +42,7 @@ CONTAINS
 !> \param particles_z ...
 !> \param stride ...
 !> \param zero_tails ...
+!> \param mpi_io ...
 ! **************************************************************************************************
    SUBROUTINE pw_to_cube(pw, unit_nr, title, particles_r, particles_z, stride, zero_tails, mpi_io)
       TYPE(pw_type), POINTER                             :: pw
@@ -50,17 +52,13 @@ CONTAINS
          OPTIONAL                                        :: particles_r
       INTEGER, DIMENSION(:), INTENT(IN), OPTIONAL        :: particles_z
       INTEGER, DIMENSION(:), OPTIONAL, POINTER           :: stride
-      INTEGER, PARAMETER                                 :: entry_len = 13, num_entries_line = 6
-      LOGICAL, INTENT(IN), OPTIONAL                      :: zero_tails
-      LOGICAL, INTENT(IN), OPTIONAL                      :: mpi_io
+      LOGICAL, INTENT(IN), OPTIONAL                      :: zero_tails, mpi_io
 
       CHARACTER(len=*), PARAMETER :: routineN = 'pw_to_cube', routineP = moduleN//':'//routineN
+      INTEGER, PARAMETER                                 :: entry_len = 13, num_entries_line = 6
 
-      INTEGER                                            :: checksum, dest, gid, handle, i, I1, I2, &
-                                                            I3, iat, ip, L1, L2, L3, my_rank, &
-                                                            my_stride(3), np, num_pe, rank(2), &
-                                                            source, tag, U1, U2, U3, msglen, &
-                                                            num_linebreak, size_of_z
+      INTEGER :: checksum, dest, gid, handle, i, I1, I2, I3, iat, ip, L1, L2, L3, msglen, my_rank, &
+         my_stride(3), np, num_linebreak, num_pe, rank(2), size_of_z, source, tag, U1, U2, U3
       LOGICAL                                            :: my_zero_tails, parallel_write
       REAL(KIND=dp), ALLOCATABLE, DIMENSION(:)           :: buf
 
@@ -204,7 +202,7 @@ CONTAINS
 
          DEALLOCATE (buf)
       ELSE
-         size_of_z = CEILING((ubounds_local(3)-lbounds_local(3)+1)/my_stride(3))
+         size_of_z = CEILING(REAL(pw%pw_grid%bounds(2, 3)-pw%pw_grid%bounds(1, 3)+1, dp)/REAL(my_stride(3), dp))
          num_linebreak = size_of_z/num_entries_line
          IF (MODULO(size_of_z, num_entries_line) /= 0) &
             num_linebreak = num_linebreak+1
@@ -610,13 +608,17 @@ CONTAINS
    END SUBROUTINE cube_to_pw_parallel
 
 ! **************************************************************************************************
-!> \brief Writes a realspace potential to a cube file using collective MPI I/O. Limited to
-!> \param grid     pw to write to cube file
-!> \param filename name of cube file
-!> \param scaling  scale values before storing
-!> \param msglen   the size of each grid slice along z-axis in bytes
+!> \brief Writes a realspace potential to a cube file using collective MPI I/O.
+!> \param grid        the pw to output to the cube file
+!> \param unit_nr     the handle associated with the cube file
+!> \param title       title of the cube file
+!> \param particles_r Cartersian coordinates of the system
+!> \param particles_z atomic masses of atoms in the system
+!> \param stride      every stride(i)th value of the potential is outputted (i=x,y,z)
+!> \param zero_tails  flag that determines if small values of the potential should be zeroed
+!> \param msglen      the size of each grid slice along z-axis in bytes
 !> \par History
-!>      Created [Nico Holmberg] (05.2017)
+!>      Created [Nico Holmberg] (11.2017)
 ! **************************************************************************************************
    SUBROUTINE pw_to_cube_parallel(grid, unit_nr, title, particles_r, particles_z, stride, zero_tails, &
                                   msglen)
@@ -629,78 +631,60 @@ CONTAINS
       INTEGER, DIMENSION(:), INTENT(IN), OPTIONAL        :: particles_z
       INTEGER, INTENT(IN)                                :: stride(3)
       LOGICAL, INTENT(IN)                                :: zero_tails
+      INTEGER, INTENT(IN)                                :: msglen
 
-      CHARACTER(len=*), INTENT(in)                       :: filename
-      REAL(kind=dp), INTENT(in)                          :: scaling
-      INTEGER, INTENT(in)                                :: msglen
-
-      CHARACTER(len=*), PARAMETER :: routineN = 'cube_to_pw_parallel', &
+      CHARACTER(len=*), PARAMETER :: routineN = 'pw_to_cube_parallel', &
          routineP = moduleN//':'//routineN
-      INTEGER, PARAMETER                                 :: entry_len = 13, num_entries_line = 6
+      INTEGER, PARAMETER                                 :: entry_len = 13, header_len = 41, &
+                                                            header_len_z = 53, num_entries_line = 6
 
-      INTEGER, DIMENSION(3)                              :: lbounds, lbounds_local, npoints, &
-                                                            npoints_local, ubounds, ubounds_local
+      CHARACTER(LEN=entry_len)                           :: value
+      CHARACTER(LEN=header_len)                          :: header
+      CHARACTER(LEN=header_len_z)                        :: header_z
+      INTEGER, DIMENSION(3)                              :: lbounds, lbounds_local, ubounds, &
+                                                            ubounds_local
       INTEGER, ALLOCATABLE, DIMENSION(:), TARGET         :: blocklengths
       INTEGER(kind=file_offset), ALLOCATABLE, &
          DIMENSION(:), TARGET                            :: displacements
       INTEGER(kind=file_offset)                          :: BOF
-      INTEGER :: extunit, gid, i, ientry, ip, islice, j, k, master, my_rank, nat, ndum, nslices, &
-         num_pe, offset_global, output_unit, pos, readstat, size_of_z, tag
-      CHARACTER(LEN=msglen), ALLOCATABLE, DIMENSION(:)   :: readbuffer
+      INTEGER                                            :: counter, gid, i, islice, j, k, last_z, &
+                                                            my_rank, np, nslices, size_of_z
+      CHARACTER(LEN=msglen), ALLOCATABLE, DIMENSION(:)   :: writebuffer
       CHARACTER(LEN=msglen)                              :: tmp
-      LOGICAL                                            :: should_read(2)
-      REAL(kind=dp), ALLOCATABLE, DIMENSION(:)           :: buffer
-      REAL(kind=dp), DIMENSION(3)                        :: dr, rdum
+      LOGICAL                                            :: should_write(2)
       TYPE(mp_file_descriptor_type)                      :: mp_file_type
-
-      output_unit = cp_logger_get_default_io_unit()
 
       !get rs grids and parallel envnment
       gid = grid%pw_grid%para%group
       my_rank = grid%pw_grid%para%my_pos
-      num_pe = grid%pw_grid%para%group_size
 
-      DO i = 1, 3
-         dr(i) = grid%pw_grid%dh(i, i)
-      END DO
-
-      npoints = grid%pw_grid%npts
+      ! Shortcut
       lbounds = grid%pw_grid%bounds(1, :)
       ubounds = grid%pw_grid%bounds(2, :)
-
-      npoints_local = grid%pw_grid%npts_local
       lbounds_local = grid%pw_grid%bounds_local(1, :)
       ubounds_local = grid%pw_grid%bounds_local(2, :)
-      size_of_z = CEILING((ubounds_local(3)-lbounds_local(3)+1)/my_stride(3))
-      nslices = (ubounds_local(1)-lbounds_local(1)+1)*(ubounds_local(2)-lbounds_local(2)+1)
+      ! Total number of z-slices and the number of values per slice
+      size_of_z = CEILING(REAL(ubounds_local(3)-lbounds_local(3)+1, dp)/REAL(stride(3), dp))
+      nslices = CEILING(REAL(ubounds_local(1)-lbounds_local(1)+1, dp)/REAL(stride(1), dp))* &
+                CEILING(REAL(ubounds_local(2)-lbounds_local(2)+1, dp)/REAL(stride(2), dp))
       islice = 1
-      IF (zero_tails) THEN
-         ALLOCATE(buffer(size_of_z))
-      END IF
-
-      !
+      DO k = lbounds(3), ubounds(3), stride(3)
+         IF (k+stride(3) > ubounds(3)) last_z = k
+      END DO
+      ! Determine initial byte offset (0 or EOF if data is appended)
       CALL mp_file_get_position(unit_nr, BOF)
-      IF (BOF == 0) THEN
-         file_position = "REWIND"
-      ELSE
-         file_position = "APPEND"
-      END IF
-      ! Write header information and determine byte offset of cube data on master process
+      ! Write header information on master process and update byte offset accordingly
       IF (my_rank == 0) THEN
-         CALL open_file(file_name=filename, &
-                        file_status="OLD", &
-                        file_form="FORMATTED", &
-                        file_action="WRITE", &
-                        file_access="STREAM", &
-                        file_position=file_position
-                        unit_number=extunit)
          ! this format seems to work for e.g. molekel and gOpenmol
          ! latest version of VMD can read non orthorhombic cells
-         WRITE (extunit, '(a11)') "-Quickstep-"
+         CALL mp_file_write_at(unit_nr, BOF, "-Quickstep-"//NEW_LINE("C"))
+         BOF = BOF+LEN("-Quickstep-"//NEW_LINE("C"))*mpi_character_size
          IF (PRESENT(title)) THEN
-            WRITE (extunit, *) TRIM(title)
+            CALL mp_file_write_at(unit_nr, BOF, TRIM(title)//NEW_LINE("C"))
+            BOF = BOF+LEN(TRIM(title)//NEW_LINE("C"))*mpi_character_size
          ELSE
-            WRITE (extunit, *) "No Title"
+            CALL mp_file_write_at(unit_nr, BOF, "No Title"//NEW_LINE("C"))
+            BOF = BOF+LEN("No Title"//NEW_LINE("C"))*mpi_character_size
          ENDIF
 
          CPASSERT(PRESENT(particles_z) .EQV. PRESENT(particles_r))
@@ -712,45 +696,52 @@ CONTAINS
             np = MIN(99999, SIZE(particles_z))
          END IF
 
-         WRITE (extunit, '(I5,3f12.6)') np, 0.0_dp, 0._dp, 0._dp !start of cube
+         WRITE (header, '(I5,3f12.6)') np, 0.0_dp, 0._dp, 0._dp !start of cube
+         CALL mp_file_write_at(unit_nr, BOF, header//NEW_LINE("C"))
+         BOF = BOF+LEN(header//NEW_LINE("C"))*mpi_character_size
 
-         WRITE (extunit, '(I5,3f12.6)') (pw%pw_grid%npts(1)+my_stride(1)-1)/my_stride(1), &
-            pw%pw_grid%dh(1, 1)*REAL(my_stride(1), dp), pw%pw_grid%dh(2, 1)*REAL(my_stride(1), dp), &
-            pw%pw_grid%dh(3, 1)*REAL(my_stride(1), dp)
-         WRITE (extunit, '(I5,3f12.6)') (pw%pw_grid%npts(2)+my_stride(2)-1)/my_stride(2), &
-            pw%pw_grid%dh(1, 2)*REAL(my_stride(2), dp), pw%pw_grid%dh(2, 2)*REAL(my_stride(2), dp), &
-            pw%pw_grid%dh(3, 2)*REAL(my_stride(2), dp)
-         WRITE (extunit, '(I5,3f12.6)') (pw%pw_grid%npts(3)+my_stride(3)-1)/my_stride(3), &
-            pw%pw_grid%dh(1, 3)*REAL(my_stride(3), dp), pw%pw_grid%dh(2, 3)*REAL(my_stride(3), dp), &
-            pw%pw_grid%dh(3, 3)*REAL(my_stride(3), dp)
+         WRITE (header, '(I5,3f12.6)') (grid%pw_grid%npts(1)+stride(1)-1)/stride(1), &
+            grid%pw_grid%dh(1, 1)*REAL(stride(1), dp), grid%pw_grid%dh(2, 1)*REAL(stride(1), dp), &
+            grid%pw_grid%dh(3, 1)*REAL(stride(1), dp)
+         CALL mp_file_write_at(unit_nr, BOF, header//NEW_LINE("C"))
+         BOF = BOF+LEN(header//NEW_LINE("C"))*mpi_character_size
+
+         WRITE (header, '(I5,3f12.6)') (grid%pw_grid%npts(2)+stride(2)-1)/stride(2), &
+            grid%pw_grid%dh(1, 2)*REAL(stride(2), dp), grid%pw_grid%dh(2, 2)*REAL(stride(2), dp), &
+            grid%pw_grid%dh(3, 2)*REAL(stride(2), dp)
+         CALL mp_file_write_at(unit_nr, BOF, header//NEW_LINE("C"))
+         BOF = BOF+LEN(header//NEW_LINE("C"))*mpi_character_size
+
+         WRITE (header, '(I5,3f12.6)') (grid%pw_grid%npts(3)+stride(3)-1)/stride(3), &
+            grid%pw_grid%dh(1, 3)*REAL(stride(3), dp), grid%pw_grid%dh(2, 3)*REAL(stride(3), dp), &
+            grid%pw_grid%dh(3, 3)*REAL(stride(3), dp)
+         CALL mp_file_write_at(unit_nr, BOF, header//NEW_LINE("C"))
+         BOF = BOF+LEN(header//NEW_LINE("C"))*mpi_character_size
 
          IF (PRESENT(particles_z)) THEN
-            DO iat = 1, np
-               WRITE (extunit, '(I5,4f12.6)') particles_z(iat), 0._dp, particles_r(:, iat)
+            DO i = 1, np
+               WRITE (header_z, '(I5,4f12.6)') particles_z(i), 0._dp, particles_r(:, i)
+               CALL mp_file_write_at(unit_nr, BOF, header_z//NEW_LINE("C"))
+               BOF = BOF+LEN(header_z//NEW_LINE("C"))*mpi_character_size
             END DO
          END IF
-         ! Get byte offset
-         INQUIRE (extunit, POS=offset_global)
-         CALL close_file(unit_number=extunit)
       ENDIF
-      ! Sync offset and start parallel read
-      CALL mp_bcast(offset_global, grid%pw_grid%para%group_head_id, gid)
-      BOF = offset_global
-      !CALL mp_file_open(groupid=gid, fh=extunit, filepath=filename, amode_status=file_amode_wronly)
+      ! Sync offset
+      CALL mp_bcast(BOF, grid%pw_grid%para%group_head_id, gid)
       ! Determine byte offsets for each grid z-slice which are local to a process
-      ! and perform a type conversion float -> string
+      ! and convert z-slices to cube format compatible strings
       ALLOCATE (displacements(nslices))
       displacements = 0
       ALLOCATE (writebuffer(nslices))
       writebuffer(:) = ''
-      DO i = lbounds(1), ubounds(1), my_stride(1)
+      DO i = lbounds(1), ubounds(1), stride(1)
          should_write(:) = .TRUE.
          IF (i .LT. lbounds_local(1)) THEN
             should_write(1) = .FALSE.
          ELSE IF (i .GT. ubounds_local(1)) THEN
             EXIT
          END IF
-         DO j = lbounds(2), ubounds(2), my_stride(2)
+         DO j = lbounds(2), ubounds(2), stride(2)
             should_write(2) = .TRUE.
             IF (j .LT. lbounds_local(2) .OR. j .GT. ubounds_local(2)) THEN
                should_write(2) = .FALSE.
@@ -758,36 +749,41 @@ CONTAINS
             IF (ALL(should_write .EQV. .TRUE.)) THEN
                IF (islice > nslices) CPABORT("Index out of bounds.")
                displacements(islice) = BOF
-               IF (zero_tails) THEN
-                  DO k = lbounds(3), ubounds(3), my_stride(3)
-                     IF (grid%cr3d(i, j, k)<1.E-7_dp) THEN
-                        buffer(i, j, k) = 0.0_dp
-                     ELSE
-                        buffer(i, j, k) = grid%cr3d(i, j, k)
-                     END IF
-                  END DO
-                  WRITE (writebuffer(islice), '(6E13.5)') (buffer, k=lbounds(3), ubounds(3), my_stride(3))
-               ELSE
-                  WRITE (writebuffer(islice), '(6E13.5)') (grid%cr3d(i, j, k), k=lbounds(3), ubounds(3), my_stride(3))
-               END IF
+               tmp = ''
+               counter = 0
+               DO k = lbounds(3), ubounds(3), stride(3)
+                  IF (zero_tails .AND. grid%cr3d(i, j, k) < 1.E-7_dp) THEN
+                     WRITE (value, '(E13.5)') 0.0_dp
+                  ELSE
+                     WRITE (value, '(E13.5)') grid%cr3d(i, j, k)
+                  END IF
+                  tmp = TRIM(tmp)//TRIM(value)
+                  counter = counter+1
+                  IF (MODULO(counter, num_entries_line) == 0 .OR. k == last_z) &
+                     tmp = TRIM(tmp)//NEW_LINE('C')
+               END DO
+               writebuffer(islice) = tmp
                islice = islice+1
             END IF
             ! Update global byte offset
             BOF = BOF+msglen
          END DO
       END DO
-      IF (zero_tails) DEALLOCATE(buffer)
+      ! Create indexed MPI type using calculated byte offsets as displacements
       ! Size of each z-slice is msglen
       ALLOCATE (blocklengths(nslices))
       blocklengths(:) = msglen
-      ! Create indexed MPI type using calculated byte offsets as displacements and use it as a file view
       mp_file_type = mp_file_type_hindexed_make_chv(nslices, blocklengths, displacements)
+      ! Use the created type as a file view
+      ! NB. The vector 'displacements' contains the absolute offsets of each z-slice i.e.
+      ! they are given relative to the beginning of the file. The global offset to
+      ! set_view must therefore be set to 0
       BOF = 0
-      CALL mp_file_type_set_view_chv(extunit, BOF, mp_file_type)
+      CALL mp_file_type_set_view_chv(unit_nr, BOF, mp_file_type)
       ! Collective write of cube
-      CALL mp_file_write_all_chv(extunit, msglen, nslices, readbuffer, mp_file_type)
+      CALL mp_file_write_all_chv(unit_nr, msglen, nslices, writebuffer, mp_file_type)
+      ! Clean up
       CALL mp_file_type_free(mp_file_type)
-      !CALL mp_file_close(extunit)
       DEALLOCATE (writebuffer)
       DEALLOCATE (blocklengths, displacements)
 

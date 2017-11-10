@@ -166,10 +166,12 @@ MODULE message_passing
 
    ! I/O
    PUBLIC :: mp_file_open, mp_file_close
+   PUBLIC :: mp_file_delete
    PUBLIC :: mp_file_write_at
    PUBLIC :: mp_file_write_at_all, mp_file_read_at_all
    PUBLIC :: mp_file_get_size
    PUBLIC :: mp_file_get_position
+   PUBLIC :: mp_file_get_amode
 
    ! some 'advanced types' currently only used for dbcsr
    PUBLIC :: mp_type_descriptor_type
@@ -3109,8 +3111,8 @@ CONTAINS
 #if defined(__parallel)
       my_info = mpi_info_null
       IF (PRESENT(info)) my_info = info
-      CALL mpi_file_open(groupid, filepath, amode_status, my_info, fh, ierr)
       CALL mpi_file_set_errhandler(fh, MPI_ERRORS_RETURN, ierr)
+      CALL mpi_file_open(groupid, filepath, amode_status, my_info, fh, ierr)
       IF (ierr .NE. 0) CALL mp_stop(ierr, "mpi_file_set_errhandler @ mp_file_open")
 #else
       MARK_USED(groupid)
@@ -3137,6 +3139,39 @@ CONTAINS
       OPEN (UNIT=fh, FILE=filepath, STATUS=fstatus, ACCESS="STREAM", POSITION=fposition)
 #endif
    END SUBROUTINE mp_file_open
+
+! **************************************************************************************************
+!> \brief Deletes a file. Auxialiry routine to emulate 'replace' action for mp_file_open.
+!>        Only the master processor should call this routine.
+!> \param[in] filepath   path to the file
+!> \param[in](optinal) info   info object
+!> \par History
+!>      11.2017 created [Nico Holmberg]
+! **************************************************************************************************
+   SUBROUTINE mp_file_delete(filepath, info)
+      CHARACTER(len=*), INTENT(IN)             :: filepath
+      INTEGER, INTENT(IN), OPTIONAL            :: info
+
+#if defined(__parallel)
+      INTEGER                                  :: ierr
+      INTEGER                                  :: my_info
+      LOGICAL                                  :: exists
+#endif
+
+#if defined(__parallel)
+      ierr = 0
+      my_info = mpi_info_null
+      IF (PRESENT(info)) my_info = info
+      INQUIRE(FILE=filepath, EXIST=exists)
+      IF (exists) CALL mpi_file_delete(filepath, my_info, ierr)
+      IF (ierr .NE. 0) CALL mp_stop(ierr, "mpi_file_set_errhandler @ mp_file_delete")
+#else
+      MARK_USED(filepath)
+      MARK_USED(info)
+      ! Explicit file delete not necessary, handled by subsequent call to open_file with action 'replace'
+#endif
+
+   END SUBROUTINE mp_file_delete
 
 ! **************************************************************************************************
 !> \brief Closes a file
@@ -3664,10 +3699,13 @@ CONTAINS
       CALL mp_timeset(routineN,handle)
 
 #if defined(__parallel)
+      CALL mpi_file_set_errhandler(fh, MPI_ERRORS_RETURN, ierr)
       CALL MPI_File_set_view(fh, offset, MPI_CHARACTER, &
                              type_descriptor%type_handle, "native", MPI_INFO_NULL, ierr)
-      IF (ierr /= 0)&
-         CPABORT("MPI_File_set_view @ "//routineN)
+      IF (ierr .NE. 0) CALL mp_stop(ierr, "mpi_file_set_errhandler @ MPI_File_set_view")
+
+      !IF (ierr /= 0)&
+      !   CPABORT("MPI_File_set_view @ "//routineN)
 #else
       ! Uses absolute offsets stored in mp_file_descriptor_type
       MARK_USED(fh)
@@ -3750,7 +3788,7 @@ CONTAINS
       TYPE(mp_file_descriptor_type), &
          INTENT(IN), OPTIONAL                   :: type_descriptor
 
-      CHARACTER(len=*), PARAMETER :: routineN = 'mp_file_read_all_chv', &
+      CHARACTER(len=*), PARAMETER :: routineN = 'mp_file_write_all_chv', &
          routineP = moduleN//':'//routineN
 
       INTEGER                                   :: ierr, handle, i
@@ -3761,9 +3799,12 @@ CONTAINS
 
 #if defined(__parallel)
       MARK_USED(type_descriptor)
+      CALL mpi_file_set_errhandler(fh, MPI_ERRORS_RETURN, ierr)
       CALL MPI_File_write_all(fh, buffer, ndims*msglen, MPI_CHARACTER, MPI_STATUS_IGNORE, ierr)
-      IF (ierr /= 0)&
-         CPABORT("MPI_File_write_all @ "//routineN)
+      IF (ierr .NE. 0) CALL mp_stop(ierr, "mpi_file_set_errhandler @ MPI_File_write_all")
+
+      !IF (ierr /= 0)&
+      !   CPABORT("MPI_File_write_all @ "//routineN)
 #else
       MARK_USED(msglen)
       MARK_USED(ndims)
@@ -3815,6 +3856,145 @@ CONTAINS
       CALL mp_timestop(handle)
 
    END SUBROUTINE mp_file_type_free
+
+! **************************************************************************************************
+!> \brief (parallel) Utility routine to determine MPI file access mode based on variables
+!                    that in the serial case would get passed to the intrinsic OPEN
+!>        (serial)   No action
+!> \param mpi_io     flag that determines if MPI I/O will actually be used
+!> \param replace    flag that indicates whether file needs to be deleted prior to opening it
+!> \param amode      the MPI I/O access mode
+!> \param form       formatted or unformatted data?
+!> \param action     the variable that determines what to do with file
+!> \param status     the status flag:
+!> \param position   should the file be appended or rewound
+!> \author Nico Holmberg [11.2017]
+! **************************************************************************************************
+      SUBROUTINE mp_file_get_amode(mpi_io, replace, amode, form, action, status, position)
+      LOGICAL, INTENT(INOUT)                             :: mpi_io, replace
+      INTEGER, INTENT(OUT)                               :: amode
+      CHARACTER(len=*), INTENT(IN)                       :: form, action, status, position
+
+      CHARACTER(len=*), PARAMETER :: routineN = 'mp_file_get_amode', &
+         routineP = moduleN//':'//routineN
+
+      amode = -1
+#if defined(__parallel)
+      ! Disable mpi io for unformatted access
+      SELECT CASE (form)
+      CASE ("FORMATTED")
+         ! Do nothing
+      CASE ("UNFORMATTED")
+         mpi_io = .FALSE.
+      CASE DEFAULT
+         CPABORT("Unknown MPI file form requested.")
+      END SELECT
+      ! Determine file access mode (limited set of allowed choices)
+      SELECT CASE (action)
+      CASE ("WRITE")
+         amode = file_amode_wronly
+         SELECT CASE (status)
+         CASE ("NEW")
+            ! Try to open new file for writing, crash if file already exists
+            amode = amode + file_amode_create + file_amode_excl
+         CASE ("UNKNOWN")
+            ! Open file for writing and create it if file doesnt exist
+            amode = amode + file_amode_create
+            SELECT CASE (position)
+            CASE ("APPEND")
+               ! Append existing file
+               amode = amode + file_amode_append
+            CASE ("REWIND", "ASIS")
+               ! Do nothing
+            CASE DEFAULT
+               CPABORT("Unknown MPI file position requested.")
+            END SELECT
+         CASE ("OLD")
+            SELECT CASE (position)
+            CASE ("APPEND")
+               ! Append existing file
+               amode = amode + file_amode_append
+            CASE ("REWIND", "ASIS")
+               ! Do nothing
+            CASE DEFAULT
+               CPABORT("Unknown MPI file position requested.")
+            END SELECT
+         CASE ("REPLACE")
+            ! Overwrite existing file. Must delete existing file first
+            amode = amode + file_amode_create
+            replace = .TRUE.
+         CASE ("SCRATCH")
+            ! Disable
+            mpi_io = .FALSE.
+         CASE DEFAULT
+            CPABORT("Unknown MPI file status requested.")
+         END SELECT
+      CASE ("READ")
+         amode = file_amode_rdonly
+         SELECT CASE (status)
+         CASE ("NEW")
+            CPABORT("Cannot read from 'NEW' file.")
+         CASE ("REPLACE")
+            CPABORT("Illegal status 'REPLACE' for read.")
+         CASE ("UNKNOWN", "OLD")
+            ! Do nothing
+         CASE ("SCRATCH")
+            ! Disable
+            mpi_io = .FALSE.
+         CASE DEFAULT
+            CPABORT("Unknown MPI file status requested.")
+         END SELECT
+      CASE ("READWRITE")
+         amode = file_amode_rdwr
+         SELECT CASE (status)
+         CASE ("NEW")
+            ! Try to open new file, crash if file already exists
+            amode = amode + file_amode_create + file_amode_excl
+         CASE ("UNKNOWN")
+            ! Open file and create it if file doesnt exist
+            amode = amode + file_amode_create
+            SELECT CASE (position)
+            CASE ("APPEND")
+               ! Append existing file
+               amode = amode + file_amode_append
+            CASE ("REWIND", "ASIS")
+               ! Do nothing
+            CASE DEFAULT
+               CPABORT("Unknown MPI file position requested.")
+            END SELECT
+         CASE ("OLD")
+            SELECT CASE (position)
+            CASE ("APPEND")
+               ! Append existing file
+               amode = amode + file_amode_append
+            CASE ("REWIND", "ASIS")
+               ! Do nothing
+            CASE DEFAULT
+               CPABORT("Unknown MPI file position requested.")
+            END SELECT
+         CASE ("REPLACE")
+            ! Overwrite existing file. Must delete existing file first
+            amode = amode + file_amode_create
+            replace = .TRUE.
+         CASE ("SCRATCH")
+            ! Disable
+            mpi_io = .FALSE.
+         CASE DEFAULT
+            CPABORT("Unknown MPI file status requested.")
+         END SELECT
+      CASE DEFAULT
+         CPABORT("Unknown MPI file action requested.")
+      END SELECT
+#else
+      MARK_USED(replace)
+      MARK_USED(form)
+      MARK_USED(position)
+      MARK_USED(status)
+      MARK_USED(action)
+      mpi_io = .FALSE.
+#endif
+
+   END SUBROUTINE mp_file_get_amode
 
 ! **************************************************************************************************
 !> \brief Non-blocking send of custom type

@@ -41,8 +41,7 @@ CONTAINS
       CHARACTER(*), INTENT(IN), OPTIONAL                 :: title
       TYPE(particle_list_type), POINTER                  :: particles
       INTEGER, DIMENSION(:), OPTIONAL, POINTER           :: stride
-      LOGICAL, INTENT(IN), OPTIONAL                      :: zero_tails
-      LOGICAL, INTENT(IN), OPTIONAL                      :: mpi_io
+      LOGICAL, INTENT(IN), OPTIONAL                      :: zero_tails, mpi_io
 
       CHARACTER(len=*), PARAMETER :: routineN = 'cp_pw_to_cube', routineP = moduleN//':'//routineN
 
