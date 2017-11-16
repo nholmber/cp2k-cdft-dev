@@ -881,6 +881,8 @@ CONTAINS
 #else
          my_mpi_io = .FALSE.
 #endif
+         ! Set return value
+         mpi_io = my_mpi_io
       END IF
       NULLIFY (print_key)
       CPASSERT(ASSOCIATED(basis_section))

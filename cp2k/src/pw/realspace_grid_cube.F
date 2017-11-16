@@ -663,14 +663,31 @@ CONTAINS
       ubounds = grid%pw_grid%bounds(2, :)
       lbounds_local = grid%pw_grid%bounds_local(1, :)
       ubounds_local = grid%pw_grid%bounds_local(2, :)
-      ! Total number of z-slices and the number of values per slice
+      ! Determine the total number of z-slices and the number of values per slice
       size_of_z = CEILING(REAL(ubounds_local(3)-lbounds_local(3)+1, dp)/REAL(stride(3), dp))
-      nslices = CEILING(REAL(ubounds_local(1)-lbounds_local(1)+1, dp)/REAL(stride(1), dp))* &
-                CEILING(REAL(ubounds_local(2)-lbounds_local(2)+1, dp)/REAL(stride(2), dp))
       islice = 1
+      DO i = lbounds(1), ubounds(1), stride(1)
+         should_write(:) = .TRUE.
+         IF (i .LT. lbounds_local(1)) THEN
+            should_write(1) = .FALSE.
+         ELSE IF (i .GT. ubounds_local(1)) THEN
+            EXIT
+         END IF
+         DO j = lbounds(2), ubounds(2), stride(2)
+            should_write(2) = .TRUE.
+            IF (j .LT. lbounds_local(2) .OR. j .GT. ubounds_local(2)) THEN
+               should_write(2) = .FALSE.
+            END IF
+            IF (ALL(should_write .EQV. .TRUE.)) THEN
+               islice = islice+1
+            END IF
+         END DO
+      END DO
+      nslices = islice-1
       DO k = lbounds(3), ubounds(3), stride(3)
          IF (k+stride(3) > ubounds(3)) last_z = k
       END DO
+      islice = 1
       ! Determine initial byte offset (0 or EOF if data is appended)
       CALL mp_file_get_position(unit_nr, BOF)
       ! Write header information on master process and update byte offset accordingly

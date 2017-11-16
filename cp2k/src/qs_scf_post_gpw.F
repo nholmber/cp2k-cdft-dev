@@ -2676,7 +2676,7 @@ CONTAINS
                                stride=section_get_ivals(dft_section, &
                                                         "PRINT%EXTERNAL_POTENTIAL_CUBE%STRIDE"), mpi_io=mpi_io)
             CALL cp_print_key_finished_output(unit_nr, logger, input, &
-                                              "DFT%PRINT%EXTERNAL_POTENTIAL_CUBE")
+                                              "DFT%PRINT%EXTERNAL_POTENTIAL_CUBE", mpi_io=mpi_io)
 
             CALL pw_pool_give_back_pw(auxbas_pw_pool, aux_r%pw)
          ENDIF

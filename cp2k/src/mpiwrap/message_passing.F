@@ -3111,8 +3111,8 @@ CONTAINS
 #if defined(__parallel)
       my_info = mpi_info_null
       IF (PRESENT(info)) my_info = info
-      CALL mpi_file_set_errhandler(fh, MPI_ERRORS_RETURN, ierr)
       CALL mpi_file_open(groupid, filepath, amode_status, my_info, fh, ierr)
+      CALL mpi_file_set_errhandler(fh, MPI_ERRORS_RETURN, ierr)
       IF (ierr .NE. 0) CALL mp_stop(ierr, "mpi_file_set_errhandler @ mp_file_open")
 #else
       MARK_USED(groupid)
@@ -3703,9 +3703,6 @@ CONTAINS
       CALL MPI_File_set_view(fh, offset, MPI_CHARACTER, &
                              type_descriptor%type_handle, "native", MPI_INFO_NULL, ierr)
       IF (ierr .NE. 0) CALL mp_stop(ierr, "mpi_file_set_errhandler @ MPI_File_set_view")
-
-      !IF (ierr /= 0)&
-      !   CPABORT("MPI_File_set_view @ "//routineN)
 #else
       ! Uses absolute offsets stored in mp_file_descriptor_type
       MARK_USED(fh)
@@ -3802,9 +3799,6 @@ CONTAINS
       CALL mpi_file_set_errhandler(fh, MPI_ERRORS_RETURN, ierr)
       CALL MPI_File_write_all(fh, buffer, ndims*msglen, MPI_CHARACTER, MPI_STATUS_IGNORE, ierr)
       IF (ierr .NE. 0) CALL mp_stop(ierr, "mpi_file_set_errhandler @ MPI_File_write_all")
-
-      !IF (ierr /= 0)&
-      !   CPABORT("MPI_File_write_all @ "//routineN)
 #else
       MARK_USED(msglen)
       MARK_USED(ndims)
