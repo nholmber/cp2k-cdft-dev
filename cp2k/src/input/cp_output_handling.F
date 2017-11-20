@@ -812,11 +812,15 @@ CONTAINS
 !>               the communicator group. Automatically disabled if the file form or access mode
 !>               is unsuitable for MPI IO. Return value indicates whether MPI was actually used
 !>               and therefore the flag must also be passed to the file closing directive.
+!> \param fout   Name of the actual file where the output will be written. Needed mainly for MPI IO
+!>               because inquiring the filename from the MPI filehandle does not work across
+!>               all MPI libraries.
 !> \retval res ...
 ! **************************************************************************************************
    FUNCTION cp_print_key_unit_nr(logger, basis_section, print_key_path, extension, &
                                  middle_name, local, log_filename, ignore_should_output, file_form, file_position, &
-                                 file_action, file_status, do_backup, on_file, is_new_file, mpi_io) RESULT(res)
+                                 file_action, file_status, do_backup, on_file, is_new_file, mpi_io, &
+                                 fout) RESULT(res)
       TYPE(cp_logger_type), POINTER                      :: logger
       TYPE(section_vals_type), POINTER                   :: basis_section
       CHARACTER(len=*), INTENT(IN), OPTIONAL             :: print_key_path
@@ -828,6 +832,8 @@ CONTAINS
       LOGICAL, INTENT(IN), OPTIONAL                      :: do_backup, on_file
       LOGICAL, INTENT(OUT), OPTIONAL                     :: is_new_file
       LOGICAL, INTENT(INOUT), OPTIONAL                   :: mpi_io
+      CHARACTER(len=default_path_length), INTENT(OUT), &
+         OPTIONAL                                        :: fout
       INTEGER                                            :: res
 
       CHARACTER(len=*), PARAMETER :: routineN = 'cp_print_key_unit_nr', &
@@ -986,6 +992,7 @@ CONTAINS
                IF (replace) CALL mp_file_delete(filename)
                CALL mp_file_open(groupid=logger%para_env%group, &
                                  fh=iounit, filepath=filename, amode_status=mpi_amode)
+               IF (PRESENT(fout)) fout = filename
                res = iounit
             END IF
             IF (do_log) THEN

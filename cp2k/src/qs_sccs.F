@@ -51,7 +51,8 @@ MODULE qs_sccs
                                               section_vals_get_subs_vals,&
                                               section_vals_type
    USE kahan_sum,                       ONLY: accurate_sum
-   USE kinds,                           ONLY: default_string_length,&
+   USE kinds,                           ONLY: default_path_length,&
+                                              default_string_length,&
                                               dp,&
                                               int_8
    USE mathconstants,                   ONLY: twopi
@@ -131,6 +132,7 @@ CONTAINS
       REAL(KIND=dp), PARAMETER                           :: tol = 1.0E-12_dp
 
       CHARACTER(LEN=4*default_string_length)             :: message
+      CHARACTER(LEN=default_path_length)                 :: mpi_filename
       CHARACTER(LEN=default_string_length)               :: cube_path, filename, my_pos_cube, &
                                                             print_path
       INTEGER                                            :: cube_unit, di, dj, handle, i, ispin, &
@@ -328,9 +330,13 @@ CONTAINS
          cube_unit = cp_print_key_unit_nr(logger, input, TRIM(cube_path), &
                                           extension=".cube", middle_name=TRIM(filename), &
                                           file_position=my_pos_cube, log_filename=.FALSE., &
-                                          mpi_io=mpi_io)
+                                          mpi_io=mpi_io, fout=mpi_filename)
          IF (output_unit > 0) THEN
-            INQUIRE (UNIT=cube_unit, NAME=filename)
+            IF (.NOT. mpi_io) THEN
+               INQUIRE (UNIT=cube_unit, NAME=filename)
+            ELSE
+               filename = mpi_filename
+            END IF
             WRITE (UNIT=output_unit, FMT="(/,T2,A,/,/,T2,A)") &
                "The dielectric function is written in cube file format to the file:", TRIM(filename)
          END IF
@@ -408,9 +414,13 @@ CONTAINS
             cube_unit = cp_print_key_unit_nr(logger, input, TRIM(cube_path), &
                                              extension=".cube", middle_name=TRIM(filename), &
                                              file_position=my_pos_cube, log_filename=.FALSE., &
-                                             mpi_io=mpi_io)
+                                             mpi_io=mpi_io, fout=mpi_filename)
             IF (output_unit > 0) THEN
-               INQUIRE (UNIT=cube_unit, NAME=filename)
+               IF (.NOT. mpi_io) THEN
+                  INQUIRE (UNIT=cube_unit, NAME=filename)
+               ELSE
+                  filename = mpi_filename
+               END IF
                WRITE (UNIT=output_unit, FMT="(/,T2,A,/,/,T2,A)") &
                   "The norm of the density gradient is written in cube file format to the file:", TRIM(filename)
             END IF
@@ -711,9 +721,13 @@ CONTAINS
          cube_unit = cp_print_key_unit_nr(logger, input, TRIM(cube_path), &
                                           extension=".cube", middle_name=TRIM(filename), &
                                           file_position=my_pos_cube, log_filename=.FALSE., &
-                                          mpi_io=mpi_io)
+                                          mpi_io=mpi_io, fout=mpi_filename)
          IF (output_unit > 0) THEN
-            INQUIRE (UNIT=cube_unit, NAME=filename)
+            IF (.NOT. mpi_io) THEN
+               INQUIRE (UNIT=cube_unit, NAME=filename)
+            ELSE
+               filename = mpi_filename
+            END IF
             WRITE (UNIT=output_unit, FMT="(/,T2,A,/,/,T2,A)") &
                "The SCCS polarisation potential is written in cube file format to the file:", TRIM(filename)
          END IF

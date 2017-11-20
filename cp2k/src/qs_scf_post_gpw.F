@@ -1591,7 +1591,8 @@ CONTAINS
       CHARACTER(len=*), PARAMETER :: routineN = 'qs_scf_post_elf', &
          routineP = moduleN//':'//routineN
 
-      CHARACTER(LEN=default_path_length)                 :: filename, my_pos_cube, title
+      CHARACTER(LEN=default_path_length)                 :: filename, mpi_filename, my_pos_cube, &
+                                                            title
       INTEGER                                            :: handle, ispin, output_unit, unit_nr
       LOGICAL                                            :: append_cube, do_elf, gapw, mpi_io
       REAL(dp)                                           :: rho_cutoff
@@ -1648,9 +1649,13 @@ CONTAINS
                mpi_io = .TRUE.
                unit_nr = cp_print_key_unit_nr(logger, input, "DFT%PRINT%ELF_CUBE", extension=".cube", &
                                               middle_name=TRIM(filename), file_position=my_pos_cube, log_filename=.FALSE., &
-                                              mpi_io=mpi_io)
+                                              mpi_io=mpi_io, fout=mpi_filename)
                IF (output_unit > 0) THEN
-                  INQUIRE (UNIT=unit_nr, NAME=filename)
+                  IF (.NOT. mpi_io) THEN
+                     INQUIRE (UNIT=unit_nr, NAME=filename)
+                  ELSE
+                     filename = mpi_filename
+                  END IF
                   WRITE (UNIT=output_unit, FMT="(/,T2,A,/,/,T2,A)") &
                      "ELF is written in cube file format to the file:", &
                      TRIM(filename)
@@ -2214,7 +2219,7 @@ CONTAINS
       CHARACTER(len=1), DIMENSION(3), PARAMETER          :: cdir = (/"x", "y", "z"/)
 
       CHARACTER(LEN=2)                                   :: element_symbol
-      CHARACTER(LEN=default_path_length)                 :: filename, my_pos_cube
+      CHARACTER(LEN=default_path_length)                 :: filename, mpi_filename, my_pos_cube
       CHARACTER(LEN=default_string_length)               :: name
       INTEGER                                            :: after, handle, i, iat, id, ikind, img, &
                                                             iso, ispin, iw, l, nd(3), ngto, niso, &
@@ -2485,9 +2490,14 @@ CONTAINS
             mpi_io = .TRUE.
             unit_nr = cp_print_key_unit_nr(logger, input, "DFT%PRINT%E_DENSITY_CUBE", &
                                            extension=".cube", middle_name=TRIM(filename), &
-                                           file_position=my_pos_cube, log_filename=.FALSE., mpi_io=mpi_io)
+                                           file_position=my_pos_cube, log_filename=.FALSE., mpi_io=mpi_io, &
+                                           fout=mpi_filename)
             IF (output_unit > 0) THEN
-               INQUIRE (UNIT=unit_nr, NAME=filename)
+               IF (.NOT. mpi_io) THEN
+                  INQUIRE (UNIT=unit_nr, NAME=filename)
+               ELSE
+                  filename = mpi_filename
+               END IF
                WRITE (UNIT=output_unit, FMT="(/,T2,A,/,/,T2,A)") &
                   "The total electron density is written in cube file format to the file:", &
                   TRIM(filename)
@@ -2521,9 +2531,14 @@ CONTAINS
                mpi_io = .TRUE.
                unit_nr = cp_print_key_unit_nr(logger, input, "DFT%PRINT%E_DENSITY_CUBE", &
                                               extension=".cube", middle_name=TRIM(filename), &
-                                              file_position=my_pos_cube, log_filename=.FALSE., mpi_io=mpi_io)
+                                              file_position=my_pos_cube, log_filename=.FALSE., mpi_io=mpi_io, &
+                                              fout=mpi_filename)
                IF (output_unit > 0) THEN
-                  INQUIRE (UNIT=unit_nr, NAME=filename)
+                  IF (.NOT. mpi_io) THEN
+                     INQUIRE (UNIT=unit_nr, NAME=filename)
+                  ELSE
+                     filename = mpi_filename
+                  END IF
                   WRITE (UNIT=output_unit, FMT="(/,T2,A,/,/,T2,A)") &
                      "The total spin density is written in cube file format to the file:", &
                      TRIM(filename)
@@ -2557,9 +2572,14 @@ CONTAINS
                mpi_io = .TRUE.
                unit_nr = cp_print_key_unit_nr(logger, input, "DFT%PRINT%E_DENSITY_CUBE", &
                                               extension=".cube", middle_name=TRIM(filename), &
-                                              file_position=my_pos_cube, log_filename=.FALSE., mpi_io=mpi_io)
+                                              file_position=my_pos_cube, log_filename=.FALSE., mpi_io=mpi_io, &
+                                              fout=mpi_filename)
                IF (output_unit > 0) THEN
-                  INQUIRE (UNIT=unit_nr, NAME=filename)
+                  IF (.NOT. mpi_io) THEN
+                     INQUIRE (UNIT=unit_nr, NAME=filename)
+                  ELSE
+                     filename = mpi_filename
+                  END IF
                   WRITE (UNIT=output_unit, FMT="(/,T2,A,/,/,T2,A)") &
                      "The sum of alpha and beta density is written in cube file format to the file:", &
                      TRIM(filename)
@@ -2575,9 +2595,14 @@ CONTAINS
                mpi_io = .TRUE.
                unit_nr = cp_print_key_unit_nr(logger, input, "DFT%PRINT%E_DENSITY_CUBE", &
                                               extension=".cube", middle_name=TRIM(filename), &
-                                              file_position=my_pos_cube, log_filename=.FALSE., mpi_io=mpi_io)
+                                              file_position=my_pos_cube, log_filename=.FALSE., mpi_io=mpi_io, &
+                                              fout=mpi_filename)
                IF (output_unit > 0) THEN
-                  INQUIRE (UNIT=unit_nr, NAME=filename)
+                  IF (.NOT. mpi_io) THEN
+                     INQUIRE (UNIT=unit_nr, NAME=filename)
+                  ELSE
+                     filename = mpi_filename
+                  END IF
                   WRITE (UNIT=output_unit, FMT="(/,T2,A,/,/,T2,A)") &
                      "The spin density is written in cube file format to the file:", &
                      TRIM(filename)
@@ -2593,9 +2618,14 @@ CONTAINS
                mpi_io = .TRUE.
                unit_nr = cp_print_key_unit_nr(logger, input, "DFT%PRINT%E_DENSITY_CUBE", &
                                               extension=".cube", middle_name=TRIM(filename), &
-                                              file_position=my_pos_cube, log_filename=.FALSE., mpi_io=mpi_io)
+                                              file_position=my_pos_cube, log_filename=.FALSE., mpi_io=mpi_io, &
+                                              fout=mpi_filename)
                IF (output_unit > 0) THEN
-                  INQUIRE (UNIT=unit_nr, NAME=filename)
+                  IF (.NOT. mpi_io) THEN
+                     INQUIRE (UNIT=unit_nr, NAME=filename)
+                  ELSE
+                     filename = mpi_filename
+                  END IF
                   WRITE (UNIT=output_unit, FMT="(/,T2,A,/,/,T2,A)") &
                      "The electron density is written in cube file format to the file:", &
                      TRIM(filename)

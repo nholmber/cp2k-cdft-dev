@@ -668,7 +668,7 @@ MODULE message_passing
       REAL(KIND=dp) :: msg_size
    END TYPE mp_perf_type
 
-   INTEGER, PARAMETER :: MAX_PERF = 26
+   INTEGER, PARAMETER :: MAX_PERF = 28
 
 ! **************************************************************************************************
    TYPE mp_perf_env_type
@@ -697,7 +697,8 @@ MODULE message_passing
                                      "MP_Put              ", "MP_Get              ", "MP_Fence            ", &
                                      "MP_Win_Lock         ", "MP_Win_Create       ", "MP_Win_Free         ", &
                                      "MP_IBcast           ", "MP_IAllreduce       ", "MP_IScatter         ", &
-                                     "MP_RGet             ", "MP_Isync            "/)
+                                     "MP_RGet             ", "MP_Isync            ", "MP_Read_All         ", &
+                                     "MP_Write_All        "/)
 
    ! we make some assumptions on the length of INTEGERS, REALS and LOGICALS
    INTEGER, PARAMETER :: intlen = BIT_SIZE(0)/8
@@ -3693,7 +3694,7 @@ CONTAINS
       CHARACTER(len=*), PARAMETER :: routineN = 'mp_file_set_view_chv', &
          routineP = moduleN//':'//routineN
 
-      INTEGER :: ierr, handle
+      INTEGER                                   :: ierr, handle
 
       ierr = 0
       CALL mp_timeset(routineN,handle)
@@ -3745,8 +3746,8 @@ CONTAINS
 #if defined(__parallel)
       MARK_USED(type_descriptor)
       CALL MPI_File_read_all(fh, buffer, ndims*msglen, MPI_CHARACTER, MPI_STATUS_IGNORE, ierr)
-      IF (ierr /= 0)&
-         CPABORT("MPI_File_read_all @ "//routineN)
+      IF (ierr .NE. 0) CALL mp_stop(ierr, "mpi_file_set_errhandler @ MPI_File_read_all")
+      CALL add_perf(perf_id=28, count=1, msg_size=ndims*msglen)
 #else
       MARK_USED(msglen)
       MARK_USED(ndims)
@@ -3799,6 +3800,7 @@ CONTAINS
       CALL mpi_file_set_errhandler(fh, MPI_ERRORS_RETURN, ierr)
       CALL MPI_File_write_all(fh, buffer, ndims*msglen, MPI_CHARACTER, MPI_STATUS_IGNORE, ierr)
       IF (ierr .NE. 0) CALL mp_stop(ierr, "mpi_file_set_errhandler @ MPI_File_write_all")
+      CALL add_perf(perf_id=28, count=1, msg_size=ndims*msglen)
 #else
       MARK_USED(msglen)
       MARK_USED(ndims)
