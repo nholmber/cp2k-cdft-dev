@@ -2553,7 +2553,7 @@ CONTAINS
                                   particles=particles, &
                                   stride=section_get_ivals(dft_section, "PRINT%E_DENSITY_CUBE%STRIDE"), mpi_io=mpi_io)
                CALL cp_print_key_finished_output(unit_nr, logger, input, &
-                                                "DFT%PRINT%E_DENSITY_CUBE", mpi_io=mpi_io)
+                                                 "DFT%PRINT%E_DENSITY_CUBE", mpi_io=mpi_io)
             END IF
             CALL pw_pool_give_back_pw(auxbas_pw_pool, rho_elec_gspace%pw)
             CALL pw_pool_give_back_pw(auxbas_pw_pool, rho_elec_rspace%pw)
