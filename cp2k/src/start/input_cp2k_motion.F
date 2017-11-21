@@ -14,6 +14,7 @@ MODULE input_cp2k_motion
                                               Ceriotti2012,&
                                               Ceriotti2014,&
                                               Henkelman1999,&
+                                              Henkelman2014,&
                                               Kapil2016
    USE cp_output_handling,              ONLY: add_last_numeric,&
                                               cp_print_key_section_create,&
@@ -26,9 +27,10 @@ MODULE input_cp2k_motion
         default_bfgs_method_id, default_cell_direct_id, default_cell_geo_opt_id, &
         default_cell_md_id, default_cg_method_id, default_dimer_method_id, &
         default_lbfgs_method_id, default_minimization_method_id, default_ts_method_id, &
-        do_mc_gemc_npt, do_mc_gemc_nvt, do_mc_traditional, do_mc_virial, fmt_id_pdb, fmt_id_xyz, &
-        gaussian, helium_cell_shape_cube, helium_cell_shape_octahedron, helium_forces_average, &
-        helium_forces_last, helium_mdist_exponential, helium_mdist_gaussian, helium_mdist_linear, &
+        do_mc_gemc_npt, do_mc_gemc_nvt, do_mc_traditional, do_mc_virial, fix_none, fix_x, fix_xy, &
+        fix_xz, fix_y, fix_yz, fix_z, fmt_id_pdb, fmt_id_xyz, gaussian, helium_cell_shape_cube, &
+        helium_cell_shape_octahedron, helium_forces_average, helium_forces_last, &
+        helium_mdist_exponential, helium_mdist_gaussian, helium_mdist_linear, &
         helium_mdist_quadratic, helium_mdist_singlev, helium_mdist_uniform, &
         helium_sampling_ceperley, helium_sampling_worm, helium_solute_intpot_mwater, &
         helium_solute_intpot_none, integrate_exact, integrate_numeric, ls_2pnt, ls_3pnt, ls_fit, &
@@ -92,7 +94,8 @@ CONTAINS
 
       CALL create_geoopt_section(subsection, label="GEO_OPT", &
                                  description="This section sets the environment of the geometry optimizer.", &
-                                 just_optimizers=.FALSE.)
+                                 just_optimizers=.FALSE., &
+                                 use_model_hessian=.TRUE.)
       CALL section_add_subsection(section, subsection)
       CALL section_release(subsection)
 
@@ -795,12 +798,13 @@ CONTAINS
 !> \param label ...
 !> \param description ...
 !> \param just_optimizers ...
+!> \param use_model_hessian ...
 !> \author teo
 ! **************************************************************************************************
-   RECURSIVE SUBROUTINE create_geoopt_section(section, label, description, just_optimizers)
+   RECURSIVE SUBROUTINE create_geoopt_section(section, label, description, just_optimizers, use_model_hessian)
       TYPE(section_type), POINTER                        :: section
       CHARACTER(LEN=*), INTENT(IN)                       :: label, description
-      LOGICAL, INTENT(IN)                                :: just_optimizers
+      LOGICAL, INTENT(IN)                                :: just_optimizers, use_model_hessian
 
       CHARACTER(len=*), PARAMETER :: routineN = 'create_geoopt_section', &
          routineP = moduleN//':'//routineN
@@ -894,7 +898,7 @@ CONTAINS
       CALL section_add_subsection(section, subsection)
       CALL section_release(subsection)
 
-      CALL create_bfgs_section(subsection)
+      CALL create_bfgs_section(subsection, use_model_hessian)
       CALL section_add_subsection(section, subsection)
       CALL section_release(subsection)
 
@@ -941,7 +945,8 @@ CONTAINS
          " that might turn to be necessary along a MD run using a shell-model potential. "// &
          " The optimization procedure is activated when at least one of the shell-core "// &
          "pairs becomes too elongated,  i.e. when the assumption of point dipole is not longer valid.", &
-         just_optimizers=.TRUE.)
+         just_optimizers=.TRUE., &
+         use_model_hessian=.FALSE.)
 
       NULLIFY (print_key, subsection)
 
@@ -978,7 +983,9 @@ CONTAINS
       CALL create_geoopt_section(section, label="CELL_OPT", &
                                  description="This section sets the environment for the optimization of the simulation cell."// &
                                  " Two possible schemes are available: (1) Zero temperature optimization; "// &
-                                 " (2) Finite temperature optimization. ", just_optimizers=.TRUE.)
+                                 " (2) Finite temperature optimization. ", &
+                                 just_optimizers=.TRUE., &
+                                 use_model_hessian=.FALSE.)
 
       NULLIFY (keyword, print_key, subsection)
       CALL keyword_create( &
@@ -1022,6 +1029,23 @@ CONTAINS
                           description="Keep the requested initial cell symmetry (e.g. during a cell optimisation). "// &
                           "The initial symmetry must be specified in the &CELL section.", &
                           usage="KEEP_SYMMETRY yes", default_l_val=.FALSE., lone_keyword_l_val=.TRUE.)
+      CALL section_add_keyword(section, keyword)
+      CALL keyword_release(keyword)
+
+      CALL keyword_create( &
+         keyword, name="CONSTRAINT", &
+         description="Imposes a constraint on the pressure tensor by fixing the specified cell components.", &
+         usage="CONSTRAINT (none|x|y|z|xy|xz|yz)", &
+         enum_desc=s2a("Fix nothing", &
+                       "Fix only x component", &
+                       "Fix only y component", &
+                       "Fix only z component", &
+                       "Fix x and y component", &
+                       "Fix x and z component", &
+                       "Fix y and z component"), &
+         enum_c_vals=s2a("NONE", "X", "Y", "Z", "XY", "XZ", "YZ"), &
+         enum_i_vals=(/fix_none, fix_x, fix_y, fix_z, fix_xy, fix_xz, fix_yz/), &
+         default_i_val=fix_none)
       CALL section_add_keyword(section, keyword)
       CALL keyword_release(keyword)
 
@@ -1116,10 +1140,29 @@ CONTAINS
       CALL section_add_keyword(subsection, keyword)
       CALL keyword_release(keyword)
 
+      CALL keyword_create(keyword, name="K-DIMER", &
+                          description="This keyword activates the constrained k-dimer translation"// &
+                          " J. Chem. Phys. 141, 164111 (2014).", &
+                          citations=(/Henkelman2014/), &
+                          usage="K-DIMER {logica}", &
+                          default_l_val=.FALSE., &
+                          lone_keyword_l_val=.FALSE.)
+      CALL section_add_keyword(subsection, keyword)
+      CALL keyword_release(keyword)
+
+      CALL keyword_create(keyword, name="BETA", &
+                          description="Exponential factor for the switching function used in K-DIMER", &
+                          usage="BETA {real}", &
+                          default_r_val=5.0_dp, &
+                          lone_keyword_r_val=5.0_dp)
+      CALL section_add_keyword(subsection, keyword)
+      CALL keyword_release(keyword)
+
       CALL create_geoopt_section( &
          subsection2, label="ROT_OPT", &
          description="This section sets the environment for the optimization of the rotation of the Dimer.", &
-         just_optimizers=.TRUE.)
+         just_optimizers=.TRUE., &
+         use_model_hessian=.FALSE.)
       NULLIFY (subsection3)
       CALL section_create(subsection3, name="PRINT", &
                           description="Controls the printing properties during the dimer rotation optimization run", &
@@ -1169,10 +1212,12 @@ CONTAINS
 ! **************************************************************************************************
 !> \brief creates the BFGS section
 !> \param section the section to be created
+!> \param use_model_hessian ...
 !> \author Teodoro Laino [tlaino] - University of Zurich - 01.2008
 ! **************************************************************************************************
-   SUBROUTINE create_bfgs_section(section)
+   SUBROUTINE create_bfgs_section(section, use_model_hessian)
       TYPE(section_type), POINTER                        :: section
+      LOGICAL, INTENT(IN)                                :: use_model_hessian
 
       CHARACTER(len=*), PARAMETER :: routineN = 'create_bfgs_section', &
          routineP = moduleN//':'//routineN
@@ -1199,7 +1244,7 @@ CONTAINS
                           description="Uses a model Hessian as initial guess instead of a unit matrix."// &
                           " Should lead in general to improved convergence might be switched off for exotic cases", &
                           usage="USE_MODEL_HESSIAN", &
-                          default_l_val=.TRUE., lone_keyword_l_val=.TRUE.)
+                          default_l_val=use_model_hessian, lone_keyword_l_val=.TRUE.)
       CALL section_add_keyword(section, keyword)
       CALL keyword_release(keyword)
 

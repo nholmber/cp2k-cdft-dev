@@ -49,6 +49,7 @@ MODULE qs_dispersion_types
       LOGICAL                                :: doabc !neglect C9 terms
       LOGICAL                                :: c9cnst !use constant c9 terms
       LOGICAL                                :: lrc !calculate a long range correction
+      LOGICAL                                :: srb !calculate a short range bond correction
       TYPE(neighbor_list_set_p_type), &
          DIMENSION(:), POINTER                :: sab_vdw, sab_cn ! neighborlists for pair interactions
       REAL(KIND=dp), DIMENSION(:, :, :, :, :), POINTER &
@@ -62,6 +63,9 @@ MODULE qs_dispersion_types
          :: cnkind
       TYPE(cn_atom_list), DIMENSION(:), POINTER &
          :: cnlist
+      ! KG molecular corrections
+      LOGICAL                                :: domol
+      REAL(KIND=dp)                          :: kgc8 !s8 scaling parameter
       !vdW-DF variables
       REAL(KIND=dp)                          :: pw_cutoff
       REAL(KIND=dp)                          :: b_value, c_value !parameters for the rVV10 functional

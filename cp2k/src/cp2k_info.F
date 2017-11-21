@@ -45,8 +45,8 @@ MODULE cp2k_info
    CHARACTER(LEN=*), PARAMETER :: compile_revision = "unknown"
 #endif
 
-   CHARACTER(LEN=*), PARAMETER :: version_nr = "5.0"
-   CHARACTER(LEN=*), PARAMETER :: cp2k_year = "2016"
+   CHARACTER(LEN=*), PARAMETER :: version_nr = "6.0"
+   CHARACTER(LEN=*), PARAMETER :: cp2k_year = "2017"
    CHARACTER(LEN=*), PARAMETER :: cp2k_version = "CP2K version "//TRIM(version_nr)
    CHARACTER(LEN=*), PARAMETER :: cp2k_home = "https://www.cp2k.org/"
 
@@ -114,7 +114,7 @@ CONTAINS
 #if defined(__ELPA)
       CALL integer_to_string(__ELPA, tmp_str)
       flags = TRIM(flags)//" elpa="//TRIM(tmp_str)
-#if (__ELPA==201502) || (__ELPA==201505) || (__ELPA==201511) || (__ELPA==201605) || (__ELPA==201611)
+#if (__ELPA==201502) || (__ELPA==201505) || (__ELPA==201511) || (__ELPA==201605) || (__ELPA==201611) || (__ELPA==201705)
       flags = TRIM(flags)//" elpa_qr"
 #endif
 #endif
@@ -277,6 +277,9 @@ CONTAINS
 #endif
 #if defined __ACCELERATE
       flags = TRIM(flags)//" accelerate"
+#endif
+#if defined __MKL
+      flags = TRIM(flags)//" mkl"
 #endif
 
    END FUNCTION cp2k_flags

@@ -48,6 +48,7 @@ MODULE qs_dispersion_pairpot
                                               mp_max,&
                                               mp_shift,&
                                               mp_sum
+   USE molecule_types,                  ONLY: molecule_type
    USE particle_types,                  ONLY: particle_type
    USE physcon,                         ONLY: bohr,&
                                               kcalmol,&
@@ -670,6 +671,11 @@ CONTAINS
          a1 = 0.4567_dp
          s8 = 4.0728_dp
          a2 = 4.3908_dp
+      CASE ("B97-3c")
+         s6 = 1.0000_dp
+         a1 = 0.3700_dp
+         s8 = 1.5000_dp
+         a2 = 4.1000_dp
       CASE ("CAMB3LYP")
          s6 = 1.0000_dp
          a1 = 0.3708_dp
@@ -851,22 +857,23 @@ CONTAINS
       CHARACTER(LEN=*), PARAMETER :: routineN = 'calculate_dispersion_pairpot', &
          routineP = moduleN//':'//routineN
 
-      INTEGER :: atom_a, atom_b, atom_c, atom_d, handle, hashb, hashc, i, ia, iatom, icx, icy, &
-         icz, idmp, ikind, ilist, jatom, jkind, katom, kkind, kstart, latom, lkind, max_elem, &
-         maxc, mepos, na, natom, nb, nc, ni, nj, nkind, num_pe, unit_nr, za, zb, zc
+      INTEGER :: atom_a, atom_b, atom_c, atom_d, handle, hashb, hashc, i, ia, iat, iatom, icx, &
+         icy, icz, idmp, ikind, ilist, imol, jatom, jkind, katom, kkind, kstart, latom, lkind, &
+         max_elem, maxc, mepos, na, natom, nb, nc, ni, nj, nkind, num_pe, unit_nr, za, zb, zc
       INTEGER, ALLOCATABLE, DIMENSION(:)                 :: atom_of_kind, atomnumber, kind_of
       INTEGER, DIMENSION(3)                              :: cell_b, cell_c, ncell, periodic
       INTEGER, DIMENSION(:), POINTER                     :: atom_list
-      LOGICAL :: atenergy, atstress, debug, debugall, debugx, floating_a, floating_b, floating_c, &
-         ghost_a, ghost_b, ghost_c, is000, use_virial
+      LOGICAL :: atenergy, atstress, debug, debugall, debugx, domol, floating_a, floating_b, &
+         floating_c, ghost_a, ghost_b, ghost_c, is000, use_virial
       LOGICAL, ALLOCATABLE, DIMENSION(:)                 :: dodisp, floating, ghost
       REAL(KIND=dp) :: a1, a2, alp6, alp8, ang, c6, c8, c9, cc6ab, cc6bc, cc6ca, cnab, cnum, dc6a, &
          dc6b, dc8a, dc8b, dcc6aba, dcc6abb, dcc6bcb, dcc6bcc, dcc6caa, dcc6cac, dcnab, dd, de6, &
          de8, de91, de921, de922, dea, devdw, dfdab6, dfdab8, dfdabc, dfdmp, dr, drk, e6, e6tot, &
-         e8, e8tot, e9, e9tot, elrc6, elrc8, elrc9, eps_cn, er, evdw, f0ab, fac, fac0, fdab6, &
-         fdab8, fdabc, fdmp, gnorm, nab, nabc, r0, r0ab, r2ab, r2abc, r2bc, r2ca, r6, r8, rabc, &
-         rc2, rcc, rcova, rcovb, rcut, rs6, rs8, s1, s2, s3, s6, s8, s9, xp
-      REAL(KIND=dp), ALLOCATABLE, DIMENSION(:)           :: c6d2, cnkind, cnumbers, cnumfix, radd2
+         e8, e8tot, e9, e9tot, elrc6, elrc8, elrc9, eps_cn, er, esrb, evdw, f0ab, fac, fac0, &
+         fdab6, fdab8, fdabc, fdmp, gnorm, kgc8, nab, nabc, r0, r0ab, r2ab, r2abc, r2bc, r2ca, r6, &
+         r8, rabc, rc2, rcc, rcova, rcovb, rcut, rs6, rs8, s1, s2, s3, s6, s8, s8i, s9, srbe, xp
+      REAL(KIND=dp), ALLOCATABLE, DIMENSION(:)           :: atom2mol, c6d2, cnkind, cnumbers, &
+                                                            cnumfix, radd2
       REAL(KIND=dp), ALLOCATABLE, DIMENSION(:, :)        :: rcpbc
       REAL(KIND=dp), DIMENSION(3)                        :: fdij, fdik, ra, rab, rb, rb0, rbc, rc, &
                                                             rc0, rca, rij, rik, sab_max
@@ -879,6 +886,7 @@ CONTAINS
       TYPE(cp_logger_type), POINTER                      :: logger
       TYPE(cp_para_env_type), POINTER                    :: para_env
       TYPE(dcnum_type), ALLOCATABLE, DIMENSION(:)        :: dcnum
+      TYPE(molecule_type), DIMENSION(:), POINTER         :: molecule_set
       TYPE(neighbor_list_iterator_p_type), &
          DIMENSION(:), POINTER                           :: nl_iterator
       TYPE(neighbor_list_set_p_type), DIMENSION(:), &
@@ -989,6 +997,7 @@ CONTAINS
             WRITE (unit_nr, *) " Scaling parameter (s6) ", s6
             WRITE (unit_nr, *) " Exponential prefactor  ", dd
          END IF
+         domol = .FALSE.
       ELSE IF (dispersion_env%pp_type == vdw_pairpot_dftd3 .OR. &
                dispersion_env%pp_type == vdw_pairpot_dftd3bj) THEN
          maxc = SIZE(dispersion_env%c6ab, 3)
@@ -1006,6 +1015,19 @@ CONTAINS
          e6tot = 0._dp
          e8tot = 0._dp
          e9tot = 0._dp
+         esrb = 0._dp
+         domol = dispersion_env%domol
+         ! molecule correction
+         kgc8 = dispersion_env%kgc8
+         IF (domol) THEN
+            CALL get_qs_env(qs_env=qs_env, molecule_set=molecule_set)
+            ALLOCATE (atom2mol(natom))
+            DO imol = 1, SIZE(molecule_set)
+               DO iat = molecule_set(imol)%first_atom, molecule_set(imol)%last_atom
+                  atom2mol(iat) = imol
+               ENDDO
+            END DO
+         END IF
          ! damping type
          idmp = 0
          IF (dispersion_env%pp_type == vdw_pairpot_dftd3) THEN
@@ -1027,6 +1049,12 @@ CONTAINS
             WRITE (unit_nr, *) " Cutoff coordination numbers", eps_cn
             IF (dispersion_env%lrc) THEN
                WRITE (unit_nr, *) " Apply a long range correction"
+            END IF
+            IF (dispersion_env%srb) THEN
+               WRITE (unit_nr, *) " Apply a short range bond correction"
+            END IF
+            IF (domol) THEN
+               WRITE (unit_nr, *) " Inter-molecule scaling parameter (s8) ", kgc8
             END IF
          END IF
          ! Calculate coordination numbers
@@ -1276,13 +1304,19 @@ CONTAINS
                dc8b = 3.0d0*dc6b*dispersion_env%r2r4(za)*dispersion_env%r2r4(zb)
                r6 = dr**6
                r8 = r6*dr*dr
+               s8i = s8
+               IF (domol) THEN
+                  IF (atom2mol(iatom) /= atom2mol(jatom)) THEN
+                     s8i = kgc8
+                  END IF
+               END IF
                ! damping
                IF (idmp == 1) THEN
                   ! zero
                   CALL damping_d3(dr, dispersion_env%r0ab(za, zb), rs6, alp6, rcut, fdab6, dfdab6)
                   CALL damping_d3(dr, dispersion_env%r0ab(za, zb), rs8, alp8, rcut, fdab8, dfdab8)
                   e6 = s6*fac*c6*fdab6/r6
-                  e8 = s8*fac*c8*fdab8/r8
+                  e8 = s8i*fac*c8*fdab8/r8
                ELSE IF (idmp == 2) THEN
                   ! BJ
                   r0ab = SQRT(3.0d0*dispersion_env%r2r4(za)*dispersion_env%r2r4(zb))
@@ -1290,31 +1324,41 @@ CONTAINS
                   fdab6 = 1.0_dp/(r6+f0ab**6)
                   fdab8 = 1.0_dp/(r8+f0ab**8)
                   e6 = s6*fac*c6*fdab6
-                  e8 = s8*fac*c8*fdab8
+                  e8 = s8i*fac*c8*fdab8
                ELSE
                   CPABORT("Unknown DFT-D3 damping function:")
+               END IF
+               IF (dispersion_env%srb .AND. dr .LT. 30.0d0) THEN
+                  srbe = 0.08_dp*SQRT(REAL((za*zb), KIND=dp))*EXP(-10.0_dp*dr/dispersion_env%r0ab(za, zb))
+                  esrb = esrb+srbe
+                  evdw = evdw-srbe
+               ELSE
+                  srbe = 0.0_dp
                END IF
                evdw = evdw-e6-e8
                e6tot = e6tot-e6
                e8tot = e8tot-e8
                IF (atenergy) THEN
-                  atener(iatom) = atener(iatom)-0.5_dp*(e6+e8)
-                  atener(jatom) = atener(jatom)-0.5_dp*(e6+e8)
+                  atener(iatom) = atener(iatom)-0.5_dp*(e6+e8+srbe)
+                  atener(jatom) = atener(jatom)-0.5_dp*(e6+e8+srbe)
                END IF
                IF (calculate_forces) THEN
                   ! damping
                   IF (idmp == 1) THEN
                      ! zero
                      de6 = -s6*c6/r6*(dfdab6-6._dp*fdab6/dr)
-                     de8 = -s8*c8/r8*(dfdab8-8._dp*fdab8/dr)
+                     de8 = -s8i*c8/r8*(dfdab8-8._dp*fdab8/dr)
                   ELSE IF (idmp == 2) THEN
                      ! BJ
                      de6 = s6*c6*fdab6*fdab6*6.0_dp*dr**5
-                     de8 = s8*c8*fdab8*fdab8*8.0_dp*dr**7
+                     de8 = s8i*c8*fdab8*fdab8*8.0_dp*dr**7
                   ELSE
                      CPABORT("Unknown DFT-D3 damping function:")
                   END IF
                   fdij(:) = (de6+de8)*rij(:)/dr*fac
+                  IF (dispersion_env%srb .AND. dr .LT. 30.0d0) THEN
+                     fdij(:) = fdij(:)+10._dp*srbe*rij(:)/(dr*dispersion_env%r0ab(za, zb))
+                  END IF
                   atom_a = atom_of_kind(iatom)
                   atom_b = atom_of_kind(jatom)
                   force(ikind)%dispersion(:, atom_a) = force(ikind)%dispersion(:, atom_a)-fdij(:)
@@ -1331,14 +1375,14 @@ CONTAINS
                      ! zero
                      dc6a = -s6*fac*dc6a*fdab6/r6
                      dc6b = -s6*fac*dc6b*fdab6/r6
-                     dc8a = -s8*fac*dc8a*fdab8/r8
-                     dc8b = -s8*fac*dc8b*fdab8/r8
+                     dc8a = -s8i*fac*dc8a*fdab8/r8
+                     dc8b = -s8i*fac*dc8b*fdab8/r8
                   ELSE IF (idmp == 2) THEN
                      ! BJ
                      dc6a = -s6*fac*dc6a*fdab6
                      dc6b = -s6*fac*dc6b*fdab6
-                     dc8a = -s8*fac*dc8a*fdab8
-                     dc8b = -s8*fac*dc8b*fdab8
+                     dc8a = -s8i*fac*dc8a*fdab8
+                     dc8b = -s8i*fac*dc8b*fdab8
                   ELSE
                      CPABORT("Unknown DFT-D3 damping function:")
                   END IF
@@ -1451,7 +1495,10 @@ CONTAINS
                                  rabc = r2abc**(1._dp/6._dp)
                                  r0 = (dispersion_env%r0ab(za, zb)*dispersion_env%r0ab(zb, zc)* &
                                        dispersion_env%r0ab(zc, za))**(1._dp/3._dp)
-                                 CALL damping_d3(rabc, r0, 4._dp/3._dp, alp6, rcut, fdabc, dfdabc)
+                                 ! bug fixed 3.10.2017
+                                 ! correct value from alp6=14 to 16 as used in original paper
+                                 ! CALL damping_d3(rabc, r0, 4._dp/3._dp, alp6, rcut, fdabc, dfdabc)
+                                 CALL damping_d3(rabc, r0, 4._dp/3._dp, 16.0_dp, rcut, fdabc, dfdabc)
                                  s1 = r2ab+r2bc-r2ca
                                  s2 = r2ab+r2ca-r2bc
                                  s3 = r2ca+r2bc-r2ab
@@ -1777,6 +1824,10 @@ CONTAINS
       END IF
 
       DEALLOCATE (dodisp, ghost, floating, atomnumber, rcpbc, radd2, c6d2)
+
+      IF (domol) THEN
+         DEALLOCATE (atom2mol)
+      END IF
 
       IF (ASSOCIATED(dispersion_env%dftd_section)) THEN
          CALL cp_print_key_finished_output(unit_nr, logger, dispersion_env%dftd_section, "PRINT_DFTD")

@@ -33,13 +33,14 @@ MODULE cell_types
    INTEGER, PARAMETER, PUBLIC               :: cell_sym_none = 0, &
                                                cell_sym_triclinic = 1, &
                                                cell_sym_monoclinic = 2, &
-                                               cell_sym_orthorhombic = 3, &
-                                               cell_sym_tetragonal_ab = 4, &
-                                               cell_sym_tetragonal_ac = 5, &
-                                               cell_sym_tetragonal_bc = 6, &
-                                               cell_sym_rhombohedral = 7, &
-                                               cell_sym_hexagonal = 8, &
-                                               cell_sym_cubic = 9
+                                               cell_sym_monoclinic_gamma_ab = 3, &
+                                               cell_sym_orthorhombic = 4, &
+                                               cell_sym_tetragonal_ab = 5, &
+                                               cell_sym_tetragonal_ac = 6, &
+                                               cell_sym_tetragonal_bc = 7, &
+                                               cell_sym_rhombohedral = 8, &
+                                               cell_sym_hexagonal = 9, &
+                                               cell_sym_cubic = 10
 
    INTEGER, PARAMETER, PUBLIC               :: use_perd_x = 0, &
                                                use_perd_y = 1, &
@@ -55,12 +56,11 @@ MODULE cell_types
 !> \version 1.0
 ! **************************************************************************************************
    TYPE cell_type
-      INTEGER                           :: ref_count, id_nr
-      INTEGER                           :: symmetry_id
+      INTEGER                           :: id_nr, ref_count, symmetry_id
       LOGICAL                           :: orthorhombic ! actually means a diagonal hmat
-      REAL(KIND=dp)                   :: deth
+      REAL(KIND=dp)                     :: deth
       INTEGER, DIMENSION(3)             :: perd
-      REAL(KIND=dp), DIMENSION(3, 3)   :: hmat, h_inv
+      REAL(KIND=dp), DIMENSION(3, 3)    :: hmat, h_inv
    END TYPE cell_type
 
    TYPE cell_p_type
@@ -228,6 +228,7 @@ CONTAINS
       IF (PRESENT(gamma)) gamma = angle(cell%hmat(:, 1), cell%hmat(:, 2))*degree
       IF (PRESENT(id_nr)) id_nr = cell%id_nr
       IF (PRESENT(symmetry_id)) symmetry_id = cell%symmetry_id
+
    END SUBROUTINE get_cell
 
 ! **************************************************************************************************
@@ -342,8 +343,9 @@ CONTAINS
       REAL(KIND=dp), PARAMETER                           :: eps_hmat = 1.0E-14_dp
 
       INTEGER                                            :: dim
-      REAL(KIND=dp)                                      :: a, acosa, acosah, alpha, asina, asinah, &
-                                                            beta, norm, norm_c
+      REAL(KIND=dp)                                      :: a, acosa, acosah, acosgamma, alpha, &
+                                                            asina, asinah, asingamma, beta, gamma, &
+                                                            norm, norm_c
       REAL(KIND=dp), DIMENSION(3)                        :: abc
 
       IF (PRESENT(hmat)) cell%hmat(:, :) = hmat(:, :)
@@ -356,7 +358,6 @@ CONTAINS
                        "An invalid set of cell vectors was specified. "// &
                        "The determinant det(h) is too small")
       END IF
-      cell%h_inv = inv_3x3(cell%hmat)
 
       SELECT CASE (cell%symmetry_id)
       CASE (cell_sym_cubic, &
@@ -420,6 +421,16 @@ CONTAINS
          cell%hmat(1, 1) = abc(1); cell%hmat(1, 2) = 0.0_dp; cell%hmat(1, 3) = abc(3)*COS(beta)
          cell%hmat(2, 1) = 0.0_dp; cell%hmat(2, 2) = abc(2); cell%hmat(2, 3) = 0.0_dp
          cell%hmat(3, 1) = 0.0_dp; cell%hmat(3, 2) = 0.0_dp; cell%hmat(3, 3) = abc(3)*SIN(beta)
+      CASE (cell_sym_monoclinic_gamma_ab)
+         ! Cell symmetry with a=b, alpha=beta=90deg and gammma unequal 90deg
+         CALL get_cell(cell=cell, abc=abc)
+         a = 0.5_dp*(abc(1)+abc(2))
+         gamma = angle(cell%hmat(:, 1), cell%hmat(:, 2))
+         acosgamma = a*COS(gamma)
+         asingamma = a*SIN(gamma)
+         cell%hmat(1, 1) = a; cell%hmat(1, 2) = acosgamma; cell%hmat(1, 3) = 0.0_dp
+         cell%hmat(2, 1) = 0.0_dp; cell%hmat(2, 2) = asingamma; cell%hmat(2, 3) = 0.0_dp
+         cell%hmat(3, 1) = 0.0_dp; cell%hmat(3, 2) = 0.0_dp; cell%hmat(3, 3) = abc(3)
       CASE (cell_sym_triclinic)
          ! Nothing to do
       END SELECT
@@ -448,6 +459,15 @@ CONTAINS
       IF ((dim == 1) .AND. (.NOT. cell%orthorhombic)) THEN
          CPABORT("Non-orthorhombic and not periodic")
       END IF
+
+      ! Update deth and hmat_inv with enforced symmetry
+      cell%deth = ABS(det_3x3(cell%hmat))
+      IF (cell%deth < 1.0E-10_dp) THEN
+         CALL cp_abort(__LOCATION__, &
+                       "An invalid set of cell vectors was obtained after applying "// &
+                       "the requested cell symmetry. The determinant det(h) is too small")
+      END IF
+      cell%h_inv = inv_3x3(cell%hmat)
 
    END SUBROUTINE init_cell
 
@@ -767,8 +787,7 @@ CONTAINS
       END IF
       cell%orthorhombic = .FALSE.
       cell%symmetry_id = cell_sym_none
-      IF (.NOT. PRESENT(hmat)) RETURN
-      CALL init_cell(cell, hmat, periodic)
+      IF (PRESENT(hmat)) CALL init_cell(cell, hmat)
 
    END SUBROUTINE cell_create
 

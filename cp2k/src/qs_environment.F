@@ -876,6 +876,7 @@ CONTAINS
          dispersion_env%doabc = .FALSE.
          dispersion_env%c9cnst = .FALSE.
          dispersion_env%lrc = .FALSE.
+         dispersion_env%srb = .FALSE.
          dispersion_env%verbose = .FALSE.
          NULLIFY (dispersion_env%c6ab, dispersion_env%maxci, dispersion_env%r0ab, dispersion_env%rcov, &
                   dispersion_env%r2r4, dispersion_env%cn, dispersion_env%cnkind, dispersion_env%cnlist)
@@ -889,6 +890,8 @@ CONTAINS
             dispersion_env%s6 = dftb_control%sd3(1)
             dispersion_env%sr6 = dftb_control%sd3(2)
             dispersion_env%s8 = dftb_control%sd3(3)
+            dispersion_env%domol = .FALSE.
+            dispersion_env%kgc8 = 0._dp
             dispersion_env%rc_disp = dftb_control%rcdisp
             dispersion_env%exp_pre = 0._dp
             dispersion_env%scaling = 0._dp
@@ -904,6 +907,7 @@ CONTAINS
          dispersion_env%doabc = .FALSE.
          dispersion_env%c9cnst = .FALSE.
          dispersion_env%lrc = .FALSE.
+         dispersion_env%srb = .FALSE.
          dispersion_env%verbose = .FALSE.
          NULLIFY (dispersion_env%c6ab, dispersion_env%maxci, dispersion_env%r0ab, dispersion_env%rcov, &
                   dispersion_env%r2r4, dispersion_env%cn, dispersion_env%cnkind, dispersion_env%cnlist)
@@ -917,6 +921,8 @@ CONTAINS
             dispersion_env%s6 = se_control%sd3(1)
             dispersion_env%sr6 = se_control%sd3(2)
             dispersion_env%s8 = se_control%sd3(3)
+            dispersion_env%domol = .FALSE.
+            dispersion_env%kgc8 = 0._dp
             dispersion_env%rc_disp = se_control%rcdisp
             dispersion_env%exp_pre = 0._dp
             dispersion_env%scaling = 0._dp

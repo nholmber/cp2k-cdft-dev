@@ -11,9 +11,10 @@
 ! **************************************************************************************************
 MODULE cell_opt_utils
    USE cell_types,                      ONLY: &
-        cell_sym_cubic, cell_sym_hexagonal, cell_sym_monoclinic, cell_sym_orthorhombic, &
-        cell_sym_rhombohedral, cell_sym_tetragonal_ab, cell_sym_tetragonal_ac, &
-        cell_sym_tetragonal_bc, cell_sym_triclinic, cell_type, get_cell_param, set_cell_param
+        cell_sym_cubic, cell_sym_hexagonal, cell_sym_monoclinic, cell_sym_monoclinic_gamma_ab, &
+        cell_sym_orthorhombic, cell_sym_rhombohedral, cell_sym_tetragonal_ab, &
+        cell_sym_tetragonal_ac, cell_sym_tetragonal_bc, cell_sym_triclinic, cell_type, &
+        get_cell_param, set_cell_param
    USE cp_files,                        ONLY: close_file,&
                                               open_file
    USE cp_log_handling,                 ONLY: cp_get_default_logger,&
@@ -25,6 +26,13 @@ MODULE cell_opt_utils
                                               cp_to_string
    USE cp_para_types,                   ONLY: cp_para_env_type
    USE cp_units,                        ONLY: cp_units_rad
+   USE input_constants,                 ONLY: fix_none,&
+                                              fix_x,&
+                                              fix_xy,&
+                                              fix_xz,&
+                                              fix_y,&
+                                              fix_yz,&
+                                              fix_z
    USE input_cp2k_global,               ONLY: create_global_section
    USE input_enumeration_types,         ONLY: enum_i2c,&
                                               enumeration_type
@@ -50,7 +58,8 @@ MODULE cell_opt_utils
    CHARACTER(len=*), PARAMETER, PRIVATE :: moduleN = 'cell_opt_utils'
 
    PUBLIC :: get_ut_cell_matrix, get_dg_dh, gopt_new_logger_create, &
-             gopt_new_logger_release, read_external_press_tensor
+             gopt_new_logger_release, read_external_press_tensor, &
+             apply_cell_constraints
 
 CONTAINS
 ! **************************************************************************************************
@@ -246,10 +255,11 @@ CONTAINS
 !> \param keep_angles ...
 !> \param keep_symmetry ...
 !> \param pres_int ...
+!> \param constraint_id ...
 !> \author Teodoro Laino [tlaino] - University of Zurich - 03.2008
 ! **************************************************************************************************
    SUBROUTINE get_dg_dh(gradient, av_ptens, pres_ext, cell, mtrx, keep_angles, &
-                        keep_symmetry, pres_int)
+                        keep_symmetry, pres_int, constraint_id)
 
       REAL(KIND=dp), DIMENSION(:), POINTER               :: gradient
       REAL(KIND=dp), DIMENSION(3, 3), INTENT(IN)         :: av_ptens
@@ -258,13 +268,12 @@ CONTAINS
       REAL(KIND=dp), DIMENSION(3, 3), INTENT(IN)         :: mtrx
       LOGICAL, INTENT(IN), OPTIONAL                      :: keep_angles, keep_symmetry
       REAL(KIND=dp), INTENT(OUT)                         :: pres_int
+      INTEGER, INTENT(IN), OPTIONAL                      :: constraint_id
 
       CHARACTER(LEN=*), PARAMETER :: routineN = 'get_dg_dh', routineP = moduleN//':'//routineN
 
-      INTEGER                                            :: i
+      INTEGER                                            :: i, my_constraint_id
       LOGICAL                                            :: my_keep_angles, my_keep_symmetry
-      REAL(KIND=dp)                                      :: a, cosa, cosah, g, norm, norm_b, norm_c, &
-                                                            sina, sinah
       REAL(KIND=dp), DIMENSION(3, 3)                     :: correction, pten_hinv_old, ptens
 
       my_keep_angles = .FALSE.
@@ -272,6 +281,14 @@ CONTAINS
       my_keep_symmetry = .FALSE.
       IF (PRESENT(keep_symmetry)) my_keep_symmetry = keep_symmetry
       gradient = 0.0_dp
+      IF (PRESENT(constraint_id)) THEN
+         my_constraint_id = constraint_id
+      ELSE
+         my_constraint_id = fix_none
+      END IF
+
+      gradient = 0.0_dp
+
       ptens = av_ptens
 
       ! Evaluating the internal pressure
@@ -295,7 +312,37 @@ CONTAINS
       gradient(5) = pten_hinv_old(3, 2)-correction(3, 2)
       gradient(6) = pten_hinv_old(3, 3)-correction(3, 3)
 
-      IF (my_keep_angles) THEN
+      CALL apply_cell_constraints(gradient, cell, my_keep_angles, my_keep_symmetry, my_constraint_id)
+
+      gradient = -gradient
+
+   END SUBROUTINE get_dg_dh
+
+! **************************************************************************************************
+!> \brief Apply cell constraints
+!> \param gradient ...
+!> \param cell ...
+!> \param keep_angles ...
+!> \param keep_symmetry ...
+!> \param constraint_id ...
+!> \author Matthias Krack (October 26, 2017, MK)
+! **************************************************************************************************
+   SUBROUTINE apply_cell_constraints(gradient, cell, keep_angles, keep_symmetry, constraint_id)
+
+      REAL(KIND=dp), DIMENSION(:), POINTER               :: gradient
+      TYPE(cell_type), POINTER                           :: cell
+      LOGICAL, INTENT(IN)                                :: keep_angles, keep_symmetry
+      INTEGER, INTENT(IN)                                :: constraint_id
+
+      CHARACTER(LEN=*), PARAMETER :: routineN = 'apply_cell_constraints', &
+         routineP = moduleN//':'//routineN
+
+      REAL(KIND=dp)                                      :: a, a_length, ab_length, b_length, cosa, &
+                                                            cosah, cosgamma, deriv_gamma, g, &
+                                                            gamma, norm, norm_b, norm_c, sina, &
+                                                            sinah, singamma
+
+      IF (keep_angles) THEN
          ! If we want to keep the angles constant we have to project out the
          ! components of the cell angles
          norm_b = DOT_PRODUCT(cell%hmat(:, 2), cell%hmat(:, 2))
@@ -313,7 +360,7 @@ CONTAINS
          END IF
       END IF
 
-      IF (my_keep_symmetry) THEN
+      IF (keep_symmetry) THEN
          SELECT CASE (cell%symmetry_id)
          CASE (cell_sym_cubic, &
                cell_sym_tetragonal_ab, &
@@ -377,13 +424,51 @@ CONTAINS
          CASE (cell_sym_monoclinic)
             gradient(2) = 0.0_dp
             gradient(5) = 0.0_dp
+         CASE (cell_sym_monoclinic_gamma_ab)
+            ! Cell symmetry with a=b, alpha=beta=90deg and gammma unequal 90deg
+            a_length = SQRT(cell%hmat(1, 1)*cell%hmat(1, 1)+ &
+                            cell%hmat(2, 1)*cell%hmat(2, 1)+ &
+                            cell%hmat(3, 1)*cell%hmat(3, 1))
+            b_length = SQRT(cell%hmat(1, 2)*cell%hmat(1, 2)+ &
+                            cell%hmat(2, 2)*cell%hmat(2, 2)+ &
+                            cell%hmat(3, 2)*cell%hmat(3, 2))
+            ab_length = 0.5_dp*(a_length+b_length)
+            gamma = angle(cell%hmat(:, 1), cell%hmat(:, 2))
+            cosgamma = COS(gamma)
+            singamma = SIN(gamma)
+            ! Here, g is the average derivative of the cell vector length ab_length, and deriv_gamma is the derivative of the angle gamma
+            g = 0.5_dp*(gradient(1)+cosgamma*gradient(2)+singamma*gradient(3))
+            deriv_gamma = (gradient(3)*cosgamma-gradient(2)*singamma)/b_length
+            gradient(1) = g
+            gradient(2) = g*cosgamma-ab_length*singamma*deriv_gamma
+            gradient(3) = g*singamma+ab_length*cosgamma*deriv_gamma
+            gradient(4) = 0.0_dp
+            gradient(5) = 0.0_dp
          CASE (cell_sym_triclinic)
             ! Nothing to do
          END SELECT
       END IF
 
-      gradient = -gradient
+      SELECT CASE (constraint_id)
+      CASE (fix_x)
+         gradient(1:2) = 0.0_dp
+         gradient(4) = 0.0_dp
+      CASE (fix_y)
+         gradient(2:3) = 0.0_dp
+         gradient(5) = 0.0_dp
+      CASE (fix_z)
+         gradient(4:6) = 0.0_dp
+      CASE (fix_xy)
+         gradient(1:5) = 0.0_dp
+      CASE (fix_xz)
+         gradient(1:2) = 0.0_dp
+         gradient(4:6) = 0.0_dp
+      CASE (fix_yz)
+         gradient(2:6) = 0.0_dp
+      CASE (fix_none)
+         ! Nothing to do
+      END SELECT
 
-   END SUBROUTINE get_dg_dh
+   END SUBROUTINE apply_cell_constraints
 
 END MODULE cell_opt_utils
