@@ -1042,8 +1042,6 @@ CONTAINS
       CALL mixed_cdft_calculate_coupling_low(force_env)
       ! Print out couplings
       CALL mixed_cdft_print_couplings(force_env)
-      ! Block diagonalize the mixed CDFT Hamiltonian
-
       ! CDFT Configuration Interaction
       CALL mixed_cdft_configuration_interaction(force_env)
       ! Clean up
@@ -1095,8 +1093,6 @@ CONTAINS
       TYPE(qs_environment_type), POINTER                 :: qs_env
       TYPE(section_vals_type), POINTER                   :: force_env_section, mixed_cdft_section, &
                                                             print_section
-
-      EXTERNAL                                           :: dsygv
 
       NULLIFY (force_env_section, print_section, mixed_cdft_section, &
                mixed_env, mixed_cdft, qs_env, dft_control, fm_struct_mo, &
@@ -1603,7 +1599,6 @@ CONTAINS
       CPASSERT(ASSOCIATED(force_env))
       CALL get_mixed_env(force_env%mixed_env, cdft_control=mixed_cdft)
       CALL timeset(routineN, handle)
-      ! Get redistributed work matrices
       CPASSERT(ASSOCIATED(mixed_cdft))
       CPASSERT(ALLOCATED(mixed_cdft%results%W_diagonal))
       CPASSERT(ALLOCATED(mixed_cdft%results%Wda))
@@ -1832,7 +1827,7 @@ CONTAINS
 !> \brief Routine to calculate the electronic coupling according to the wavefunction overlap method
 !> \param force_env the force_env that holds the CDFT states
 !> \param mixed_cdft the mixed_cdft env
-!> \param ncol_mo ...
+!> \param ncol_mo the number of MOs per spin
 !> \param nrow_mo the number of AOs per spin
 !> \par History
 !>       11.17  created [Nico Holmberg]

@@ -33,7 +33,7 @@ MODULE mixed_cdft_types
    PRIVATE
 
 ! **************************************************************************************************
-!> \brief Container for
+!> \brief Container for results related to a mixed CDFT calculation
 ! **************************************************************************************************
    TYPE mixed_cdft_result_type
       ! CDFT electronic couplings calculated with different methods
@@ -480,7 +480,7 @@ CONTAINS
 !> \param W_diagonal   Values of the CDFT constraints
 !> \param energy       Energies of the CDFT states
 !> \param strength     Lagrangian multipliers of the CDFT states
-!> \param S_minushalf ...
+!> \param S_minushalf  S^(-1/2)
 !> \author Nico Holmberg [11.2017]
 ! **************************************************************************************************
    SUBROUTINE mixed_cdft_result_type_set(results, lowdin, wfn, nonortho, metric, rotation, &

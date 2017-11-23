@@ -1369,7 +1369,7 @@ CONTAINS
    END SUBROUTINE mixed_cdft_print_couplings
 
 ! **************************************************************************************************
-!> \brief Release remaining work storage from mixed CDFT calculation.
+!> \brief Release storage reserved for mixed CDFT matrices
 !> \param force_env the force_env that holds the CDFT states
 !> \par History
 !>       11.17  created [Nico Holmberg]
