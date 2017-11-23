@@ -576,8 +576,8 @@ CONTAINS
    END SUBROUTINE create_print_mixed_cdft_section
 
 ! **************************************************************************************************
-!> \brief Creates the control section used to setup Hamiltonian block diagonalization in a mixed
-!>        CDFT calculation
+!> \brief Creates the control section used to setup block diagonalization of the mixed
+!>        CDFT Hamiltonian
 !> \param section the section to create
 !> \author Nico Holmberg [06.2017]
 ! **************************************************************************************************
@@ -602,16 +602,16 @@ CONTAINS
       CALL keyword_create(keyword, name="BLOCK", &
                           description="Defines which CDFT states are included in a block. Each repetition of this keyword "// &
                           "defines a new block. The Hamiltonian matrix elements of the requested states are collected "// &
-                          "into a new matrix and subsequently diagonalized. The eigenvectors of this matrix are used to rotate "// &
-                          "the matrix blocks describing the interactions between blocks.", &
+                          "into a new matrix that is subsequently diagonalized. The eigenvectors of this matrix are "// &
+                          "used to rotate the off-diagonal blocks that describe the interactions between blocks.", &
                           usage="BLOCK 1 2", repeats=.TRUE., &
-                          type_of_var=int_t, n_var=-1)
+                          type_of_var=integer_t, n_var=-1)
       CALL section_add_keyword(section, keyword)
       CALL keyword_release(keyword)
 
       CALL keyword_create(keyword, "IGNORE_EXCITED", &
-                          description="Ignore excited states related to each block when constructing the new mixed "// &
-                          "CDFT Hamiltonian. This reduces the dimensionality of the Hamiltonian.", &
+                          description="Ignore excited states from diagonalization of each block when constructing the "// &
+                          "new mixed CDFT Hamiltonian. This reduces the dimensionality of the Hamiltonian.", &
                           usage="IGNORE_EXCITED FALSE", type_of_var=logical_t, &
                           default_l_val=.TRUE., lone_keyword_l_val=.TRUE.)
       CALL section_add_keyword(section, keyword)

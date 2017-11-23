@@ -110,7 +110,8 @@ MODULE mixed_cdft_utils
 
    PUBLIC :: mixed_cdft_parse_settings, mixed_cdft_transfer_settings, &
              mixed_cdft_init_structures, mixed_cdft_redistribute_arrays, &
-             mixed_cdft_print_couplings, map_permutation_to_states, hfun_zero
+             mixed_cdft_print_couplings, map_permutation_to_states, hfun_zero, &
+             mixed_cdft_release_work
 
    CHARACTER(len=*), PARAMETER, PRIVATE :: moduleN = 'mixed_cdft_utils'
 
@@ -1277,10 +1278,10 @@ CONTAINS
       !
       CPASSERT(ALLOCATED(mixed_cdft%results%strength))
       CPASSERT(ALLOCATED(mixed_cdft%results%W_diagonal))
-      CPASSERT(ALLOCATED(mixed_cdft%results%Sda))
+      CPASSERT(ALLOCATED(mixed_cdft%results%S))
       CPASSERT(ALLOCATED(mixed_cdft%results%energy))
       nforce_eval = SIZE(force_env%sub_force_env)
-      nvar = SIZE(mixed_cdft%results%strength, 2)
+      nvar = SIZE(mixed_cdft%results%strength, 1)
       npermutations = nforce_eval*(nforce_eval-1)/2 ! Size of upper triangular part
       IF (iounit > 0) THEN
          WRITE (iounit, '(/,T3,A,T66)') &
@@ -1306,7 +1307,7 @@ CONTAINS
                   'Final value of constraint J:', mixed_cdft%results%W_diagonal(ivar, jstate)
             END DO
             WRITE (iounit, '(/,T3,A,T60,(3X,F18.12))') &
-               'Overlap between states I and J:', mixed_cdft%results%Sda(ipermutation)
+               'Overlap between states I and J:', mixed_cdft%results%S(istate, jstate)
             WRITE (iounit, '(T3,A,T60,(3X,F18.12))') &
                'Charge transfer energy (J-I) (Hartree):', (mixed_cdft%results%energy(jstate)-mixed_cdft%results%energy(istate))
             WRITE (iounit, *)
