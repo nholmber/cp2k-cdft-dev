@@ -1576,7 +1576,7 @@ CONTAINS
    END SUBROUTINE mixed_cdft_interaction_matrices
 
 ! **************************************************************************************************
-!> \brief Routine to calculates the CDFT electronic couplings.
+!> \brief Routine to calculate the CDFT electronic couplings.
 !> \param force_env the force_env that holds the CDFT states
 !> \par History
 !>       11.17  created [Nico Holmberg]
