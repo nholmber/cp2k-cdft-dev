@@ -1781,6 +1781,7 @@ CONTAINS
       CHARACTER(len=*), PARAMETER :: routineN = 'mixed_cdft_block_diag', &
          routineP = moduleN//':'//routineN
 
+      CHARACTER(LEN=16)                                  :: ilabel, jlabel
       LOGICAL                                            :: explicit, ignore_excited, has_duplicates
       INTEGER                                            :: handle, info, i, iounit, istate, ivar, &
                                                             nforce_eval, work_array_size
@@ -1924,20 +1925,31 @@ CONTAINS
          ALLOCATE(H_mat(nforce_eval, nforce_eval), S_mat(nforce_eval, nforce_eval))
       END IF
       ! The diagonal contains the eigenvalues of each block
+      IF (iounit > 0) WRITE (iounit, '(/,T3,A') "Eigenvalues of the block diagonalized states"
       H_mat(:, :) = 0.0_dp
       S_mat(:, :) = 0.0_dp
       k = 1
       DO i = 1, nblk
+         IF (iounit > 0) WRITE (iounit, '(T3,A,I3') "Block", i
          DO j = 1, SIZE(H_mat, 1)
             H_mat(k, k) = eigenvalues(i)%array(j, j)
             S_mat(k, k) = 1.0_dp
             k = k + 1
+            IF (iounit > 0) THEN
+               IF (j == 1) THEN
+                  WRITE (iounit, '(T3,A,T58,(3X,F20.14))') 'Ground state energy:', eigenvalues(i)%array(j, j)
+               ELSE
+                  WRITE (iounit, '(T3,A,I2,A,T58,(3X,F20.14))') &
+                     'Excited state (', ivar-1, ' ) energy:', eigenvalues(i)%array(j, j)
+               END IF
+            END IF
             IF (ignore_excited .AND. j == 1) EXIT
          END DO
       END DO
       ! Transform the off-diagonal blocks using the eigenvectors of each block
       npermutations = nblk*(nblk-1)/2
       offset = 0
+      IF (iounit > 0) WRITE (iounit, '(/,T3,A') "Interactions between block diagonalized states"
       DO ipermutation = 1, npermutations
          CALL map_permutation_to_states(nblk, ipermutation, i, j)
          ! Get the untransformed off-diagonal block
@@ -1953,6 +1965,11 @@ CONTAINS
                S_offdiag(irow, icol) = mixed_cdft%results%S(blocks(i)%array(l), blocks(j)%array(k))
             END DO
          END DO
+         IF (iounit > 0) THEN
+            WRITE (iounit, '(/,T3,A)') REPEAT('#', 39)
+            WRITE (iounit, '(T3,A,I3,A,I3,A)') '###### Blocks I =', istate, ' and J = ', jstate, ' ######'
+            WRITE (iounit, '(T3,A)') REPEAT('#', 39)
+         END IF
          ! Now transform: C_i^T * H * C_j
          H_offdiag(:, :) = MATMUL(H_offdiag, H_block(j)%array)
          H_offdiag(:, :) = MATMUL(H_block(i)%array, H_offdiag)
@@ -1964,12 +1981,55 @@ CONTAINS
             S_mat(i, j) = S_offdiag(i, j)
             S_mat(j, i) = S_mat(i, j)
          ELSE
-            irow = 0
-            icol = 0
-            DO k = 1, i
-               irow + SIZE(blocks(i)%array)
-
+            irow = 1
+            icol = 1
+            DO k = 1, i-1
+               irow = irow + SIZE(blocks(k)%array)
+            END DO
+            DO k = 1, j-1
+               icol = icol + SIZE(blocks(k)%array)
+            END DO
+            H_mat(irow:irow+SIZE(H_offdiag, 1), icol:icol+SIZE(H_offdiag, 2)) = H_offdiag(:, :)
+            S_mat(irow:irow+SIZE(H_offdiag, 1), icol:icol+SIZE(H_offdiag, 2)) = S_offdiag(:, :)
          END IF
+         IF (iounit > 0) THEN
+            WRITE (iounit, '(/,T3,A)') REPEAT('#', 39)
+            WRITE (iounit, '(T3,A,I3,A,I3,A)') '###### Blocks I =', istate, ' and J = ', jstate, ' ######'
+            WRITE (iounit, '(T3,A)') REPEAT('#', 39)
+            WRITE (iounit, '(T3,A)') 'Interaction energies'
+            DO irow = 1, SIZE(H_offdiag, 1)
+               ilabel = "(ground state)"
+               IF (irow > 1) THEN
+                  IF (ignore_excited) EXIT
+                  ilabel = "(excited state)"
+               END IF
+               DO icol = 1, SIZE(H_offdiag, 2)
+                  jlabel = "(ground state)"
+                  IF (icol > 1) THEN
+                     IF (ignore_excited) EXIT
+                     jlabel = "(excited state)"
+                  END IF
+                  WRITE (iounit, '(T3,A,T58,(3X,F20.14))') TRIM(ilabel)//'-'//TRIM(jlabel)//':', H_offdiag(irow, icol)
+               END DO
+            END DO
+            WRITE (iounit, '(T3,A)') 'Overlaps'
+            DO irow = 1, SIZE(H_offdiag, 1)
+               ilabel = "(ground state)"
+               IF (irow > 1) THEN
+                  IF (ignore_excited) EXIT
+                  ilabel = "(excited state)"
+               END IF
+               DO icol = 1, SIZE(H_offdiag, 2)
+                  jlabel = "(ground state)"
+                  IF (icol > 1) THEN
+                     IF (ignore_excited) EXIT
+                     jlabel = "(excited state)"
+                  END IF
+                  WRITE (iounit, '(T3,A,T58,(3X,F20.14))') TRIM(ilabel)//'-'//TRIM(jlabel)//':', S_offdiag(irow, icol)
+               END DO
+            END DO
+         END IF
+         DEALLOCATE(H_offdiag, S_offdiag)
       END DO
       CALL mixed_cdft_result_type_set(mixed_cdft%results, H=H_mat, S=S_mat)
       ! Deallocate work
@@ -1980,32 +2040,9 @@ CONTAINS
          DEALLOCATE(eigenvalues(i)%array)
       END DO
       DEALLOCATE(H_block, S_block, eigenvalues)
-
-
-
-      IF (iounit > 0) THEN
-         WRITE (iounit, '(/,T3,A)') '------------------ CDFT Configuration Interaction (CDFT-CI) ------------------'
-         DO ivar = 1, nforce_eval
-            IF (ivar == 1) THEN
-               WRITE (iounit, '(T3,A,T58,(3X,F20.14))') 'Ground state energy:', eigenv(ivar)
-            ELSE
-               WRITE (iounit, '(/,T3,A,I2,A,T58,(3X,F20.14))') 'Excited state (', ivar-1, ' ) energy:', eigenv(ivar)
-            END IF
-            DO istate = 1, nforce_eval, 2
-               IF (istate == 1) THEN
-                  WRITE (iounit, '(T3,A,T54,(3X,2F12.6))') &
-                     'Expansion coefficients:', H_mat(istate, ivar), H_mat(istate+1, ivar)
-               ELSE IF (istate .LT. nforce_eval) THEN
-                  WRITE (iounit, '(T54,(3X,2F12.6))') H_mat(istate, ivar), H_mat(istate+1, ivar)
-               ELSE
-                  WRITE (iounit, '(T54,(3X,F12.6))') H_mat(istate, ivar)
-               END IF
-            END DO
-         END DO
+      IF (iounit > 0) &
          WRITE (iounit, '(T3,A)') &
             '------------------------------------------------------------------------------'
-      END IF
-      DEALLOCATE (S_mat, H_mat, eigenv)
       CALL cp_print_key_finished_output(iounit, logger, force_env_section, &
                                         "MIXED%MIXED_CDFT%PRINT%PROGRAM_RUN_INFO")
       CALL timestop(handle)
