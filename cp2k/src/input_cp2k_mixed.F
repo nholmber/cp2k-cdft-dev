@@ -301,11 +301,11 @@ CONTAINS
       CALL section_add_keyword(subsection, keyword)
       CALL keyword_release(keyword)
 
+      NULLIFY (sub2section)
       CALL create_mixed_cdft_block_section(sub2section)
       CALL section_add_subsection(subsection, sub2section)
       CALL section_release(sub2section)
 
-      NULLIFY (sub2section)
       CALL create_print_mixed_cdft_section(sub2section)
       CALL section_add_subsection(subsection, sub2section)
       CALL section_release(sub2section)
@@ -603,7 +603,7 @@ CONTAINS
                           "into a new matrix and subsequently diagonalized. The eigenvectors of this matrix are used to "// &
                           "rotate the matrix blocks describing the interactions between blocks.", &
                           usage="BLOCK 1 2", repeats=.TRUE., &
-                          type_of_var=int_t, n_var=-1)
+                          type_of_var=integer_t, n_var=-1)
       CALL section_add_keyword(section, keyword)
       CALL keyword_release(keyword)
 
