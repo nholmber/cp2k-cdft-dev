@@ -204,9 +204,34 @@ CONTAINS
                CPABORT("Unknown DISTANT_PAIR_METHOD in LRI")
             END SELECT
             !
+            ALLOCATE (lri_env%wmat(nkind, nkind))
             SELECT CASE (lri_env%distant_pair_method)
+            CASE ("EW")
+               ! equal weight of 0.5
+               DO i1 = 1, nkind
+                  n1 = lri_env%orb_basis(i1)%gto_basis_set%nsgf
+                  DO i2 = 1, nkind
+                     n2 = lri_env%orb_basis(i2)%gto_basis_set%nsgf
+                     ALLOCATE (lri_env%wmat(i1, i2)%mat(n1, n2))
+                     lri_env%wmat(i1, i2)%mat(:, :) = 0.5_dp
+                  END DO
+               END DO
+            CASE ("AW")
+               DO i1 = 1, nkind
+                  n1 = lri_env%orb_basis(i1)%gto_basis_set%nsgf
+                  DO i2 = 1, nkind
+                     n2 = lri_env%orb_basis(i2)%gto_basis_set%nsgf
+                     ALLOCATE (lri_env%wmat(i1, i2)%mat(n1, n2))
+                     rai = lri_env%aradius(i1)**2
+                     raj = lri_env%aradius(i2)**2
+                     IF (raj > rai) THEN
+                        lri_env%wmat(i1, i2)%mat(:, :) = 1.0_dp
+                     ELSE
+                        lri_env%wmat(i1, i2)%mat(:, :) = 0.0_dp
+                     END IF
+                  END DO
+               END DO
             CASE ("SW", "LW")
-               ALLOCATE (lri_env%wmat(nkind, nkind))
                DO i1 = 1, nkind
                   n1 = lri_env%orb_basis(i1)%gto_basis_set%nsgf
                   DO i2 = 1, nkind
@@ -299,7 +324,7 @@ CONTAINS
       INTEGER, DIMENSION(:, :, :), POINTER               :: orb_index, ri_index
       REAL(KIND=dp), ALLOCATABLE, DIMENSION(:, :, :, :)  :: dovlp3
       REAL(KIND=dp), DIMENSION(:), POINTER               :: orb_norm_r, ri_int_fbas, ri_norm_r, &
-                                                            ri_norm_s, screen
+                                                            ri_norm_s
       REAL(KIND=dp), DIMENSION(:, :), POINTER            :: orb_ovlp, ri_ovlp, ri_ovlp_inv
       REAL(KIND=dp), DIMENSION(:, :, :), POINTER         :: scon_orb, scon_ri
       REAL(KIND=dp), DIMENSION(:, :, :, :), POINTER      :: scon_mix
@@ -346,16 +371,13 @@ CONTAINS
                   lri_env%bas_prop(ikind)%ri_index => ri_index
                   ALLOCATE (lri_env%bas_prop(ikind)%ovlp3(orb_basis%nsgf, orb_basis%nsgf, ri_basis%nsgf))
                   ALLOCATE (dovlp3(orb_basis%nsgf, orb_basis%nsgf, ri_basis%nsgf, 3))
-                  ALLOCATE (screen(ri_basis%nsgf))
                   CALL int_overlap_aba_shg(lri_env%bas_prop(ikind)%ovlp3, dovlp3, (/0.0_dp, 0.0_dp, 0.0_dp/), &
                                            orb_basis, orb_basis, ri_basis, scon_orb, &
                                            scon_mix, orb_index, ri_index, &
                                            lri_env%cg_shg%cg_coeff, &
                                            lri_env%cg_shg%cg_none0_list, &
                                            lri_env%cg_shg%ncg_none0, &
-                                           calculate_forces=.FALSE., &
-                                           screen=screen)
-                  DEALLOCATE (screen)
+                                           calculate_forces=.FALSE.)
                   DEALLOCATE (orb_norm_r, ri_norm_r, ri_norm_s)
                   DEALLOCATE (dovlp3)
                   ALLOCATE (ri_ovlp_inv(ri_basis%nsgf, ri_basis%nsgf))
