@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------------------------------!
 !   CP2K: A general program to perform molecular dynamics simulations                              !
-!   Copyright (C) 2000 - 2017  CP2K developers group                                               !
+!   Copyright (C) 2000 - 2018  CP2K developers group                                               !
 !--------------------------------------------------------------------------------------------------!
 
 ! **************************************************************************************************
@@ -611,6 +611,8 @@ CONTAINS
          ! compute the energy functional for this orbital and its derivative
 
          CALL pw_poisson_solve(poisson_env, orb_rho_g%pw, ener, work_v_gspace%pw)
+         ! no PBC correction is done here, see "calc_v_sic_rspace" for SIC methods
+         ! with PBC aware corrections
          energy%hartree = energy%hartree-dft_control%sic_scaling_a*ener
          IF (.NOT. just_energy) THEN
             CALL pw_transfer(work_v_gspace%pw, work_v_rspace%pw)
@@ -1385,7 +1387,7 @@ CONTAINS
             IF (lrigpw) THEN
                lri_v_int => lri_density%lri_coefs(ispin)%lri_kinds
                CALL integrate_v_rspace_one_center(v_rspace_new(ispin), qs_env, &
-                                                  lri_v_int, calculate_forces, "LRI")
+                                                  lri_v_int, calculate_forces, "LRI_AUX")
                IF (lri_env%exact_1c_terms) THEN
                   rho_ao => my_rho(ispin, :)
                   ksmat => ks_matrix(ispin, :)
@@ -1445,7 +1447,7 @@ CONTAINS
             IF (lrigpw) THEN
                lri_v_int => lri_density%lri_coefs(ispin)%lri_kinds
                CALL integrate_v_rspace_one_center(v_rspace, qs_env, &
-                                                  lri_v_int, calculate_forces, "LRI")
+                                                  lri_v_int, calculate_forces, "LRI_AUX")
                IF (lri_env%exact_1c_terms) THEN
                   rho_ao => my_rho(ispin, :)
                   ksmat => ks_matrix(ispin, :)

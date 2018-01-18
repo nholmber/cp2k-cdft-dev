@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------------------------------!
 !   CP2K: A general program to perform molecular dynamics simulations                              !
-!   Copyright (C) 2000 - 2017  CP2K developers group                                               !
+!   Copyright (C) 2000 - 2018  CP2K developers group                                               !
 !--------------------------------------------------------------------------------------------------!
 
 ! **************************************************************************************************
@@ -16,7 +16,7 @@ MODULE cp_error_handling
                                               m_flush,&
                                               m_walltime
    USE message_passing,                 ONLY: mp_abort
-   USE termination,                     ONLY: print_message
+   USE print_messages,                  ONLY: print_message
    USE timings,                         ONLY: print_stack
 
 !$ USE OMP_LIB,                        ONLY: omp_get_thread_num

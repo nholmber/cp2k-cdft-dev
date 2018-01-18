@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------------------------------!
 !   CP2K: A general program to perform molecular dynamics simulations                              !
-!   Copyright (C) 2000 - 2017  CP2K developers group                                               !
+!   Copyright (C) 2000 - 2018  CP2K developers group                                               !
 !--------------------------------------------------------------------------------------------------!
 
 ! **************************************************************************************************
@@ -38,12 +38,10 @@ MODULE fft_tools
    USE fft_plan,                        ONLY: fft_plan_type
    USE kinds,                           ONLY: dp,&
                                               dp_size,&
-                                              int_size,&
                                               sp
    USE message_passing,                 ONLY: &
         mp_alltoall, mp_cart_coords, mp_cart_rank, mp_cart_sub, mp_comm_compare, mp_comm_free, &
         mp_comm_null, mp_environ, mp_irecv, mp_isend, mp_rank_compare, mp_sum, mp_sync, mp_waitall
-   USE termination,                     ONLY: stop_memory
 
 !$ USE OMP_LIB, ONLY: omp_get_max_threads, omp_get_thread_num, omp_get_num_threads
 
@@ -129,7 +127,7 @@ MODULE fft_tools
 
    PRIVATE
    PUBLIC :: init_fft, fft3d, finalize_fft
-   PUBLIC :: fft_radix_operations
+   PUBLIC :: fft_radix_operations, fft_fw1d
    PUBLIC :: FWFFT, BWFFT
    PUBLIC :: FFT_RADIX_CLOSEST, FFT_RADIX_NEXT
    PUBLIC :: FFT_RADIX_NEXT_ODD
@@ -335,6 +333,43 @@ CONTAINS
    END SUBROUTINE fft_radix_operations
 
 ! **************************************************************************************************
+!> \brief Performs m 1-D forward FFT-s of size n.
+!> \param n      size of the FFT
+!> \param m      number of FFT-s
+!> \param trans  shape of input and output arrays: [n x m] if it is FALSE, [m x n] if it is TRUE
+!> \param zin    input array
+!> \param zout   output array
+!> \param scale  scaling factor
+!> \param stat   status of the operation, non-zero code indicates an error
+! **************************************************************************************************
+   SUBROUTINE fft_fw1d(n, m, trans, zin, zout, scale, stat)
+      INTEGER, INTENT(in)                                :: n, m
+      LOGICAL, INTENT(in)                                :: trans
+      COMPLEX(kind=dp), DIMENSION(*), INTENT(inout)      :: zin, zout
+      REAL(kind=dp), INTENT(in)                          :: scale
+      INTEGER, INTENT(out)                               :: stat
+
+      CHARACTER(len=*), PARAMETER :: routineN = 'fft_fw1d', routineP = moduleN//':'//routineN
+
+      INTEGER                                            :: handle
+      TYPE(fft_plan_type)                                :: fft_plan
+
+      CALL timeset(routineN, handle)
+
+      IF (fft_type == 3) THEN
+         CALL fft_create_plan_1dm(fft_plan, fft_type, FWFFT, trans, n, m, zin, zout, fft_plan_style)
+         CALL fft_1dm(fft_plan, zin, zout, scale, stat)
+         CALL fft_destroy_plan(fft_plan)
+      ELSE
+         CALL cp_warn(__LOCATION__, &
+                      "FFT library in use cannot handle transformation of an arbitrary length.")
+         stat = 1
+      END IF
+
+      CALL timestop(handle)
+   END SUBROUTINE fft_fw1d
+
+! **************************************************************************************************
 !> \brief Calls the 3D-FFT function from the initialized library
 !> \param fsign ...
 !> \param n ...
@@ -493,9 +528,9 @@ CONTAINS
 
       COMPLEX(KIND=dp), DIMENSION(:, :), POINTER         :: pbuf, qbuf, rbuf, sbuf
       COMPLEX(KIND=dp), DIMENSION(:, :, :), POINTER      :: tbuf
-      INTEGER :: g_pos, handle, ierr, iout, lg, lmax, mcx2, mcz1, mcz2, mg, mmax, mx1, mx2, my1, &
-         mz2, n1, n2, nmax, numtask, numtask_g, numtask_r, nx, ny, nz, output_unit, r_dim(2), &
-         r_pos(2), rp, sign, stat
+      INTEGER :: g_pos, handle, iout, lg, lmax, mcx2, mcz1, mcz2, mg, mmax, mx1, mx2, my1, mz2, &
+         n1, n2, nmax, numtask, numtask_g, numtask_r, nx, ny, nz, output_unit, r_dim(2), r_pos(2), &
+         rp, sign, stat
       INTEGER, ALLOCATABLE, DIMENSION(:)                 :: p2p
       LOGICAL                                            :: test
       REAL(KIND=dp)                                      :: norm, sum_data
@@ -544,9 +579,7 @@ CONTAINS
       END IF
       lmax = MAX(lg, (nx*ny*nz)/mmax+1)
 
-      ALLOCATE (p2p(0:numtask-1), STAT=ierr)
-      IF (ierr /= 0) CALL stop_memory(routineN, moduleN, __LINE__, &
-                                      "p2p", int_size*numtask)
+      ALLOCATE (p2p(0:numtask-1))
 
       CALL mp_rank_compare(gs_group, rs_group, p2p)
 

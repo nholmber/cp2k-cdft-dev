@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------------------------------!
 !   CP2K: A general program to perform molecular dynamics simulations                              !
-!   Copyright (C) 2000 - 2017  CP2K developers group                                               !
+!   Copyright (C) 2000 - 2018  CP2K developers group                                               !
 !--------------------------------------------------------------------------------------------------!
 
 ! **************************************************************************************************
@@ -22,7 +22,7 @@ MODULE mathconstants
    PUBLIC :: maxfac, pi, twopi, fourpi, rootpi, oorootpi, zero, one, &
              degree, radians, gaussi, fac, ifac, dfac, gamma0, gamma1, euler, &
              sqrthalf, sqrt2, sqrt3, sqrt5, sqrt7, sqrt15, sqrt21, sqrt35, &
-             sqrt105
+             sqrt105, z_mone, z_one, z_zero
 
    ! Factorial function fac
    ! Inverse Factorial function ifac
@@ -138,5 +138,8 @@ MODULE mathconstants
                                radians = one/degree ! degree  -> radians
 
    COMPLEX(KIND=dp), PARAMETER :: gaussi = (0.0_dp, 1.0_dp) ! i = SQRT(-1)
+   COMPLEX(kind=dp), PARAMETER :: z_mone = (-1.0_dp, 0.0_dp), &
+                                  z_one = (1.0_dp, 0.0_dp), &
+                                  z_zero = (0.0_dp, 0.0_dp)
 
 END MODULE mathconstants

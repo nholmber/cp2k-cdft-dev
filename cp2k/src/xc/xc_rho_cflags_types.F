@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------------------------------!
 !   CP2K: A general program to perform molecular dynamics simulations                              !
-!   Copyright (C) 2000 - 2017  CP2K developers group                                               !
+!   Copyright (C) 2000 - 2018  CP2K developers group                                               !
 !--------------------------------------------------------------------------------------------------!
 
 ! **************************************************************************************************
@@ -87,8 +87,7 @@ CONTAINS
 !> \retval equal ...
 ! **************************************************************************************************
    FUNCTION xc_rho_cflags_equal(cflags1, cflags2) RESULT(equal)
-      TYPE(xc_rho_cflags_type), INTENT(inout)            :: cflags1
-      TYPE(xc_rho_cflags_type), INTENT(in)               :: cflags2
+      TYPE(xc_rho_cflags_type), INTENT(in)               :: cflags1, cflags2
       LOGICAL                                            :: equal
 
       CHARACTER(len=*), PARAMETER :: routineN = 'xc_rho_cflags_equal', &
