@@ -296,6 +296,7 @@ MODULE qs_environment_types
       TYPE(qs_rho_p_type), DIMENSION(:), POINTER            :: subsys_dens
       ! Embedding potential
       TYPE(pw_p_type), POINTER                              :: embed_pot
+      TYPE(pw_p_type), POINTER                              :: spin_embed_pot
       ! NEGF external potential
       TYPE(negf_qs_env_type), POINTER                       :: negf_env
    END TYPE qs_environment_type
@@ -335,6 +336,7 @@ CONTAINS
 !> \param qmmm_periodic ...
 !> \param sac_ae ...
 !> \param sac_ppl ...
+!> \param sac_lri ...
 !> \param sap_ppnl ...
 !> \param sab_vdw ...
 !> \param sab_scp ...
@@ -471,6 +473,7 @@ CONTAINS
 !> \param gradient_history ...
 !> \param variable_history ...
 !> \param embed_pot ...
+!> \param spin_embed_pot ...
 !> \param negf_env  data needed for NEGF calculation
 !> \date    23.01.2002
 !> \author  MK
@@ -478,7 +481,7 @@ CONTAINS
 ! **************************************************************************************************
    SUBROUTINE get_qs_env(qs_env, atomic_kind_set, qs_kind_set, cell, super_cell, cell_ref, use_ref_cell, kpoints, &
                          dft_control, mos, mos_aux_fit, sab_orb, sab_aux_fit, sab_aux_fit_asymm, sab_aux_fit_vs_orb, &
-                         sab_all, qmmm, qmmm_periodic, sac_ae, sac_ppl, sap_ppnl, sab_vdw, sab_scp, sap_oce, sab_lrc, &
+                         sab_all, qmmm, qmmm_periodic, sac_ae, sac_ppl, sac_lri, sap_ppnl, sab_vdw, sab_scp, sap_oce, sab_lrc, &
                          sab_se, sab_tbe, sab_core, sab_almo, sab_kp, particle_set, energy, force, &
                          matrix_h, matrix_ks, matrix_ks_im, matrix_vxc, run_rtp, rtp, &
                          matrix_h_kp, matrix_ks_kp, matrix_vxc_kp, kinetic_kp, matrix_s_kp, matrix_w_kp, &
@@ -502,7 +505,7 @@ CONTAINS
                          lri_env, lri_density, dispersion_env, vee, rho_external, external_vxc, mask, &
                          mp2_env, kg_env, WannierCentres, atprop, ls_scf_env, do_transport, transport_env, v_hartree_rspace, &
                          s_mstruct_changed, rho_changed, potential_changed, forces_up_to_date, mscfg_env, almo_scf_env, &
-                         gradient_history, variable_history, embed_pot, negf_env)
+                         gradient_history, variable_history, embed_pot, spin_embed_pot, negf_env)
       TYPE(qs_environment_type), POINTER                 :: qs_env
       TYPE(atomic_kind_type), DIMENSION(:), OPTIONAL, &
          POINTER                                         :: atomic_kind_set
@@ -519,9 +522,10 @@ CONTAINS
                                                             sab_aux_fit_vs_orb, sab_all
       LOGICAL, OPTIONAL                                  :: qmmm, qmmm_periodic
       TYPE(neighbor_list_set_p_type), DIMENSION(:), &
-         OPTIONAL, POINTER                               :: sac_ae, sac_ppl, sap_ppnl, sab_vdw, &
-                                                            sab_scp, sap_oce, sab_lrc, sab_se, &
-                                                            sab_tbe, sab_core, sab_almo, sab_kp
+         OPTIONAL, POINTER                               :: sac_ae, sac_ppl, sac_lri, sap_ppnl, &
+                                                            sab_vdw, sab_scp, sap_oce, sab_lrc, &
+                                                            sab_se, sab_tbe, sab_core, sab_almo, &
+                                                            sab_kp
       TYPE(particle_type), DIMENSION(:), OPTIONAL, &
          POINTER                                         :: particle_set
       TYPE(qs_energy_type), OPTIONAL, POINTER            :: energy
@@ -631,7 +635,7 @@ CONTAINS
          POINTER                                         :: mscfg_env
       TYPE(almo_scf_env_type), OPTIONAL, POINTER         :: almo_scf_env
       REAL(KIND=dp), DIMENSION(:, :), OPTIONAL, POINTER  :: gradient_history, variable_history
-      TYPE(pw_p_type), OPTIONAL, POINTER                 :: embed_pot
+      TYPE(pw_p_type), OPTIONAL, POINTER                 :: embed_pot, spin_embed_pot
       TYPE(negf_qs_env_type), OPTIONAL, POINTER          :: negf_env
 
       CHARACTER(len=*), PARAMETER :: routineN = 'get_qs_env', routineP = moduleN//':'//routineN
@@ -696,6 +700,7 @@ CONTAINS
 
       ! Embedding potential
       IF (PRESENT(embed_pot)) embed_pot => qs_env%embed_pot
+      IF (PRESENT(spin_embed_pot)) spin_embed_pot => qs_env%spin_embed_pot
 
       ! NEGF
       IF (PRESENT(negf_env)) negf_env => qs_env%negf_env
@@ -782,6 +787,7 @@ CONTAINS
                       sab_vdw=sab_vdw, &
                       sac_ae=sac_ae, &
                       sac_ppl=sac_ppl, &
+                      sac_lri=sac_lri, &
                       sap_ppnl=sap_ppnl, &
                       sap_oce=sap_oce, &
                       sab_se=sab_se, &
@@ -861,6 +867,7 @@ CONTAINS
       NULLIFY (qs_env%mask)
       ! Embedding potential
       NULLIFY (qs_env%embed_pot)
+      NULLIFY (qs_env%spin_embed_pot)
 
       ! NEGF
       NULLIFY (qs_env%negf_env)
@@ -1004,6 +1011,7 @@ CONTAINS
 !> \param gradient_history ...
 !> \param variable_history ...
 !> \param embed_pot ...
+!> \param spin_embed_pot ...
 !> \date    23.01.2002
 !> \author  MK
 !> \version 1.0
@@ -1021,7 +1029,8 @@ CONTAINS
                          outer_scf_history, outer_scf_ihistory, x_data, et_coupling, dftb_potential, &
                          se_taper, se_store_int_env, se_nddo_mpole, se_nonbond_env, admm_env, ls_scf_env, &
                          do_transport, transport_env, lri_env, lri_density, dispersion_env, mp2_env, kg_env, &
-                         kpoints, WannierCentres, almo_scf_env, gradient_history, variable_history, embed_pot)
+                         kpoints, WannierCentres, almo_scf_env, gradient_history, variable_history, embed_pot, &
+                         spin_embed_pot)
 
       TYPE(qs_environment_type), POINTER                 :: qs_env
       TYPE(cell_type), OPTIONAL, POINTER                 :: super_cell
@@ -1088,7 +1097,7 @@ CONTAINS
          OPTIONAL, POINTER                               :: WannierCentres
       TYPE(almo_scf_env_type), OPTIONAL, POINTER         :: almo_scf_env
       REAL(KIND=dp), DIMENSION(:, :), OPTIONAL, POINTER  :: gradient_history, variable_history
-      TYPE(pw_p_type), OPTIONAL, POINTER                 :: embed_pot
+      TYPE(pw_p_type), OPTIONAL, POINTER                 :: embed_pot, spin_embed_pot
 
       CHARACTER(len=*), PARAMETER :: routineN = 'set_qs_env', routineP = moduleN//':'//routineN
 
@@ -1163,6 +1172,7 @@ CONTAINS
       IF (PRESENT(mask)) qs_env%mask => mask
       ! Embedding potential
       IF (PRESENT(embed_pot)) qs_env%embed_pot => embed_pot
+      IF (PRESENT(spin_embed_pot)) qs_env%spin_embed_pot => spin_embed_pot
 
       IF (PRESENT(qs_charges)) THEN
          CALL qs_charges_retain(qs_charges)

@@ -43,6 +43,7 @@ MODULE qs_ks_utils
                                               cp_print_key_finished_output,&
                                               cp_print_key_should_output,&
                                               cp_print_key_unit_nr
+   USE cp_para_types,                   ONLY: cp_para_env_type
    USE dbcsr_api,                       ONLY: &
         dbcsr_add, dbcsr_allocate_matrix_set, dbcsr_copy, dbcsr_deallocate_matrix, &
         dbcsr_deallocate_matrix_set, dbcsr_get_info, dbcsr_init_p, dbcsr_multiply, dbcsr_p_type, &
@@ -56,6 +57,9 @@ MODULE qs_ks_utils
                                               section_vals_val_get
    USE kahan_sum,                       ONLY: accurate_sum
    USE kinds,                           ONLY: dp
+   USE kpoint_types,                    ONLY: get_kpoint_info,&
+                                              kpoint_type
+   USE lri_environment_methods,         ONLY: v_int_ppl_update
    USE lri_environment_types,           ONLY: lri_density_type,&
                                               lri_environment_type,&
                                               lri_kind_type
@@ -102,7 +106,8 @@ MODULE qs_ks_utils
    USE qs_kind_types,                   ONLY: get_qs_kind_set,&
                                               qs_kind_type
    USE qs_ks_qmmm_methods,              ONLY: qmmm_modify_hartree_pot
-   USE qs_ks_types,                     ONLY: qs_ks_env_type
+   USE qs_ks_types,                     ONLY: get_ks_env,&
+                                              qs_ks_env_type
    USE qs_mo_types,                     ONLY: get_mo_set,&
                                               mo_set_p_type
    USE qs_rho_types,                    ONLY: qs_rho_get,&
@@ -1207,15 +1212,19 @@ CONTAINS
       CHARACTER(LEN=*), PARAMETER :: routineN = 'sum_up_and_integrate', &
          routineP = moduleN//':'//routineN
 
-      INTEGER                                            :: handle, igroup, ispin, nspins
+      INTEGER                                            :: handle, igroup, ikind, ispin, nkind, &
+                                                            nspins
+      INTEGER, DIMENSION(:, :, :), POINTER               :: cell_to_index
       LOGICAL                                            :: do_ppl, gapw, gapw_xc, lrigpw, rigpw
       REAL(dp)                                           :: dvol, sign
       TYPE(atomic_kind_type), DIMENSION(:), POINTER      :: atomic_kind_set
+      TYPE(cp_para_env_type), POINTER                    :: para_env
       TYPE(dbcsr_p_type), DIMENSION(:), POINTER          :: ksmat, matrix_ks_aux_fit, &
                                                             matrix_ks_aux_fit_dft, rho_ao, &
                                                             rho_ao_aux, rho_ao_nokp, smat
       TYPE(dbcsr_p_type), DIMENSION(:, :), POINTER       :: rho_ao_kp
       TYPE(dft_control_type), POINTER                    :: dft_control
+      TYPE(kpoint_type), POINTER                         :: kpoints
       TYPE(lri_density_type), POINTER                    :: lri_density
       TYPE(lri_environment_type), POINTER                :: lri_env
       TYPE(lri_kind_type), DIMENSION(:), POINTER         :: lri_v_int
@@ -1224,6 +1233,7 @@ CONTAINS
       TYPE(pw_p_type), POINTER                           :: vee
       TYPE(pw_poisson_type), POINTER                     :: poisson_env
       TYPE(pw_pool_type), POINTER                        :: auxbas_pw_pool
+      TYPE(qs_ks_env_type), POINTER                      :: ks_env
       TYPE(qs_rho_type), POINTER                         :: rho_aux_fit
 
       CALL timeset(routineN, handle)
@@ -1231,7 +1241,7 @@ CONTAINS
       NULLIFY (auxbas_pw_pool, dft_control, pw_env, matrix_ks_aux_fit, &
                v_rspace%pw, rho_aux_fit, vee, rho_ao, rho_ao_kp, rho_ao_aux, &
                ksmat, matrix_ks_aux_fit_dft, lri_env, lri_density, atomic_kind_set, &
-               rho_ao_nokp)
+               rho_ao_nokp, ks_env)
 
       CALL get_qs_env(qs_env, &
                       dft_control=dft_control, &
@@ -1378,16 +1388,22 @@ CONTAINS
             END SELECT
             ! DFT embedding
             IF (dft_control%apply_embed_pot) THEN
-               ! So far for closed shells
-               IF (ispin == 1) v_rspace_new(ispin)%pw%cr3d = v_rspace_new(ispin)%pw%cr3d+ &
-                                                             v_rspace_embed(ispin)%pw%pw_grid%dvol* &
-                                                             v_rspace_embed(ispin)%pw%cr3d
+               v_rspace_new(ispin)%pw%cr3d = v_rspace_new(ispin)%pw%cr3d+ &
+                                             v_rspace_embed(ispin)%pw%pw_grid%dvol* &
+                                             v_rspace_embed(ispin)%pw%cr3d
                CALL pw_pool_give_back_pw(auxbas_pw_pool, v_rspace_embed(ispin)%pw)
             ENDIF
             IF (lrigpw) THEN
                lri_v_int => lri_density%lri_coefs(ispin)%lri_kinds
+               CALL get_qs_env(qs_env, nkind=nkind, para_env=para_env)
+               DO ikind = 1, nkind
+                  lri_v_int(ikind)%v_int = 0.0_dp
+               END DO
                CALL integrate_v_rspace_one_center(v_rspace_new(ispin), qs_env, &
                                                   lri_v_int, calculate_forces, "LRI_AUX")
+               DO ikind = 1, nkind
+                  CALL mp_sum(lri_v_int(ikind)%v_int, para_env%group)
+               END DO
                IF (lri_env%exact_1c_terms) THEN
                   rho_ao => my_rho(ispin, :)
                   ksmat => ks_matrix(ispin, :)
@@ -1395,10 +1411,20 @@ CONTAINS
                                                    rho_ao(1)%matrix, qs_env, &
                                                    calculate_forces, "ORB")
                END IF
+               IF (lri_env%ppl_ri) THEN
+                  CALL v_int_ppl_update(qs_env, lri_v_int, calculate_forces)
+               END IF
             ELSEIF (rigpw) THEN
                lri_v_int => lri_density%lri_coefs(ispin)%lri_kinds
+               CALL get_qs_env(qs_env, nkind=nkind, para_env=para_env)
+               DO ikind = 1, nkind
+                  lri_v_int(ikind)%v_int = 0.0_dp
+               END DO
                CALL integrate_v_rspace_one_center(v_rspace_new(ispin), qs_env, &
                                                   lri_v_int, calculate_forces, "RI_HXC")
+               DO ikind = 1, nkind
+                  CALL mp_sum(lri_v_int(ikind)%v_int, para_env%group)
+               END DO
             ELSE
                rho_ao => my_rho(ispin, :)
                ksmat => ks_matrix(ispin, :)
@@ -1439,15 +1465,22 @@ CONTAINS
             ! DFT embedding
             IF (dft_control%apply_embed_pot) THEN
                ! So far for closed shells
-               IF (ispin == 1) v_rspace%pw%cr3d = v_rspace%pw%cr3d+ &
-                                                  v_rspace_embed(ispin)%pw%pw_grid%dvol* &
-                                                  v_rspace_embed(ispin)%pw%cr3d
+               v_rspace%pw%cr3d = v_rspace%pw%cr3d+ &
+                                  v_rspace_embed(ispin)%pw%pw_grid%dvol* &
+                                  v_rspace_embed(ispin)%pw%cr3d
                CALL pw_pool_give_back_pw(auxbas_pw_pool, v_rspace_embed(ispin)%pw)
             ENDIF
             IF (lrigpw) THEN
                lri_v_int => lri_density%lri_coefs(ispin)%lri_kinds
+               CALL get_qs_env(qs_env, nkind=nkind, para_env=para_env)
+               DO ikind = 1, nkind
+                  lri_v_int(ikind)%v_int = 0.0_dp
+               END DO
                CALL integrate_v_rspace_one_center(v_rspace, qs_env, &
                                                   lri_v_int, calculate_forces, "LRI_AUX")
+               DO ikind = 1, nkind
+                  CALL mp_sum(lri_v_int(ikind)%v_int, para_env%group)
+               END DO
                IF (lri_env%exact_1c_terms) THEN
                   rho_ao => my_rho(ispin, :)
                   ksmat => ks_matrix(ispin, :)
@@ -1455,10 +1488,20 @@ CONTAINS
                                                    rho_ao(1)%matrix, qs_env, &
                                                    calculate_forces, "ORB")
                END IF
+               IF (lri_env%ppl_ri) THEN
+                  CALL v_int_ppl_update(qs_env, lri_v_int, calculate_forces)
+               END IF
             ELSEIF (rigpw) THEN
                lri_v_int => lri_density%lri_coefs(ispin)%lri_kinds
+               CALL get_qs_env(qs_env, nkind=nkind, para_env=para_env)
+               DO ikind = 1, nkind
+                  lri_v_int(ikind)%v_int = 0.0_dp
+               END DO
                CALL integrate_v_rspace_one_center(v_rspace, qs_env, &
                                                   lri_v_int, calculate_forces, "RI_HXC")
+               DO ikind = 1, nkind
+                  CALL mp_sum(lri_v_int(ikind)%v_int, para_env%group)
+               END DO
             ELSE
                rho_ao => my_rho(ispin, :)
                ksmat => ks_matrix(ispin, :)
@@ -1474,13 +1517,16 @@ CONTAINS
 
       ! **** LRIGPW: KS matrix from integrated potential
       IF (lrigpw) THEN
+         CALL get_qs_env(qs_env, ks_env=ks_env)
+         CALL get_ks_env(ks_env=ks_env, kpoints=kpoints)
+         CALL get_kpoint_info(kpoint=kpoints, cell_to_index=cell_to_index)
          DO ispin = 1, nspins
-            CALL calculate_lri_ks_matrix(lri_env, lri_v_int, ks_matrix(ispin, 1)%matrix, &
-                                         atomic_kind_set)
+            ksmat => ks_matrix(ispin, :)
+            CALL calculate_lri_ks_matrix(lri_env, lri_v_int, ksmat, atomic_kind_set, &
+                                         cell_to_index=cell_to_index)
          ENDDO
          IF (calculate_forces) THEN
-            rho_ao_nokp => rho_ao_kp(:, 1)
-            CALL calculate_lri_forces(lri_env, lri_density, qs_env, rho_ao_nokp, atomic_kind_set)
+            CALL calculate_lri_forces(lri_env, lri_density, qs_env, rho_ao_kp, atomic_kind_set)
          ENDIF
       ELSEIF (rigpw) THEN
          CALL get_qs_env(qs_env, matrix_s=smat)
@@ -1716,6 +1762,7 @@ CONTAINS
          routineP = moduleN//':'//routineN
 
       INTEGER                                            :: handle, ispin, ns1, ns2
+      REAL(KIND=dp)                                      :: embed_corr_local
       TYPE(pw_env_type), POINTER                         :: pw_env
       TYPE(pw_p_type), DIMENSION(:), POINTER             :: rho_r
       TYPE(pw_pool_type), POINTER                        :: auxbas_pw_pool
@@ -1732,24 +1779,40 @@ CONTAINS
                       auxbas_pw_pool=auxbas_pw_pool)
       CALL qs_rho_get(rho, rho_r=rho_r)
       ALLOCATE (v_rspace_embed(dft_control%nspins))
-      DO ispin = 1, dft_control%nspins
-         CALL pw_pool_create_pw(pool=auxbas_pw_pool, pw=v_rspace_embed(1)%pw, &
-                                use_data=REALDATA3D, in_space=REALSPACE)
-         CALL pw_zero(v_rspace_embed(1)%pw)
-      ENDDO
-
-      ns1 = SIZE(qs_env%embed_pot%pw%cr3d)
-      ns2 = SIZE(v_rspace_embed(1)%pw%cr3d)
-      IF (ns1 .NE. ns2) CPABORT("Subsystem grids must be identical")
-
-      v_rspace_embed(1)%pw%cr3d(:, :, :) = qs_env%embed_pot%pw%cr3d
 
       embed_corr = 0.0_dp
-      embed_corr = accurate_sum(v_rspace_embed(1)%pw%cr3d*rho_r(1)%pw%cr3d)* &
-                   v_rspace_embed(1)%pw%pw_grid%dvol
-      IF (v_rspace_embed(1)%pw%pw_grid%para%mode == PW_MODE_DISTRIBUTED) THEN
-         CALL mp_sum(embed_corr, v_rspace_embed(1)%pw%pw_grid%para%group)
-      END IF
+
+      DO ispin = 1, dft_control%nspins
+         CALL pw_pool_create_pw(pool=auxbas_pw_pool, pw=v_rspace_embed(ispin)%pw, &
+                                use_data=REALDATA3D, in_space=REALSPACE)
+         CALL pw_zero(v_rspace_embed(ispin)%pw)
+         ns1 = SIZE(qs_env%embed_pot%pw%cr3d)
+         ns2 = SIZE(v_rspace_embed(ispin)%pw%cr3d)
+         IF (ns1 .NE. ns2) CPABORT("Subsystem grids must be identical")
+
+         v_rspace_embed(ispin)%pw%cr3d(:, :, :) = qs_env%embed_pot%pw%cr3d
+         embed_corr_local = 0.0_dp
+
+         ! Spin embedding potential in open-shell case
+         IF (dft_control%nspins .EQ. 2) THEN
+            ns1 = SIZE(qs_env%spin_embed_pot%pw%cr3d)
+            IF (ns1 .NE. ns2) CPABORT("Subsystem grids must be identical")
+            IF (ispin .EQ. 1) v_rspace_embed(ispin)%pw%cr3d(:, :, :) = &
+               v_rspace_embed(ispin)%pw%cr3d(:, :, :)+qs_env%spin_embed_pot%pw%cr3d
+            IF (ispin .EQ. 2) v_rspace_embed(ispin)%pw%cr3d(:, :, :) = &
+               v_rspace_embed(ispin)%pw%cr3d(:, :, :)-qs_env%spin_embed_pot%pw%cr3d
+         ENDIF
+         ! Integrate the density*potential
+         embed_corr_local = accurate_sum(v_rspace_embed(ispin)%pw%cr3d*rho_r(ispin)%pw%cr3d)* &
+                            v_rspace_embed(ispin)%pw%pw_grid%dvol
+
+         IF (v_rspace_embed(ispin)%pw%pw_grid%para%mode == PW_MODE_DISTRIBUTED) THEN
+            CALL mp_sum(embed_corr_local, v_rspace_embed(ispin)%pw%pw_grid%para%group)
+         END IF
+
+         embed_corr = embed_corr+embed_corr_local
+
+      ENDDO
 
       ! If only energy requiested we delete the potential
       IF (just_energy) THEN

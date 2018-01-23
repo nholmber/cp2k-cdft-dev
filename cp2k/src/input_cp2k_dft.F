@@ -4793,7 +4793,7 @@ CONTAINS
 
       CALL keyword_create(keyword, name="transformation", &
                           description="Type of DKH transformation", &
-                          usage="transformation (FULL|MOLECULE|ATOM)", default_i_val=rel_trans_full, &
+                          usage="transformation (FULL|MOLECULE|ATOM)", default_i_val=rel_trans_atom, &
                           enum_c_vals=s2a("FULL", "MOLECULE", "ATOM"), &
                           enum_i_vals=(/rel_trans_full, rel_trans_molecule, rel_trans_atom/), &
                           enum_desc=s2a("Use full matrix transformation", &
@@ -5826,6 +5826,20 @@ CONTAINS
       CALL section_add_keyword(section, keyword)
       CALL keyword_release(keyword)
 
+      CALL keyword_create(keyword, name="PPL_RI", &
+                          description="Use LRI/RI for local pseudopotential.", &
+                          usage="PPL_RI TRUE", &
+                          default_l_val=.FALSE., lone_keyword_l_val=.TRUE.)
+      CALL section_add_keyword(section, keyword)
+      CALL keyword_release(keyword)
+
+      CALL keyword_create(keyword, name="RI_STATISTIC", &
+                          description="Print statistical information on the RI calculation.", &
+                          usage="RI_STATISTIC TRUE", &
+                          default_l_val=.FALSE., lone_keyword_l_val=.TRUE.)
+      CALL section_add_keyword(section, keyword)
+      CALL keyword_release(keyword)
+
       CALL keyword_create(keyword, name="DISTANT_PAIR_APPROXIMATION", &
                           description="Calculate distant pairs using an independent atom approximation.", &
                           usage="DISTANT_PAIR_APPROXIMATION TRUE", &
@@ -5971,7 +5985,7 @@ CONTAINS
       CPASSERT(.NOT. ASSOCIATED(section))
       CALL section_create(section, name="OPT_EMBED", &
                           description="This section specifies optional parameters for DFT embedding potential optimization.", &
-                          n_keywords=10, n_subsections=0, repeats=.FALSE.)
+                          n_keywords=12, n_subsections=0, repeats=.FALSE.)
 
       NULLIFY (keyword)
 
@@ -6004,6 +6018,20 @@ CONTAINS
       CALL keyword_release(keyword)
 
       CALL keyword_create(keyword, name="DENS_CONV_INT", &
+                          description="Convergence criterion for "// &
+                          "the integrated electron density difference.", &
+                          usage="DENS_CONV_INT 0.1", default_r_val=0.1_dp)
+      CALL section_add_keyword(section, keyword)
+      CALL keyword_release(keyword)
+
+      CALL keyword_create(keyword, name="SPIN_DENS_CONV_MAX", &
+                          description="Convergence criterion for "// &
+                          "the maximum electron density difference.", &
+                          usage="DENS_CONV_MAX 0.01", default_r_val=0.01_dp)
+      CALL section_add_keyword(section, keyword)
+      CALL keyword_release(keyword)
+
+      CALL keyword_create(keyword, name="SPIN_DENS_CONV_INT", &
                           description="Convergence criterion for "// &
                           "the integrated electron density difference.", &
                           usage="DENS_CONV_INT 0.1", default_r_val=0.1_dp)
