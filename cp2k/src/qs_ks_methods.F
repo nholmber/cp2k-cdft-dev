@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------------------------------!
 !   CP2K: A general program to perform molecular dynamics simulations                              !
-!   Copyright (C) 2000 - 2017  CP2K developers group                                               !
+!   Copyright (C) 2000 - 2018  CP2K developers group                                               !
 !--------------------------------------------------------------------------------------------------!
 
 ! **************************************************************************************************
@@ -73,8 +73,15 @@ MODULE qs_ks_methods
    USE kg_correction,                   ONLY: kg_ekin_subset
    USE kinds,                           ONLY: default_string_length,&
                                               dp
+   USE lri_environment_methods,         ONLY: v_int_ppl_energy
+   USE lri_environment_types,           ONLY: lri_density_type,&
+                                              lri_environment_type,&
+                                              lri_kind_type
    USE mathlib,                         ONLY: abnormal_value
    USE message_passing,                 ONLY: mp_sum
+   USE negf_qs_env_methods,             ONLY: negf_modify_hartree_pot,&
+                                              negf_update_ks_matrix
+   USE negf_qs_env_types,               ONLY: negf_qs_env_type
    USE pw_env_types,                    ONLY: pw_env_get,&
                                               pw_env_type
    USE pw_methods,                      ONLY: pw_axpy,&
@@ -225,6 +232,10 @@ CONTAINS
       TYPE(dbcsr_p_type), DIMENSION(:, :), POINTER       :: ks_matrix, matrix_h, matrix_s, my_rho, &
                                                             rho_ao
       TYPE(dft_control_type), POINTER                    :: dft_control
+      TYPE(lri_density_type), POINTER                    :: lri_density
+      TYPE(lri_environment_type), POINTER                :: lri_env
+      TYPE(lri_kind_type), DIMENSION(:), POINTER         :: lri_v_int
+      TYPE(negf_qs_env_type), POINTER                    :: negf_qs_env
       TYPE(pw_env_type), POINTER                         :: pw_env
       TYPE(pw_p_type) :: rho_tot_gspace, v_efield_rspace, v_hartree_gspace, v_hartree_rspace, &
          v_minus_veps, v_sccs_rspace, v_sic_rspace, v_spin_ddapc_rest_r
@@ -278,7 +289,8 @@ CONTAINS
                       rho=rho, &
                       rho_core=rho_core, &
                       rho_xc=rho_xc, &
-                      energy=energy)
+                      energy=energy, &
+                      negf_env=negf_qs_env)
 
       CALL qs_rho_get(rho, rho_r=rho_r, rho_ao_kp=rho_ao)
 
@@ -323,7 +335,7 @@ CONTAINS
       ! Check if LRIGPW is used
       lrigpw = dft_control%qs_control%lrigpw
       rigpw = dft_control%qs_control%rigpw
-      IF (lrigpw .OR. rigpw) THEN
+      IF (rigpw) THEN
          CPASSERT(nimages == 1)
       ENDIF
       IF (lrigpw .AND. rigpw) THEN
@@ -522,6 +534,11 @@ CONTAINS
       END IF
       CALL pw_pool_give_back_pw(auxbas_pw_pool, rho_tot_gspace%pw)
 
+      ! external NEGF potential
+      IF (negf_qs_env%apply_bias) THEN
+         CALL negf_modify_hartree_pot(v_hartree_rspace, negf_qs_env)
+      END IF
+
       ! calculate the density matrix for the fitted mo_coeffs
       IF (dft_control%do_admm) THEN
          CALL hfx_admm_init(qs_env)
@@ -683,6 +700,11 @@ CONTAINS
                                 calculate_forces)
             ! substract kg corr from the total energy
             energy%exc = energy%exc-ekin_mol
+            ! virial corrections
+            IF (use_virial .AND. calculate_forces) THEN
+               virial%pv_virial = virial%pv_virial+virial%pv_xc
+               virial%pv_xc = 0.0_dp
+            END IF
          END IF
 
       END IF ! .NOT. just energy
@@ -823,6 +845,25 @@ CONTAINS
          END DO
          CALL mp_sum(ecore_ppl, para_env%group)
          energy%core = energy%core+ecore_ppl
+      END IF
+
+      IF (lrigpw) THEN
+         ! update core energy for ppl_ri method
+         CALL get_qs_env(qs_env, lri_env=lri_env, lri_density=lri_density)
+         IF (lri_env%ppl_ri) THEN
+            ecore_ppl = 0._dp
+            DO ispin = 1, nspins
+               lri_v_int => lri_density%lri_coefs(ispin)%lri_kinds
+               CALL v_int_ppl_energy(qs_env, lri_v_int, ecore_ppl)
+            END DO
+            energy%core = energy%core+ecore_ppl
+         END IF
+      END IF
+
+      IF (.NOT. just_energy .AND. negf_qs_env%update_ks_matrix) THEN
+         ! ensure that Konh-Sham matrix elements which correspond to the bulk
+         ! contact region are identical to the actual bulk calculation
+         CALL negf_update_ks_matrix(ks_matrix, negf_qs_env)
       END IF
 
       ! Sum all energy terms to obtain the total energy

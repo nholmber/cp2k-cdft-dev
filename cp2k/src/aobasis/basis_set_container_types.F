@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------------------------------!
 !   CP2K: A general program to perform molecular dynamics simulations                              !
-!   Copyright (C) 2000 - 2017  CP2K developers group                                               !
+!   Copyright (C) 2000 - 2018  CP2K developers group                                               !
 !--------------------------------------------------------------------------------------------------!
 
 ! **************************************************************************************************
@@ -99,7 +99,7 @@ CONTAINS
          basis_type_nr = ri_hxc_basis
       CASE ("RI_K")
          basis_type_nr = ri_k_basis
-      CASE ("LRI")
+      CASE ("LRI_AUX")
          basis_type_nr = lri_aux_basis
       CASE ("AUX_FIT")
          basis_type_nr = aux_fit_basis

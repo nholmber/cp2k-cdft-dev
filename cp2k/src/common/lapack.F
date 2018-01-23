@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------------------------------!
 !   CP2K: A general program to perform molecular dynamics simulations                              !
-!   Copyright (C) 2000 - 2017  CP2K developers group                                               !
+!   Copyright (C) 2000 - 2018  CP2K developers group                                               !
 !--------------------------------------------------------------------------------------------------!
 
 ! **************************************************************************************************
@@ -22,7 +22,8 @@ MODULE lapack
    PUBLIC :: lapack_ssyev, lapack_chpev, &
              lapack_sgesvd, lapack_cgesvd, &
              lapack_sgesv, lapack_sgelss, &
-             lapack_ssygv, lapack_sgbsv
+             lapack_ssygv, lapack_sgbsv, &
+             lapack_spotrf, lapack_strtri
 
    INTERFACE lapack_ssyev
 ! **************************************************************************************************

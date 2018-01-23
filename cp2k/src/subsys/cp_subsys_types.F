@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------------------------------!
 !   CP2K: A general program to perform molecular dynamics simulations                              !
-!   Copyright (C) 2000 - 2017  CP2K developers group                                               !
+!   Copyright (C) 2000 - 2018  CP2K developers group                                               !
 !--------------------------------------------------------------------------------------------------!
 
 ! **************************************************************************************************
@@ -498,7 +498,7 @@ CONTAINS
             ELSE
                DO i = 1, 3
                   j = j+1
-                  f(j) = core_particles%els(shell_index)%f(i)+particles%els(iatom)%f(i)
+                  f(j) = core_particles%els(shell_index)%f(i)
                END DO
                k = 3*(natom+shell_index-1)
                DO i = 1, 3

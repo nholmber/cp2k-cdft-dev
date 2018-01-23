@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------------------------------!
 !   CP2K: A general program to perform molecular dynamics simulations                              !
-!   Copyright (C) 2000 - 2017  CP2K developers group                                               !
+!   Copyright (C) 2000 - 2018  CP2K developers group                                               !
 !--------------------------------------------------------------------------------------------------!
 
 ! **************************************************************************************************
@@ -535,12 +535,13 @@ CONTAINS
 !> \param basis_type ...
 !> \param exact_1c_terms ...
 !> \param pmat replicated block diagonal density matrix (optional)
+!> \param atomlist list of atoms to be included (optional)
 !> \par History
 !>      04.2013
 !> \author Dorothea Golze
 ! **************************************************************************************************
    SUBROUTINE calculate_lri_rho_elec(lri_rho_g, lri_rho_r, qs_env, &
-                                     lri_coef, total_rho, basis_type, exact_1c_terms, pmat)
+                                     lri_coef, total_rho, basis_type, exact_1c_terms, pmat, atomlist)
 
       TYPE(pw_p_type), INTENT(INOUT)                     :: lri_rho_g, lri_rho_r
       TYPE(qs_environment_type), POINTER                 :: qs_env
@@ -549,6 +550,7 @@ CONTAINS
       CHARACTER(len=*), INTENT(IN)                       :: basis_type
       LOGICAL, INTENT(IN)                                :: exact_1c_terms
       TYPE(dbcsr_type), OPTIONAL                         :: pmat
+      INTEGER, DIMENSION(:), OPTIONAL                    :: atomlist
 
       CHARACTER(len=*), PARAMETER :: routineN = 'calculate_lri_rho_elec', &
          routineP = moduleN//':'//routineN
@@ -635,7 +637,7 @@ CONTAINS
       !Find lmax_global across atomic_kind_set
       lmax_global = 0
       DO ikind = 1, SIZE(atomic_kind_set)
-         CALL get_qs_kind(qs_kind_set(ikind), basis_set=lri_basis_set, basis_type="LRI")
+         CALL get_qs_kind(qs_kind_set(ikind), basis_set=lri_basis_set, basis_type=basis_type)
          CALL get_gto_basis_set(gto_basis_set=lri_basis_set, lmax=mylmax)
          lmax_global = MAX(MAXVAL(mylmax), lmax_global)
       END DO
@@ -643,7 +645,7 @@ CONTAINS
       DO ikind = 1, SIZE(atomic_kind_set)
 
          CALL get_atomic_kind(atomic_kind_set(ikind), natom=natom, atom_list=atom_list)
-         CALL get_qs_kind(qs_kind_set(ikind), basis_set=lri_basis_set, basis_type="LRI")
+         CALL get_qs_kind(qs_kind_set(ikind), basis_set=lri_basis_set, basis_type=basis_type)
 
          !Take the lri basis set here!
          CALL get_gto_basis_set(gto_basis_set=lri_basis_set, lmax=la_max, &
@@ -652,6 +654,9 @@ CONTAINS
 
          DO iatom = 1, natom
             atom_a = atom_list(iatom)
+            IF (PRESENT(ATOMLIST)) THEN
+               IF (atomlist(atom_a) == 0) CYCLE
+            END IF
             ra(:) = pbc(particle_set(atom_a)%r, cell)
             aci => lri_coef(ikind)%acoef(iatom, :)
 

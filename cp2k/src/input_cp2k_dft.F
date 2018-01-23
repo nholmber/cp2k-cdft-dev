@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------------------------------!
 !   CP2K: A general program to perform molecular dynamics simulations                              !
-!   Copyright (C) 2000 - 2017  CP2K developers group                                               !
+!   Copyright (C) 2000 - 2018  CP2K developers group                                               !
 !--------------------------------------------------------------------------------------------------!
 
 ! **************************************************************************************************
@@ -281,6 +281,14 @@ CONTAINS
       CALL section_add_keyword(section, keyword)
       CALL keyword_release(keyword)
 
+      CALL keyword_create(keyword, name="AUTO_BASIS", &
+                          description="Specify size of automatically generated auxiliary basis sets: "// &
+                          "Options={small,medium,large,huge}", &
+                          usage="AUTO_BASIS {basis_type} {basis_size}", &
+                          type_of_var=char_t, repeats=.TRUE., n_var=-1, default_c_vals=(/"X", "X"/))
+      CALL section_add_keyword(section, keyword)
+      CALL keyword_release(keyword)
+
       CALL keyword_create(keyword=keyword, &
                           name="SURFACE_DIPOLE_CORRECTION", &
                           variants=s2a("SURFACE_DIPOLE", &
@@ -307,6 +315,7 @@ CONTAINS
                           usage="SURF_DIP_DIR Z")
       CALL section_add_keyword(section, keyword)
       CALL keyword_release(keyword)
+
       NULLIFY (subsection)
       CALL create_scf_section(subsection)
       CALL section_add_subsection(section, subsection)
@@ -891,6 +900,12 @@ CONTAINS
       CALL cp_print_key_section_create(print_key, "PROGRAM_BANNER", &
                                        description="Controls the printing of the banner of the MM program", &
                                        print_level=silent_print_level, filename="__STD_OUT__")
+      CALL section_add_subsection(section, print_key)
+      CALL section_release(print_key)
+
+      CALL cp_print_key_section_create(print_key, "BASIS_SET_FILE", &
+                                       description="Controls the printing of a file with all basis sets used.", &
+                                       print_level=high_print_level, filename="LOCAL_BASIS_SETS")
       CALL section_add_subsection(section, print_key)
       CALL section_release(print_key)
 
@@ -4778,7 +4793,7 @@ CONTAINS
 
       CALL keyword_create(keyword, name="transformation", &
                           description="Type of DKH transformation", &
-                          usage="transformation (FULL|MOLECULE|ATOM)", default_i_val=rel_trans_full, &
+                          usage="transformation (FULL|MOLECULE|ATOM)", default_i_val=rel_trans_atom, &
                           enum_c_vals=s2a("FULL", "MOLECULE", "ATOM"), &
                           enum_i_vals=(/rel_trans_full, rel_trans_molecule, rel_trans_atom/), &
                           enum_desc=s2a("Use full matrix transformation", &
@@ -5811,6 +5826,20 @@ CONTAINS
       CALL section_add_keyword(section, keyword)
       CALL keyword_release(keyword)
 
+      CALL keyword_create(keyword, name="PPL_RI", &
+                          description="Use LRI/RI for local pseudopotential.", &
+                          usage="PPL_RI TRUE", &
+                          default_l_val=.FALSE., lone_keyword_l_val=.TRUE.)
+      CALL section_add_keyword(section, keyword)
+      CALL keyword_release(keyword)
+
+      CALL keyword_create(keyword, name="RI_STATISTIC", &
+                          description="Print statistical information on the RI calculation.", &
+                          usage="RI_STATISTIC TRUE", &
+                          default_l_val=.FALSE., lone_keyword_l_val=.TRUE.)
+      CALL section_add_keyword(section, keyword)
+      CALL keyword_release(keyword)
+
       CALL keyword_create(keyword, name="DISTANT_PAIR_APPROXIMATION", &
                           description="Calculate distant pairs using an independent atom approximation.", &
                           usage="DISTANT_PAIR_APPROXIMATION TRUE", &
@@ -5956,7 +5985,7 @@ CONTAINS
       CPASSERT(.NOT. ASSOCIATED(section))
       CALL section_create(section, name="OPT_EMBED", &
                           description="This section specifies optional parameters for DFT embedding potential optimization.", &
-                          n_keywords=10, n_subsections=0, repeats=.FALSE.)
+                          n_keywords=12, n_subsections=0, repeats=.FALSE.)
 
       NULLIFY (keyword)
 
@@ -5989,6 +6018,20 @@ CONTAINS
       CALL keyword_release(keyword)
 
       CALL keyword_create(keyword, name="DENS_CONV_INT", &
+                          description="Convergence criterion for "// &
+                          "the integrated electron density difference.", &
+                          usage="DENS_CONV_INT 0.1", default_r_val=0.1_dp)
+      CALL section_add_keyword(section, keyword)
+      CALL keyword_release(keyword)
+
+      CALL keyword_create(keyword, name="SPIN_DENS_CONV_MAX", &
+                          description="Convergence criterion for "// &
+                          "the maximum electron density difference.", &
+                          usage="DENS_CONV_MAX 0.01", default_r_val=0.01_dp)
+      CALL section_add_keyword(section, keyword)
+      CALL keyword_release(keyword)
+
+      CALL keyword_create(keyword, name="SPIN_DENS_CONV_INT", &
                           description="Convergence criterion for "// &
                           "the integrated electron density difference.", &
                           usage="DENS_CONV_INT 0.1", default_r_val=0.1_dp)

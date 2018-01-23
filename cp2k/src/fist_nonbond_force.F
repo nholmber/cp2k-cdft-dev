@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------------------------------!
 !   CP2K: A general program to perform molecular dynamics simulations                              !
-!   Copyright (C) 2000 - 2017  CP2K developers group                                               !
+!   Copyright (C) 2000 - 2018  CP2K developers group                                               !
 !--------------------------------------------------------------------------------------------------!
 
 ! **************************************************************************************************
@@ -29,9 +29,7 @@ MODULE fist_nonbond_force
    USE fist_nonbond_env_types,          ONLY: fist_nonbond_env_get,&
                                               fist_nonbond_env_type,&
                                               pos_type
-   USE kinds,                           ONLY: dp,&
-                                              dp_size,&
-                                              int_size
+   USE kinds,                           ONLY: dp
    USE machine,                         ONLY: m_memory
    USE mathconstants,                   ONLY: oorootpi,&
                                               sqrthalf
@@ -51,7 +49,6 @@ MODULE fist_nonbond_force
    USE splines_methods,                 ONLY: potential_s
    USE splines_types,                   ONLY: spline_data_p_type,&
                                               spline_factor_type
-   USE termination,                     ONLY: stop_memory
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE
@@ -101,7 +98,7 @@ CONTAINS
       CHARACTER(LEN=*), PARAMETER :: routineN = 'force_nonbond', routineP = moduleN//':'//routineN
 
       INTEGER :: atom_a, atom_b, ewald_type, handle, i, iend, igrp, ikind, ilist, ipair, istart, &
-         istat, j, kind_a, kind_b, nkind, npairs, shell_a, shell_b, shell_type
+         j, kind_a, kind_b, nkind, npairs, shell_a, shell_b, shell_type
       INTEGER, DIMENSION(:, :), POINTER                  :: list
       LOGICAL                                            :: all_terms, do_multipoles, full_nl, &
                                                             shell_present
@@ -160,17 +157,11 @@ CONTAINS
          shell_present = .TRUE.
       END IF
       ! Load atomic kind information
-      ALLOCATE (mm_radius(nkind), STAT=istat)
-      IF (istat /= 0) CALL stop_memory(routineN, moduleN, __LINE__, "mm_radius", dp_size*nkind)
-      ALLOCATE (qeff(nkind), STAT=istat)
-      IF (istat /= 0) CALL stop_memory(routineN, moduleN, __LINE__, "qeff", dp_size*nkind)
-      ALLOCATE (qcore(nkind), STAT=istat)
-      IF (istat /= 0) CALL stop_memory(routineN, moduleN, __LINE__, "qcore", dp_size*nkind)
-      ALLOCATE (qshell(nkind), STAT=istat)
-      IF (istat /= 0) CALL stop_memory(routineN, moduleN, __LINE__, "qshell", dp_size*nkind)
-      ALLOCATE (is_shell_kind(nkind), STAT=istat)
-      IF (istat /= 0) CALL stop_memory(routineN, moduleN, __LINE__, "is_shell_kind", int_size*nkind)
-      CPASSERT(istat == 0)
+      ALLOCATE (mm_radius(nkind))
+      ALLOCATE (qeff(nkind))
+      ALLOCATE (qcore(nkind))
+      ALLOCATE (qshell(nkind))
+      ALLOCATE (is_shell_kind(nkind))
       DO ikind = 1, nkind
          atomic_kind => atomic_kind_set(ikind)
          CALL get_atomic_kind(atomic_kind, &

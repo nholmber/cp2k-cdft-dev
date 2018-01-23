@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------------------------------!
 !   CP2K: A general program to perform molecular dynamics simulations                              !
-!   Copyright (C) 2000 - 2017  CP2K developers group                                               !
+!   Copyright (C) 2000 - 2018  CP2K developers group                                               !
 !--------------------------------------------------------------------------------------------------!
 
 ! **************************************************************************************************
@@ -1345,27 +1345,17 @@ CONTAINS
 !> \param method ...
 !> \param use_absolute ...
 !> \param filter_diag ...
-!> \param thorough ...
 ! **************************************************************************************************
-   SUBROUTINE dbcsr_filter(matrix, eps, method, use_absolute, filter_diag, &
-                           thorough)
+   SUBROUTINE dbcsr_filter(matrix, eps, method, use_absolute, filter_diag)
       TYPE(dbcsr_type), INTENT(INOUT)                    :: matrix
       REAL(dp), INTENT(IN)                               :: eps
       INTEGER, INTENT(IN), OPTIONAL                      :: method
-      LOGICAL, INTENT(in), OPTIONAL                      :: use_absolute, filter_diag, thorough
+      LOGICAL, INTENT(in), OPTIONAL                      :: use_absolute, filter_diag
 
       CHARACTER(len=*), PARAMETER :: routineN = 'dbcsr_filter', routineP = moduleN//':'//routineN
 
-      LOGICAL                                            :: quick
-
-      IF (PRESENT(thorough)) THEN
-         quick = .NOT. thorough
-      ELSE
-         quick = .FALSE.
-      ENDIF
       CALL dbcsr_filter_prv(matrix%prv, dbcsr_conform_scalar(eps, matrix), &
-                            method, use_absolute, filter_diag, &
-                            quick=quick)
+                            method, use_absolute, filter_diag)
    END SUBROUTINE dbcsr_filter
 
 ! **************************************************************************************************

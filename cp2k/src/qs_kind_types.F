@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------------------------------!
 !   CP2K: A general program to perform molecular dynamics simulations                              !
-!   Copyright (C) 2000 - 2017  CP2K developers group                                               !
+!   Copyright (C) 2000 - 2018  CP2K developers group                                               !
 !--------------------------------------------------------------------------------------------------!
 
 ! **************************************************************************************************
@@ -2461,7 +2461,7 @@ CONTAINS
                   bstring = "RI Auxiliary Basis Set"
                CASE ("AUX_FIT")
                   bstring = "Auxiliary Fit Basis Set"
-               CASE ("LRI")
+               CASE ("LRI_AUX")
                   bstring = "LRI Basis Set"
                END SELECT
 
@@ -2634,7 +2634,7 @@ CONTAINS
                      bstring = "RI Auxiliary Basis Set"
                   CASE ("AUX_FIT")
                      bstring = "Auxiliary Fit Basis Set"
-                  CASE ("LRI")
+                  CASE ("LRI_AUX")
                      bstring = "LRI Basis Set"
                   END SELECT
 
