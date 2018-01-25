@@ -85,14 +85,11 @@ MODULE mixed_cdft_methods
                                               mixed_cdft_type,&
                                               mixed_cdft_type_create,&
                                               mixed_cdft_work_type_release
-   USE mixed_cdft_utils,                ONLY: hfun_zero,&
-                                              map_permutation_to_states,&
-                                              mixed_cdft_init_structures,&
-                                              mixed_cdft_parse_settings,&
-                                              mixed_cdft_print_couplings,&
-                                              mixed_cdft_redistribute_arrays,&
-                                              mixed_cdft_release_work,&
-                                              mixed_cdft_transfer_settings
+   USE mixed_cdft_utils,                ONLY: &
+        hfun_zero, map_permutation_to_states, mixed_cdft_assemble_block_diag, &
+        mixed_cdft_diagonalize_blocks, mixed_cdft_get_blocks, mixed_cdft_init_structures, &
+        mixed_cdft_parse_settings, mixed_cdft_print_couplings, mixed_cdft_read_block_diag, &
+        mixed_cdft_redistribute_arrays, mixed_cdft_release_work, mixed_cdft_transfer_settings
    USE mixed_environment_types,         ONLY: get_mixed_env,&
                                               mixed_environment_type,&
                                               set_mixed_env
@@ -1828,7 +1825,7 @@ CONTAINS
       ! Read block definitions from input
       CALL mixed_cdft_read_block_diag(force_env, blocks, ignore_excited, nrecursion)
       nblk = SIZE(blocks)
-      !
+      ! Start block diagonalization
       DO irecursion = 1, nrecursion
          ! Print block definitions
          IF (iounit > 0 .AND. irecursion == 1) THEN
@@ -1858,7 +1855,7 @@ CONTAINS
                WRITE (iounit, '(T6,A)') 'Block diagonalization is continued until only two matrix blocks remain.'
                WRITE (iounit, '(T6,A)') 'The new blocks are formed by collecting pairs of blocks from the previous'
                WRITE (iounit, '(T6,A)') 'block diagonalized matrix in ascending order.'
-               WRITE (iounit, '(/,T3,A,I3,A,I3)') 'Recursion step:', irecursion, ' of ', nrecursion
+               WRITE (iounit, '(/,T3,A,I3,A,I3)') 'Recursion step:', irecursion-1, ' of ', nrecursion-1
                WRITE (iounit, '(/,T3,A)') 'List of old block indices for each new block'
                DO i = 1, nblk
                   WRITE (iounit, '(T6,A,I3,A,6I3)') 'Block', i, ':', (blocks(i)%array(j), j=1, SIZE(blocks(i)%array))

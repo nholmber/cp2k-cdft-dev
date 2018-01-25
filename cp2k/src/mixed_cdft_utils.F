@@ -12,7 +12,9 @@
 MODULE mixed_cdft_utils
    USE atomic_kind_types,               ONLY: atomic_kind_type
    USE cell_types,                      ONLY: cell_type
-   USE cp_array_utils,                  ONLY: cp_1d_r_p_type
+   USE cp_array_utils,                  ONLY: cp_1d_i_p_type,&
+                                              cp_1d_r_p_type,&
+                                              cp_2d_r_p_type
    USE cp_blacs_env,                    ONLY: cp_blacs_env_create,&
                                               cp_blacs_env_release,&
                                               cp_blacs_env_retain,&
@@ -61,6 +63,7 @@ MODULE mixed_cdft_utils
    USE input_constants,                 ONLY: becke_cutoff_element,&
                                               shape_function_gaussian
    USE input_section_types,             ONLY: section_vals_duplicate,&
+                                              section_vals_get,&
                                               section_vals_get_subs_vals,&
                                               section_vals_release,&
                                               section_vals_type,&
@@ -1529,6 +1532,8 @@ CONTAINS
       EXTERNAL                                           :: dsygv
 
       NULLIFY (force_env_section, block_section)
+      CPASSERT(ASSOCIATED(force_env))
+      nforce_eval = SIZE(force_env%sub_force_env)
 
       CALL force_env_get(force_env=force_env, &
                          force_env_section=force_env_section)
@@ -1578,6 +1583,7 @@ CONTAINS
          END DO
       END DO
       IF (has_duplicates) CPABORT("Duplicate states are not allowed.")
+      nrecursion = 1
       IF (do_recursive) THEN
          IF (MODULO(nblk, 2) /= 0) THEN
             CALL cp_warn(__LOCATION__, &
