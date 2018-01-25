@@ -1716,18 +1716,17 @@ CONTAINS
 !> \param mixed_cdft the env that holds the CDFT states
 !> \param blocks  list of CDFT states defining the matrix blocks
 !> \param H_block list of Hamiltonian matrix blocks
-!> \param S_block list of overlap matrix blocks
 !> \param eigenvalues list of eigenvalues for each block
 !> \param n size of the new Hamiltonian and overlap matrices
 !> \param iounit the output unit
 !> \par History
 !>       01.18  created [Nico Holmberg]
 ! **************************************************************************************************
-   SUBROUTINE mixed_cdft_assemble_block_diag(mixed_cdft, blocks, H_block, S_block, eigenvalues, &
+   SUBROUTINE mixed_cdft_assemble_block_diag(mixed_cdft, blocks, H_block, eigenvalues, &
                                              n, iounit)
       TYPE(mixed_cdft_type), POINTER                     :: mixed_cdft
       TYPE(cp_1d_i_p_type), ALLOCATABLE, DIMENSION(:)    :: blocks
-      TYPE(cp_2d_r_p_type), ALLOCATABLE, DIMENSION(:)    :: H_block, S_block
+      TYPE(cp_2d_r_p_type), ALLOCATABLE, DIMENSION(:)    :: H_block
       TYPE(cp_1d_r_p_type), ALLOCATABLE, DIMENSION(:)    :: eigenvalues
       INTEGER                                            :: n, iounit
 

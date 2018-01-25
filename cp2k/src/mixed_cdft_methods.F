@@ -1872,8 +1872,7 @@ CONTAINS
          ELSE
             n = nforce_eval
          END IF
-         CALL mixed_cdft_assemble_block_diag(mixed_cdft, blocks, H_block, S_block, eigenvalues, &
-                                             n, iounit)
+         CALL mixed_cdft_assemble_block_diag(mixed_cdft, blocks, H_block, eigenvalues, n, iounit)
          ! Deallocate work
          DO i = 1, nblk
             DEALLOCATE (H_block(i)%array)
