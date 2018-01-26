@@ -11,52 +11,24 @@
 !>      - [01.2018] moved redistribution related code from cp_fm_syevd here
 !> \author Nico Holmberg [01.2018]
 ! **************************************************************************************************
-MODULE cp_fm_diag
-   USE cp_blacs_calls,                  ONLY: cp_blacs_gridexit,&
-                                              cp_blacs_gridinit
+MODULE cp_fm_diag_utils
    USE cp_blacs_env,                    ONLY: cp_blacs_env_create,&
                                               cp_blacs_env_release,&
                                               cp_blacs_env_type
-   USE cp_fm_basic_linalg,              ONLY: cp_fm_column_scale,&
-                                              cp_fm_gemm,&
-                                              cp_fm_scale,&
-                                              cp_fm_syrk,&
-                                              cp_fm_triangular_invert,&
-                                              cp_fm_triangular_multiply,&
-                                              cp_fm_upper_to_full
-   USE cp_fm_cholesky,                  ONLY: cp_fm_cholesky_decompose
-   USE cp_fm_elpa,                      ONLY: cp_fm_diag_elpa,&
-                                              set_elpa_kernel,&
-                                              set_elpa_qr,&
-                                              set_elpa_print
    USE cp_fm_struct,                    ONLY: cp_fm_struct_create,&
                                               cp_fm_struct_release,&
                                               cp_fm_struct_type
    USE cp_fm_types,                     ONLY: cp_fm_create,&
-                                              cp_fm_get_info,&
                                               cp_fm_release,&
-                                              cp_fm_set_element,&
-                                              cp_fm_to_fm,&
                                               cp_fm_type
-   USE cp_log_handling,                 ONLY: cp_get_default_logger,&
-                                              cp_logger_get_default_unit_nr,&
-                                              cp_logger_get_unit_nr,&
-                                              cp_logger_type
    USE cp_para_env,                     ONLY: cp_para_env_create,&
                                               cp_para_env_release
    USE cp_para_types,                   ONLY: cp_para_env_type
    USE kinds,                           ONLY: dp
-   USE machine,                         ONLY: m_memory
    USE message_passing,                 ONLY: mp_bcast,&
                                               mp_comm_free,&
                                               mp_comm_split,&
                                               mp_sync
-#if defined (__HAS_IEEE_EXCEPTIONS)
-  USE ieee_exceptions,                 ONLY: ieee_get_halting_mode,&
-                                             ieee_set_halting_mode,&
-                                             ieee_all
-#endif
-
 #include "../base/base_uses.f90"
 
    IMPLICIT NONE
@@ -92,10 +64,10 @@ CONTAINS
    SUBROUTINE cp_fm_redistribute_work_init()
 
       work_redistribute%subgroup = -1
-      NULLIFY(work_redistribute%group_distribution)
-      NULLIFY(work_redistribute%group_partition)
-      NULLIFY(work_redistribute%blacs_env_new)
-      NULLIFY(work_redistribute%para_env_new)
+      NULLIFY (work_redistribute%group_distribution)
+      NULLIFY (work_redistribute%group_partition)
+      NULLIFY (work_redistribute%blacs_env_new)
+      NULLIFY (work_redistribute%para_env_new)
 
    END SUBROUTINE cp_fm_redistribute_work_init
 
@@ -106,17 +78,17 @@ CONTAINS
 !> \author Nico Holmberg [01.2018]
 ! **************************************************************************************************
    SUBROUTINE cp_fm_redistribute_work_finalize(has_redistributed)
-      LOGICAL                                  :: has_work
+      LOGICAL                                            :: has_redistributed
 
       IF (ASSOCIATED(work_redistribute%group_distribution)) THEN
-         IF (has_work) THEN
+         IF (has_redistributed) THEN
             CALL cp_blacs_env_release(work_redistribute%blacs_env_new)
             CALL cp_para_env_release(work_redistribute%para_env_new)
          ELSE
             CALL mp_comm_free(work_redistribute%subgroup)
          ENDIF
-         DEALLOCATE(work_redistribute%group_distribution)
-         DEALLOCATE(work_redistribute%group_partition)
+         DEALLOCATE (work_redistribute%group_distribution)
+         DEALLOCATE (work_redistribute%group_partition)
       END IF
       ! Return work to its initial state
       CALL cp_fm_redistribute_work_init()
@@ -130,7 +102,7 @@ CONTAINS
 !> \param eigenvectors     the cp_fm_type matrix that will hold the eigenvectors of the input matrix
 !> \param matrix_new       the redistributed input matrix which will subsequently be diagonalized,
 !>                         or a pointer to the original matrix if no redistribution is required
-!> \param eigenvector_new  the redistributed eigenvectors matrix, or a pointer to the original
+!> \param eigenvectors_new the redistributed eigenvectors matrix, or a pointer to the original
 !>                         matrix if no redistribution is required
 !> \par History
 !>      - [01.2018] created by moving redistribution related code from cp_fm_syevd here
@@ -150,6 +122,7 @@ CONTAINS
       INTEGER                                  :: fake_descriptor(9), mepos_old, &
                                                   n, ngroups, num_pe_new, &
                                                   num_pe_old
+      TYPE(cp_fm_struct_type), POINTER         :: fm_struct_new
       TYPE(cp_para_env_type), POINTER          :: para_env
 #endif
 
@@ -157,8 +130,8 @@ CONTAINS
 
 #if defined(__SCALAPACK)
 
-      NULLIFY(matrix_new)
-      NULLIFY(eigenvectors_new)
+      NULLIFY (matrix_new)
+      NULLIFY (eigenvectors_new)
       n = matrix%matrix_struct%nrow_global
 
       ! first figure out the optimal number of cpus
@@ -243,7 +216,7 @@ CONTAINS
 !> \param eig              global array holding the eigenvalues of the input matrixmatrix
 !> \param matrix_new       the redistributed input matrix which will subsequently be diagonalized,
 !>                         or a pointer to the original matrix if no redistribution is required
-!> \param eigenvector_new  the redistributed eigenvectors matrix, or a pointer to the original
+!> \param eigenvectors_new the redistributed eigenvectors matrix, or a pointer to the original
 !>                         matrix if no redistribution is required
 !> \par History
 !>      - [01.2018] created by moving redistribution related code from cp_fm_syevd here
@@ -280,6 +253,8 @@ CONTAINS
             CALL pdgemr2d(n, n, eigenvectors_new%local_data(1, 1), 1, 1, eigenvectors_new%matrix_struct%descriptor, &
                           eigenvectors%local_data(1, 1), 1, 1, eigenvectors%matrix_struct%descriptor, &
                           eigenvectors%matrix_struct%context%group)
+            CALL cp_fm_release(matrix_new)
+            CALL cp_fm_release(eigenvectors_new)
          ELSE
             ! these tasks must help redistribute (they own part of the data),
             ! but need fake 'new' data, and their descriptor must indicate this with -1
