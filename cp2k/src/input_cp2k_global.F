@@ -47,7 +47,8 @@ MODULE input_cp2k_global
                                               section_release,&
                                               section_type
    USE input_val_types,                 ONLY: char_t,&
-                                              integer_t
+                                              integer_t,&
+                                              logical_t
    USE kinds,                           ONLY: dp
    USE string_utilities,                ONLY: s2a
    USE timings,                         ONLY: default_timings_level
@@ -658,7 +659,7 @@ CONTAINS
                           "as well as notifies if the matrix was redistributed. Useful for testing.", &
                           usage="PRINT_FM_REDISTRIBUTE", type_of_var=logical_t, &
                           default_l_val=.FALSE., lone_keyword_l_val=.TRUE.)
-      CALL section_add_keyword(subsection, keyword)
+      CALL section_add_keyword(section, keyword)
       CALL keyword_release(keyword)
 
    END SUBROUTINE create_fm_diag_rules_section

@@ -127,7 +127,7 @@ CONTAINS
       ! Init work
       CALL cp_fm_redistribute_work_init()
 
-   END SUBROUTINE cp_fm_redistribute_work_init
+   END SUBROUTINE cp_fm_redistribute_init
 
 ! **************************************************************************************************
 !> \brief  Calculates the optimal number of CPUs for diagonalizing a matrix.
@@ -199,10 +199,15 @@ CONTAINS
       num_pe_new = cp_fm_diag_get_optimal_ncpu(n)
 
       IF (work_redistribute%should_print .AND. io_unit > 0) THEN
-         WRITE (io_unit, '(/,A,I4)') "CP_FM_DIAG| Matrix order:           ", n
-         WRITE (io_unit, '(A,I4,A)') "CP_FM_DIAG| Matrix distributed on   ", num_pe_old, " processes"
-         WRITE (io_unit, '(A,I4)') "CP_FM_DIAG| Optimal number of CPUs: ", num_pe_new
-         WRITE (io_unit, '(A,L4)') "CP_FM_DIAG| Matrix will be redistributed: ", (num_pe_new < num_pe_old)
+         WRITE (io_unit, '(/,A,I10)') "CP_FM_DIAG| Matrix order:     ", n
+         WRITE (io_unit, '(A,I6,A)') "CP_FM_DIAG| Matrix distributed on ", num_pe_old, " processes"
+         WRITE (io_unit, '(A,I5)') "CP_FM_DIAG| Optimal number of CPUs:", num_pe_new
+         IF (num_pe_new < num_pe_old) THEN
+            WRITE (io_unit, '(A)') "CP_FM_DIAG| The matrix will be redistributed"
+         ELSE
+            WRITE (io_unit, '(A)') "CP_FM_DIAG| The matrix will NOT be redistributed"
+         END IF
+         WRITE (io_unit, '(A)') " "
       END IF
 
       ! if the optimal is smaller than num_pe, we will redistribute the input matrix
