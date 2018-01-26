@@ -21,6 +21,9 @@ MODULE cp_fm_diag_utils
    USE cp_fm_types,                     ONLY: cp_fm_create,&
                                               cp_fm_release,&
                                               cp_fm_type
+   USE cp_log_handling,                 ONLY: cp_get_default_logger,&
+                                              cp_logger_get_default_io_unit,&
+                                              cp_logger_type
    USE cp_para_env,                     ONLY: cp_para_env_create,&
                                               cp_para_env_release
    USE cp_para_types,                   ONLY: cp_para_env_type
@@ -39,21 +42,26 @@ MODULE cp_fm_diag_utils
 
    ! Container for redistribution settings and temporary work structs
    TYPE cp_fm_redistribute_type
+      ! Settings
+      INTEGER                                  :: a, x
+      LOGICAL                                  :: should_print
+      ! Temporaries
       INTEGER                                  :: subgroup
-      INTEGER, DIMENSION(:), POINTER           :: group_distribution => null()
-      INTEGER, DIMENSION(:), POINTER           :: group_partition => null()
-      TYPE(cp_blacs_env_type), POINTER         :: blacs_env_new => null()
-      TYPE(cp_para_env_type), POINTER          :: para_env_new => null()
+      INTEGER, DIMENSION(:), POINTER           :: group_distribution, &
+                                                  group_partition
+      TYPE(cp_blacs_env_type), POINTER         :: blacs_env_new
+      TYPE(cp_para_env_type), POINTER          :: para_env_new
    END TYPE cp_fm_redistribute_type
 
-   ! Permanent instance of redistribute type
+   ! Permanent instance of the redistribute type
    TYPE(cp_fm_redistribute_type), PRIVATE, &
       SAVE                                     :: work_redistribute
 
    ! Public subroutines
 
    PUBLIC :: cp_fm_redistribute_start, &
-             cp_fm_redistribute_end
+             cp_fm_redistribute_end, &
+             cp_fm_redistribute_init
 
 CONTAINS
 
@@ -96,6 +104,49 @@ CONTAINS
    END SUBROUTINE cp_fm_redistribute_work_finalize
 
 ! **************************************************************************************************
+!> \brief  Initializes the parameters that determine how to calculate the optimal number of CPUs
+!>         for diagonalizing a matrix. The parameters are read from the GLOBAL input section.
+!> \param a                integer parameter used to define the rule for determining the optimal
+!>                         number of CPUs for diagonalization
+!> \param x                integer parameter used to define the rule for determining the optimal
+!>                         number of CPUs for diagonalization
+!> \param should_print     flag that determines if information about the redistribution process
+!>                         should be printed
+!> \author Nico Holmberg [01.2018]
+! **************************************************************************************************
+   SUBROUTINE cp_fm_redistribute_init(a, x, should_print)
+      INTEGER                                            :: a, x
+      LOGICAL                                            :: should_print
+
+      CHARACTER(len=*), PARAMETER :: routineN = 'cp_fm_redistribute_init', &
+         routineP = moduleN//':'//routineN
+
+      work_redistribute%a = a
+      work_redistribute%x = x
+      work_redistribute%should_print = should_print
+      ! Init work
+      CALL cp_fm_redistribute_work_init()
+
+   END SUBROUTINE cp_fm_redistribute_work_init
+
+! **************************************************************************************************
+!> \brief  Calculates the optimal number of CPUs for diagonalizing a matrix.
+!> \param  size  the size of the diagonalized matrix
+!> \retval ncpu  the optimal number of CPUs
+!> \author Nico Holmberg [01.2018]
+! **************************************************************************************************
+   FUNCTION cp_fm_diag_get_optimal_ncpu(size) RESULT(ncpu)
+      INTEGER                                            :: size, ncpu
+
+      CHARACTER(len=*), PARAMETER :: routineN = 'cp_fm_diag_get_optimal_ncpu', &
+         routineP = moduleN//':'//routineN
+
+      ncpu = ((size+work_redistribute%a*work_redistribute%x-1)/ &
+              (work_redistribute%a*work_redistribute%x))*work_redistribute%a
+
+   END FUNCTION cp_fm_diag_get_optimal_ncpu
+
+! **************************************************************************************************
 !> \brief   Determines the optimal number of CPUs for matrix diagonalization and redistributes
 !>          the input matrices if necessary
 !> \param matrix           the input cp_fm_type matrix to be diagonalized
@@ -117,13 +168,15 @@ CONTAINS
                                      routineP = moduleN//':'//routineN
 
       INTEGER                                  :: handle
+
 #if defined(__SCALAPACK)
       REAL(KIND=dp)                            :: fake_local_data(1, 1)
       INTEGER                                  :: fake_descriptor(9), mepos_old, &
-                                                  n, ngroups, num_pe_new, &
+                                                  io_unit, n, ngroups, num_pe_new, &
                                                   num_pe_old
       TYPE(cp_fm_struct_type), POINTER         :: fm_struct_new
       TYPE(cp_para_env_type), POINTER          :: para_env
+      TYPE(cp_logger_type), POINTER            :: logger
 #endif
 
       CALL timeset(routineN, handle)
@@ -132,16 +185,25 @@ CONTAINS
 
       NULLIFY (matrix_new)
       NULLIFY (eigenvectors_new)
+      logger => cp_get_default_logger()
+      io_unit = cp_logger_get_default_io_unit(logger)
       n = matrix%matrix_struct%nrow_global
 
       ! first figure out the optimal number of cpus
-      ! this is pure heuristics, based on rosa timings
+      ! this is pure heuristics, the defaults are based on rosa timings
       ! that demonstrate that timings go up sharply if too many tasks are used
       ! we take a multiple of 4, and approximately n/60
-      num_pe_old = matrix%matrix_struct%para_env%num_pe
-      num_pe_new = ((n+60*4-1)/(60*4))*4
       para_env => matrix%matrix_struct%para_env
+      num_pe_old = para_env%num_pe
       mepos_old = para_env%mepos
+      num_pe_new = cp_fm_diag_get_optimal_ncpu(n)
+
+      IF (work_redistribute%should_print .AND. io_unit > 0) THEN
+         WRITE (io_unit, '(/,A,I4)') "CP_FM_DIAG| Matrix order:           ", n
+         WRITE (io_unit, '(A,I4,A)') "CP_FM_DIAG| Matrix distributed on   ", num_pe_old, " processes"
+         WRITE (io_unit, '(A,I4)') "CP_FM_DIAG| Optimal number of CPUs: ", num_pe_new
+         WRITE (io_unit, '(A,L4)') "CP_FM_DIAG| Matrix will be redistributed: ", (num_pe_new < num_pe_old)
+      END IF
 
       ! if the optimal is smaller than num_pe, we will redistribute the input matrix
       IF (num_pe_new < num_pe_old) THEN

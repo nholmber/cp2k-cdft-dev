@@ -540,6 +540,11 @@ CONTAINS
       CALL create_dbcsr_section(sub_section)
       CALL section_add_subsection(section, sub_section)
       CALL section_release(sub_section)
+      ! FM diagonalization redistribution rules
+      CALL create_fm_diag_rules_section(sub_section)
+      CALL section_add_subsection(section, sub_section)
+      CALL section_release(sub_section)
+
    END SUBROUTINE create_global_section
 
 ! **************************************************************************************************
@@ -602,5 +607,60 @@ CONTAINS
 
       !
    END SUBROUTINE create_fm_section
+! **************************************************************************************************
+!> \brief   Creates the input section used to define the heuristic rules which determine if
+!>          a FM matrix should be redistributed before diagonalizing it.
+!> \param section the input section to create
+!> \author Nico Holmberg [01.2018]
+! **************************************************************************************************
+   SUBROUTINE create_fm_diag_rules_section(section)
+      TYPE(section_type), POINTER                        :: section
+
+      CHARACTER(len=*), PARAMETER :: routineN = 'create_fm_diag_rules_section', &
+         routineP = moduleN//':'//routineN
+
+      TYPE(keyword_type), POINTER                        :: keyword
+
+      CPASSERT(.NOT. ASSOCIATED(section))
+      CALL section_create(section, name="FM_DIAG_SETTINGS", &
+                          description="This section defines a set of heuristic rules which are "// &
+                          "used to calculate the optimal number of CPUs, M, needed to diagonalize a "// &
+                          "full matrix distributed on N processors (FM type). If M<N, the matrix "// &
+                          "is redistributed onto M processors before it is diagonalized. "// &
+                          "The optimal value is calculate according to M = ((K+a*x-1)/(a*x))*a, "// &
+                          "where K is the size of the matrix, and {a, x} are integers defined below. "// &
+                          "The default values have been selected based on timings on a Cray XE6.", &
+                          n_keywords=3, n_subsections=0, repeats=.FALSE.)
+
+      NULLIFY (keyword)
+
+      CALL keyword_create(keyword, name="PARAMETER_A", &
+                          description="Parameter used for defining the rule which determines the optimal "// &
+                          "number of CPUs needed to diagonalize a full distributed matrix. The optimal "// &
+                          "number of CPUs will be an integer multiple of this variable.", &
+                          usage="PARAMETER_A 4", type_of_var=integer_t, &
+                          default_i_val=4)
+      CALL section_add_keyword(section, keyword)
+      CALL keyword_release(keyword)
+
+      CALL keyword_create(keyword, name="PARAMETER_X", &
+                          description="Parameter used for defining the rule which determines the optimal "// &
+                          "number of CPUs needed to diagonalize a full distributed matrix. The optimal "// &
+                          "number of CPUs will be roughly proportional to this value.", &
+                          usage="PARAMETER_X 60", type_of_var=integer_t, &
+                          default_i_val=60)
+      CALL section_add_keyword(section, keyword)
+      CALL keyword_release(keyword)
+
+      CALL keyword_create(keyword, name="PRINT_FM_REDISTRIBUTE", &
+                          description="Controls printing of information related to this section. For each "// &
+                          "diagonalized matrix, prints the size of the matrix, the optimal number of CPUs, "// &
+                          "as well as notifies if the matrix was redistributed. Useful for testing.", &
+                          usage="PRINT_FM_REDISTRIBUTE", type_of_var=logical_t, &
+                          default_l_val=.FALSE., lone_keyword_l_val=.TRUE.)
+      CALL section_add_keyword(subsection, keyword)
+      CALL keyword_release(keyword)
+
+   END SUBROUTINE create_fm_diag_rules_section
 
 END MODULE input_cp2k_global
