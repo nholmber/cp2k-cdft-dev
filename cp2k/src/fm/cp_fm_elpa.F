@@ -300,7 +300,7 @@ $: "#endif"
       ! With ELPA, we have to make sure that all CPUs hold at least 1 row/vec of the input matrix
       CALL cp_fm_redistribute_start(matrix, eigenvectors, matrix_new, eigenvectors_new, caller_is_elpa=.TRUE.)
 
-      ! Call scalapack on CPUs that hold the new matrix
+      ! Call ELPA on CPUs that hold the new matrix
       IF (ASSOCIATED(matrix_new)) CALL cp_fm_diag_elpa_base(matrix_new, eigenvectors_new, eigenvalues)
 
       ! Redistribute results and clean up
@@ -407,7 +407,7 @@ $: "#endif"
       ! Check if eigenvalues computed with ELPA_QR_UNSAFE should be verified
       IF (use_qr .AND. elpa_qr_unsafe .AND. elpa_should_print) &
          check_eigenvalues = .TRUE.
-      CALL mp_bcast(check_eigenvalues, logger%para_env%source, logger%para_env%group)
+      CALL mp_bcast(check_eigenvalues, matrix%matrix_struct%para_env%source, matrix%matrix_struct%para_env%group)
       IF (check_eigenvalues) THEN
          ! Allocate and initialize needed temporaries to compute eigenvalues without ELPA QR
          ALLOCATE(eval_noqr(n))
