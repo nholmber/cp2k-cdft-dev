@@ -155,31 +155,44 @@ CONTAINS
 !>                         or a pointer to the original matrix if no redistribution is required
 !> \param eigenvectors_new the redistributed eigenvectors matrix, or a pointer to the original
 !>                         matrix if no redistribution is required
+!> \param caller_is_elpa   flag that determines if ELPA is used for diagonalization
 !> \par History
 !>      - [01.2018] created by moving redistribution related code from cp_fm_syevd here
 !> \author Nico Holmberg [01.2018]
 ! **************************************************************************************************
-   SUBROUTINE cp_fm_redistribute_start(matrix, eigenvectors, matrix_new, eigenvectors_new)
+   SUBROUTINE cp_fm_redistribute_start(matrix, eigenvectors, matrix_new, eigenvectors_new, &
+                                       caller_is_elpa)
 
       TYPE(cp_fm_type), POINTER                :: matrix, eigenvectors
       TYPE(cp_fm_type), POINTER, INTENT(OUT)   :: matrix_new, eigenvectors_new
+      LOGICAL, OPTIONAL, INTENT(IN)            :: caller_is_elpa
 
       CHARACTER(len=*), PARAMETER :: routineN = 'cp_fm_redistribute_start', &
                                      routineP = moduleN//':'//routineN
 
       INTEGER                                  :: handle
+      LOGICAL                                  :: is_elpa
 
 #if defined(__SCALAPACK)
       REAL(KIND=dp)                            :: fake_local_data(1, 1)
       INTEGER                                  :: fake_descriptor(9), mepos_old, &
                                                   io_unit, n, ngroups, num_pe_new, &
                                                   num_pe_old
+      LOGICAL                                  :: do_redistribute
       TYPE(cp_fm_struct_type), POINTER         :: fm_struct_new
       TYPE(cp_para_env_type), POINTER          :: para_env
       TYPE(cp_logger_type), POINTER            :: logger
 #endif
 
       CALL timeset(routineN, handle)
+      is_elpa = .FALSE.
+      IF (PRESENT(caller_is_elpa)) THEN
+#if defined(__ELPA)
+         is_elpa = caller_is_elpa
+#else
+         CPABORT("CP2K compiled without the ELPA library.")
+#endif
+      END IF
 
 #if defined(__SCALAPACK)
 
@@ -188,6 +201,7 @@ CONTAINS
       logger => cp_get_default_logger()
       io_unit = cp_logger_get_default_io_unit(logger)
       n = matrix%matrix_struct%nrow_global
+      do_redistribute = .FALSE.
 
       ! first figure out the optimal number of cpus
       ! this is pure heuristics, the defaults are based on rosa timings
@@ -197,12 +211,17 @@ CONTAINS
       num_pe_old = para_env%num_pe
       mepos_old = para_env%mepos
       num_pe_new = cp_fm_diag_get_optimal_ncpu(n)
+      IF (.NOT. is_elpa) THEN
+         do_redistribute = (num_pe_new < num_pe_old)
+      ELSE
+         do_redistribute = (num_pe_new < num_pe_old)
+      END IF
 
       IF (work_redistribute%should_print .AND. io_unit > 0) THEN
          WRITE (io_unit, '(/,A,I10)') "CP_FM_DIAG| Matrix order:     ", n
          WRITE (io_unit, '(A,I6,A)') "CP_FM_DIAG| Matrix distributed on ", num_pe_old, " processes"
          WRITE (io_unit, '(A,I5)') "CP_FM_DIAG| Optimal number of CPUs:", num_pe_new
-         IF (num_pe_new < num_pe_old) THEN
+         IF (do_redistribute) THEN
             WRITE (io_unit, '(A)') "CP_FM_DIAG| The matrix will be redistributed"
          ELSE
             WRITE (io_unit, '(A)') "CP_FM_DIAG| The matrix will NOT be redistributed"
@@ -211,7 +230,7 @@ CONTAINS
       END IF
 
       ! if the optimal is smaller than num_pe, we will redistribute the input matrix
-      IF (num_pe_new < num_pe_old) THEN
+      IF (do_redistribute) THEN
 
          ! split comm, the first num_pe_new tasks will do the work
          ALLOCATE (work_redistribute%group_distribution(0:num_pe_old-1))
