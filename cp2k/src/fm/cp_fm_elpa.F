@@ -288,21 +288,7 @@ $: "#endif"
 
       INTEGER                                  :: handle
 #if defined(__ELPA)
-      CHARACTER(len=14)                        :: kernel
-      CHARACTER(len=default_string_length), &
-         DIMENSION(19)                         :: kernels
-      INTEGER                                  :: comm_col, comm_row, group, &
-                                                  mypcol, myprow, n, &
-                                                  n_rows, n_cols, &
-                                                  nblk, neig, io_unit, i
-      LOGICAL                                  :: success, use_qr, check_eigenvalues, &
-                                                  success_noqr
-      REAL(KIND=dp)                            :: th
-      REAL(KIND=dp), DIMENSION(:), POINTER     :: eval, eval_noqr
-      REAL(KIND=dp), DIMENSION(:, :), POINTER  :: m, v, m_noqr, v_noqr
-      TYPE(cp_blacs_env_type), POINTER         :: context
-      TYPE(cp_fm_type), POINTER                :: matrix_noqr, eigenvectors_noqr
-      TYPE(cp_logger_type), POINTER            :: logger
+      TYPE(cp_fm_type), POINTER                :: eigenvectors_new, matrix_new
 #endif
 
       CALL timeset(routineN, handle)
