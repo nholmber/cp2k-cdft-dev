@@ -182,9 +182,12 @@ CONTAINS
       REAL(KIND=dp)                            :: fake_local_data(1, 1)
       INTEGER                                  :: fake_descriptor(9), mepos_old, &
                                                   io_unit, n, ngroups, num_pe_new, &
-                                                  num_pe_old, nzero(2), ncpu_max_elpa
+                                                  num_pe_old, nzero(2), ncpu_max_elpa, &
+                                                  ncol_global, ncol_block, nrow_block, &
+                                                  nrow_global, gcd_max, ipe
       INTEGER, DIMENSION(:), POINTER           :: nrow_locals, ncol_locals
-      LOGICAL                                  :: do_redistribute
+      INTEGER, EXTERNAL                        :: numroc
+      LOGICAL                                  :: do_redistribute, max_cpu_found
       TYPE(cp_fm_struct_type), POINTER         :: fm_struct_new
       TYPE(cp_para_env_type), POINTER          :: para_env
       TYPE(cp_logger_type), POINTER            :: logger
@@ -223,16 +226,59 @@ CONTAINS
          do_redistribute = (num_pe_new < num_pe_old)
       ELSE
          ! Diagonalization with ELPA fails when a processor column has zero width
-         ! Determine the maximum number of CPUs for ELPA by counting the number of
+         ! Determine the maximum number of CPUs for ELPA by iteratively removing
          ! processor columns/rows with zero width
-         CALL cp_fm_get_info(matrix, ncol_locals=ncol_locals, nrow_locals=nrow_locals)
+         CALL cp_fm_get_info(matrix, ncol_locals=ncol_locals, nrow_locals=nrow_locals, &
+                             nrow_global=nrow_global, ncol_global=ncol_global, &
+                             nrow_block=nrow_block, ncol_block=ncol_block)
          nzero(1) = COUNT(ncol_locals == 0)
          nzero(2) = COUNT(nrow_locals == 0)
          ncpu_max_elpa = num_pe_old-SUM(nzero)
+         ! Make divisible with 2
+         ncpu_max_elpa = ncpu_max_elpa-MODULO(ncpu_max_elpa, 2)
          IF (ncpu_max_elpa .LT. num_pe_old) THEN
-            ! Matrix distributed on too many CPUs => redistribute onto ncpu_max_elpa
-            ! TODO: check result from heuristics should be used instead of ncpu_max_elpa
-            num_pe_new = ncpu_max_elpa-MODULO(ncpu_max_elpa, 2)
+            ! Matrix distributed on too many CPUs => iteratively
+            ! Iteratively
+            max_cpu_found = .FALSE.
+            DO WHILE (.NOT. max_cpu_found)
+               ! Determine layout of new blacs grid with ncpu_max_elpa CPUs
+               ! (snippet copied from cp_blacs_env.F:cp_blacs_env_create)
+               npe = ncpu_max_elpa
+               gcd_max = -1
+               DO ipe = 1, CEILING(SQRT(REAL(npe, dp)))
+                  jpe = npe/ipe
+                  IF (ipe*jpe .NE. npe) CYCLE
+                  IF (gcd(ipe, jpe) >= gcd_max) THEN
+                     nprow = ipe
+                     npcol = jpe
+                     gcd_max = gcd(ipe, jpe)
+                  ENDIF
+               END DO
+               ! Test if there are any columns with zero width
+               ! (snippet copied from cp_fm_struct.F:cp_fm_struct_create)
+               !IF (ASSOCIATED(nrow_locals)) DEALLOCATE (nrow_locals)
+               !IF (ASSOCIATED(ncol_locals)) DEALLOCATE (ncol_locals)
+               !ALLOCATE(nrow_locals(0:nprow-1))
+               !ALLOCATE(ncol_locals(0:npcol-1))
+               !nrow_locals = 0
+               !ncol_locals = 0
+               nzero(:) = 0
+               DO ipe = 0, nprow-1
+                  IF (numroc(nrow_global, nrow_block, ipe, 0, nprow)) &
+                     nzero(2) = nzero(2)+1
+               END DO
+               DO ipe = 0, npcol-1
+                  IF (numroc(ncol_global, ncol_block, ipe, 0, npcol)) &
+                     nzero(1) = nzero(1)+1
+               END DO
+               IF (SUM(nzero) == 0) THEN
+                  max_cpu_found = .TRUE.
+               ELSE
+                  ncpu_max_elpa = ncpu_max_elpa-SUM(nzero)
+                  ncpu_max_elpa = ncpu_max_elpa-MODULO(ncpu_max_elpa, 2)
+               END IF
+            END DO
+            num_pe_new = ncpu_max_elpa
             do_redistribute = .TRUE.
          ELSE
             IF (work_redistribute%elpa_force_redistribute) THEN
