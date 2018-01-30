@@ -630,7 +630,8 @@ CONTAINS
                           "is redistributed onto M processors before it is diagonalized. "// &
                           "The optimal value is calculate according to M = ((K+a*x-1)/(a*x))*a, "// &
                           "where K is the size of the matrix, and {a, x} are integers defined below. "// &
-                          "The default values have been selected based on timings on a Cray XE6.", &
+                          "The default values have been selected based on timings on a Cray XE6. "// &
+                          "Supports diagonalization libraries SL and ELPA (see keyword ELPA_FORCE_REDISTRIBUTE).", &
                           n_keywords=3, n_subsections=0, repeats=.FALSE.)
 
       NULLIFY (keyword)
@@ -657,6 +658,16 @@ CONTAINS
                           description="Controls printing of information related to this section. For each "// &
                           "diagonalized matrix, prints the size of the matrix, the optimal number of CPUs, "// &
                           "as well as notifies if the matrix was redistributed. Useful for testing.", &
+                          usage="PRINT_FM_REDISTRIBUTE", type_of_var=logical_t, &
+                          default_l_val=.FALSE., lone_keyword_l_val=.TRUE.)
+      CALL section_add_keyword(section, keyword)
+      CALL keyword_release(keyword)
+
+      CALL keyword_create(keyword, name="ELPA_FORCE_REDISTRIBUTE", &
+                          description="Controls how to perform redistribution when ELPA is used for diagonalization. "// &
+                          "By default, matrices are redistributed only to prevent crashes in the ELPA library "// &
+                          "which happen when the original matrix is distributed on too many processors. "// &
+                          "By turning on this keyword, redistribution is always performed using the defined rules. ", &
                           usage="PRINT_FM_REDISTRIBUTE", type_of_var=logical_t, &
                           default_l_val=.FALSE., lone_keyword_l_val=.TRUE.)
       CALL section_add_keyword(section, keyword)

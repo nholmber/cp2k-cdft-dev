@@ -45,6 +45,7 @@ MODULE cp_fm_diag_utils
       ! Settings
       INTEGER                                  :: a, x
       LOGICAL                                  :: should_print
+      LOGICAL                                  :: elpa_force_redistribute
       ! Temporaries
       INTEGER                                  :: subgroup
       INTEGER, DIMENSION(:), POINTER           :: group_distribution, &
@@ -112,11 +113,13 @@ CONTAINS
 !>                         number of CPUs for diagonalization
 !> \param should_print     flag that determines if information about the redistribution process
 !>                         should be printed
+!> \param elpa_force_redistribute  flag that if redistribution should always be perfomed when
+!>                                 the ELPA diagonalization library is in use
 !> \author Nico Holmberg [01.2018]
 ! **************************************************************************************************
-   SUBROUTINE cp_fm_redistribute_init(a, x, should_print)
+   SUBROUTINE cp_fm_redistribute_init(a, x, should_print, elpa_force_redistribute)
       INTEGER                                            :: a, x
-      LOGICAL                                            :: should_print
+      LOGICAL                                            :: should_print, elpa_force_redistribute
 
       CHARACTER(len=*), PARAMETER :: routineN = 'cp_fm_redistribute_init', &
          routineP = moduleN//':'//routineN
@@ -124,6 +127,7 @@ CONTAINS
       work_redistribute%a = a
       work_redistribute%x = x
       work_redistribute%should_print = should_print
+      work_redistribute%elpa_force_redistribute = elpa_force_redistribute
       ! Init work
       CALL cp_fm_redistribute_work_init()
 
@@ -177,7 +181,8 @@ CONTAINS
       REAL(KIND=dp)                            :: fake_local_data(1, 1)
       INTEGER                                  :: fake_descriptor(9), mepos_old, &
                                                   io_unit, n, ngroups, num_pe_new, &
-                                                  num_pe_old
+                                                  num_pe_old, nzero(2), ncpu_max_elpa
+      INTEGER, DIMENSION(:), POINTER           :: nrow_locals, ncol_locals
       LOGICAL                                  :: do_redistribute
       TYPE(cp_fm_struct_type), POINTER         :: fm_struct_new
       TYPE(cp_para_env_type), POINTER          :: para_env
@@ -198,6 +203,8 @@ CONTAINS
 
       NULLIFY (matrix_new)
       NULLIFY (eigenvectors_new)
+      NULLIFY (ncol_locals)
+      NULLIFY (nrow_locals)
       logger => cp_get_default_logger()
       io_unit = cp_logger_get_default_io_unit(logger)
       n = matrix%matrix_struct%nrow_global
@@ -214,13 +221,32 @@ CONTAINS
       IF (.NOT. is_elpa) THEN
          do_redistribute = (num_pe_new < num_pe_old)
       ELSE
-         do_redistribute = (num_pe_new < num_pe_old)
+         ! Diagonalization with ELPA fails when a processor column has zero width
+         ! Determine the maximum number of CPUs for ELPA by counting the number of
+         ! processor columns/rows with zero width
+         CALL cp_fm_get_info(matrix, ncol_locals=ncol_locals, nrow_locals=nrow_locals)
+         nzero(1) = COUNT(ncol_locals == 0)
+         nzero(2) = COUNT(nrow_locals == 0)
+         ncpu_max_elpa = num_pe_old-SUM(nzero)
+         IF (ncpu_max_elpa .LT. num_pe_old) THEN
+            ! Matrix distributed on too many CPUs => redistribute onto ncpu_max_elpa
+            ! TODO: check result from heuristics should be used instead of ncpu_max_elpa
+            num_pe_new = ncpu_max_elpa
+            do_redistribute = .TRUE.
+         ELSE
+            IF (work_redistribute%elpa_force_redistribute) THEN
+               do_redistribute = (num_pe_new < num_pe_old)
+            END IF
+         END IF
       END IF
 
       IF (work_redistribute%should_print .AND. io_unit > 0) THEN
          WRITE (io_unit, '(/,A,I10)') "CP_FM_DIAG| Matrix order:     ", n
          WRITE (io_unit, '(A,I6,A)') "CP_FM_DIAG| Matrix distributed on ", num_pe_old, " processes"
          WRITE (io_unit, '(A,I5)') "CP_FM_DIAG| Optimal number of CPUs:", num_pe_new
+         IF (is_elpa) THEN
+            WRITE (io_unit, '(A,I5)') "CP_FM_DIAG| Max number of CPUs (ELPA):", num_pe_new
+         END IF
          IF (do_redistribute) THEN
             WRITE (io_unit, '(A)') "CP_FM_DIAG| The matrix will be redistributed"
          ELSE

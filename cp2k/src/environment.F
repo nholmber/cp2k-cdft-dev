@@ -1010,7 +1010,7 @@ CONTAINS
          routineP = moduleN//':'//routineN
 
       INTEGER                                            :: a, x
-      LOGICAL                                            :: should_print
+      LOGICAL                                            :: elpa_force_redistribute, should_print
       TYPE(section_vals_type), POINTER                   :: section
 
       section => section_vals_get_subs_vals(glob_section, "FM_DIAG_SETTINGS")
@@ -1018,8 +1018,9 @@ CONTAINS
       CALL section_vals_val_get(section, "PARAMETER_A", i_val=a)
       CALL section_vals_val_get(section, "PARAMETER_X", i_val=x)
       CALL section_vals_val_get(section, "PRINT_FM_REDISTRIBUTE", l_val=should_print)
+      CALL section_vals_val_get(section, "PRINT_FM_REDISTRIBUTE", l_val=elpa_force_redistribute)
 
-      CALL cp_fm_redistribute_init(a, x, should_print)
+      CALL cp_fm_redistribute_init(a, x, should_print, elpa_force_redistribute)
 
    END SUBROUTINE fm_diag_rules_setup
 ! **************************************************************************************************
