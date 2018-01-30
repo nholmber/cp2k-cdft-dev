@@ -232,7 +232,7 @@ CONTAINS
          IF (ncpu_max_elpa .LT. num_pe_old) THEN
             ! Matrix distributed on too many CPUs => redistribute onto ncpu_max_elpa
             ! TODO: check result from heuristics should be used instead of ncpu_max_elpa
-            num_pe_new = ncpu_max_elpa
+            num_pe_new = ncpu_max_elpa-MODULO(ncpu_max_elpa, 2)
             do_redistribute = .TRUE.
          ELSE
             IF (work_redistribute%elpa_force_redistribute) THEN
