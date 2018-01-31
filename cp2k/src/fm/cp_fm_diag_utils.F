@@ -186,7 +186,7 @@ CONTAINS
       num_pe_old = matrix%matrix_struct%para_env%num_pe
       ncpu = num_pe_old-nzero
       ! Avoid layouts with odd number of CPUs (blacs grid layout will be square)
-      ncpu = ncpu-MODULO(ncpu, 2)
+      IF (ncpu /= 1) ncpu = ncpu-MODULO(ncpu, 2)
       ! Iteratively search for the maximum number of CPUs for ELPA
       ! On each step, we test whether the blacs grid created with ncpu processes
       ! contains any columns with zero width
