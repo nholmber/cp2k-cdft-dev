@@ -668,7 +668,7 @@ CONTAINS
                           "By default, matrices are redistributed only to prevent crashes in the ELPA library "// &
                           "which happen when the original matrix is distributed on too many processors. "// &
                           "By turning on this keyword, redistribution is always performed using the defined rules. ", &
-                          usage="PRINT_FM_REDISTRIBUTE", type_of_var=logical_t, &
+                          usage="ELPA_FORCE_REDISTRIBUTE", type_of_var=logical_t, &
                           default_l_val=.FALSE., lone_keyword_l_val=.TRUE.)
       CALL section_add_keyword(section, keyword)
       CALL keyword_release(keyword)
