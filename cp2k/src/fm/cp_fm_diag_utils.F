@@ -167,7 +167,7 @@ CONTAINS
                                      routineP = moduleN//':'//routineN
 
 #if defined(__SCALAPACK)
-      INTEGER                                  :: num_pe_old, nzero(2), ncpu_max_elpa, &
+      INTEGER                                  :: num_pe_old, nzero, ncpu_max_elpa, &
                                                   ncol_global, ncol_block, nrow_block, &
                                                   nrow_global, gcd_max, ipe, jpe, npe, &
                                                   nprow, npcol
@@ -179,20 +179,18 @@ CONTAINS
 #if defined(__SCALAPACK)
       NULLIFY (ncol_locals)
       NULLIFY (nrow_locals)
-      ! First check if there are any zero width columns/rows in current layout
+      ! First check if there are any zero width columns in current layout
       CALL cp_fm_get_info(matrix, ncol_locals=ncol_locals, nrow_locals=nrow_locals, &
                           nrow_global=nrow_global, ncol_global=ncol_global, &
                           nrow_block=nrow_block, ncol_block=ncol_block)
-      nzero(1) = COUNT(ncol_locals == 0)
-      nzero(2) = COUNT(nrow_locals == 0)
+      nzero = COUNT(ncol_locals == 0)
       num_pe_old = matrix%matrix_struct%para_env%num_pe
-      ! Note, we remove any zero width rows as well although not required for ELPA
-      ncpu = num_pe_old-SUM(nzero)
-      ! Avoid layouts with odd number of CPUs
+      ncpu = num_pe_old-nzero
+      ! Avoid layouts with odd number of CPUs (blacs grid layout will be square)
       ncpu = ncpu-MODULO(ncpu, 2)
       ! Iteratively search for the maximum number of CPUs for ELPA
       ! On each step, we test whether the blacs grid created with ncpu processes
-      ! contains any columns/rows with zero width
+      ! contains any columns with zero width
       max_cpu_found = .FALSE.
       IF (ncpu == num_pe_old) max_cpu_found = .TRUE.
       DO WHILE (.NOT. max_cpu_found)
@@ -209,21 +207,17 @@ CONTAINS
                gcd_max = gcd(ipe, jpe)
             ENDIF
          END DO
-         ! Test if there are any columns/rows with zero width
+         ! Test if there are any columns with zero width
          ! (snippet copied from cp_fm_struct.F:cp_fm_struct_create)
-         nzero(:) = 0
-         DO ipe = 0, nprow-1
-            IF (numroc(nrow_global, nrow_block, ipe, 0, nprow) == 0) &
-               nzero(2) = nzero(2)+1
-         END DO
+         nzero = 0
          DO ipe = 0, npcol-1
             IF (numroc(ncol_global, ncol_block, ipe, 0, npcol) == 0) &
-               nzero(1) = nzero(1)+1
+               nzero = nzero+1
          END DO
-         IF (SUM(nzero) == 0) THEN
+         IF (nzero == 0) THEN
             max_cpu_found = .TRUE.
          ELSE
-            ncpu = ncpu-SUM(nzero)
+            ncpu = ncpu-nzero
             ncpu = ncpu-MODULO(ncpu, 2)
          END IF
       END DO
@@ -267,7 +261,7 @@ CONTAINS
       REAL(KIND=dp)                            :: fake_local_data(1, 1)
       INTEGER                                  :: fake_descriptor(9), mepos_old, &
                                                   io_unit, n, ngroups, num_pe_new, &
-                                                  num_pe_old, ncpu_max_elpa
+                                                  num_pe_old, ncpu_max_elpa, num_opt
       LOGICAL                                  :: do_redistribute
       TYPE(cp_fm_struct_type), POINTER         :: fm_struct_new
       TYPE(cp_para_env_type), POINTER          :: para_env
@@ -300,7 +294,8 @@ CONTAINS
       para_env => matrix%matrix_struct%para_env
       num_pe_old = para_env%num_pe
       mepos_old = para_env%mepos
-      num_pe_new = cp_fm_diag_get_optimal_ncpu(n)
+      num_opt = cp_fm_diag_get_optimal_ncpu(n)
+      num_pe_new = num_opt
       IF (.NOT. is_elpa) THEN
          do_redistribute = (num_pe_new < num_pe_old)
       ELSE
@@ -320,9 +315,9 @@ CONTAINS
       IF (work_redistribute%should_print .AND. io_unit > 0) THEN
          WRITE (io_unit, '(/,A,I10)') "CP_FM_DIAG| Matrix order:        ", n
          WRITE (io_unit, '(A,I6,A)') "CP_FM_DIAG| Matrix distributed on    ", num_pe_old, " processes"
-         WRITE (io_unit, '(A,I5)') "CP_FM_DIAG| Optimal number of CPUs:   ", num_pe_new
+         WRITE (io_unit, '(A,I5)') "CP_FM_DIAG| Optimal number of CPUs:   ", num_opt
          IF (is_elpa) THEN
-            WRITE (io_unit, '(A,I5)') "CP_FM_DIAG| Max number of CPUs (ELPA):", num_pe_new
+            WRITE (io_unit, '(A,I5)') "CP_FM_DIAG| Max number of CPUs (ELPA):", ncpu_max_elpa
          END IF
          IF (do_redistribute) THEN
             WRITE (io_unit, '(A)') "CP_FM_DIAG| The matrix will be redistributed"
