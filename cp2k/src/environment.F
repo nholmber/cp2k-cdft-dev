@@ -1018,7 +1018,7 @@ CONTAINS
       CALL section_vals_val_get(section, "PARAMETER_A", i_val=a)
       CALL section_vals_val_get(section, "PARAMETER_X", i_val=x)
       CALL section_vals_val_get(section, "PRINT_FM_REDISTRIBUTE", l_val=should_print)
-      CALL section_vals_val_get(section, "ELPA_FORCE_DISTRIBUTE", l_val=elpa_force_redistribute)
+      CALL section_vals_val_get(section, "ELPA_FORCE_REDISTRIBUTE", l_val=elpa_force_redistribute)
 
       CALL cp_fm_redistribute_init(a, x, should_print, elpa_force_redistribute)
 
