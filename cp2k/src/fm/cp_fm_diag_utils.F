@@ -224,6 +224,7 @@ CONTAINS
 #else
 
       MARK_USED(matrix)
+      MARK_USED(ncpu)
       CPABORT("Routine called in non-parallel case.")
 #endif
 
