@@ -306,8 +306,10 @@ CONTAINS
             ! Must redistribute to avoid crash
             num_pe_new = ncpu_max_elpa
             do_redistribute = .TRUE.
-         ELSE IF (work_redistribute%elpa_force_redistribute) THEN
-            ! Use heuristics to determine need for redistribution
+         END IF
+         IF (work_redistribute%elpa_force_redistribute .AND. num_opt .LT. ncpu_max_elpa) THEN
+            ! Use heuristics to determine the need for redistribution (when num_opt is smaller than the safe maximum)
+            num_pe_new = num_opt
             do_redistribute = (num_pe_new < num_pe_old)
          END IF
       END IF
@@ -321,7 +323,7 @@ CONTAINS
             WRITE (io_unit, '(A,L5)') "CP_FM_DIAG| Force redistribute (ELPA):", work_redistribute%elpa_force_redistribute
          END IF
          IF (do_redistribute) THEN
-            WRITE (io_unit, '(A)') "CP_FM_DIAG| The matrix will be redistributed"
+            WRITE (io_unit, '(A,I5,A)') "CP_FM_DIAG| The matrix will be redistributed onto ", num_pe_new, " processes"
          ELSE
             WRITE (io_unit, '(A)') "CP_FM_DIAG| The matrix will NOT be redistributed"
          END IF

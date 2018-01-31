@@ -47,8 +47,10 @@
     PRINT_FM_REDISTRIBUTE TRUE
     ! Force redistribution onto 2 processors instead of the default,
     ! which is the maximum number of CPUs that can safely be used
-    ! i.e. without ELPA crashing
+    ! without ELPA crashing
     ! (for 8 MPI processes the maximum is 6 for this system)
+    ! For most systems, this keyword should be turned off (default)
+    ! for better performance
     PARAMETER_A 2
     PARAMETER_X 4
     ELPA_FORCE_REDISTRIBUTE TRUE
