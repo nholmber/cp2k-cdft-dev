@@ -167,20 +167,19 @@ CONTAINS
                                      routineP = moduleN//':'//routineN
 
 #if defined(__SCALAPACK)
-      INTEGER                                  :: num_pe_old, nzero, ncpu_max_elpa, &
+      INTEGER                                  :: num_pe_old, nzero, &
                                                   ncol_global, ncol_block, nrow_block, &
                                                   nrow_global, gcd_max, ipe, jpe, npe, &
                                                   nprow, npcol
-      INTEGER, DIMENSION(:), POINTER           :: nrow_locals, ncol_locals
+      INTEGER, DIMENSION(:), POINTER           :: ncol_locals
       INTEGER, EXTERNAL                        :: numroc
       LOGICAL                                  :: max_cpu_found
 #endif
 
 #if defined(__SCALAPACK)
       NULLIFY (ncol_locals)
-      NULLIFY (nrow_locals)
       ! First check if there are any zero width columns in current layout
-      CALL cp_fm_get_info(matrix, ncol_locals=ncol_locals, nrow_locals=nrow_locals, &
+      CALL cp_fm_get_info(matrix, ncol_locals=ncol_locals, &
                           nrow_global=nrow_global, ncol_global=ncol_global, &
                           nrow_block=nrow_block, ncol_block=ncol_block)
       nzero = COUNT(ncol_locals == 0)
