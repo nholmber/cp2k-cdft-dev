@@ -318,6 +318,7 @@ CONTAINS
          WRITE (io_unit, '(A,I5)') "CP_FM_DIAG| Optimal number of CPUs:   ", num_opt
          IF (is_elpa) THEN
             WRITE (io_unit, '(A,I5)') "CP_FM_DIAG| Max number of CPUs (ELPA):", ncpu_max_elpa
+            WRITE (io_unit, '(A,L5)') "CP_FM_DIAG| Force redistribute (ELPA):", work_redistribute%elpa_force_redistribute
          END IF
          IF (do_redistribute) THEN
             WRITE (io_unit, '(A)') "CP_FM_DIAG| The matrix will be redistributed"
