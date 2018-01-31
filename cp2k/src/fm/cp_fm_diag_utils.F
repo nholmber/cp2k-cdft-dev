@@ -159,8 +159,9 @@ CONTAINS
 !> \retval ncpu   the maximum number of CPUs for ELPA
 !> \author Nico Holmberg [01.2018]
 ! **************************************************************************************************
-   INTEGER FUNCTION cp_fm_elpa_get_max_ncpu(matrix) RESULT(ncpu)
+   FUNCTION cp_fm_elpa_get_max_ncpu(matrix) RESULT(ncpu)
       TYPE(cp_fm_type), POINTER                :: matrix
+      INTEGER                                  :: ncpu
 
       CHARACTER(len=*), PARAMETER :: routineN = 'cp_fm_elpa_get_max_ncpu', &
                                      routineP = moduleN//':'//routineN
