@@ -274,10 +274,10 @@ $: "#endif"
    END SUBROUTINE set_elpa_print
 
 ! **************************************************************************************************
-!> \brief ...
-!> \param matrix ...
-!> \param eigenvectors ...
-!> \param eigenvalues ...
+!> \brief Driver routine to diagonalize a FM matrix with the ELPA library.
+!> \param matrix the matrix that is diagonalized
+!> \param eigenvectors eigenvectors of the input matrix
+!> \param eigenvalues eigenvalues of the input matrix
 ! **************************************************************************************************
    SUBROUTINE cp_fm_diag_elpa(matrix, eigenvectors, eigenvalues)
 
@@ -297,7 +297,7 @@ $: "#endif"
       ! Heuristics are used to determine the optimal number of CPUs for diagonalization.
       ! The redistributed matrix is stored in matrix_new, which is just a pointer
       ! to the original matrix if no redistribution is required.
-      ! With ELPA, we have to make sure that all CPUs hold at least 1 row/vec of the input matrix
+      ! With ELPA, we have to make sure that all processor columns have nonzero width
       CALL cp_fm_redistribute_start(matrix, eigenvectors, matrix_new, eigenvectors_new, caller_is_elpa=.TRUE.)
 
       ! Call ELPA on CPUs that hold the new matrix
@@ -320,10 +320,10 @@ $: "#endif"
    END SUBROUTINE cp_fm_diag_elpa
 
 ! **************************************************************************************************
-!> \brief ...
-!> \param matrix ...
-!> \param eigenvectors ...
-!> \param eigenvalues ...
+!> \brief Actual routine that calls ELPA to diagonalize a FM matrix.
+!> \param matrix the matrix that is diagonalized
+!> \param eigenvectors eigenvectors of the input matrix
+!> \param eigenvalues eigenvalues of the input matrix
 ! **************************************************************************************************
    SUBROUTINE cp_fm_diag_elpa_base(matrix, eigenvectors, eigenvalues)
 

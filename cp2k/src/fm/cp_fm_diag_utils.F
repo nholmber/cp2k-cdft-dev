@@ -176,6 +176,7 @@ CONTAINS
       LOGICAL                                  :: max_cpu_found
 #endif
 
+      ncpu = 0
 #if defined(__SCALAPACK)
       NULLIFY (ncol_locals)
       ! First check if there are any zero width columns in current layout
@@ -186,7 +187,7 @@ CONTAINS
       num_pe_old = matrix%matrix_struct%para_env%num_pe
       ncpu = num_pe_old-nzero
       ! Avoid layouts with odd number of CPUs (blacs grid layout will be square)
-      ncpu = ncpu-MODULO(ncpu, 2)
+      IF (ncpu /= 1) ncpu = ncpu-MODULO(ncpu, 2)
       ! Iteratively search for the maximum number of CPUs for ELPA
       ! On each step, we test whether the blacs grid created with ncpu processes
       ! contains any columns with zero width
@@ -217,14 +218,13 @@ CONTAINS
             max_cpu_found = .TRUE.
          ELSE
             ncpu = ncpu-nzero
-            ncpu = ncpu-MODULO(ncpu, 2)
+            IF (ncpu /= 1) ncpu = ncpu-MODULO(ncpu, 2)
          END IF
       END DO
       CPASSERT(ncpu .GT. 0)
 #else
 
       MARK_USED(matrix)
-      MARK_USED(ncpu)
       CPABORT("Routine called in non-parallel case.")
 #endif
 
