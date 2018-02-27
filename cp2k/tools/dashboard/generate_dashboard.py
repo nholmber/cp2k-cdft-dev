@@ -61,11 +61,12 @@ def main():
 
     if(full_archive):
         log = svn_log() # fetch entire history
-        gen_archive(config, log, outdir, full_archive=True)
     else:
         log = svn_log(limit=100)
         gen_frontpage(config, log, abook_fn, status_fn, outdir)
-        gen_archive(config, log, outdir)
+
+    gen_archive(config, log, outdir, full_archive)
+    gen_url_list(config, outdir, full_archive)
 
 #===============================================================================
 def gen_frontpage(config, log, abook_fn, status_fn, outdir):
@@ -87,7 +88,7 @@ def gen_frontpage(config, log, abook_fn, status_fn, outdir):
     output += '</div>\n'
     output += '<table border="1" cellspacing="3" cellpadding="5">\n'
     output += '<tr><th>Name</th><th>Host</th><th>Status</th>'
-    output += '<th>Revision</th><th>Summary</th><th>Last OK</th><th>Tickets</th></tr>\n\n'
+    output += '<th>Revision</th><th>Summary</th><th>Last OK</th></tr>\n\n'
 
     def get_sortkey(s):
         return config.getint(s, "sortkey")
@@ -146,8 +147,6 @@ def gen_frontpage(config, log, abook_fn, status_fn, outdir):
         else:
             output += '<td></td>'
 
-        output += ticket_cell(label=s)
-
         output += '</tr>\n\n'
 
     output += '</table>\n'
@@ -157,30 +156,41 @@ def gen_frontpage(config, log, abook_fn, status_fn, outdir):
     write_file(status_fn, pformat(status))
 
 #===============================================================================
-def gen_archive(config, log, outdir, full_archive=False):
+def gen_archive(config, log, outdir, full_archive):
     log_index = dict([(r['num'], r) for r in log])
 
     if(full_archive):
         print("Doing the full archive index pages")
-        trunk_revision = None # trunk_version changes too quickly, leave it out.
-        out_fn = "index_full.html"
+        trunk_revision   = None # trunk_version changes quickly, leave it out.
+        html_out_postfix = "index_full.html"
+        urls_out_postfix = "list_full.txt"
         other_index_link = '<p>View <a href="index.html">recent archive</a></p>'
     else:
         print("Doing recent archive index pages")
-        trunk_revision = log[0]['num']
-        out_fn = "index.html"
+        trunk_revision   = log[0]['num']
+        html_out_postfix = "index.html"
+        urls_out_postfix = "list_recent.txt"
         other_index_link = '<p>View <a href="index_full.html">full archive</a></p>'
 
-    url_list = ""
     for s in config.sections():
         print("Working on archive page of: "+s)
-        name        = config.get(s,"name")
-        report_type = config.get(s,"report_type")
-        info_url    = config.get(s,"info_url") if(config.has_option(s,"info_url")) else None
+        name          = config.get(s,"name")
+        report_type   = config.get(s,"report_type")
+        info_url      = config.get(s,"info_url") if(config.has_option(s,"info_url")) else None
+        html_out_fn   = outdir+"archive/%s/%s"%(s,html_out_postfix)
+        urls_out_fn   = outdir+"archive/%s/%s"%(s,urls_out_postfix)
+        archive_files = glob(outdir+"archive/%s/rev_*.txt.gz"%s)
+
+        # check if anything has changed
+        if(path.exists(html_out_fn)):
+            last_change = max([path.getmtime(fn) for fn in archive_files])
+            if(last_change < path.getmtime(html_out_fn)):
+                print("Nothing has changed, skipping: "+html_out_fn)
+                continue
 
         # read all archived reports
         archive_reports = dict()
-        for fn in sorted(glob(outdir+"archive/%s/rev_*.txt.gz"%s), reverse=True):
+        for fn in sorted(archive_files, reverse=True):
             report_txt = gzip.open(fn, 'rb').read()
             report = parse_report(report_txt, report_type)
             report['url'] = path.basename(fn)[:-3]
@@ -198,6 +208,7 @@ def gen_archive(config, log, outdir, full_archive=False):
         archive_output += '<tr><th>Revision</th><th>Status</th><th>Summary</th><th>Author</th><th>Commit Message</th></tr>\n\n'
 
         # loop over all relevant revisions
+        url_list = ""
         rev_start = max(min(archive_reports.keys()), min(log_index.keys()))
         rev_end = max(log_index.keys())
         for r in range(rev_end, rev_start-1, -1):
@@ -218,10 +229,20 @@ def gen_archive(config, log, outdir, full_archive=False):
         archive_output += '</table>\n'
         archive_output += other_index_link
         archive_output += html_footer()
-        write_file(outdir+"archive/%s/%s"%(s,out_fn), archive_output.encode("utf8"))
+        write_file(html_out_fn, archive_output.encode("utf8"))
+        write_file(urls_out_fn, url_list)
 
-    out_fn = "list_full.txt" if (full_archive) else "list_recent.txt"
-    write_file(outdir+"archive/"+out_fn, url_list)
+#===============================================================================
+def gen_url_list(config, outdir, full_archive):
+    print("Working url list:")
+    urls_out_postfix = "list_full.txt" if full_archive else "list_recent.txt"
+    url_list = ""
+    for s in config.sections():
+        fn = outdir+"archive/%s/%s"%(s,urls_out_postfix)
+        if(not path.exists(fn)):
+            continue
+        url_list += open(fn).read()
+    write_file(outdir+"archive/"+urls_out_postfix, url_list)
 
 #===============================================================================
 def gen_plots(all_reports, log, outdir, full_archive):
@@ -278,7 +299,7 @@ def gen_plots(all_reports, log, outdir, full_archive):
         ax.set_ylabel(p['ylabel'])
         markers = itertools.cycle('os>^*')
         for cname in sorted(p['curves'].keys()):
-            c= p['curves'][cname]
+            c = p['curves'][cname]
             if(full_archive):
                 ax.plot(c['x'], c['y'], label=c['label'], linewidth=2) # less crowded
             else:
@@ -289,12 +310,12 @@ def gen_plots(all_reports, log, outdir, full_archive):
         ax.legend(bbox_to_anchor=(1.01, 1), loc='upper left',
                   numpoints=1, fancybox=True, shadow=True, borderaxespad=0.0)
         visibles = [[y for x,y in zip(c['x'],c['y']) if x>=rev_start] for c in p['curves'].values()] # visible y-values
-        ymin  = min([min(ys) for ys in visibles]) # lowest point from lowest curve
-        ymax = max([max(ys) for ys in visibles]) # highest point from highest curve
+        ymin  = min([min(ys) for ys in visibles if ys]) # lowest point from lowest curve
+        ymax = max([max(ys) for ys in visibles if ys]) # highest point from highest curve
         if(full_archive):
             ax.set_ylim(0.98*ymin, 1.02*ymax)
         else:
-            ymax2 = max([min(ys) for ys in visibles]) # lowest point from highest curve
+            ymax2 = max([min(ys) for ys in visibles if ys]) # lowest point from highest curve
             ax.set_ylim(0.98*ymin, min(1.02*ymax, 1.3*ymax2))  # protect against outlayers
         fig.savefig(outdir+pname+fig_ext)
 
@@ -462,6 +483,11 @@ def write_file(fn, content, gz=False):
     if(len(d) > 0 and not path.exists(d)):
         os.makedirs(d)
         print("Created dir: "+d)
+    if(path.exists(fn)):
+        old_content = gzip.open(fn, 'rb').read() if(gz) else open(fn).read()
+        if(old_content == content):
+            print("File did not change: "+fn)
+            return
     f = gzip.open(fn, 'wb') if(gz) else open(fn, "w")
     f.write(content)
     f.close()
@@ -511,30 +537,6 @@ def revision_cell(rev, trunk_rev):
     rev_url = "https://sourceforge.net/p/cp2k/code/%d/"%rev
     rev_delta = "(%d)"%(rev - trunk_rev) if(trunk_rev) else ""
     output = '<td align="left"><a href="%s">%s</a> %s</td>'%(rev_url, rev, rev_delta)
-    return(output)
-
-#===============================================================================
-def ticket_cell(label):
-    base_url = "https://sourceforge.net/p/cp2k/bugs"
-    new_url = base_url+"/new/?" + urlencode({'labels':label})
-    query = urlencode({'q':'!status:wont-fix && !status:closed && labels:"%s"'%label})
-    feed_url = base_url+"/search_feed/?limit=25&sort=ticket_num_i+asc&" + query
-    output = '<td  align="right">'
-    try:
-        # sometime the http-request to sourceforge times out
-        tickets_xml = urlopen(feed_url, timeout=5).read()
-        dom = minidom.parseString(tickets_xml)
-        for entry in dom.getElementsByTagName("item"):
-            title = entry.getElementsByTagName('title')[0].firstChild.nodeValue
-            link = entry.getElementsByTagName('link')[0].firstChild.nodeValue
-            tid = int(link.strip("/ ").split("/")[-1])
-            output += '<a href="%s" title="%s">#%d</a>, '%(link, title, tid)
-    except:
-        print(traceback.print_exc())
-        output += "N/A "
-    output += '<a href="%s"'%new_url
-    output += ' style="text-decoration:none;font-weight:bold;font-size:larger;"'
-    output += ' title="Create a new Ticket">+</a></td>'
     return(output)
 
 #===============================================================================

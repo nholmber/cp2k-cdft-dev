@@ -586,7 +586,7 @@ CONTAINS
 
          ! Pre-size work arrays of matrix_a to avoid continuous reallocation.
          ! Overestimate for summetric matrix and multiple threads!
-         local_matrix_size = dbcsr_nfullrows_local(matrix_a)* &
+         local_matrix_size = INT(dbcsr_nfullrows_local(matrix_a), KIND=int_8)* &
               dbcsr_nfullcols_local(matrix_a)
          size_work = MAX(0, INT(MIN(local_matrix_size-INT(dbcsr_get_nze(matrix_a), KIND=int_8), &
                                     INT(dbcsr_get_nze(matrix_b), KIND=int_8)), KIND=int_4))
@@ -2513,7 +2513,7 @@ CONTAINS
 !> \param trace ...
 ! **************************************************************************************************
    SUBROUTINE dbcsr_trace_a_b_d(matrix_a, matrix_b, trace)
-      TYPE(dbcsr_type), INTENT(INOUT)                    :: matrix_a, matrix_b
+      TYPE(dbcsr_type), INTENT(IN)                       :: matrix_a, matrix_b
       REAL(kind=real_8), INTENT(INOUT)                   :: trace
 
       CHARACTER(len=*), PARAMETER :: routineN = 'dbcsr_trace_a_b_d', &
@@ -2547,7 +2547,7 @@ CONTAINS
 !> \param trace ...
 ! **************************************************************************************************
    SUBROUTINE dbcsr_trace_a_any(matrix_a, trace)
-      TYPE(dbcsr_type), INTENT(INOUT)                    :: matrix_a
+      TYPE(dbcsr_type), INTENT(IN)                       :: matrix_a
       TYPE(dbcsr_scalar_type), INTENT(INOUT)             :: trace
 
       CHARACTER(len=*), PARAMETER :: routineN = 'dbcsr_trace_a_any', &

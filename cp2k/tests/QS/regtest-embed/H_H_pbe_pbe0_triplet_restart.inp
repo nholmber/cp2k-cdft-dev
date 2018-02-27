@@ -1,5 +1,9 @@
+#CPQA DEPENDS H_H_pbe_pbe0_triplet.inp
+!
+! Test restart in the spin-unrestricted case
+!
 &GLOBAL                                                                                           
-  PROJECT  h_h_pbe_pbe0_triplet
+  PROJECT  h_h_pbe_pbe0_triplet_restart
   PRINT_LEVEL MEDIUM
   RUN_TYPE ENERGY
 &END GLOBAL
@@ -183,7 +187,7 @@
     BASIS_SET_FILE_NAME  BASIS_RI_cc-TZ
     POTENTIAL_FILE_NAME   HF_POTENTIALS
     &PRINT
-       &E_DENSITY_CUBE LOW
+       &E_DENSITY_CUBE HIGH
        &END
     &END
     &MGRID
@@ -203,6 +207,10 @@
          DENS_CONV_INT 0.5
          SPIN_DENS_CONV_INT 0.5
          DENS_CONV_MAX 0.025
+         &EMBED_POT_CUBE MEDIUM
+         &END
+         READ_EMBED_POT .TRUE.
+         EMBED_RESTART_FILE_NAME  h_h_pbe_pbe0_triplet-embed_pot_002-1_0.wfn
       &END
     &END QS
     &SCF
