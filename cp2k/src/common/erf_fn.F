@@ -13,11 +13,25 @@ MODULE erf_fn
    USE kinds,                           ONLY: dp
 #include "../base/base_uses.f90"
 
-      IMPLICIT NONE
-      PRIVATE
-  PUBLIC :: erf, erfc
+   IMPLICIT NONE
 
-    CONTAINS
+   PRIVATE
+
+#if defined(__F2008)
+   INTERFACE erf
+      MODULE PROCEDURE cp2k_erf
+   END INTERFACE erf
+
+   INTERFACE erfc
+      MODULE PROCEDURE cp2k_erfc
+   END INTERFACE erfc
+
+   INTRINSIC :: erf, erfc
+#endif
+
+   PUBLIC :: erf, erfc, erfcx
+
+CONTAINS
 
 ! **************************************************************************************************
 !> \brief ...
@@ -275,84 +289,80 @@ SUBROUTINE CALERF(ARG,RESULT,JINT)
      END IF
   END IF
 
-!---------- Last card of CALERF ----------
 END SUBROUTINE CALERF
 
+!--------------------------------------------------------------------
+! Compute approximate values for erf(x)
+! (see comments heading CALERF)
+! Author/date: W. J. Cody, January 8, 1985
+!--------------------------------------------------------------------
 ! **************************************************************************************************
 !> \brief ...
-!> \param X ...
-!> \retval ERF ...
+!> \param x ...
+!> \retval erf_val ...
 ! **************************************************************************************************
-FUNCTION ERF(X)
-!--------------------------------------------------------------------
-!
-! This subprogram computes approximate values for erf(x).
-!   (see comments heading CALERF).
-!
-!   Author/date: W. J. Cody, January 8, 1985
-!
-!--------------------------------------------------------------------
-      REAL(KIND=dp)                                      :: X, ERF
+#if defined(__F2008)
+   FUNCTION cp2k_erf(x) RESULT(erf_val)
+      REAL(KIND=dp)                                      :: x, erf_val
 
-      INTEGER                                            :: JINT
-      REAL(KIND=dp)                                      :: RESULT
-
-  JINT = 0
-  CALL CALERF(X,RESULT,JINT)
-  ERF = RESULT
-  RETURN
-!---------- Last card of DERF ----------
-END FUNCTION erf
-
+      CALL calerf(x,erf_val,0)
+   END FUNCTION cp2k_erf
+#else
 ! **************************************************************************************************
 !> \brief ...
-!> \param X ...
-!> \retval ERFC ...
+!> \param x ...
+!> \retval erf_val ...
 ! **************************************************************************************************
-FUNCTION ERFC(X)
+   FUNCTION erf(x) RESULT(erf_val)
+      REAL(KIND=dp)                                      :: x, erf_val
+
+      CALL calerf(x,erf_val,0)
+   END FUNCTION erf
+#endif
+
 !--------------------------------------------------------------------
-!
-! This subprogram computes approximate values for erfc(x).
-!   (see comments heading CALERF).
-!
-!   Author/date: W. J. Cody, January 8, 1985
-!
+! Compute approximate values for erfc(x)
+! (see comments heading CALERF)
+! Author/date: W. J. Cody, January 8, 1985
 !--------------------------------------------------------------------
-      REAL(KIND=dp)                                      :: X, ERFC
-
-      INTEGER                                            :: JINT
-      REAL(KIND=dp)                                      :: RESULT
-
-  JINT = 1
-  CALL CALERF(X,RESULT,JINT)
-  ERFC = RESULT
-  RETURN
-!---------- Last card of DERFC ----------
-END FUNCTION erfc
-
 ! **************************************************************************************************
 !> \brief ...
-!> \param X ...
-!> \retval ERFCX ...
+!> \param x ...
+!> \retval erfc_val ...
 ! **************************************************************************************************
-FUNCTION ERFCX(X)
-!------------------------------------------------------------------
-!
-! This subprogram computes approximate values for exp(x*x) * erfc(x).
-!   (see comments heading CALERF).
-!
-!   Author/date: W. J. Cody, March 30, 1987
-!
-!------------------------------------------------------------------
-      REAL(KIND=dp)                                      :: X, ERFCX
+#if defined(__F2008)
+   FUNCTION cp2k_erfc(x) RESULT(erfc_val)
+      REAL(KIND=dp)                                      :: x, erfc_val
 
-      INTEGER                                            :: JINT
-      REAL(KIND=dp)                                      :: RESULT
+      CALL calerf(x,erfc_val,1)
+   END FUNCTION cp2k_erfc
+#else
+! **************************************************************************************************
+!> \brief ...
+!> \param x ...
+!> \retval erfc_val ...
+! **************************************************************************************************
+   FUNCTION erfc(x) RESULT(erfc_val)
+      REAL(KIND=dp)                                      :: x, erfc_val
 
-  JINT = 2
-  CALL CALERF(X,RESULT,JINT)
-  ERFCX = RESULT
-  RETURN
-!---------- Last card of DERFCX ----------
-END FUNCTION erfcx
+      CALL calerf(x,erfc_val,1)
+   END FUNCTION erfc
+#endif
+
+!--------------------------------------------------------------------
+! Compute approximate values for exp(x*x) * erfc(x)
+! (see comments heading CALERF)
+! Author/date: W. J. Cody, March 30, 1987
+!--------------------------------------------------------------------
+! **************************************************************************************************
+!> \brief ...
+!> \param x ...
+!> \retval erfcx_val ...
+! **************************************************************************************************
+   FUNCTION erfcx(x) RESULT(erfcx_val)
+      REAL(KIND=dp)                                      :: x, erfcx_val
+
+      CALL calerf(x,erfcx_val,2)
+   END FUNCTION erfcx
+
 END  MODULE erf_fn
