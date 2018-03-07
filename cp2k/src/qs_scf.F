@@ -1275,8 +1275,7 @@ CONTAINS
                              " only be used together with a valid CDFT constraint.")
             ! Redirect output from Jacobian calculation to a new file by creating a temporary logger
             project_name = logger%iter_info%project_name
-            CALL create_tmp_logger(para_env, logger%iter_info%project_name, "-JacobianInfo.out", &
-                                  output_unit, tmp_logger)
+            CALL create_tmp_logger(para_env, project_name, "-JacobianInfo.out", output_unit, tmp_logger)
             ! Save last converged state so we can roll back to it (mo_coeff and some outer_loop variables)
             nspins = dft_control%nspins
             ALLOCATE (mos_stashed(nspins))
@@ -1475,8 +1474,7 @@ CONTAINS
          iter_count = scf_env%outer_scf%iter_count
          ! Redirect output from line search procedure to a new file by creating a temporary logger
          project_name = logger%iter_info%project_name
-         CALL create_tmp_logger(para_env, logger%iter_info%project_name, "-LineSearch.out", &
-                               output_unit, tmp_logger)
+         CALL create_tmp_logger(para_env, project_name, "-LineSearch.out", output_unit, tmp_logger)
          ! Save last converged state so we can roll back to it (mo_coeff and some outer_loop variables)
          nspins = dft_control%nspins
          ALLOCATE (mos_stashed(nspins))
