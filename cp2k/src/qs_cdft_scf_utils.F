@@ -38,13 +38,14 @@ CONTAINS
 !> \brief Prepares the finite difference stencil for computing the Jacobian. The constraints
 !>        are re-evaluated by perturbing each constraint.
 !> \param jacobian_type the type of stencil to use
+!> \param jacobian_step the step size to use for each perturbation
 !> \param coeff list of coefficients that determine how to sum up the various perturbations
 !> \param step_multiplier list of values that determine how large steps to take for each perturbatio
-!> \param dh finite difference step size
+!> \param dh total length of the interval to use for computing the finite difference derivatives
 !> \par History
 !>      03.2018 created [Nico Holmberg]
 ! **************************************************************************************************
-   SUBROUTINE prepare_jacobian_stencil(jacobian_type, coeff, step_multiplier, dh)
+   SUBROUTINE prepare_jacobian_stencil(jacobian_type, jacobian_step, coeff, step_multiplier, dh)
       INTEGER                                            :: jacobian_type
       REAL(KIND=dp), ALLOCATABLE, DIMENSION(:)           :: coeff, step_multiplier
       REAL(KIND=dp)                                      :: dh
@@ -52,7 +53,7 @@ CONTAINS
       CHARACTER(LEN=*), PARAMETER :: routineN = 'prepare_jacobian_stencil', &
          routineP = moduleN//':'//routineN
 
-      SELECT CASE (scf_control%outer_scf%jacobian_type)
+      SELECT CASE (jacobian_type)
       CASE DEFAULT
          CALL cp_abort(__LOCATION__, &
                        "Unknown Jacobian type: "// &
@@ -65,7 +66,7 @@ CONTAINS
          coeff(nwork) = -1.0_dp
          coeff(pwork) = 1.0_dp
          step_multiplier = 1.0_dp
-         dh = scf_control%outer_scf%jacobian_step
+         dh = jacobian_step
       CASE (jacobian_fd1_backward)
          ! f'(x0) = [ f(x0) - f(x0-h) ] / h
          nwork = -1
@@ -74,7 +75,7 @@ CONTAINS
          coeff(nwork) = -1.0_dp
          coeff(pwork) = 1.0_dp
          step_multiplier = -1.0_dp
-         dh = scf_control%outer_scf%jacobian_step
+         dh = jacobian_step
       CASE (jacobian_fd2)
          ! f'(x0) = [ -f(x0+2h) + 4f(x0+h) - 3f(x0) ] / 2h
          nwork = 0
@@ -86,7 +87,7 @@ CONTAINS
          step_multiplier(0) = 0.0_dp
          step_multiplier(1) = 1.0_dp
          step_multiplier(2) = 2.0_dp
-         dh = 2.0_dp*scf_control%outer_scf%jacobian_step
+         dh = 2.0_dp*jacobian_step
       CASE (jacobian_fd2_backward)
          ! f'(x0) = [ 3f(x0) - 4f(x0-h) + f(x0-2h) ] / 2h
          nwork = -2
@@ -98,7 +99,7 @@ CONTAINS
          step_multiplier(0) = 0.0_dp
          step_multiplier(-1) = -1.0_dp
          step_multiplier(-2) = -2.0_dp
-         dh = 2.0_dp*scf_control%outer_scf%jacobian_step
+         dh = 2.0_dp*jacobian_step
       CASE (jacobian_fd1_central)
          ! f'(x0) = [ f(x0+h) - f(x0-h) ] / 2h
          nwork = -1
@@ -110,7 +111,7 @@ CONTAINS
          step_multiplier(0) = 0.0_dp
          step_multiplier(nwork) = -1.0_dp
          step_multiplier(pwork) = 1.0_dp
-         dh = 2.0_dp*scf_control%outer_scf%jacobian_step
+         dh = 2.0_dp*jacobian_step
       END SELECT
 
    END SUBROUTINE prepare_jacobian_stencil
