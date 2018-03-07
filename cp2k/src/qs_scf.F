@@ -1326,7 +1326,8 @@ CONTAINS
             nsteps = cdft_control%total_steps
             ! Setup finite difference scheme
             CALL prepare_jacobian_stencil(scf_control%outer_scf%jacobian_type, &
-                                          scf_control%outer_scf%jacobian_step, coeff, step_multiplier, dh)
+                                          scf_control%outer_scf%jacobian_step, &
+                                          nwork, pwork, coeff, step_multiplier, dh)
             twork = pwork-nwork
             DO i = 1, nvar
                jacobian(i, :) = coeff(0)*scf_env%outer_scf%gradient(i, iter_count)

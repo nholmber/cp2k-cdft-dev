@@ -39,16 +39,19 @@ CONTAINS
 !>        are re-evaluated by perturbing each constraint.
 !> \param jacobian_type the type of stencil to use
 !> \param jacobian_step the step size to use for each perturbation
+!> \param nwork the number of perturbations to take in the negative direction
+!> \param pwork the number of perturbations to take in the positive direction
 !> \param coeff list of coefficients that determine how to sum up the various perturbations
 !> \param step_multiplier list of values that determine how large steps to take for each perturbatio
 !> \param dh total length of the interval to use for computing the finite difference derivatives
 !> \par History
 !>      03.2018 created [Nico Holmberg]
 ! **************************************************************************************************
-   SUBROUTINE prepare_jacobian_stencil(jacobian_type, jacobian_step, coeff, step_multiplier, dh)
-      INTEGER                                            :: jacobian_type
+   SUBROUTINE prepare_jacobian_stencil(jacobian_type, jacobian_step, nwork, pwork, &
+                                       coeff, step_multiplier, dh)
+      INTEGER                                            :: jacobian_type, nwork, pwork
       REAL(KIND=dp), ALLOCATABLE, DIMENSION(:)           :: coeff, step_multiplier
-      REAL(KIND=dp)                                      :: dh
+      REAL(KIND=dp)                                      :: dh, jacobian_step
 
       CHARACTER(LEN=*), PARAMETER :: routineN = 'prepare_jacobian_stencil', &
          routineP = moduleN//':'//routineN
@@ -57,7 +60,7 @@ CONTAINS
       CASE DEFAULT
          CALL cp_abort(__LOCATION__, &
                        "Unknown Jacobian type: "// &
-                       cp_to_string(scf_control%outer_scf%jacobian_type))
+                       cp_to_string(jacobian_type))
       CASE (jacobian_fd1)
          ! f'(x0) = [ f(x0+h) - f(x0) ] / h
          nwork = 0
