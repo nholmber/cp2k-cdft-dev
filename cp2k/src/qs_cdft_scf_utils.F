@@ -60,7 +60,7 @@ CONTAINS
    SUBROUTINE prepare_jacobian_stencil(qs_env, output_unit, nwork, pwork, &
                                        coeff, step_multiplier, dh)
       TYPE(qs_environment_type), POINTER                 :: qs_env
-      INTEGER                                            :: nwork, pwork
+      INTEGER                                            :: nwork, output_unit, pwork
       REAL(KIND=dp), ALLOCATABLE, DIMENSION(:)           :: coeff, step_multiplier
       REAL(KIND=dp)                                      :: dh
 
@@ -163,8 +163,7 @@ CONTAINS
             CALL cp_abort(__LOCATION__, "Unknown Jacobian type: "// &
                           cp_to_string(scf_control%outer_scf%jacobian_type))
          END SELECT
-         WRITE (output_unit, '(A,ES12.4)') " Step size          : ", &
-            scf_control%outer_scf%scf_control%outer_scf%jacobian_step
+         WRITE (output_unit, '(A,ES12.4)') " Step size          : ", scf_control%outer_scf%jacobian_step
       END IF
 
    END SUBROUTINE prepare_jacobian_stencil
@@ -350,7 +349,6 @@ CONTAINS
 
       INTEGER                                            :: lp
 
-      project_name = logger%iter_info%project_name
       IF (para_env%mepos == para_env%source) THEN
          lp = LEN_TRIM(project_name)
          project_name(lp+1:LEN(project_name)) = suffix
