@@ -10,6 +10,7 @@
 !> \author Nico Holmberg (03.2018)
 ! **************************************************************************************************
 MODULE qs_cdft_scf_utils
+   USE cp_control_types,                ONLY: dft_control_type
    USE cp_files,                        ONLY: close_file,&
                                               get_unit_number,&
                                               open_file
@@ -22,7 +23,8 @@ MODULE qs_cdft_scf_utils
                                               jacobian_fd1_central,&
                                               jacobian_fd2,&
                                               jacobian_fd2_backward
-   USE kinds,                           ONLY: dp
+   USE kinds,                           ONLY: default_path_length,&
+                                              dp
    USE mathlib,                         ONLY: invert_matrix
    USE qs_environment_types,            ONLY: get_qs_env,&
                                               qs_environment_type
@@ -70,7 +72,7 @@ CONTAINS
       TYPE(scf_control_type), POINTER                    :: scf_control
 
 
-      NULLIFY (scf_env, scf_control, dft_control, cdft_control)
+      NULLIFY (scf_env, scf_control, dft_control)
 
       CPASSERT(ASSOCIATED(qs_env))
       CALL get_qs_env(qs_env, scf_env=scf_env, &
@@ -90,7 +92,7 @@ CONTAINS
          coeff(nwork) = -1.0_dp
          coeff(pwork) = 1.0_dp
          step_multiplier = 1.0_dp
-         dh = jacobian_step
+         dh = scf_control%outer_scf%jacobian_step
       CASE (jacobian_fd1_backward)
          ! f'(x0) = [ f(x0) - f(x0-h) ] / h
          nwork = -1
@@ -99,7 +101,7 @@ CONTAINS
          coeff(nwork) = -1.0_dp
          coeff(pwork) = 1.0_dp
          step_multiplier = -1.0_dp
-         dh = jacobian_step
+         dh = scf_control%outer_scf%jacobian_step
       CASE (jacobian_fd2)
          ! f'(x0) = [ -f(x0+2h) + 4f(x0+h) - 3f(x0) ] / 2h
          nwork = 0
@@ -111,7 +113,7 @@ CONTAINS
          step_multiplier(0) = 0.0_dp
          step_multiplier(1) = 1.0_dp
          step_multiplier(2) = 2.0_dp
-         dh = 2.0_dp*jacobian_step
+         dh = 2.0_dp*scf_control%outer_scf%jacobian_step
       CASE (jacobian_fd2_backward)
          ! f'(x0) = [ 3f(x0) - 4f(x0-h) + f(x0-2h) ] / 2h
          nwork = -2
@@ -123,7 +125,7 @@ CONTAINS
          step_multiplier(0) = 0.0_dp
          step_multiplier(-1) = -1.0_dp
          step_multiplier(-2) = -2.0_dp
-         dh = 2.0_dp*jacobian_step
+         dh = 2.0_dp*scf_control%outer_scf%jacobian_step
       CASE (jacobian_fd1_central)
          ! f'(x0) = [ f(x0+h) - f(x0-h) ] / 2h
          nwork = -1
@@ -135,7 +137,7 @@ CONTAINS
          step_multiplier(0) = 0.0_dp
          step_multiplier(nwork) = -1.0_dp
          step_multiplier(pwork) = 1.0_dp
-         dh = 2.0_dp*jacobian_step
+         dh = 2.0_dp*scf_control%outer_scf%jacobian_step
       END SELECT
       ! Print some info
       IF (output_unit > 0) THEN
@@ -161,7 +163,8 @@ CONTAINS
             CALL cp_abort(__LOCATION__, "Unknown Jacobian type: "// &
                           cp_to_string(scf_control%outer_scf%jacobian_type))
          END SELECT
-         WRITE (output_unit, '(A,ES12.4)') " Step size          : ", scf_control%outer_scf%jacobian_step
+         WRITE (output_unit, '(A,ES12.4)') " Step size          : ", &
+            scf_control%outer_scf%scf_control%outer_scf%jacobian_step
       END IF
 
    END SUBROUTINE prepare_jacobian_stencil
@@ -329,20 +332,20 @@ CONTAINS
 ! **************************************************************************************************
 !> \brief Creates a temporary logger for redirecting output to a new file
 !> \param para_env the para_env
-!> \param name the project basename
+!> \param project_name the project basename
 !> \param suffix the suffix
 !> \param output_unit the default unit number for the newly created temporary logger
 !> \param tmp_logger pointer to the newly created temporary logger
 !> \par History
 !>      03.2018 created [Nico Holmberg]
 ! **************************************************************************************************
-   SUBROUTINE qs_cdft_create_tmp_logger(para_env, name, suffix, output_unit, tmp_logger)
+   SUBROUTINE create_tmp_logger(para_env, project_name, suffix, output_unit, tmp_logger)
       TYPE(cp_para_env_type), POINTER                    :: para_env
-      CHARACTER(len=*)                                   :: name, suffix
+      CHARACTER(len=*)                                   :: project_name, suffix
       INTEGER                                            :: output_unit
       TYPE(cp_logger_type), POINTER                      :: tmp_logger
 
-      CHARACTER(LEN=*), PARAMETER :: routineN = 'qs_cdft_create_tmp_logger', &
+      CHARACTER(LEN=*), PARAMETER :: routineN = 'create_tmp_logger', &
          routineP = moduleN//':'//routineN
 
       INTEGER                                            :: lp
@@ -362,6 +365,6 @@ CONTAINS
                             default_global_unit_nr=output_unit, &
                             close_global_unit_on_dealloc=.FALSE.)
 
-   END SUBROUTINE qs_cdft_create_tmp_logger
+   END SUBROUTINE create_tmp_logger
 
 END MODULE qs_cdft_scf_utils
