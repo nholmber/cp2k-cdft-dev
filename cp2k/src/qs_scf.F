@@ -1383,7 +1383,7 @@ CONTAINS
       END IF
       IF (ASSOCIATED(scf_env%outer_scf%inv_jacobian) .AND. para_env%mepos == para_env%source) THEN
          ! Write restart file for inverse Jacobian
-         CALL print_inverse_jacobian(logger, inv_jacobian)
+         CALL print_inverse_jacobian(logger, inv_jacobian, iter_count)
       END IF
       CALL timestop(handle)
 

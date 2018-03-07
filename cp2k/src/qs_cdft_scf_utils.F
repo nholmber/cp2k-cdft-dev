@@ -296,12 +296,14 @@ CONTAINS
 !> \brief Prints the finite difference inverse Jacobian to file
 !> \param logger the default IO logger
 !> \param inv_jacobian the inverse Jacobian matrix
+!> \param iter_count the iteration number
 !> \par History
 !>      03.2018 created [Nico Holmberg]
 ! **************************************************************************************************
    SUBROUTINE print_inverse_jacobian(logger, inv_jacobian)
       TYPE(cp_logger_type), POINTER                      :: logger
       REAL(KIND=dp), DIMENSION(:, :), POINTER            :: inv_jacobian
+      INTEGER                                            :: iter_count
 
       CHARACTER(LEN=*), PARAMETER :: routineN = 'print_inverse_jacobian', &
          routineP = moduleN//':'//routineN
@@ -318,7 +320,7 @@ CONTAINS
                      file_action="WRITE", file_position="APPEND", &
                      unit_number=output_unit)
       WRITE (output_unit, FMT="(/,A)") "Inverse Jacobian matrix in row major order"
-      WRITE (output_unit, FMT="(A,I10)") "Iteration: ", scf_env%outer_scf%iter_count
+      WRITE (output_unit, FMT="(A,I10)") "Iteration: ", iter_count
       DO i = 1, nvar
          DO j = 1, nvar
             WRITE (output_unit, *) inv_jacobian(i, j)
