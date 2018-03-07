@@ -16,6 +16,7 @@ MODULE qs_cdft_scf_utils
    USE cp_log_handling,                 ONLY: cp_logger_create,&
                                               cp_logger_type,&
                                               cp_to_string
+   USE cp_para_types,                   ONLY: cp_para_env_type
    USE input_constants,                 ONLY: jacobian_fd1,&
                                               jacobian_fd1_backward,&
                                               jacobian_fd1_central,&
@@ -63,6 +64,11 @@ CONTAINS
 
       CHARACTER(LEN=*), PARAMETER :: routineN = 'prepare_jacobian_stencil', &
          routineP = moduleN//':'//routineN
+
+      TYPE(dft_control_type), POINTER                    :: dft_control
+      TYPE(qs_scf_env_type), POINTER                     :: scf_env
+      TYPE(scf_control_type), POINTER                    :: scf_control
+
 
       NULLIFY (scf_env, scf_control, dft_control, cdft_control)
 
@@ -331,6 +337,7 @@ CONTAINS
 !>      03.2018 created [Nico Holmberg]
 ! **************************************************************************************************
    SUBROUTINE qs_cdft_create_tmp_logger(para_env, name, suffix, output_unit, tmp_logger)
+      TYPE(cp_para_env_type), POINTER                    :: para_env
       CHARACTER(len=*)                                   :: name, suffix
       INTEGER                                            :: output_unit
       TYPE(cp_logger_type), POINTER                      :: tmp_logger
