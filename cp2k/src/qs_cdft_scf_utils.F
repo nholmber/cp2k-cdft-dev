@@ -10,7 +10,12 @@
 !> \author Nico Holmberg (03.2018)
 ! **************************************************************************************************
 MODULE qs_cdft_scf_utils
-   USE cp_log_handling,                 ONLY: cp_to_string
+   USE cp_files,                        ONLY: close_file,&
+                                              get_unit_number,&
+                                              open_file
+   USE cp_log_handling,                 ONLY: cp_logger_create,&
+                                              cp_logger_type,&
+                                              cp_to_string
    USE input_constants,                 ONLY: jacobian_fd1,&
                                               jacobian_fd1_backward,&
                                               jacobian_fd1_central,&
@@ -28,17 +33,19 @@ MODULE qs_cdft_scf_utils
 
    PRIVATE
 
-   CHARACTER(len=*), PARAMETER, PRIVATE :: moduleN = 'qs_scf'
+   CHARACTER(len=*), PARAMETER, PRIVATE :: moduleN = 'qs_cdft_scf_utils'
 
-   PUBLIC :: prepare_jacobian_stencil, build_diagonal_jacobian
+   PUBLIC :: prepare_jacobian_stencil, build_diagonal_jacobian, &
+             restart_inverse_jacobian, print_inverse_jacobian, &
+             create_tmp_logger
 
 CONTAINS
 
 ! **************************************************************************************************
 !> \brief Prepares the finite difference stencil for computing the Jacobian. The constraints
 !>        are re-evaluated by perturbing each constraint.
-!> \param jacobian_type the type of stencil to use
-!> \param jacobian_step the step size to use for each perturbation
+!> \param qs_env the qs_env where to build the Jacobian
+!> \param output_unit the output unit number
 !> \param nwork the number of perturbations to take in the negative direction
 !> \param pwork the number of perturbations to take in the positive direction
 !> \param coeff list of coefficients that determine how to sum up the various perturbations
@@ -47,20 +54,28 @@ CONTAINS
 !> \par History
 !>      03.2018 created [Nico Holmberg]
 ! **************************************************************************************************
-   SUBROUTINE prepare_jacobian_stencil(jacobian_type, jacobian_step, nwork, pwork, &
+   SUBROUTINE prepare_jacobian_stencil(qs_env, output_unit, nwork, pwork, &
                                        coeff, step_multiplier, dh)
-      INTEGER                                            :: jacobian_type, nwork, pwork
+      TYPE(qs_environment_type), POINTER                 :: qs_env
+      INTEGER                                            :: nwork, pwork
       REAL(KIND=dp), ALLOCATABLE, DIMENSION(:)           :: coeff, step_multiplier
-      REAL(KIND=dp)                                      :: dh, jacobian_step
+      REAL(KIND=dp)                                      :: dh
 
       CHARACTER(LEN=*), PARAMETER :: routineN = 'prepare_jacobian_stencil', &
          routineP = moduleN//':'//routineN
 
-      SELECT CASE (jacobian_type)
+      NULLIFY (scf_env, scf_control, dft_control, cdft_control)
+
+      CPASSERT(ASSOCIATED(qs_env))
+      CALL get_qs_env(qs_env, scf_env=scf_env, &
+                      scf_control=scf_control, &
+                      dft_control=dft_control)
+
+      SELECT CASE (scf_control%outer_scf%jacobian_type)
       CASE DEFAULT
          CALL cp_abort(__LOCATION__, &
                        "Unknown Jacobian type: "// &
-                       cp_to_string(jacobian_type))
+                       cp_to_string(scf_control%outer_scf%jacobian_type))
       CASE (jacobian_fd1)
          ! f'(x0) = [ f(x0+h) - f(x0) ] / h
          nwork = 0
@@ -116,6 +131,32 @@ CONTAINS
          step_multiplier(pwork) = 1.0_dp
          dh = 2.0_dp*jacobian_step
       END SELECT
+      ! Print some info
+      IF (output_unit > 0) THEN
+         WRITE (output_unit, FMT="(/,A)") &
+            " ================================== JACOBIAN CALCULATION ================================="
+         WRITE (output_unit, FMT="(A)") &
+            " Evaluating inverse Jacobian using finite differences"
+         WRITE (output_unit, '(A,I10,A,I10)') &
+            " Energy evaluation: ", dft_control%qs_control%cdft_control%ienergy, &
+            ", CDFT SCF iteration: ", scf_env%outer_scf%iter_count
+         SELECT CASE (scf_control%outer_scf%jacobian_type)
+         CASE (jacobian_fd1)
+            WRITE (output_unit, '(A)') " Type               : First order forward difference"
+         CASE (jacobian_fd1_backward)
+            WRITE (output_unit, '(A)') " Type               : First order backward difference"
+         CASE (jacobian_fd2)
+            WRITE (output_unit, '(A)') " Type               : Second order forward difference"
+         CASE (jacobian_fd2_backward)
+            WRITE (output_unit, '(A)') " Type               : Second order backward difference"
+         CASE (jacobian_fd1_central)
+            WRITE (output_unit, '(A)') " Type               : First order central difference"
+         CASE DEFAULT
+            CALL cp_abort(__LOCATION__, "Unknown Jacobian type: "// &
+                          cp_to_string(scf_control%outer_scf%jacobian_type))
+         END SELECT
+         WRITE (output_unit, '(A,ES12.4)') " Step size          : ", scf_control%outer_scf%jacobian_step
+      END IF
 
    END SUBROUTINE prepare_jacobian_stencil
 ! **************************************************************************************************
@@ -200,5 +241,120 @@ CONTAINS
       END IF
 
    END SUBROUTINE build_diagonal_jacobian
+
+! **************************************************************************************************
+!> \brief Restarts the finite difference inverse Jacobian.
+!> \param qs_env the qs_environment_type where to compute the Jacobian
+!> \par History
+!>      03.2018 created [Nico Holmberg]
+! **************************************************************************************************
+   SUBROUTINE restart_inverse_jacobian(qs_env)
+      TYPE(qs_environment_type), POINTER                 :: qs_env
+
+      CHARACTER(LEN=*), PARAMETER :: routineN = 'restart_inverse_jacobian', &
+         routineP = moduleN//':'//routineN
+
+      INTEGER                                            :: i, iwork, j, nvar
+      REAL(KIND=dp), DIMENSION(:, :), POINTER            :: inv_jacobian
+      TYPE(qs_scf_env_type), POINTER                     :: scf_env
+      TYPE(scf_control_type), POINTER                    :: scf_control
+
+      NULLIFY (scf_env, scf_control)
+      CPASSERT(ASSOCIATED(qs_env))
+      CALL get_qs_env(qs_env, scf_env=scf_env, scf_control=scf_control)
+
+      CPASSERT(ASSOCIATED(scf_control%outer_scf%jacobian_vector))
+      nvar = SIZE(scf_env%outer_scf%variables, 1)
+      IF (SIZE(scf_control%outer_scf%jacobian_vector) /= nvar**2) &
+         CALL cp_abort(__LOCATION__, &
+                       "Too many or too few values defined for restarting inverse Jacobian.")
+      IF (.NOT. ASSOCIATED(scf_env%outer_scf%inv_jacobian)) &
+         ALLOCATE (scf_env%outer_scf%inv_jacobian(nvar, nvar))
+      inv_jacobian => scf_env%outer_scf%inv_jacobian
+      iwork = 1
+      DO i = 1, nvar
+         DO j = 1, nvar
+            inv_jacobian(i, j) = scf_control%outer_scf%jacobian_vector(iwork)
+            iwork = iwork+1
+         END DO
+      END DO
+      DEALLOCATE (scf_control%outer_scf%jacobian_vector)
+      scf_control%outer_scf%jacobian_restart = .FALSE.
+      scf_control%outer_scf%broyden_update = .FALSE.
+
+   END SUBROUTINE restart_inverse_jacobian
+
+! **************************************************************************************************
+!> \brief Prints the finite difference inverse Jacobian to file
+!> \param logger the default IO logger
+!> \param inv_jacobian the inverse Jacobian matrix
+!> \par History
+!>      03.2018 created [Nico Holmberg]
+! **************************************************************************************************
+   SUBROUTINE print_inverse_jacobian(logger, inv_jacobian)
+      TYPE(cp_logger_type), POINTER                      :: logger
+      REAL(KIND=dp), DIMENSION(:, :), POINTER            :: inv_jacobian
+
+      CHARACTER(LEN=*), PARAMETER :: routineN = 'print_inverse_jacobian', &
+         routineP = moduleN//':'//routineN
+
+      CHARACTER(len=default_path_length)                 :: project_name
+      INTEGER                                            :: i, j, lp, nvar, output_unit
+
+      nvar = SIZE(inv_jacobian, 1)
+      output_unit = get_unit_number()
+      project_name = logger%iter_info%project_name
+      lp = LEN_TRIM(project_name)
+      project_name(lp+1:LEN(project_name)) = ".inverseJacobian"
+      CALL open_file(file_name=project_name, file_status="UNKNOWN", &
+                     file_action="WRITE", file_position="APPEND", &
+                     unit_number=output_unit)
+      WRITE (output_unit, FMT="(/,A)") "Inverse Jacobian matrix in row major order"
+      WRITE (output_unit, FMT="(A,I10)") "Iteration: ", scf_env%outer_scf%iter_count
+      DO i = 1, nvar
+         DO j = 1, nvar
+            WRITE (output_unit, *) inv_jacobian(i, j)
+         END DO
+      END DO
+      CALL close_file(unit_number=output_unit)
+
+   END SUBROUTINE print_inverse_jacobian
+
+! **************************************************************************************************
+!> \brief Creates a temporary logger for redirecting output to a new file
+!> \param para_env the para_env
+!> \param name the project basename
+!> \param suffix the suffix
+!> \param output_unit the default unit number for the newly created temporary logger
+!> \param tmp_logger pointer to the newly created temporary logger
+!> \par History
+!>      03.2018 created [Nico Holmberg]
+! **************************************************************************************************
+   SUBROUTINE qs_cdft_create_tmp_logger(para_env, name, suffix, output_unit, tmp_logger)
+      CHARACTER(len=*)                                   :: name, suffix
+      INTEGER                                            :: output_unit
+      TYPE(cp_logger_type), POINTER                      :: tmp_logger
+
+      CHARACTER(LEN=*), PARAMETER :: routineN = 'qs_cdft_create_tmp_logger', &
+         routineP = moduleN//':'//routineN
+
+      INTEGER                                            :: lp
+
+      project_name = logger%iter_info%project_name
+      IF (para_env%mepos == para_env%source) THEN
+         lp = LEN_TRIM(project_name)
+         project_name(lp+1:LEN(project_name)) = suffix
+         CALL open_file(file_name=project_name, file_status="UNKNOWN", &
+                        file_action="WRITE", file_position="APPEND", &
+                        unit_number=output_unit)
+      ELSE
+         output_unit = -1
+      END IF
+      CALL cp_logger_create(tmp_logger, &
+                            para_env=para_env, &
+                            default_global_unit_nr=output_unit, &
+                            close_global_unit_on_dealloc=.FALSE.)
+
+   END SUBROUTINE qs_cdft_create_tmp_logger
 
 END MODULE qs_cdft_scf_utils
