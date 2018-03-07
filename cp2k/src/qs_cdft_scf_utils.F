@@ -300,7 +300,7 @@ CONTAINS
 !> \par History
 !>      03.2018 created [Nico Holmberg]
 ! **************************************************************************************************
-   SUBROUTINE print_inverse_jacobian(logger, inv_jacobian)
+   SUBROUTINE print_inverse_jacobian(logger, inv_jacobian, iter_count)
       TYPE(cp_logger_type), POINTER                      :: logger
       REAL(KIND=dp), DIMENSION(:, :), POINTER            :: inv_jacobian
       INTEGER                                            :: iter_count
