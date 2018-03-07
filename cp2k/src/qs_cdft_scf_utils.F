@@ -60,7 +60,7 @@ CONTAINS
    SUBROUTINE prepare_jacobian_stencil(qs_env, output_unit, nwork, pwork, &
                                        coeff, step_multiplier, dh)
       TYPE(qs_environment_type), POINTER                 :: qs_env
-      INTEGER                                            :: nwork, output_unit, pwork
+      INTEGER                                            :: output_unit, nwork, pwork
       REAL(KIND=dp), ALLOCATABLE, DIMENSION(:)           :: coeff, step_multiplier
       REAL(KIND=dp)                                      :: dh
 
@@ -70,7 +70,6 @@ CONTAINS
       TYPE(dft_control_type), POINTER                    :: dft_control
       TYPE(qs_scf_env_type), POINTER                     :: scf_env
       TYPE(scf_control_type), POINTER                    :: scf_control
-
 
       NULLIFY (scf_env, scf_control, dft_control)
 
@@ -302,8 +301,8 @@ CONTAINS
 ! **************************************************************************************************
    SUBROUTINE print_inverse_jacobian(logger, inv_jacobian, iter_count)
       TYPE(cp_logger_type), POINTER                      :: logger
-      REAL(KIND=dp), DIMENSION(:, :), POINTER, &
-         INTENT(IN)                                      :: inv_jacobian
+      REAL(KIND=dp), DIMENSION(:, :), INTENT(IN), &
+         POINTER                                         :: inv_jacobian
       INTEGER                                            :: iter_count
 
       CHARACTER(LEN=*), PARAMETER :: routineN = 'print_inverse_jacobian', &
@@ -345,7 +344,7 @@ CONTAINS
       TYPE(cp_para_env_type), POINTER                    :: para_env
       CHARACTER(len=*)                                   :: project_name, suffix
       INTEGER, INTENT(OUT)                               :: output_unit
-      TYPE(cp_logger_type), POINTER, INTENT(OUT)         :: tmp_logger
+      TYPE(cp_logger_type), INTENT(OUT), POINTER         :: tmp_logger
 
       CHARACTER(LEN=*), PARAMETER :: routineN = 'create_tmp_logger', &
          routineP = moduleN//':'//routineN
