@@ -9,7 +9,7 @@
 !>      - Separated some routines from qs_scf (03.2018) [Nico Holmberg]
 !> \author Nico Holmberg (03.2018)
 ! **************************************************************************************************
-MODULE qs_scf
+MODULE qs_cdft_scf_utils
    USE cp_log_handling,                 ONLY: cp_to_string
    USE input_constants,                 ONLY: jacobian_fd1,&
                                               jacobian_fd1_backward,&
