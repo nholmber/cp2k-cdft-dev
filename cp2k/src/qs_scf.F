@@ -84,7 +84,8 @@ MODULE qs_scf
         outer_scf_optimizer_newton_ls
    USE input_section_types,             ONLY: section_vals_get_subs_vals,&
                                               section_vals_type
-   USE kinds,                           ONLY: default_string_length,&
+   USE kinds,                           ONLY: default_path_length,&
+                                              default_string_length,&
                                               dp
    USE kpoint_io,                       ONLY: write_kpoints_restart
    USE kpoint_types,                    ONLY: kpoint_type
@@ -1180,6 +1181,7 @@ CONTAINS
       CHARACTER(LEN=*), PARAMETER :: routineN = 'qs_calculate_inverse_jacobian', &
          routineP = moduleN//':'//routineN
 
+      CHARACTER(len=default_path_length)                 :: project_name
       INTEGER                                            :: counter, handle, i, ispin, iter_count, &
                                                             iwork, j, max_scf, nspins, nsteps, &
                                                             nvar, nwork, output_unit, pwork, twork
@@ -1272,6 +1274,7 @@ CONTAINS
                              "Optimizers that need the explicit Jacobian can"// &
                              " only be used together with a valid CDFT constraint.")
             ! Redirect output from Jacobian calculation to a new file by creating a temporary logger
+            project_name = logger%iter_info%project_name
             CALL create_tmp_logger(para_env, logger%iter_info%project_name, "-JacobianInfo.out", &
                                   output_unit, tmp_logger)
             ! Save last converged state so we can roll back to it (mo_coeff and some outer_loop variables)
@@ -1404,6 +1407,7 @@ CONTAINS
       CHARACTER(LEN=*), PARAMETER :: routineN = 'qs_cdft_line_search', &
          routineP = moduleN//':'//routineN
 
+      CHARACTER(len=default_path_length)                 :: project_name
       INTEGER                                            :: handle, i, ispin, iter_count, &
                                                             max_linesearch, max_scf, nspins, &
                                                             nsteps, nvar, output_unit
@@ -1470,6 +1474,7 @@ CONTAINS
          alpha = scf_control%outer_scf%newton_step_save
          iter_count = scf_env%outer_scf%iter_count
          ! Redirect output from line search procedure to a new file by creating a temporary logger
+         project_name = logger%iter_info%project_name
          CALL create_tmp_logger(para_env, logger%iter_info%project_name, "-LineSearch.out", &
                                output_unit, tmp_logger)
          ! Save last converged state so we can roll back to it (mo_coeff and some outer_loop variables)
