@@ -236,10 +236,11 @@ MODULE qs_cdft_types
       INTEGER                              :: max_scf, &
                                               ijacobian
       REAL(KIND=dp)                        :: eps_scf, step_size, &
-                                              jacobian_step, &
                                               newton_step, &
                                               newton_step_save, &
                                               factor_ls
+      REAL(KIND=dp), DIMENSION(:), &
+         ALLOCATABLE                       :: jacobian_step
       REAL(KIND=dp), DIMENSION(:), POINTER :: jacobian_vector
       INTEGER                              :: TYPE
       INTEGER                              :: optimizer
@@ -499,7 +500,6 @@ CONTAINS
       cdft_control%ot_control%optimizer = -1
       cdft_control%ot_control%diis_buffer_length = -1
       cdft_control%ot_control%jacobian_type = -1
-      cdft_control%ot_control%jacobian_step = 0.0_dp
       cdft_control%ot_control%jacobian_restart = .FALSE.
       NULLIFY (cdft_control%ot_control%jacobian_vector)
       cdft_control%ot_control%newton_step = 1.0_dp
@@ -514,7 +514,6 @@ CONTAINS
       cdft_control%constraint_control%jacobian_type = -1
       cdft_control%constraint_control%broyden_type = -1
       cdft_control%constraint_control%jacobian_freq = 1
-      cdft_control%constraint_control%jacobian_step = 0.0_dp
       cdft_control%constraint_control%jacobian_restart = .FALSE.
       NULLIFY (cdft_control%constraint_control%jacobian_vector)
       cdft_control%constraint_control%newton_step = 1.0_dp
@@ -582,6 +581,10 @@ CONTAINS
          END IF
          IF (ASSOCIATED(cdft_control%ot_control%jacobian_vector)) &
             DEALLOCATE (cdft_control%ot_control%jacobian_vector)
+         IF (ALLOCATED(cdft_control%ot_control%jacobian_step)) &
+            DEALLOCATE (cdft_control%ot_control%jacobian_step)
+         IF (ALLOCATED(cdft_control%constraint_control%jacobian_step)) &
+            DEALLOCATE (cdft_control%constraint_control%jacobian_step)
          IF (ASSOCIATED(cdft_control%constraint_control%jacobian_vector)) &
             DEALLOCATE (cdft_control%constraint_control%jacobian_vector)
          IF (ASSOCIATED(cdft_control%constraint%variables)) &

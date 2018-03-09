@@ -112,10 +112,10 @@ MODULE scf_control_types
       LOGICAL       :: jacobian_restart
       INTEGER       :: max_scf
       REAL(KIND=dp) :: eps_scf, step_size, &
-                       jacobian_step, &
                        newton_step, &
                        newton_step_save, &
                        factor_ls
+      REAL(KIND=dp), DIMENSION(:), ALLOCATABLE :: jacobian_step
       REAL(KIND=dp), DIMENSION(:), POINTER :: jacobian_vector
       INTEGER       :: TYPE
       INTEGER       :: optimizer
@@ -296,7 +296,6 @@ CONTAINS
       scf_control%outer_scf%jacobian_type = -1
       scf_control%outer_scf%broyden_type = -1
       scf_control%outer_scf%jacobian_freq = 1
-      scf_control%outer_scf%jacobian_step = 0.0_dp
       scf_control%outer_scf%newton_step = 1.0_dp
       scf_control%outer_scf%newton_step_save = 1.0_dp
       scf_control%outer_scf%factor_ls = 0.5_dp
@@ -553,7 +552,9 @@ CONTAINS
          CALL section_vals_val_get(outer_scf_section, "JACOBIAN_TYPE", &
                                    i_val=scf_control%outer_scf%jacobian_type)
          CALL section_vals_val_get(outer_scf_section, "JACOBIAN_STEP", &
-                                   r_val=scf_control%outer_scf%jacobian_step)
+                                   r_vals=rtmplist)
+         ALLOCATE(scf_control%outer_scf%jacobian_step(SIZE(rtmplist)))
+         scf_control%outer_scf%jacobian_step(:) = rtmplist
          CALL section_vals_val_get(outer_scf_section, "BROYDEN_TYPE", &
                                    i_val=scf_control%outer_scf%broyden_type)
          CALL section_vals_val_get(outer_scf_section, "CONTINUE_LS", &

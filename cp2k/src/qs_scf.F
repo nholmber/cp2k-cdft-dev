@@ -1188,8 +1188,8 @@ CONTAINS
       LOGICAL                                            :: converged, explicit_jacobian, &
                                                             should_build, should_stop, &
                                                             use_md_history
-      REAL(KIND=dp)                                      :: dh, inv_error
-      REAL(KIND=dp), ALLOCATABLE, DIMENSION(:)           :: coeff, step_multiplier
+      REAL(KIND=dp)                                      :: inv_error, step_size
+      REAL(KIND=dp), ALLOCATABLE, DIMENSION(:)           :: coeff, dh, step_multiplier
       REAL(KIND=dp), ALLOCATABLE, DIMENSION(:, :)        :: jacobian
       REAL(KIND=dp), DIMENSION(:), POINTER               :: energy
       REAL(KIND=dp), DIMENSION(:, :), POINTER            :: gradient, inv_jacobian
@@ -1286,10 +1286,14 @@ CONTAINS
                         " ###  Energy evaluation ", counter, " of ", twork, " ###"
                      WRITE (output_unit, FMT="(A)") " #####################################"
                   END IF
+                  IF (SIZE(scf_control%outer_scf%jacobian_step) == 1) THEN
+                     step_size = scf_control%outer_scf%jacobian_step(1)
+                  ELSE
+                     step_size = scf_control%outer_scf%jacobian_step(i)
+                  END IF
                   scf_env%outer_scf%variables(:, iter_count+1) = scf_env%outer_scf%variables(:, iter_count)
                   scf_env%outer_scf%variables(i, iter_count+1) = scf_env%outer_scf%variables(i, iter_count)+ &
-                                                                 step_multiplier(iwork)* &
-                                                                 scf_control%outer_scf%jacobian_step
+                                                                 step_multiplier(iwork)*step_size
                   CALL outer_loop_update_qs_env(qs_env, scf_env)
                   CALL qs_ks_did_change(ks_env, potential_changed=.TRUE.)
                   CALL outer_loop_switch(scf_env, scf_control, cdft_control, cdft2ot)
@@ -1327,7 +1331,7 @@ CONTAINS
             ! Finalize and invert Jacobian
             DO j = 1, nvar
                DO i = 1, nvar
-                  jacobian(i, j) = jacobian(i, j)/dh
+                  jacobian(i, j) = jacobian(i, j)/dh(j)
                END DO
             END DO
             IF (.NOT. ASSOCIATED(scf_env%outer_scf%inv_jacobian)) &

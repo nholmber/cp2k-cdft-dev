@@ -5457,8 +5457,9 @@ CONTAINS
       CALL keyword_release(keyword)
 
       CALL keyword_create(keyword, name="JACOBIAN_STEP", &
-                          description="Step size to use in the calculation of the inverse Jacobian with finite differences.", &
-                          usage="JACOBIAN_STEP 5.0E-3 ", default_r_val=5.0E-3_dp)
+                          description="Step size to use in the calculation of the inverse Jacobian with finite differences. "// &
+                                      "Expects one value in total or one value per constraint.", &
+                          usage="JACOBIAN_STEP 5.0E-3 ", n_var=-1, default_r_val=5.0E-3_dp)
       CALL section_add_keyword(section, keyword)
       CALL keyword_release(keyword)
 

@@ -363,7 +363,9 @@ CONTAINS
             dft_control%qs_control%cdft_control%ot_control%diis_buffer_length = scf_control%outer_scf%diis_buffer_length
             dft_control%qs_control%cdft_control%ot_control%jacobian_type = scf_control%outer_scf%jacobian_type
             dft_control%qs_control%cdft_control%ot_control%bisect_trust_count = scf_control%outer_scf%bisect_trust_count
-            dft_control%qs_control%cdft_control%ot_control%jacobian_step = scf_control%outer_scf%jacobian_step
+            IF (.NOT. ALLOCATED(dft_control%qs_control%cdft_control%ot_control%jacobian_step))&
+               ALLOCATE(dft_control%qs_control%cdft_control%ot_control%jacobian_step(SIZE(scf_control%outer_scf%jacobian_step)))
+            dft_control%qs_control%cdft_control%ot_control%jacobian_step(:) = scf_control%outer_scf%jacobian_step
             dft_control%qs_control%cdft_control%ot_control%newton_step = scf_control%outer_scf%newton_step
             dft_control%qs_control%cdft_control%ot_control%newton_step_save = scf_control%outer_scf%newton_step_save
             dft_control%qs_control%cdft_control%ot_control%jacobian_freq = scf_control%outer_scf%jacobian_freq

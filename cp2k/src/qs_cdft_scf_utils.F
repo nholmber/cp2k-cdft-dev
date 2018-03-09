@@ -62,12 +62,13 @@ CONTAINS
                                        coeff, step_multiplier, dh)
       TYPE(qs_environment_type), POINTER                 :: qs_env
       INTEGER                                            :: output_unit, nwork, pwork
-      REAL(KIND=dp), ALLOCATABLE, DIMENSION(:)           :: coeff, step_multiplier
-      REAL(KIND=dp)                                      :: dh
+      REAL(KIND=dp), ALLOCATABLE, DIMENSION(:)           :: dh, coeff, step_multiplier
 
       CHARACTER(LEN=*), PARAMETER :: routineN = 'prepare_jacobian_stencil', &
          routineP = moduleN//':'//routineN
 
+      INTEGER                                            :: ivar
+      CHARACTER(len=15)                                  :: fmt_code
       TYPE(dft_control_type), POINTER                    :: dft_control
       TYPE(qs_scf_env_type), POINTER                     :: scf_env
       TYPE(scf_control_type), POINTER                    :: scf_control
@@ -78,6 +79,22 @@ CONTAINS
       CALL get_qs_env(qs_env, scf_env=scf_env, &
                       scf_control=scf_control, &
                       dft_control=dft_control)
+
+      IF (SIZE(scf_control%outer_scf%jacobian_step) /= 1 .AND. &
+          SIZE(scf_control%outer_scf%jacobian_step) /= SIZE(scf_env%outer_scf%variables, 1)) &
+         CALL cp_abort(__LOCATION__, &
+                       cp_to_string(SIZE(scf_control%outer_scf%jacobian_step))// &
+                       " values passed to keyword JACOBIAN_STEP, expected 1 or "// &
+                       cp_to_string(SIZE(scf_env%outer_scf%variables, 1)))
+
+      ALLOCATE(dh(SIZE(scf_env%outer_scf%variables, 1)))
+      IF (SIZE(dh) /= SIZE(scf_control%outer_scf%jacobian_step)) THEN
+         DO ivar = 1, SIZE(dh)
+            dh(ivar) = scf_control%outer_scf%jacobian_step(1)
+         END DO
+      ELSE
+         dh(:) = scf_control%outer_scf%jacobian_step
+      END IF
 
       SELECT CASE (scf_control%outer_scf%jacobian_type)
       CASE DEFAULT
@@ -92,7 +109,6 @@ CONTAINS
          coeff(nwork) = -1.0_dp
          coeff(pwork) = 1.0_dp
          step_multiplier = 1.0_dp
-         dh = scf_control%outer_scf%jacobian_step
       CASE (jacobian_fd1_backward)
          ! f'(x0) = [ f(x0) - f(x0-h) ] / h
          nwork = -1
@@ -101,7 +117,6 @@ CONTAINS
          coeff(nwork) = -1.0_dp
          coeff(pwork) = 1.0_dp
          step_multiplier = -1.0_dp
-         dh = scf_control%outer_scf%jacobian_step
       CASE (jacobian_fd2)
          ! f'(x0) = [ -f(x0+2h) + 4f(x0+h) - 3f(x0) ] / 2h
          nwork = 0
@@ -113,7 +128,7 @@ CONTAINS
          step_multiplier(0) = 0.0_dp
          step_multiplier(1) = 1.0_dp
          step_multiplier(2) = 2.0_dp
-         dh = 2.0_dp*scf_control%outer_scf%jacobian_step
+         dh(:) = 2.0_dp*dh(:)
       CASE (jacobian_fd2_backward)
          ! f'(x0) = [ 3f(x0) - 4f(x0-h) + f(x0-2h) ] / 2h
          nwork = -2
@@ -125,7 +140,7 @@ CONTAINS
          step_multiplier(0) = 0.0_dp
          step_multiplier(-1) = -1.0_dp
          step_multiplier(-2) = -2.0_dp
-         dh = 2.0_dp*scf_control%outer_scf%jacobian_step
+         dh(:) = 2.0_dp*dh(:)
       CASE (jacobian_fd1_central)
          ! f'(x0) = [ f(x0+h) - f(x0-h) ] / 2h
          nwork = -1
@@ -137,7 +152,7 @@ CONTAINS
          step_multiplier(0) = 0.0_dp
          step_multiplier(nwork) = -1.0_dp
          step_multiplier(pwork) = 1.0_dp
-         dh = 2.0_dp*scf_control%outer_scf%jacobian_step
+         dh(:) = 2.0_dp*dh(:)
       END SELECT
       ! Print some info
       IF (output_unit > 0) THEN
@@ -163,7 +178,20 @@ CONTAINS
             CALL cp_abort(__LOCATION__, "Unknown Jacobian type: "// &
                           cp_to_string(scf_control%outer_scf%jacobian_type))
          END SELECT
-         WRITE (output_unit, '(A,ES12.4)') " Step size          : ", scf_control%outer_scf%jacobian_step
+         IF (SIZE(scf_control%outer_scf%jacobian_step) == 1) THEN
+            WRITE (output_unit, '(A,ES12.4)') " Step size          : ", scf_control%outer_scf%jacobian_step
+         ELSE
+            WRITE (output_unit, '(A,ES12.4,A)') &
+               " Step sizes         : ", scf_control%outer_scf%jacobian_step(1), ' (constraint 1)'
+            IF (SIZE(scf_control%outer_scf%jacobian_step) < 10) THEN
+               fmt_code = '(ES34.4,A,I2,A)'
+            ELSE
+               fmt_code = '(ES34.4,A,I3,A)'
+            END IF
+            DO ivar = 2, SIZE(scf_control%outer_scf%jacobian_step)
+               WRITE (output_unit, fmt_code) scf_control%outer_scf%jacobian_step(ivar), " (constraint",  ivar, ")"
+            END DO
+         END IF
       END IF
 
    END SUBROUTINE prepare_jacobian_stencil

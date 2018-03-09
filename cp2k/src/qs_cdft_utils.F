@@ -808,7 +808,9 @@ CONTAINS
             CALL section_vals_val_get(outer_scf_section, "JACOBIAN_TYPE", &
                                       i_val=qs_control%cdft_control%constraint_control%jacobian_type)
             CALL section_vals_val_get(outer_scf_section, "JACOBIAN_STEP", &
-                                      r_val=qs_control%cdft_control%constraint_control%jacobian_step)
+                                      r_vals=rtmplist)
+            ALLOCATE(qs_control%cdft_control%constraint_control%jacobian_step(SIZE(rtmplist)))
+            qs_control%cdft_control%constraint_control%jacobian_step(:) = rtmplist
             CALL section_vals_val_get(outer_scf_section, "BROYDEN_TYPE", &
                                       i_val=qs_control%cdft_control%constraint_control%broyden_type)
             IF (exists) THEN
