@@ -80,8 +80,7 @@ MODULE qs_scf
         broyden_type_2, broyden_type_2_explicit, broyden_type_2_explicit_ls, broyden_type_2_ls, &
         cdft2ot, history_guess, ot2cdft, ot_precond_full_all, ot_precond_full_single, &
         ot_precond_full_single_inverse, ot_precond_none, ot_precond_s_inverse, &
-        outer_scf_hirshfeld_constraint, outer_scf_optimizer_broyden, outer_scf_optimizer_newton, &
-        outer_scf_optimizer_newton_ls
+        outer_scf_hirshfeld_constraint, outer_scf_optimizer_broyden, outer_scf_optimizer_newton_ls
    USE input_section_types,             ONLY: section_vals_get_subs_vals,&
                                               section_vals_type
    USE kinds,                           ONLY: default_path_length,&
@@ -103,6 +102,7 @@ MODULE qs_scf
    USE qs_block_davidson_types,         ONLY: block_davidson_deallocate
    USE qs_cdft_scf_utils,               ONLY: build_diagonal_jacobian,&
                                               create_tmp_logger,&
+                                              initialize_inverse_jacobian,&
                                               prepare_jacobian_stencil,&
                                               print_inverse_jacobian,&
                                               restart_inverse_jacobian
@@ -1222,42 +1222,8 @@ CONTAINS
       should_build = .FALSE.
       use_md_history = .FALSE.
       iter_count = scf_env%outer_scf%iter_count
-      SELECT CASE (scf_control%outer_scf%optimizer)
-      CASE DEFAULT
-         scf_control%outer_scf%build_jacobian = .FALSE.
-      CASE (outer_scf_optimizer_newton, outer_scf_optimizer_newton_ls)
-         scf_control%outer_scf%build_jacobian = .TRUE.
-         explicit_jacobian = .TRUE.
-      CASE (outer_scf_optimizer_broyden)
-         SELECT CASE (scf_control%outer_scf%broyden_type)
-         CASE (broyden_type_1, broyden_type_2, broyden_type_1_ls, broyden_type_2_ls)
-            scf_control%outer_scf%build_jacobian = .TRUE.
-            explicit_jacobian = .FALSE.
-         CASE (broyden_type_1_explicit, broyden_type_2_explicit, broyden_type_1_explicit_ls, broyden_type_2_explicit_ls)
-            scf_control%outer_scf%build_jacobian = .TRUE.
-            explicit_jacobian = .TRUE.
-         END SELECT
-      END SELECT
-      IF (scf_control%outer_scf%build_jacobian) THEN
-         ! Check if an old Jacobian can be reused avoiding a rebuild
-         IF (ASSOCIATED(scf_env%outer_scf%inv_jacobian)) THEN
-            ! Rebuild if number of previous energy evaluations exceeds limit
-            IF (scf_control%outer_scf%ijacobian .GE. scf_control%outer_scf%jacobian_freq(2) &
-                .AND. .NOT. used_history) THEN
-               should_build = .TRUE.
-               ! Zero the corresponding counter
-               scf_control%outer_scf%ijacobian = 0
-               ! Rebuild if number of previous SCF iterations exceeds limit (on this energy eval)
-            ELSE IF (MODULO(iter_count, scf_control%outer_scf%jacobian_freq(1)) == 0) THEN
-               should_build = .TRUE.
-            END IF
-            IF (should_build) DEALLOCATE (scf_env%outer_scf%inv_jacobian)
-         ELSE
-            should_build = .TRUE.
-            ! Zero the counter
-            scf_control%outer_scf%ijacobian = 0
-         END IF
-      END IF
+      ! Check if Jacobian should be calculated and initialize
+      CALL initialize_inverse_jacobian(scf_control, scf_env, explicit_jacobian, should_build, used_history)
       IF (scf_control%outer_scf%jacobian_restart) THEN
          ! Restart from previously calculated inverse Jacobian
          should_build = .FALSE.

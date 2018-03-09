@@ -18,11 +18,12 @@ MODULE qs_cdft_scf_utils
                                               cp_logger_type,&
                                               cp_to_string
    USE cp_para_types,                   ONLY: cp_para_env_type
-   USE input_constants,                 ONLY: jacobian_fd1,&
-                                              jacobian_fd1_backward,&
-                                              jacobian_fd1_central,&
-                                              jacobian_fd2,&
-                                              jacobian_fd2_backward
+   USE input_constants,                 ONLY: &
+        broyden_type_1, broyden_type_1_explicit, broyden_type_1_explicit_ls, broyden_type_1_ls, &
+        broyden_type_2, broyden_type_2_explicit, broyden_type_2_explicit_ls, broyden_type_2_ls, &
+        jacobian_fd1, jacobian_fd1_backward, jacobian_fd1_central, jacobian_fd2, &
+        jacobian_fd2_backward, outer_scf_optimizer_broyden, outer_scf_optimizer_newton, &
+        outer_scf_optimizer_newton_ls
    USE kinds,                           ONLY: default_path_length,&
                                               dp
    USE mathlib,                         ONLY: invert_matrix
@@ -40,7 +41,7 @@ MODULE qs_cdft_scf_utils
 
    PUBLIC :: prepare_jacobian_stencil, build_diagonal_jacobian, &
              restart_inverse_jacobian, print_inverse_jacobian, &
-             create_tmp_logger
+             create_tmp_logger, initialize_inverse_jacobian
 
 CONTAINS
 
@@ -366,5 +367,67 @@ CONTAINS
                             close_global_unit_on_dealloc=.FALSE.)
 
    END SUBROUTINE create_tmp_logger
+
+! **************************************************************************************************
+!> \brief Checks if the inverse Jacobian should be calculated and initializes the calculation
+!> \param scf_control         the scf_control that holds the Jacobian settings
+!> \param scf_env             the scf_env that holds the CDFT iteration information
+!> \param explicit_jacobian   flag that determines if the finite difference Jacobian is needed
+!> \param should_build        flag that determines if the Jacobian should be built
+!> \param used_history        flag that determines if SCF history has been used to build a Jacobian
+!> \par History
+!>      03.2018 created [Nico Holmberg]
+! **************************************************************************************************
+   SUBROUTINE initialize_inverse_jacobian(scf_control, scf_env, explicit_jacobian, &
+                                          should_build, used_history)
+      TYPE(scf_control_type), POINTER                    :: scf_control
+      TYPE(qs_scf_env_type), POINTER                     :: scf_env
+      LOGICAL                                            :: explicit_jacobian, should_build, &
+                                                            used_history
+
+      CHARACTER(LEN=*), PARAMETER :: routineN = 'initialize_inverse_jacobian', &
+         routineP = moduleN//':'//routineN
+
+      CPASSERT(ASSOCIATED(scf_control))
+      CPASSERT(ASSOCIATED(scf_env))
+
+      SELECT CASE (scf_control%outer_scf%optimizer)
+      CASE DEFAULT
+         scf_control%outer_scf%build_jacobian = .FALSE.
+      CASE (outer_scf_optimizer_newton, outer_scf_optimizer_newton_ls)
+         scf_control%outer_scf%build_jacobian = .TRUE.
+         explicit_jacobian = .TRUE.
+      CASE (outer_scf_optimizer_broyden)
+         SELECT CASE (scf_control%outer_scf%broyden_type)
+         CASE (broyden_type_1, broyden_type_2, broyden_type_1_ls, broyden_type_2_ls)
+            scf_control%outer_scf%build_jacobian = .TRUE.
+            explicit_jacobian = .FALSE.
+         CASE (broyden_type_1_explicit, broyden_type_2_explicit, broyden_type_1_explicit_ls, broyden_type_2_explicit_ls)
+            scf_control%outer_scf%build_jacobian = .TRUE.
+            explicit_jacobian = .TRUE.
+         END SELECT
+      END SELECT
+      IF (scf_control%outer_scf%build_jacobian) THEN
+         ! Check if an old Jacobian can be reused avoiding a rebuild
+         IF (ASSOCIATED(scf_env%outer_scf%inv_jacobian)) THEN
+            ! Rebuild if number of previous energy evaluations exceeds limit
+            IF (scf_control%outer_scf%ijacobian .GE. scf_control%outer_scf%jacobian_freq(2) &
+                .AND. .NOT. used_history) THEN
+               should_build = .TRUE.
+               ! Zero the corresponding counter
+               scf_control%outer_scf%ijacobian = 0
+               ! Rebuild if number of previous SCF iterations exceeds limit (on this energy eval)
+            ELSE IF (MODULO(scf_env%outer_scf%iter_count, scf_control%outer_scf%jacobian_freq(1)) == 0) THEN
+               should_build = .TRUE.
+            END IF
+            IF (should_build) DEALLOCATE (scf_env%outer_scf%inv_jacobian)
+         ELSE
+            should_build = .TRUE.
+            ! Zero the counter
+            scf_control%outer_scf%ijacobian = 0
+         END IF
+      END IF
+
+   END SUBROUTINE initialize_inverse_jacobian
 
 END MODULE qs_cdft_scf_utils
