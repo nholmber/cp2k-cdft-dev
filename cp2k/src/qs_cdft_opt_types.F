@@ -116,7 +116,7 @@ CONTAINS
       cdft_opt_control%broyden_update = .FALSE.
       cdft_opt_control%continue_ls = .FALSE.
       cdft_opt_control%jacobian_restart = .FALSE.
-      NULLIFY (cdft_opt_control%outer_scf%jacobian_vector)
+      NULLIFY (cdft_opt_control%jacobian_vector)
 
       CALL timestop(handle)
 
@@ -224,15 +224,14 @@ CONTAINS
 
 ! **************************************************************************************************
 !> \brief writes information about the CDFT optimizer object
-!> \param scf_control the object that holds the CDFT optimizer object
+!> \param optimizer the type of optimizer to use
 !> \param output_unit the output unit handle
 !> \par History
 !>      03.2018 created [Nico Holmberg]
 !> \author Nico Holmberg
 ! **************************************************************************************************
-   SUBROUTINE cdft_opt_type_write(scf_control, output_unit)
-      TYPE(scf_control_type), POINTER                    :: scf_control
-      INTEGER                                            :: output_unit
+   SUBROUTINE cdft_opt_type_write(optimizer, output_unit)
+      INTEGER                                            :: optimizer, output_unit
 
       CHARACTER(LEN=*), PARAMETER :: routineN = 'cdft_opt_type_write', &
          routineP = moduleN//':'//routineN
@@ -242,7 +241,7 @@ CONTAINS
       cdft_opt_control => scf_control%outer_scf%cdft_opt_control
       CPASSERT(ASSOCIATED(cdft_opt_control))
 
-      SELECT CASE (scf_control%outer_scf%optimizer)
+      SELECT CASE (optimizer)
       CASE DEFAULT
          ! Do nothing
       CASE (outer_scf_optimizer_broyden)
@@ -276,7 +275,7 @@ CONTAINS
       CASE (outer_scf_optimizer_newton_ls)
          WRITE (output_unit, '(T25,A)') "Optimization with Newton's method using backtracking line search"
       END SELECT
-      SELECT CASE (scf_control%outer_scf%optimizer)
+      SELECT CASE (optimizer)
       CASE DEFAULT
          ! Do nothing
       CASE (outer_scf_optimizer_broyden, outer_scf_optimizer_newton, outer_scf_optimizer_newton_ls)
