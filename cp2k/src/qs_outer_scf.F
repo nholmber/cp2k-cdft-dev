@@ -326,7 +326,7 @@ CONTAINS
                   ! Cannot perform a Broyden update without enough SCF history on this energy evaluation
                   scf_control%outer_scf%cdft_opt_control%broyden_update = .FALSE.
                END IF
-               IF (scf_control%outer_scf%broyden_update) THEN
+               IF (scf_control%outer_scf%cdft_opt_control%broyden_update) THEN
                   ! Perform a Broyden update of the inverse Jacobian J^(-1)
                   IF (SIZE(scf_env%outer_scf%gradient, 2) .LT. 3) &
                      CALL cp_abort(__LOCATION__, &
@@ -358,7 +358,7 @@ CONTAINS
                   CASE DEFAULT
                      CALL cp_abort(__LOCATION__, &
                                    "Unknown Broyden type: "// &
-                                   cp_to_string(scf_control%outer_scf%broyden_type))
+                                   cp_to_string(scf_control%outer_scf%cdft_opt_control%broyden_type))
                   END SELECT
                   ! Clean up
                   DEALLOCATE (f, x)
