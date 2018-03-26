@@ -58,6 +58,7 @@ MODULE qs_scf_initialization
    USE qmmm_image_charge,               ONLY: conditional_calc_image_matrix
    USE qs_block_davidson_types,         ONLY: block_davidson_allocate,&
                                               block_davidson_env_create
+   USE qs_cdft_opt_types,               ONLY: cdft_opt_type_copy
    USE qs_density_mixing_types,         ONLY: direct_mixing_nr,&
                                               mixing_storage_create,&
                                               mixing_storage_release,&
