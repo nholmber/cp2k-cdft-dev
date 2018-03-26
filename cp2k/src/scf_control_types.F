@@ -788,7 +788,8 @@ CONTAINS
                      scf_control%outer_scf%diis_buffer_length
                CASE (outer_scf_optimizer_broyden, outer_scf_optimizer_newton, &
                      outer_scf_optimizer_newton_ls)
-                  CALL cdft_opt_type_write(scf_control%outer_scf%optimizer, output_unit)
+                  CALL cdft_opt_type_write(scf_control%outer_scf%cdft_opt_control, &
+                                           scf_control%outer_scf%optimizer, output_unit)
                CASE (outer_scf_optimizer_secant)
                   WRITE (output_unit, '(T25,A)') "Optimization with the secant method"
                CASE DEFAULT

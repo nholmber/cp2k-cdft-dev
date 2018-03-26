@@ -224,21 +224,20 @@ CONTAINS
 
 ! **************************************************************************************************
 !> \brief writes information about the CDFT optimizer object
+!> \param cdft_opt_control the CDFT optimizer object
 !> \param optimizer the type of optimizer to use
 !> \param output_unit the output unit handle
 !> \par History
 !>      03.2018 created [Nico Holmberg]
 !> \author Nico Holmberg
 ! **************************************************************************************************
-   SUBROUTINE cdft_opt_type_write(optimizer, output_unit)
+   SUBROUTINE cdft_opt_type_write(cdft_opt_control, optimizer, output_unit)
+      TYPE(cdft_opt_type), POINTER                       :: cdft_opt_control
       INTEGER                                            :: optimizer, output_unit
 
       CHARACTER(LEN=*), PARAMETER :: routineN = 'cdft_opt_type_write', &
          routineP = moduleN//':'//routineN
 
-      TYPE(cdft_opt_type), POINTER                       :: cdft_opt_control
-
-      cdft_opt_control => scf_control%outer_scf%cdft_opt_control
       CPASSERT(ASSOCIATED(cdft_opt_control))
 
       SELECT CASE (optimizer)

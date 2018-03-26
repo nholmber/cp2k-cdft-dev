@@ -760,7 +760,8 @@ CONTAINS
                cdft_control%constraint_control%bisect_trust_count
          CASE (outer_scf_optimizer_broyden, outer_scf_optimizer_newton, &
                outer_scf_optimizer_newton_ls)
-            CALL cdft_opt_type_write(cdft_control%constraint_control%optimizer, output_unit)
+            CALL cdft_opt_type_write(cdft_control%constraint_control%cdft_opt_control, &
+                                     cdft_control%constraint_control%optimizer, output_unit)
          CASE (outer_scf_optimizer_secant)
             WRITE (output_unit, '(A)') "  Minimizer               : Secant"
          CASE DEFAULT
