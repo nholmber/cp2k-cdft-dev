@@ -1627,7 +1627,7 @@ CONTAINS
          IF (.NOT. should_exit) THEN
             CALL cp_warn(__LOCATION__, &
                          "Line search did not converge. CDFT SCF proceeds with fixed step size.")
-            scf_control%outer_scf%cdft_opt_control%newton_step = scf_control%outer_scf%newton_step_save
+            scf_control%outer_scf%cdft_opt_control%newton_step = scf_control%outer_scf%%cdft_opt_control%newton_step_save
          END IF
          IF (reached_maxls) &
             CALL cp_warn(__LOCATION__, &
