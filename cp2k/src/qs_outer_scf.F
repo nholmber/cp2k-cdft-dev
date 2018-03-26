@@ -28,7 +28,8 @@ MODULE qs_outer_scf
    USE qs_basis_gradient,               ONLY: qs_basis_center_gradient,&
                                               qs_update_basis_center_pos,&
                                               return_basis_center_gradient_norm
-   USE qs_cdft_opt_types,               ONLY: cdft_opt_type_copy
+   USE qs_cdft_opt_types,               ONLY: cdft_opt_type_copy,&
+                                              cdft_opt_type_release
    USE qs_cdft_types,                   ONLY: becke_constraint_type,&
                                               cdft_control_type
    USE qs_energy_types,                 ONLY: qs_energy_type
