@@ -583,6 +583,7 @@ CONTAINS
                scf_control%outer_scf%cdft_opt_control%newton_step
             cdft_control%constraint_control%cdft_opt_control%ijacobian = &
                scf_control%outer_scf%cdft_opt_control%ijacobian
+            CALL cdft_opt_type_release(scf_control%outer_scf%cdft_opt_control)
          END IF
          ! Now switch
          scf_control%outer_scf%have_scf = cdft_control%ot_control%have_scf
@@ -593,8 +594,8 @@ CONTAINS
          scf_control%outer_scf%optimizer = cdft_control%ot_control%optimizer
          scf_control%outer_scf%diis_buffer_length = cdft_control%ot_control%diis_buffer_length
          scf_control%outer_scf%bisect_trust_count = cdft_control%ot_control%bisect_trust_count
-         CALL cdft_opt_type_copy(scf_control%outer_scf%cdft_opt_control, &
-                                 cdft_control%ot_control%cdft_opt_control)
+         !CALL cdft_opt_type_copy(scf_control%outer_scf%cdft_opt_control, &
+         !                        cdft_control%ot_control%cdft_opt_control)
          ! Switch data in scf_env: first save current values for constraint
          cdft_control%constraint%iter_count = scf_env%outer_scf%iter_count
          cdft_control%constraint%energy = scf_env%outer_scf%energy
