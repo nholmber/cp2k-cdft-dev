@@ -5353,7 +5353,8 @@ CONTAINS
       CHARACTER(len=*), PARAMETER :: routineN = 'create_outer_scf_section', &
          routineP = moduleN//':'//routineN
 
-      TYPE(keyword_type), POINTER                        :: keyword, subsection
+      TYPE(keyword_type), POINTER                        :: keyword
+      TYPE(section_type), POINTER                        :: subsection
 
       CPASSERT(.NOT. ASSOCIATED(section))
       CALL section_create(section, "OUTER_SCF", &
