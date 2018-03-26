@@ -51,6 +51,8 @@ MODULE qs_cdft_utils
                                               pw_pool_type
    USE pw_types,                        ONLY: REALDATA3D,&
                                               REALSPACE
+   USE qs_cdft_opt_types,               ONLY: cdft_opt_type_create,&
+                                              cdft_opt_type_read
    USE qs_cdft_types,                   ONLY: becke_constraint_type,&
                                               becke_group_type
    USE qs_collocate_density,            ONLY: collocate_pgf_product_rspace
