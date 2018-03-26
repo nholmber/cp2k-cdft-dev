@@ -1206,7 +1206,6 @@ CONTAINS
       TYPE(qs_scf_env_type), POINTER                     :: scf_env
       TYPE(scf_control_type), POINTER                    :: scf_control
 
-      CALL timeset(routineN, handle)
 
       NULLIFY (energy, gradient, p_rmpv, rho_ao_kp, mos, rho, mos_stashed, &
                ks_env, scf_env, scf_control, dft_control, cdft_control, &
@@ -1222,8 +1221,10 @@ CONTAINS
       should_build = .FALSE.
       use_md_history = .FALSE.
       iter_count = scf_env%outer_scf%iter_count
-      ! Check if Jacobian should be calculated and initialize
+      ! Quick exit if optimizer does not require Jacobian
       IF (.NOT. ASSOCIATED(scf_control%outer_scf%cdft_opt_control)) RETURN
+      ! Check if Jacobian should be calculated and initialize
+      CALL timeset(routineN, handle)
       CALL initialize_inverse_jacobian(scf_control, scf_env, explicit_jacobian, should_build, used_history)
       IF (scf_control%outer_scf%cdft_opt_control%jacobian_restart) THEN
          ! Restart from previously calculated inverse Jacobian
