@@ -54,6 +54,7 @@ MODULE qs_scf_output
                                               mo_set_p_type
    USE qs_rho_types,                    ONLY: qs_rho_get,&
                                               qs_rho_type
+   USE qs_cdft_opt_types,               ONLY: cdft_opt_type_write
    USE qs_scf_types,                    ONLY: qs_scf_env_type,&
                                               special_diag_method_nr
    USE scf_control_types,               ONLY: scf_control_type
@@ -759,60 +760,9 @@ CONTAINS
             WRITE (output_unit, '(A,I3)') &
                "                                                  using a trust count of", &
                cdft_control%constraint_control%bisect_trust_count
-         CASE (outer_scf_optimizer_broyden)
-            WRITE (output_unit, '(A)') "  Minimizer               : Broyden"
-            SELECT CASE (cdft_control%constraint_control%broyden_type)
-            CASE (broyden_type_1)
-               WRITE (output_unit, '(A)') "                  variant : 1st method"
-            CASE (broyden_type_1_explicit)
-               WRITE (output_unit, '(A)') "                  variant : 1st method with explicit initial Jacobian"
-            CASE (broyden_type_1_ls)
-               WRITE (output_unit, '(A)') "                  variant : 1st method with backtracking line search"
-            CASE (broyden_type_1_explicit_ls)
-               WRITE (output_unit, '(A)') &
-                  "                  variant : 1st method with explicit initial Jacobian"
-               WRITE (output_unit, '(A)') &
-                  "                            and backtracking line search"
-            CASE (broyden_type_2)
-               WRITE (output_unit, '(A)') "                  variant : 2nd method"
-            CASE (broyden_type_2_explicit)
-               WRITE (output_unit, '(A)') "                  variant : 2nd method with explicit initial Jacobian"
-            CASE (broyden_type_2_ls)
-               WRITE (output_unit, '(A)') "                  variant : 2nd method with backtracking line search"
-            CASE (broyden_type_2_explicit_ls)
-               WRITE (output_unit, '(A)') &
-                  "                  variant : 2nd method with explicit initial Jacobian"
-               WRITE (output_unit, '(A)') &
-                  "                            and backtracking line search"
-            END SELECT
-            WRITE (output_unit, '(A,I4,A)') &
-               "  The Jacobian is restarted every ", &
-               cdft_control%constraint_control%jacobian_freq(2), " energy evaluation"
-            WRITE (output_unit, '(A,I4,A)') &
-               "  or if the number of SCF iterations exceeds ", &
-               cdft_control%constraint_control%jacobian_freq(1)
-            WRITE (output_unit, '(A,F8.4)') &
-               "  Optimizer step size     : ", cdft_control%constraint_control%newton_step_save
-         CASE (outer_scf_optimizer_newton)
-            WRITE (output_unit, '(A)') "  Minimizer               : Newton"
-            WRITE (output_unit, '(A,I4,A)') &
-               "  The Jacobian is restarted every ", &
-               cdft_control%constraint_control%jacobian_freq(2), " energy evaluation"
-            WRITE (output_unit, '(A,I4,A)') &
-               "  or if the number of SCF iterations exceeds ", &
-               cdft_control%constraint_control%jacobian_freq(1)
-            WRITE (output_unit, '(A,F8.4)') &
-               "  Optimizer step size     : ", cdft_control%constraint_control%newton_step_save
-         CASE (outer_scf_optimizer_newton_ls)
-            WRITE (output_unit, '(A)') "  Minimizer               : Newton with backtracking line search"
-            WRITE (output_unit, '(A,I4,A)') &
-               "  The Jacobian is restarted every ", &
-               cdft_control%constraint_control%jacobian_freq(2), " energy evaluation"
-            WRITE (output_unit, '(A,I4,A)') &
-               "  or if the number of SCF iterations exceeds ", &
-               cdft_control%constraint_control%jacobian_freq(1)
-            WRITE (output_unit, '(A,F8.4)') &
-               "  Optimizer step size     : ", cdft_control%constraint_control%newton_step_save
+         CASE (outer_scf_optimizer_broyden, outer_scf_optimizer_newton, &
+               outer_scf_optimizer_newton_ls)
+            CALL cdft_opt_type_write(cdft_control%constraint_control, output_unit)
          CASE (outer_scf_optimizer_secant)
             WRITE (output_unit, '(A)') "  Minimizer               : Secant"
          CASE DEFAULT

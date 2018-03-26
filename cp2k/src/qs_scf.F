@@ -252,8 +252,8 @@ CONTAINS
             IF (used_history) used_history = .FALSE.
             ! Update a counter and check if the Jacobian should be deallocated
             IF (ASSOCIATED(scf_env%outer_scf%inv_jacobian)) THEN
-               scf_control%outer_scf%ijacobian = scf_control%outer_scf%ijacobian+1
-               IF (scf_control%outer_scf%ijacobian .GE. scf_control%outer_scf%jacobian_freq(2)) &
+               scf_control%outer_scf%cdft_opt_control%ijacobian = scf_control%outer_scf%cdft_opt_control%ijacobian+1
+               IF (scf_control%outer_scf%cdft_opt_control%ijacobian .GE. scf_control%outer_scf%cdft_opt_control%jacobian_freq(2)) &
                   scf_env%outer_scf%deallocate_jacobian = .TRUE.
             END IF
          END IF
@@ -1224,7 +1224,7 @@ CONTAINS
       iter_count = scf_env%outer_scf%iter_count
       ! Check if Jacobian should be calculated and initialize
       CALL initialize_inverse_jacobian(scf_control, scf_env, explicit_jacobian, should_build, used_history)
-      IF (scf_control%outer_scf%jacobian_restart) THEN
+      IF (scf_control%outer_scf%cdft_opt_control%jacobian_restart) THEN
          ! Restart from previously calculated inverse Jacobian
          should_build = .FALSE.
          CALL restart_inverse_jacobian(qs_env)
@@ -1286,10 +1286,10 @@ CONTAINS
                         " ###  Energy evaluation ", counter, " of ", twork, " ###"
                      WRITE (output_unit, FMT="(A)") " #####################################"
                   END IF
-                  IF (SIZE(scf_control%outer_scf%jacobian_step) == 1) THEN
-                     step_size = scf_control%outer_scf%jacobian_step(1)
+                  IF (SIZE(scf_control%outer_scf%cdft_opt_control%jacobian_step) == 1) THEN
+                     step_size = scf_control%outer_scf%cdft_opt_control%jacobian_step(1)
                   ELSE
-                     step_size = scf_control%outer_scf%jacobian_step(i)
+                     step_size = scf_control%outer_scf%cdft_opt_control%jacobian_step(i)
                   END IF
                   scf_env%outer_scf%variables(:, iter_count+1) = scf_env%outer_scf%variables(:, iter_count)
                   scf_env%outer_scf%variables(i, iter_count+1) = scf_env%outer_scf%variables(i, iter_count)+ &
@@ -1338,7 +1338,7 @@ CONTAINS
                ALLOCATE (scf_env%outer_scf%inv_jacobian(nvar, nvar))
             inv_jacobian => scf_env%outer_scf%inv_jacobian
             CALL invert_matrix(jacobian, inv_jacobian, inv_error)
-            scf_control%outer_scf%broyden_update = .FALSE.
+            scf_control%outer_scf%cdft_opt_control%broyden_update = .FALSE.
             ! Release temporary storage
             DO ispin = 1, nspins
                CALL deallocate_mo_set(mos_stashed(ispin)%mo_set)
@@ -1420,7 +1420,7 @@ CONTAINS
       CASE (outer_scf_optimizer_newton_ls)
          do_linesearch = .TRUE.
       CASE (outer_scf_optimizer_broyden)
-         SELECT CASE (scf_control%outer_scf%broyden_type)
+         SELECT CASE (scf_control%outer_scf%cdft_opt_control%broyden_type)
          CASE (broyden_type_1, broyden_type_2, broyden_type_1_explicit, broyden_type_2_explicit)
             do_linesearch = .FALSE.
          CASE (broyden_type_1_ls, broyden_type_1_explicit_ls, broyden_type_2_ls, broyden_type_2_explicit_ls)
@@ -1440,7 +1440,8 @@ CONTAINS
                           "Optimizers that perform a line search can"// &
                           " only be used together with a valid CDFT constraint")
          CPASSERT(ASSOCIATED(scf_env%outer_scf%inv_jacobian))
-         alpha = scf_control%outer_scf%newton_step_save
+         CPASSERT(ASSOCIATED(scf_control%outer_scf%cdft_opt_control))
+         alpha = scf_control%outer_scf%cdft_opt_control%newton_step_save
          iter_count = scf_env%outer_scf%iter_count
          ! Redirect output from line search procedure to a new file by creating a temporary logger
          project_name = logger%iter_info%project_name
@@ -1457,9 +1458,9 @@ CONTAINS
          ! Allocate work
          nvar = SIZE(scf_env%outer_scf%variables, 1)
          max_scf = scf_control%outer_scf%max_scf+1
-         max_linesearch = scf_control%outer_scf%max_ls
-         continue_ls = scf_control%outer_scf%continue_ls
-         factor = scf_control%outer_scf%factor_ls
+         max_linesearch = scf_control%outer_scf%cdft_opt_control%max_ls
+         continue_ls = scf_control%outer_scf%cdft_opt_control%continue_ls
+         factor = scf_control%outer_scf%cdft_opt_control%factor_ls
          continue_ls_exit = .FALSE.
          found_solution = .FALSE.
          ALLOCATE (gradient(nvar, max_scf))
@@ -1468,11 +1469,11 @@ CONTAINS
          energy = scf_env%outer_scf%energy
          reached_maxls = .FALSE.
          ! Broyden optimizers: perform update of inv_jacobian if necessary
-         IF (scf_control%outer_scf%broyden_update) THEN
+         IF (scf_control%outer_scf%cdft_opt_control%broyden_update) THEN
             CALL outer_loop_optimize(scf_env, scf_control)
             ! Reset the variables and prevent a reupdate of inv_jacobian
             scf_env%outer_scf%variables(:, iter_count+1) = 0
-            scf_control%outer_scf%broyden_update = .FALSE.
+            scf_control%outer_scf%cdft_opt_control%broyden_update = .FALSE.
          END IF
          ! Print some info
          IF (output_unit > 0) THEN
@@ -1622,11 +1623,11 @@ CONTAINS
             CALL qs_rho_update_rho(rho, qs_env=qs_env)
             CALL qs_ks_did_change(qs_env%ks_env, rho_changed=.TRUE.)
          END DO
-         scf_control%outer_scf%newton_step = alpha
+         scf_control%outer_scf%cdft_opt_control%newton_step = alpha
          IF (.NOT. should_exit) THEN
             CALL cp_warn(__LOCATION__, &
                          "Line search did not converge. CDFT SCF proceeds with fixed step size.")
-            scf_control%outer_scf%newton_step = scf_control%outer_scf%newton_step_save
+            scf_control%outer_scf%cdft_opt_control%newton_step = scf_control%outer_scf%newton_step_save
          END IF
          IF (reached_maxls) &
             CALL cp_warn(__LOCATION__, &

@@ -353,38 +353,22 @@ CONTAINS
          IF (scf_control%outer_scf%type == outer_scf_none) THEN
             dft_control%qs_control%cdft_control%ot_control%have_scf = .TRUE.
             dft_control%qs_control%cdft_control%ot_control%max_scf = scf_control%outer_scf%max_scf
-            dft_control%qs_control%cdft_control%ot_control%max_ls = scf_control%outer_scf%max_ls
-            dft_control%qs_control%cdft_control%ot_control%continue_ls = scf_control%outer_scf%continue_ls
-            dft_control%qs_control%cdft_control%ot_control%factor_ls = scf_control%outer_scf%factor_ls
             dft_control%qs_control%cdft_control%ot_control%eps_scf = scf_control%outer_scf%eps_scf
             dft_control%qs_control%cdft_control%ot_control%step_size = scf_control%outer_scf%step_size
             dft_control%qs_control%cdft_control%ot_control%type = scf_control%outer_scf%type
             dft_control%qs_control%cdft_control%ot_control%optimizer = scf_control%outer_scf%optimizer
             dft_control%qs_control%cdft_control%ot_control%diis_buffer_length = scf_control%outer_scf%diis_buffer_length
-            dft_control%qs_control%cdft_control%ot_control%jacobian_type = scf_control%outer_scf%jacobian_type
             dft_control%qs_control%cdft_control%ot_control%bisect_trust_count = scf_control%outer_scf%bisect_trust_count
-            IF (.NOT. ALLOCATED(dft_control%qs_control%cdft_control%ot_control%jacobian_step))&
-               ALLOCATE(dft_control%qs_control%cdft_control%ot_control%jacobian_step(SIZE(scf_control%outer_scf%jacobian_step)))
-            dft_control%qs_control%cdft_control%ot_control%jacobian_step(:) = scf_control%outer_scf%jacobian_step
-            dft_control%qs_control%cdft_control%ot_control%newton_step = scf_control%outer_scf%newton_step
-            dft_control%qs_control%cdft_control%ot_control%newton_step_save = scf_control%outer_scf%newton_step_save
-            dft_control%qs_control%cdft_control%ot_control%jacobian_freq = scf_control%outer_scf%jacobian_freq
-            dft_control%qs_control%cdft_control%ot_control%ijacobian = scf_control%outer_scf%ijacobian
-            dft_control%qs_control%cdft_control%ot_control%build_jacobian = scf_control%outer_scf%build_jacobian
-            dft_control%qs_control%cdft_control%ot_control%broyden_type = scf_control%outer_scf%broyden_type
-            dft_control%qs_control%cdft_control%ot_control%broyden_update = scf_control%outer_scf%broyden_update
-            IF (scf_control%outer_scf%jacobian_restart) THEN
+            CALL cdft_opt_type_copy(dft_control%qs_control%cdft_control%ot_control%cdft_opt_control, &
+                                    scf_control%outer_scf%cdft_opt_control)
+            IF (scf_control%outer_scf%cdft_opt_control%jacobian_restart) THEN
                ! This code block should not do anything
-               dft_control%qs_control%cdft_control%ot_control%jacobian_restart = .TRUE.
-               nvariables = SIZE(scf_control%outer_scf%jacobian_vector)
-               IF (ASSOCIATED(dft_control%qs_control%cdft_control%ot_control%jacobian_vector)) &
+               nvariables = SIZE(scf_control%outer_scf%cdft_opt_control%jacobian_vector)
+               IF (ASSOCIATED(dft_control%qs_control%cdft_control%constraint_control%cdft_opt_control%jacobian_vector)) &
                   CPABORT("")
-               ALLOCATE (dft_control%qs_control%cdft_control%ot_control%jacobian_vector(nvariables))
-               IF (ASSOCIATED(dft_control%qs_control%cdft_control%constraint_control%jacobian_vector)) &
-                  CPABORT("")
-               ALLOCATE (dft_control%qs_control%cdft_control%constraint_control%jacobian_vector(nvariables))
-               dft_control%qs_control%cdft_control%constraint_control%jacobian_vector = scf_control%outer_scf%jacobian_vector
-               dft_control%qs_control%cdft_control%ot_control%jacobian_vector = scf_control%outer_scf%jacobian_vector
+               ALLOCATE (dft_control%qs_control%cdft_control%constraint_control%cdft_opt_control%jacobian_vector(nvariables))
+               dft_control%qs_control%cdft_control%constraint_control%cdft_opt_control%jacobian_vector =&
+                  scf_control%outer_scf%cdft_opt_control%jacobian_vector
             END IF
 
             nvariables = 1

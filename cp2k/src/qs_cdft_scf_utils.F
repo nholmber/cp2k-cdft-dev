@@ -80,27 +80,27 @@ CONTAINS
                       scf_control=scf_control, &
                       dft_control=dft_control)
 
-      IF (SIZE(scf_control%outer_scf%jacobian_step) /= 1 .AND. &
-          SIZE(scf_control%outer_scf%jacobian_step) /= SIZE(scf_env%outer_scf%variables, 1)) &
+      IF (SIZE(scf_control%outer_scf%cdft_opt_control%jacobian_step) /= 1 .AND. &
+          SIZE(scf_control%outer_scf%cdft_opt_control%jacobian_step) /= SIZE(scf_env%outer_scf%variables, 1)) &
          CALL cp_abort(__LOCATION__, &
-                       cp_to_string(SIZE(scf_control%outer_scf%jacobian_step))// &
+                       cp_to_string(SIZE(scf_control%outer_scf%cdft_opt_control%jacobian_step))// &
                        " values passed to keyword JACOBIAN_STEP, expected 1 or "// &
                        cp_to_string(SIZE(scf_env%outer_scf%variables, 1)))
 
       ALLOCATE(dh(SIZE(scf_env%outer_scf%variables, 1)))
-      IF (SIZE(dh) /= SIZE(scf_control%outer_scf%jacobian_step)) THEN
+      IF (SIZE(dh) /= SIZE(scf_control%outer_scf%cdft_opt_control%jacobian_step)) THEN
          DO ivar = 1, SIZE(dh)
-            dh(ivar) = scf_control%outer_scf%jacobian_step(1)
+            dh(ivar) = scf_control%outer_scf%cdft_opt_control%jacobian_step(1)
          END DO
       ELSE
-         dh(:) = scf_control%outer_scf%jacobian_step
+         dh(:) = scf_control%outer_scf%cdft_opt_control%jacobian_step
       END IF
 
-      SELECT CASE (scf_control%outer_scf%jacobian_type)
+      SELECT CASE (scf_control%outer_scf%cdft_opt_control%jacobian_type)
       CASE DEFAULT
          CALL cp_abort(__LOCATION__, &
                        "Unknown Jacobian type: "// &
-                       cp_to_string(scf_control%outer_scf%jacobian_type))
+                       cp_to_string(scf_control%outer_scf%cdft_opt_control%jacobian_type))
       CASE (jacobian_fd1)
          ! f'(x0) = [ f(x0+h) - f(x0) ] / h
          nwork = 0
@@ -163,7 +163,7 @@ CONTAINS
          WRITE (output_unit, '(A,I10,A,I10)') &
             " Energy evaluation: ", dft_control%qs_control%cdft_control%ienergy, &
             ", CDFT SCF iteration: ", scf_env%outer_scf%iter_count
-         SELECT CASE (scf_control%outer_scf%jacobian_type)
+         SELECT CASE (scf_control%outer_scf%cdft_opt_control%jacobian_type)
          CASE (jacobian_fd1)
             WRITE (output_unit, '(A)') " Type               : First order forward difference"
          CASE (jacobian_fd1_backward)
@@ -176,20 +176,20 @@ CONTAINS
             WRITE (output_unit, '(A)') " Type               : First order central difference"
          CASE DEFAULT
             CALL cp_abort(__LOCATION__, "Unknown Jacobian type: "// &
-                          cp_to_string(scf_control%outer_scf%jacobian_type))
+                          cp_to_string(scf_control%outer_scf%cdft_opt_control%jacobian_type))
          END SELECT
-         IF (SIZE(scf_control%outer_scf%jacobian_step) == 1) THEN
-            WRITE (output_unit, '(A,ES12.4)') " Step size          : ", scf_control%outer_scf%jacobian_step
+         IF (SIZE(scf_control%outer_scf%cdft_opt_control%jacobian_step) == 1) THEN
+            WRITE (output_unit, '(A,ES12.4)') " Step size          : ", scf_control%outer_scf%cdft_opt_control%jacobian_step
          ELSE
             WRITE (output_unit, '(A,ES12.4,A)') &
-               " Step sizes         : ", scf_control%outer_scf%jacobian_step(1), ' (constraint 1)'
-            IF (SIZE(scf_control%outer_scf%jacobian_step) < 10) THEN
+               " Step sizes         : ", scf_control%outer_scf%cdft_opt_control%jacobian_step(1), ' (constraint 1)'
+            IF (SIZE(scf_control%outer_scf%cdft_opt_control%jacobian_step) < 10) THEN
                fmt_code = '(ES34.4,A,I2,A)'
             ELSE
                fmt_code = '(ES34.4,A,I3,A)'
             END IF
-            DO ivar = 2, SIZE(scf_control%outer_scf%jacobian_step)
-               WRITE (output_unit, fmt_code) scf_control%outer_scf%jacobian_step(ivar), " (constraint",  ivar, ")"
+            DO ivar = 2, SIZE(scf_control%outer_scf%cdft_opt_control%jacobian_step)
+               WRITE (output_unit, fmt_code) scf_control%outer_scf%cdft_opt_control%jacobian_step(ivar), " (constraint",  ivar, ")"
             END DO
          END IF
       END IF
@@ -249,7 +249,7 @@ CONTAINS
             DEALLOCATE (jacobian)
             ! Mark that an inverse Jacobian was just built and the next outer_loop_optimize should not perform
             ! a Broyden update of it
-            scf_control%outer_scf%broyden_update = .FALSE.
+            scf_control%outer_scf%cdft_opt_control%broyden_update = .FALSE.
             ! Mark that the MD history has been used and should not be reused anymore on this energy evaluation
             used_history = .TRUE.
          END IF
@@ -271,7 +271,7 @@ CONTAINS
          inv_jacobian => scf_env%outer_scf%inv_jacobian
          CALL invert_matrix(jacobian, inv_jacobian, inv_error)
          DEALLOCATE (jacobian)
-         scf_control%outer_scf%broyden_update = .FALSE.
+         scf_control%outer_scf%cdft_opt_control%broyden_update = .FALSE.
       ELSE
          ! No history => will fall back to SD optimizer in outer_loop_optimize
       END IF
@@ -299,9 +299,9 @@ CONTAINS
       CPASSERT(ASSOCIATED(qs_env))
       CALL get_qs_env(qs_env, scf_env=scf_env, scf_control=scf_control)
 
-      CPASSERT(ASSOCIATED(scf_control%outer_scf%jacobian_vector))
+      CPASSERT(ASSOCIATED(scf_control%outer_scf%cdft_opt_control%jacobian_vector))
       nvar = SIZE(scf_env%outer_scf%variables, 1)
-      IF (SIZE(scf_control%outer_scf%jacobian_vector) /= nvar**2) &
+      IF (SIZE(scf_control%outer_scf%cdft_opt_control%jacobian_vector) /= nvar**2) &
          CALL cp_abort(__LOCATION__, &
                        "Too many or too few values defined for restarting inverse Jacobian.")
       IF (.NOT. ASSOCIATED(scf_env%outer_scf%inv_jacobian)) &
@@ -310,13 +310,13 @@ CONTAINS
       iwork = 1
       DO i = 1, nvar
          DO j = 1, nvar
-            inv_jacobian(i, j) = scf_control%outer_scf%jacobian_vector(iwork)
+            inv_jacobian(i, j) = scf_control%outer_scf%cdft_opt_control%jacobian_vector(iwork)
             iwork = iwork+1
          END DO
       END DO
-      DEALLOCATE (scf_control%outer_scf%jacobian_vector)
-      scf_control%outer_scf%jacobian_restart = .FALSE.
-      scf_control%outer_scf%broyden_update = .FALSE.
+      DEALLOCATE (scf_control%outer_scf%cdft_opt_control%jacobian_vector)
+      scf_control%outer_scf%cdft_opt_control%jacobian_restart = .FALSE.
+      scf_control%outer_scf%cdft_opt_control%broyden_update = .FALSE.
 
    END SUBROUTINE restart_inverse_jacobian
 
@@ -421,38 +421,40 @@ CONTAINS
 
       SELECT CASE (scf_control%outer_scf%optimizer)
       CASE DEFAULT
-         scf_control%outer_scf%build_jacobian = .FALSE.
+         scf_control%outer_scf%cdft_opt_control%build_jacobian = .FALSE.
       CASE (outer_scf_optimizer_newton, outer_scf_optimizer_newton_ls)
-         scf_control%outer_scf%build_jacobian = .TRUE.
+         CPASSERT(ASSOCIATED(scf_control%outer_scf%cdft_opt_control))
+         scf_control%outer_scf%cdft_opt_control%build_jacobian = .TRUE.
          explicit_jacobian = .TRUE.
       CASE (outer_scf_optimizer_broyden)
-         SELECT CASE (scf_control%outer_scf%broyden_type)
+         CPASSERT(ASSOCIATED(scf_control%outer_scf%cdft_opt_control))
+         SELECT CASE (scf_control%outer_scf%cdft_opt_control%broyden_type)
          CASE (broyden_type_1, broyden_type_2, broyden_type_1_ls, broyden_type_2_ls)
-            scf_control%outer_scf%build_jacobian = .TRUE.
+            scf_control%outer_scf%cdft_opt_control%build_jacobian = .TRUE.
             explicit_jacobian = .FALSE.
          CASE (broyden_type_1_explicit, broyden_type_2_explicit, broyden_type_1_explicit_ls, broyden_type_2_explicit_ls)
-            scf_control%outer_scf%build_jacobian = .TRUE.
+            scf_control%outer_scf%cdft_opt_control%build_jacobian = .TRUE.
             explicit_jacobian = .TRUE.
          END SELECT
       END SELECT
-      IF (scf_control%outer_scf%build_jacobian) THEN
+      IF (scf_control%outer_scf%cdft_opt_control%build_jacobian) THEN
          ! Check if an old Jacobian can be reused avoiding a rebuild
          IF (ASSOCIATED(scf_env%outer_scf%inv_jacobian)) THEN
             ! Rebuild if number of previous energy evaluations exceeds limit
-            IF (scf_control%outer_scf%ijacobian .GE. scf_control%outer_scf%jacobian_freq(2) &
+            IF (scf_control%outer_scf%cdft_opt_control%ijacobian .GE. scf_control%outer_scf%cdft_opt_control%jacobian_freq(2) &
                 .AND. .NOT. used_history) THEN
                should_build = .TRUE.
                ! Zero the corresponding counter
-               scf_control%outer_scf%ijacobian = 0
+               scf_control%outer_scf%cdft_opt_control%ijacobian = 0
                ! Rebuild if number of previous SCF iterations exceeds limit (on this energy eval)
-            ELSE IF (MODULO(scf_env%outer_scf%iter_count, scf_control%outer_scf%jacobian_freq(1)) == 0) THEN
+            ELSE IF (MODULO(scf_env%outer_scf%iter_count, scf_control%outer_scf%cdft_opt_control%jacobian_freq(1)) == 0) THEN
                should_build = .TRUE.
             END IF
             IF (should_build) DEALLOCATE (scf_env%outer_scf%inv_jacobian)
          ELSE
             should_build = .TRUE.
             ! Zero the counter
-            scf_control%outer_scf%ijacobian = 0
+            scf_control%outer_scf%cdft_opt_control%ijacobian = 0
          END IF
       END IF
 
