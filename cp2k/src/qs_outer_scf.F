@@ -575,14 +575,15 @@ CONTAINS
       CASE (cdft2ot)
          ! Constraint -> OT
          ! Switch data in scf_control: first save values that might have changed
-         CPASSERT(ASSOCIATED(cdft_control%constraint_control%cdft_opt_control))
-         CPASSERT(ASSOCIATED(scf_control%outer_scf%cdft_opt_control))
-         cdft_control%constraint_control%cdft_opt_control%broyden_update = &
-            scf_control%outer_scf%cdft_opt_control%broyden_update
-         cdft_control%constraint_control%cdft_opt_control%newton_step = &
-            scf_control%outer_scf%cdft_opt_control%newton_step
-         cdft_control%constraint_control%cdft_opt_control%ijacobian = &
-            scf_control%outer_scf%cdft_opt_control%ijacobian
+         IF (ASSOCIATED(scf_control%outer_scf%cdft_opt_control)) THEN
+            CPASSERT(ASSOCIATED(cdft_control%constraint_control%cdft_opt_control))
+            cdft_control%constraint_control%cdft_opt_control%broyden_update = &
+               scf_control%outer_scf%cdft_opt_control%broyden_update
+            cdft_control%constraint_control%cdft_opt_control%newton_step = &
+               scf_control%outer_scf%cdft_opt_control%newton_step
+            cdft_control%constraint_control%cdft_opt_control%ijacobian = &
+               scf_control%outer_scf%cdft_opt_control%ijacobian
+         END IF
          ! Now switch
          scf_control%outer_scf%have_scf = cdft_control%ot_control%have_scf
          scf_control%outer_scf%max_scf = cdft_control%ot_control%max_scf

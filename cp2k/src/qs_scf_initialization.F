@@ -58,7 +58,7 @@ MODULE qs_scf_initialization
    USE qmmm_image_charge,               ONLY: conditional_calc_image_matrix
    USE qs_block_davidson_types,         ONLY: block_davidson_allocate,&
                                               block_davidson_env_create
-   USE qs_cdft_opt_types,               ONLY: cdft_opt_type_create
+   USE qs_cdft_opt_types,               ONLY: cdft_opt_type_copy
    USE qs_density_mixing_types,         ONLY: direct_mixing_nr,&
                                               mixing_storage_create,&
                                               mixing_storage_release,&
@@ -360,7 +360,8 @@ CONTAINS
             dft_control%qs_control%cdft_control%ot_control%optimizer = scf_control%outer_scf%optimizer
             dft_control%qs_control%cdft_control%ot_control%diis_buffer_length = scf_control%outer_scf%diis_buffer_length
             dft_control%qs_control%cdft_control%ot_control%bisect_trust_count = scf_control%outer_scf%bisect_trust_count
-            CALL cdft_opt_type_create(dft_control%qs_control%cdft_control%ot_control%cdft_opt_control)
+            CALL cdft_opt_type_copy(dft_control%qs_control%cdft_control%ot_control%cdft_opt_control, &
+                                    scf_control%outer_scf%cdft_opt_control)
             !IF (scf_control%outer_scf%cdft_opt_control%jacobian_restart) THEN
             !   ! This code block should not do anything
             !   nvariables = SIZE(scf_control%outer_scf%cdft_opt_control%jacobian_vector)

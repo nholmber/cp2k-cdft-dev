@@ -307,7 +307,10 @@ CONTAINS
 
       CALL timeset(routineN, handle)
 
-      CPASSERT(ASSOCIATED(old))
+      ! Do nothing if cdft_opt_type is not allocated
+      ! this happens if CDFT is performed with an optimizer other than Broyden/Newton
+      IF (.NOT. ASSOCIATED(old)) RETURN
+
       IF (.NOT. ASSOCIATED(new)) ALLOCATE (new)
       new%max_ls = old%max_ls
       new%continue_ls = old%continue_ls
