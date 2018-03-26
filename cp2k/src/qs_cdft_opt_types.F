@@ -312,10 +312,7 @@ CONTAINS
 
       CALL timeset(routineN, handle)
 
-      IF (.NOT. ASSOCIATED(new)) THEN
-         ALLOCATE (new)
-         NULLIFY (new%jacobian_vector)
-      END IF
+      IF (.NOT. ASSOCIATED(new)) CALL cdft_opt_type_create(new)
       new%max_ls = old%max_ls
       new%continue_ls = old%continue_ls
       new%factor_ls = old%factor_ls
