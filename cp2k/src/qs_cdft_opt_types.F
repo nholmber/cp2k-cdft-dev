@@ -90,7 +90,7 @@ CONTAINS
 ! **************************************************************************************************
    SUBROUTINE cdft_opt_type_create(cdft_opt_control)
 
-      TYPE(cdft_opt_control_type), POINTER               :: cdft_opt_control
+      TYPE(cdft_opt_type), POINTER                       :: cdft_opt_control
 
       CHARACTER(LEN=*), PARAMETER :: routineN = 'cdft_opt_type_create', &
          routineP = moduleN//':'//routineN
@@ -131,7 +131,7 @@ CONTAINS
 ! **************************************************************************************************
    SUBROUTINE cdft_opt_type_release(cdft_opt_control)
 
-      TYPE(cdft_opt_control_type), POINTER               :: cdft_opt_control
+      TYPE(cdft_opt_type), POINTER                       :: cdft_opt_control
 
       CHARACTER(LEN=*), PARAMETER :: routineN = 'cdft_opt_type_release', &
          routineP = moduleN//':'//routineN
@@ -159,7 +159,7 @@ CONTAINS
 ! **************************************************************************************************
    SUBROUTINE cdft_opt_type_read(cdft_opt_control, inp_section)
 
-      TYPE(cdft_opt_control_type), POINTER               :: cdft_opt_control
+      TYPE(cdft_opt_type), POINTER                       :: cdft_opt_control
       TYPE(section_vals_type), POINTER                   :: inp_section
 
       CHARACTER(LEN=*), PARAMETER :: routineN = 'cdft_opt_type_read', &
@@ -300,7 +300,7 @@ CONTAINS
 ! **************************************************************************************************
    SUBROUTINE cdft_opt_type_copy(new, old)
 
-      TYPE(cdft_opt_control_type), POINTER               :: new, old
+      TYPE(cdft_opt_type), POINTER                       :: new, old
 
       CHARACTER(LEN=*), PARAMETER :: routineN = 'cdft_opt_type_copy', &
          routineP = moduleN//':'//routineN
