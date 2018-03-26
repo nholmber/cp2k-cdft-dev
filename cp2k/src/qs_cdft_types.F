@@ -23,8 +23,6 @@ MODULE qs_cdft_types
    USE pw_types,                        ONLY: pw_p_type
    USE qs_cdft_opt_types,               ONLY: cdft_opt_type,&
                                               cdft_opt_type_release
-
-   cdft_opt_type_write
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE
