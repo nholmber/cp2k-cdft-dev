@@ -1223,6 +1223,7 @@ CONTAINS
       use_md_history = .FALSE.
       iter_count = scf_env%outer_scf%iter_count
       ! Check if Jacobian should be calculated and initialize
+      IF (.NOT. ASSOCIATED(scf_control%outer_scf%cdft_opt_control)) RETURN
       CALL initialize_inverse_jacobian(scf_control, scf_env, explicit_jacobian, should_build, used_history)
       IF (scf_control%outer_scf%cdft_opt_control%jacobian_restart) THEN
          ! Restart from previously calculated inverse Jacobian

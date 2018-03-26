@@ -421,7 +421,7 @@ CONTAINS
 
       SELECT CASE (scf_control%outer_scf%optimizer)
       CASE DEFAULT
-         scf_control%outer_scf%cdft_opt_control%build_jacobian = .FALSE.
+         CPABORT("Noncompatible optimizer requested.")
       CASE (outer_scf_optimizer_newton, outer_scf_optimizer_newton_ls)
          CPASSERT(ASSOCIATED(scf_control%outer_scf%cdft_opt_control))
          scf_control%outer_scf%cdft_opt_control%build_jacobian = .TRUE.
