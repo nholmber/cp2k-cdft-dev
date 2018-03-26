@@ -312,7 +312,10 @@ CONTAINS
 
       CALL timeset(routineN, handle)
 
-      IF (.NOT. ASSOCIATED(new)) ALLOCATE (new)
+      IF (.NOT. ASSOCIATED(new)) THEN
+         ALLOCATE (new)
+         NULLIFY (new%jacobian_vector)
+      END IF
       new%max_ls = old%max_ls
       new%continue_ls = old%continue_ls
       new%factor_ls = old%factor_ls
