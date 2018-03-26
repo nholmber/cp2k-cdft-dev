@@ -11,37 +11,14 @@
 ! **************************************************************************************************
 MODULE qs_cdft_opt_types
 
-   USE cp_log_handling,                 ONLY: cp_get_default_logger,&
-                                              cp_logger_type
-   USE cp_output_handling,              ONLY: cp_print_key_finished_output,&
-                                              cp_print_key_unit_nr
-   USE cp_units,                        ONLY: cp_unit_from_cp2k
    USE input_constants,                 ONLY: &
-        atomic_guess, broyden_type_1, broyden_type_1_explicit, broyden_type_1_explicit_ls, &
-        broyden_type_1_ls, broyden_type_2, broyden_type_2_explicit, broyden_type_2_explicit_ls, &
-        broyden_type_2_ls, core_guess, diag_ot, direct_p_mix, general_roks, high_spin_roks, &
-        ot_algo_taylor_or_diag, outer_scf_basis_center_opt, outer_scf_becke_constraint, &
-        outer_scf_ddapc_constraint, outer_scf_none, outer_scf_optimizer_bisect, &
-        outer_scf_optimizer_broyden, outer_scf_optimizer_diis, outer_scf_optimizer_newton, &
-        outer_scf_optimizer_newton_ls, outer_scf_optimizer_none, outer_scf_optimizer_sd, &
-        outer_scf_optimizer_secant, outer_scf_s2_constraint, smear_energy_window, &
-        smear_fermi_dirac, smear_list
-   USE input_cp2k_dft,                  ONLY: create_scf_section
-   USE input_enumeration_types,         ONLY: enum_i2c,&
-                                              enumeration_type
-   USE input_keyword_types,             ONLY: keyword_get,&
-                                              keyword_type
-   USE input_section_types,             ONLY: section_get_keyword,&
-                                              section_release,&
-                                              section_type,&
-                                              section_vals_get,&
-                                              section_vals_get_subs_vals,&
+        broyden_type_1, broyden_type_1_explicit, broyden_type_1_explicit_ls, broyden_type_1_ls, &
+        broyden_type_2, broyden_type_2_explicit, broyden_type_2_explicit_ls, broyden_type_2_ls, &
+        outer_scf_optimizer_broyden, outer_scf_optimizer_newton, outer_scf_optimizer_newton_ls
+   USE input_section_types,             ONLY: section_vals_get_subs_vals,&
                                               section_vals_type,&
                                               section_vals_val_get
    USE kinds,                           ONLY: dp
-   USE qs_ot_types,                     ONLY: ot_readwrite_input,&
-                                              qs_ot_settings_init,&
-                                              qs_ot_settings_type
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE
@@ -88,8 +65,8 @@ MODULE qs_cdft_opt_types
       LOGICAL                              :: broyden_update
       LOGICAL                              :: continue_ls
       LOGICAL                              :: jacobian_restart
-      REAL(KIND=dp)                        :: newton_step,&
-      REAL(KIND=dp)                        :: newton_step_save,&
+      REAL(KIND=dp)                        :: newton_step
+      REAL(KIND=dp)                        :: newton_step_save
       REAL(KIND=dp)                        :: factor_ls
       REAL(KIND=dp), DIMENSION(:), &
          ALLOCATABLE                       :: jacobian_step
@@ -115,7 +92,8 @@ CONTAINS
 
       TYPE(cdft_opt_control_type), POINTER               :: cdft_opt_control
 
-      CHARACTER(LEN=*), PARAMETER :: routineN = 'cdft_opt_type_create', routineP = moduleN//':'//routineN
+      CHARACTER(LEN=*), PARAMETER :: routineN = 'cdft_opt_type_create', &
+         routineP = moduleN//':'//routineN
 
       INTEGER                                            :: handle
 
@@ -155,16 +133,16 @@ CONTAINS
 
       TYPE(cdft_opt_control_type), POINTER               :: cdft_opt_control
 
-      CHARACTER(LEN=*), PARAMETER :: routineN = 'scf_c_release', routineP = moduleN//':'//routineN
+      CHARACTER(LEN=*), PARAMETER :: routineN = 'cdft_opt_type_release', &
+         routineP = moduleN//':'//routineN
 
-      IF (ASSOCIATED(cdft_opt_control) THEN
+      IF (ASSOCIATED(cdft_opt_control)) THEN
          IF (ASSOCIATED(cdft_opt_control%jacobian_vector)) &
             DEALLOCATE (cdft_opt_control%jacobian_vector)
          IF (ALLOCATED(cdft_opt_control%jacobian_step)) &
             DEALLOCATE (cdft_opt_control%jacobian_step)
 
-            DEALLOCATE (cdft_opt_control)
-         END IF
+         DEALLOCATE (cdft_opt_control)
       END IF
 
       NULLIFY (cdft_opt_control)
@@ -184,7 +162,7 @@ CONTAINS
       TYPE(cdft_opt_control_type), POINTER               :: cdft_opt_control
       TYPE(section_vals_type), POINTER                   :: inp_section
 
-      CHARACTER(LEN=*), PARAMETER :: routineN = 'scf_c_read_parameters', &
+      CHARACTER(LEN=*), PARAMETER :: routineN = 'cdft_opt_type_read', &
          routineP = moduleN//':'//routineN
 
       INTEGER                                            :: handle
@@ -198,13 +176,13 @@ CONTAINS
       CPASSERT(ASSOCIATED(cdft_opt_control))
       cdft_opt_section => section_vals_get_subs_vals(inp_section, "CDFT_OPT")
 
-      CALL section_vals_val_get(cdft_opt_section, "MAX_LS",
+      CALL section_vals_val_get(cdft_opt_section, "MAX_LS", &
                                 i_val=cdft_opt_control%max_ls)
       CALL section_vals_val_get(cdft_opt_section, "JACOBIAN_TYPE", &
                                 i_val=cdft_opt_control%jacobian_type)
       CALL section_vals_val_get(cdft_opt_section, "JACOBIAN_STEP", &
                                 r_vals=rtmplist)
-      ALLOCATE(cdft_opt_control%jacobian_step(SIZE(rtmplist)))
+      ALLOCATE (cdft_opt_control%jacobian_step(SIZE(rtmplist)))
       cdft_opt_control%jacobian_step(:) = rtmplist
       CALL section_vals_val_get(cdft_opt_section, "BROYDEN_TYPE", &
                                 i_val=cdft_opt_control%broyden_type)
@@ -216,7 +194,6 @@ CONTAINS
           cdft_opt_control%factor_ls .GE. 1.0_dp) &
          CALL cp_abort(__LOCATION__, &
                        "Keyword FACTOR_LS must be between 0.0 and 1.0.")
-      END IF
       CALL section_vals_val_get(cdft_opt_section, "JACOBIAN_FREQ", explicit=exists)
       IF (exists) THEN
          CALL section_vals_val_get(cdft_opt_section, "JACOBIAN_FREQ", &
@@ -257,7 +234,7 @@ CONTAINS
       TYPE(scf_control_type), POINTER                    :: scf_control
       INTEGER                                            :: output_unit
 
-      CHARACTER(LEN=*), PARAMETER :: routineN = 'scf_c_read_parameters', &
+      CHARACTER(LEN=*), PARAMETER :: routineN = 'cdft_opt_type_write', &
          routineP = moduleN//':'//routineN
 
       TYPE(cdft_opt_type), POINTER                       :: cdft_opt_control
@@ -298,6 +275,7 @@ CONTAINS
          WRITE (output_unit, '(T25,A)') "Optimization with Newton's method"
       CASE (outer_scf_optimizer_newton_ls)
          WRITE (output_unit, '(T25,A)') "Optimization with Newton's method using backtracking line search"
+      END SELECT
       SELECT CASE (scf_control%outer_scf%optimizer)
       CASE DEFAULT
          ! Do nothing
@@ -315,7 +293,7 @@ CONTAINS
 ! **************************************************************************************************
 !> \brief copies settings between two CDFT optimizer control objects retaining both
 !> \param new the object where to copy the settings
-!> \param new the object from where copy to the settings
+!> \param old the object from where to copy the settings
 !> \par History
 !>      03.2018 created [Nico Holmberg]
 !> \author Nico Holmberg
@@ -324,14 +302,15 @@ CONTAINS
 
       TYPE(cdft_opt_control_type), POINTER               :: new, old
 
-      CHARACTER(LEN=*), PARAMETER :: routineN = 'cdft_opt_type_copy', routineP = moduleN//':'//routineN
+      CHARACTER(LEN=*), PARAMETER :: routineN = 'cdft_opt_type_copy', &
+         routineP = moduleN//':'//routineN
 
       INTEGER                                            :: handle
 
       CALL timeset(routineN, handle)
 
       CPASSERT(ASSOCIATED(old))
-      IF (.NOT. ASSOCIATED(new)) ALLOCATE(new)
+      IF (.NOT. ASSOCIATED(new)) ALLOCATE (new)
       new%max_ls = old%max_ls
       new%continue_ls = old%continue_ls
       new%factor_ls = old%factor_ls
@@ -343,8 +322,8 @@ CONTAINS
       new%build_jacobian = old%build_jacobian
       new%broyden_type = old%broyden_type
       new%broyden_update = old%broyden_update
-      IF (ALLOCATED(new%jacobian_step)) DEALLOCATE(new%jacobian_step)
-      ALLOCATE(new%jacobian_step(SIZE(old%jacobian_step)))
+      IF (ALLOCATED(new%jacobian_step)) DEALLOCATE (new%jacobian_step)
+      ALLOCATE (new%jacobian_step(SIZE(old%jacobian_step)))
       new%jacobian_step(:) = old%jacobian_step
       IF (old%jacobian_restart) THEN
          ! Transfer restart vector for inverse Jacobian matrix

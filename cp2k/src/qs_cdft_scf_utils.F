@@ -62,13 +62,13 @@ CONTAINS
                                        coeff, step_multiplier, dh)
       TYPE(qs_environment_type), POINTER                 :: qs_env
       INTEGER                                            :: output_unit, nwork, pwork
-      REAL(KIND=dp), ALLOCATABLE, DIMENSION(:)           :: dh, coeff, step_multiplier
+      REAL(KIND=dp), ALLOCATABLE, DIMENSION(:)           :: coeff, step_multiplier, dh
 
       CHARACTER(LEN=*), PARAMETER :: routineN = 'prepare_jacobian_stencil', &
          routineP = moduleN//':'//routineN
 
-      INTEGER                                            :: ivar
       CHARACTER(len=15)                                  :: fmt_code
+      INTEGER                                            :: ivar
       TYPE(dft_control_type), POINTER                    :: dft_control
       TYPE(qs_scf_env_type), POINTER                     :: scf_env
       TYPE(scf_control_type), POINTER                    :: scf_control
@@ -87,7 +87,7 @@ CONTAINS
                        " values passed to keyword JACOBIAN_STEP, expected 1 or "// &
                        cp_to_string(SIZE(scf_env%outer_scf%variables, 1)))
 
-      ALLOCATE(dh(SIZE(scf_env%outer_scf%variables, 1)))
+      ALLOCATE (dh(SIZE(scf_env%outer_scf%variables, 1)))
       IF (SIZE(dh) /= SIZE(scf_control%outer_scf%cdft_opt_control%jacobian_step)) THEN
          DO ivar = 1, SIZE(dh)
             dh(ivar) = scf_control%outer_scf%cdft_opt_control%jacobian_step(1)
@@ -189,7 +189,7 @@ CONTAINS
                fmt_code = '(ES34.4,A,I3,A)'
             END IF
             DO ivar = 2, SIZE(scf_control%outer_scf%cdft_opt_control%jacobian_step)
-               WRITE (output_unit, fmt_code) scf_control%outer_scf%cdft_opt_control%jacobian_step(ivar), " (constraint",  ivar, ")"
+               WRITE (output_unit, fmt_code) scf_control%outer_scf%cdft_opt_control%jacobian_step(ivar), " (constraint", ivar, ")"
             END DO
          END IF
       END IF

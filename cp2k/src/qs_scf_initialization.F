@@ -367,7 +367,7 @@ CONTAINS
                IF (ASSOCIATED(dft_control%qs_control%cdft_control%constraint_control%cdft_opt_control%jacobian_vector)) &
                   CPABORT("")
                ALLOCATE (dft_control%qs_control%cdft_control%constraint_control%cdft_opt_control%jacobian_vector(nvariables))
-               dft_control%qs_control%cdft_control%constraint_control%cdft_opt_control%jacobian_vector =&
+               dft_control%qs_control%cdft_control%constraint_control%cdft_opt_control%jacobian_vector = &
                   scf_control%outer_scf%cdft_opt_control%jacobian_vector
             END IF
 

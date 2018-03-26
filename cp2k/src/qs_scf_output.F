@@ -17,14 +17,12 @@ MODULE qs_scf_output
    USE cp_units,                        ONLY: cp_unit_from_cp2k
    USE dbcsr_api,                       ONLY: dbcsr_p_type
    USE input_constants,                 ONLY: &
-        becke_cutoff_element, becke_cutoff_global, broyden_type_1, broyden_type_1_explicit, &
-        broyden_type_1_explicit_ls, broyden_type_1_ls, broyden_type_2, broyden_type_2_explicit, &
-        broyden_type_2_explicit_ls, broyden_type_2_ls, cdft_alpha_constraint, &
-        cdft_beta_constraint, cdft_charge_constraint, cdft_magnetization_constraint, &
-        outer_scf_becke_constraint, outer_scf_hirshfeld_constraint, outer_scf_optimizer_bisect, &
-        outer_scf_optimizer_broyden, outer_scf_optimizer_diis, outer_scf_optimizer_newton, &
-        outer_scf_optimizer_newton_ls, outer_scf_optimizer_sd, outer_scf_optimizer_secant, &
-        radius_covalent, radius_single, radius_user, radius_vdw
+        becke_cutoff_element, becke_cutoff_global, cdft_alpha_constraint, cdft_beta_constraint, &
+        cdft_charge_constraint, cdft_magnetization_constraint, outer_scf_becke_constraint, &
+        outer_scf_hirshfeld_constraint, outer_scf_optimizer_bisect, outer_scf_optimizer_broyden, &
+        outer_scf_optimizer_diis, outer_scf_optimizer_newton, outer_scf_optimizer_newton_ls, &
+        outer_scf_optimizer_sd, outer_scf_optimizer_secant, radius_covalent, radius_single, &
+        radius_user, radius_vdw
    USE input_section_types,             ONLY: section_vals_get_subs_vals,&
                                               section_vals_type,&
                                               section_vals_val_get
@@ -41,6 +39,7 @@ MODULE qs_scf_output
    USE pw_env_types,                    ONLY: pw_env_type
    USE pw_poisson_types,                ONLY: pw_poisson_implicit
    USE qmmm_image_charge,               ONLY: print_image_coefficients
+   USE qs_cdft_opt_types,               ONLY: cdft_opt_type_write
    USE qs_cdft_types,                   ONLY: cdft_control_type
    USE qs_charges_types,                ONLY: qs_charges_type
    USE qs_energy_types,                 ONLY: qs_energy_type
@@ -54,7 +53,6 @@ MODULE qs_scf_output
                                               mo_set_p_type
    USE qs_rho_types,                    ONLY: qs_rho_get,&
                                               qs_rho_type
-   USE qs_cdft_opt_types,               ONLY: cdft_opt_type_write
    USE qs_scf_types,                    ONLY: qs_scf_env_type,&
                                               special_diag_method_nr
    USE scf_control_types,               ONLY: scf_control_type

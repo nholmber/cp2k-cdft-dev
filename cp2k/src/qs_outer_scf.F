@@ -28,13 +28,13 @@ MODULE qs_outer_scf
    USE qs_basis_gradient,               ONLY: qs_basis_center_gradient,&
                                               qs_update_basis_center_pos,&
                                               return_basis_center_gradient_norm
+   USE qs_cdft_opt_types,               ONLY: cdft_opt_type_copy
    USE qs_cdft_types,                   ONLY: becke_constraint_type,&
                                               cdft_control_type
    USE qs_energy_types,                 ONLY: qs_energy_type
    USE qs_environment_types,            ONLY: get_qs_env,&
                                               qs_environment_type,&
                                               set_qs_env
-   USE qs_cdft_opt_types,               ONLY: cdft_opt_type_copy
    USE qs_scf_types,                    ONLY: qs_scf_env_type
    USE scf_control_types,               ONLY: scf_control_type
 #include "./base/base_uses.f90"
@@ -577,11 +577,11 @@ CONTAINS
          ! Switch data in scf_control: first save values that might have changed
          CPASSERT(ASSOCIATED(cdft_control%constraint_control%cdft_opt_control))
          CPASSERT(ASSOCIATED(scf_control%outer_scf%cdft_opt_control))
-         cdft_control%constraint_control%cdft_opt_control%broyden_update =&
+         cdft_control%constraint_control%cdft_opt_control%broyden_update = &
             scf_control%outer_scf%cdft_opt_control%broyden_update
-         cdft_control%constraint_control%cdft_opt_control%newton_step =&
+         cdft_control%constraint_control%cdft_opt_control%newton_step = &
             scf_control%outer_scf%cdft_opt_control%newton_step
-         cdft_control%constraint_control%cdft_opt_control%ijacobian =&
+         cdft_control%constraint_control%cdft_opt_control%ijacobian = &
             scf_control%outer_scf%cdft_opt_control%ijacobian
          ! Now switch
          scf_control%outer_scf%have_scf = cdft_control%ot_control%have_scf

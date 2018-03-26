@@ -20,9 +20,7 @@ MODULE scf_control_types
                                               cp_print_key_unit_nr
    USE cp_units,                        ONLY: cp_unit_from_cp2k
    USE input_constants,                 ONLY: &
-        atomic_guess, broyden_type_1, broyden_type_1_explicit, broyden_type_1_explicit_ls, &
-        broyden_type_1_ls, broyden_type_2, broyden_type_2_explicit, broyden_type_2_explicit_ls, &
-        broyden_type_2_ls, core_guess, diag_ot, direct_p_mix, general_roks, high_spin_roks, &
+        atomic_guess, core_guess, diag_ot, direct_p_mix, general_roks, high_spin_roks, &
         ot_algo_taylor_or_diag, outer_scf_basis_center_opt, outer_scf_becke_constraint, &
         outer_scf_ddapc_constraint, outer_scf_none, outer_scf_optimizer_bisect, &
         outer_scf_optimizer_broyden, outer_scf_optimizer_diis, outer_scf_optimizer_newton, &
@@ -45,7 +43,7 @@ MODULE scf_control_types
    USE qs_cdft_opt_types,               ONLY: cdft_opt_type,&
                                               cdft_opt_type_create,&
                                               cdft_opt_type_read,&
-                                              cdft_opt_type_release
+                                              cdft_opt_type_release,&
                                               cdft_opt_type_write
    USE qs_ot_types,                     ONLY: ot_readwrite_input,&
                                               qs_ot_settings_init,&
@@ -375,9 +373,9 @@ CONTAINS
          routineP = moduleN//':'//routineN
 
       INTEGER                                            :: cholesky_flag, handle, ialgo
-      INTEGER, DIMENSION(:), POINTER                     :: added_mos, tmplist
+      INTEGER, DIMENSION(:), POINTER                     :: added_mos
       LOGICAL                                            :: do_mixing, exists
-      REAL(KIND=dp), DIMENSION(:), POINTER               :: roks_parameter, rtmplist
+      REAL(KIND=dp), DIMENSION(:), POINTER               :: roks_parameter
       TYPE(section_vals_type), POINTER                   :: mixing_section, outer_scf_section, &
                                                             scf_section, smear_section
 
@@ -540,7 +538,7 @@ CONTAINS
             IF (exists) THEN
                scf_control%outer_scf%cdft_opt_control%newton_step = ABS(scf_control%outer_scf%step_size)
                ! Permanent copy needed in case line search is performed
-               scf_control%outer_scf%cdft_opt_control%newton_step_save =&
+               scf_control%outer_scf%cdft_opt_control%newton_step_save = &
                   scf_control%outer_scf%cdft_opt_control%newton_step
             END IF
          END SELECT

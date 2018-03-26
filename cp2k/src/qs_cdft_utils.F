@@ -746,9 +746,7 @@ CONTAINS
       CHARACTER(len=*), PARAMETER :: routineN = 'read_cdft_control_section', &
          routineP = moduleN//':'//routineN
 
-      INTEGER, DIMENSION(:), POINTER                     :: tmplist
       LOGICAL                                            :: exists
-      REAL(KIND=dp), DIMENSION(:), POINTER               :: rtmplist
       TYPE(section_vals_type), POINTER                   :: hirshfeld_constraint_section, &
                                                             outer_scf_section
 
@@ -806,10 +804,10 @@ CONTAINS
                CALL cdft_opt_type_read(qs_control%cdft_control%constraint_control%cdft_opt_control, &
                                        outer_scf_section)
                IF (exists) THEN
-                  qs_control%cdft_control%constraint_control%cdft_opt_control%newton_step =&
+                  qs_control%cdft_control%constraint_control%cdft_opt_control%newton_step = &
                      ABS(qs_control%cdft_control%constraint_control%step_size)
                   ! Permanent copy needed in case line search is performed
-                  qs_control%cdft_control%constraint_control%cdft_opt_control%newton_step_save =&
+                  qs_control%cdft_control%constraint_control%cdft_opt_control%newton_step_save = &
                      qs_control%cdft_control%constraint_control%cdft_opt_control%newton_step
                END IF
             END SELECT

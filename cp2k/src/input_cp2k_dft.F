@@ -8714,7 +8714,7 @@ CONTAINS
                           description="Parameters controlling optimization methods that are compatible "// &
                           "only with CDFT based constraints (i.e. CDFT SCF is active). Specifically, "// &
                           "the control parameters for Broyden and Newton optimizers are defined in this "// &
-                          "section. " , &
+                          "section. ", &
                           n_keywords=10, n_subsections=0, repeats=.FALSE.)
 
       NULLIFY (keyword)
@@ -8763,7 +8763,7 @@ CONTAINS
 
       CALL keyword_create(keyword, name="JACOBIAN_STEP", &
                           description="Step size to use in the calculation of the inverse Jacobian with finite differences. "// &
-                                      "Expects one value for all constraints, or one value per constraint.", &
+                          "Expects one value for all constraints, or one value per constraint.", &
                           usage="JACOBIAN_STEP 5.0E-3 ", n_var=-1, default_r_val=5.0E-3_dp)
       CALL section_add_keyword(section, keyword)
       CALL keyword_release(keyword)
