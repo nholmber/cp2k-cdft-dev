@@ -8695,7 +8695,7 @@ CONTAINS
    END SUBROUTINE create_implicit_psolver_section
 
 ! **************************************************************************************************
-!> \brief creates the input section for parameters related to CDFT only optimizers
+!> \brief creates the input section for parameters related to CDFT specific optimizers
 !> \param section the section to be created
 !> \par History
 !>      03.2018 separated from create_outer_scf_section [Nico Holmberg]
@@ -8713,13 +8713,11 @@ CONTAINS
       CALL section_create(section, "CDFT_OPT", &
                           description="Parameters controlling optimization methods that are compatible "// &
                           "only with CDFT based constraints (i.e. CDFT SCF is active). Specifically, "// &
-                          "the control parameters for Broyden and Newton optimizers are defined in this "// &
-                          "section. ", &
+                          "the control parameters for the Broyden and Newton optimizers are defined in this "// &
+                          "section.", &
                           n_keywords=10, n_subsections=0, repeats=.FALSE.)
 
       NULLIFY (keyword)
-
-      ! add CDFT_OPT section
 
       CALL keyword_create(keyword, name="BROYDEN_TYPE", &
                           description="Specifies the Broyden optimizer variant to use.", &
@@ -8816,6 +8814,6 @@ CONTAINS
       CALL section_add_keyword(section, keyword)
       CALL keyword_release(keyword)
 
-   END SUBROUTINE create_outer_scf_section
+   END SUBROUTINE create_cdft_opt_section
 
 END MODULE input_cp2k_dft
