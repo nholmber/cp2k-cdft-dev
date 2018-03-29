@@ -440,7 +440,7 @@ CONTAINS
       END SELECT
       IF (scf_control%outer_scf%cdft_opt_control%build_jacobian) THEN
          ! Reset counter
-         IF (scf_env%outer_scf%iter_count == 0) scf_control%outer_scf%cdft_opt_control%ijacobian(1) = 0
+         IF (scf_env%outer_scf%iter_count == 1) scf_control%outer_scf%cdft_opt_control%ijacobian(1) = 0
          ! Check if an old Jacobian can be reused avoiding a rebuild
          IF (ASSOCIATED(scf_env%outer_scf%inv_jacobian)) THEN
             ! Rebuild if number of previous energy evaluations exceeds limit

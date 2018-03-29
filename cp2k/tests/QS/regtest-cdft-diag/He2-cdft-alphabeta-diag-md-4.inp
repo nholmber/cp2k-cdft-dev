@@ -1,7 +1,7 @@
 @SET RESTART_WFN          TRUE
 @SET WFN_FILE_1           He2-energy-diag-1_0.wfn
 @SET WFN_FILE_2           He2-energy-diag-1_0.wfn
-@SET PROJECT_NAME         He2-cdft-alphabeta-diag-md-2
+@SET PROJECT_NAME         He2-cdft-alphabeta-diag-md-4
 @SET NAME                 ${PROJECT_NAME}
 
 @SET WRITE_WFN            1
@@ -42,7 +42,7 @@
 
 @SET OPTIMIZER            NEWTON
 @SET JACOBIAN_TYPE        FD1
-! On each MD step, reuse Jacobian for 10 CDFT SCF iterations
+! On each MD step, reuse Jacobian for 2 CDFT SCF iterations
 @SET JACOBIAN_FREQ_1      2
 ! Each MD step, reuse old Jacobian
 @SET JACOBIAN_FREQ_2      0
