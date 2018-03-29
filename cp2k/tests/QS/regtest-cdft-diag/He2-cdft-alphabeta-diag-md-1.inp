@@ -42,10 +42,13 @@
 
 @SET OPTIMIZER            NEWTON
 @SET JACOBIAN_TYPE        FD1
-@SET JACOBIAN_FREQ_1      2
+! On each MD step, reuse Jacobian for 9 CDFT SCF iterations
+@SET JACOBIAN_FREQ_1      10
+! Each MD step, construct new Jacobian
 @SET JACOBIAN_FREQ_2      1
 @SET BROYDEN_TYPE         BT1
 
+@SET RESTART_JACOBIAN     FALSE
 @SET JACOB_VEC1           -120000000.0
 @SET JACOB_VEC2           0.0
 @SET JACOB_VEC3           0.0
