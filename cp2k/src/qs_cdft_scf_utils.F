@@ -439,7 +439,7 @@ CONTAINS
          END SELECT
       END SELECT
       IF (scf_control%outer_scf%cdft_opt_control%build_jacobian) THEN
-         ! Zero counter
+         ! Reset counter
          IF (scf_env%outer_scf%iter_count == 0) scf_control%outer_scf%cdft_opt_control%ijacobian(1) = 0
          ! Check if an old Jacobian can be reused avoiding a rebuild
          IF (ASSOCIATED(scf_env%outer_scf%inv_jacobian)) THEN
@@ -448,8 +448,8 @@ CONTAINS
                 scf_control%outer_scf%cdft_opt_control%jacobian_freq(2) .AND. .NOT. used_history .AND. &
                 scf_control%outer_scf%cdft_opt_control%jacobian_freq(2) > 0) THEN
                should_build = .TRUE.
-               ! Zero the corresponding counter
-               scf_control%outer_scf%cdft_opt_control%ijacobian(2) = 0
+               ! Zero the corresponding counters
+               scf_control%outer_scf%cdft_opt_control%ijacobian(:) = 0
             ! Rebuild if number of previous SCF iterations exceeds limit (on this energy eval)
             ELSE IF (scf_control%outer_scf%cdft_opt_control%ijacobian(1) .GE. &
                      scf_control%outer_scf%cdft_opt_control%jacobian_freq(1) .AND. &

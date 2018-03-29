@@ -18,6 +18,6 @@ He2-cdft-alphabeta-diag-2.inp                         11      6e-10             
 He2-mixed-cdft-alphabeta-diag-1.inp                   76      5e-8                  5.100790096990
 # MD with two constraints testing various Jacobian reusing schemes
 He2-cdft-alphabeta-diag-md-1.inp                      11      6e-10             -3.044689112623726
-He2-cdft-alphabeta-diag-md-1.inp                      11      6e-10             -3.044689112623726
-He2-cdft-alphabeta-diag-md-1.inp                      11      6e-10             -3.044689112623726
+He2-cdft-alphabeta-diag-md-2.inp                      11      6e-10             -3.044689112623726
+He2-cdft-alphabeta-diag-md-3.inp                      11      6e-10             -3.044689112623726
 #EOF
