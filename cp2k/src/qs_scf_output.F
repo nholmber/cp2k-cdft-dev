@@ -772,7 +772,7 @@ CONTAINS
          CASE (outer_scf_hirshfeld_constraint)
             WRITE (output_unit, '(A)') "  Type of constraint      : Hirshfeld"
          CASE (outer_scf_becke_constraint)
-            WRITE (output_unit, '(A)') "  Type of constraint      :  Becke"
+            WRITE (output_unit, '(A)') "  Type of constraint      :   Becke"
             WRITE (output_unit, '(A,I8)') "  Number of constraints   :", SIZE(dft_control%qs_control%becke_control%group)
             WRITE (output_unit, '(A)') "  "
             SELECT CASE (dft_control%qs_control%becke_control%cutoff_type)

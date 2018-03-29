@@ -268,10 +268,12 @@ CONTAINS
 !> \brief performs allocation of outer SCF variables
 !> \param scf_env ...
 !> \param scf_control ...
+!> \param nvar ...
 ! **************************************************************************************************
-   SUBROUTINE qs_scf_ensure_outer_loop_vars(scf_env, scf_control)
+   SUBROUTINE qs_scf_ensure_outer_loop_vars(scf_env, scf_control, nvar)
       TYPE(qs_scf_env_type), POINTER                     :: scf_env
       TYPE(scf_control_type), POINTER                    :: scf_control
+      INTEGER, OPTIONAL                                  :: nvar
 
       CHARACTER(len=*), PARAMETER :: routineN = 'qs_scf_ensure_outer_loop_vars', &
          routineP = moduleN//':'//routineN
@@ -280,7 +282,15 @@ CONTAINS
 
       IF (scf_control%outer_scf%have_scf) THEN
          nhistory = scf_control%outer_scf%max_scf+1
-         nvariables = outer_loop_variables_count(scf_control)
+         IF (PRESENT(nvar)) THEN
+            IF (nvar > 0) THEN
+               nvariables = nvar
+            ELSE
+               nvariables = outer_loop_variables_count(scf_control)
+            END IF
+         ELSE
+            nvariables = outer_loop_variables_count(scf_control)
+         END IF
          ALLOCATE (scf_env%outer_scf%variables(nvariables, nhistory))
          ALLOCATE (scf_env%outer_scf%count(nhistory))
          scf_env%outer_scf%count = 0
@@ -340,12 +350,13 @@ CONTAINS
                nvariables = SIZE(dft_control%qs_control%cdft_control%target)
             END SELECT
          END IF
+         print *, 'Number of variables', nvariables
          ALLOCATE (dft_control%qs_control%cdft_control%constraint%variables(nvariables, nhistory))
          ALLOCATE (dft_control%qs_control%cdft_control%constraint%count(nhistory))
          dft_control%qs_control%cdft_control%constraint%count = 0
          ALLOCATE (dft_control%qs_control%cdft_control%constraint%gradient(nvariables, nhistory))
          ALLOCATE (dft_control%qs_control%cdft_control%constraint%energy(nhistory))
-         CALL qs_scf_ensure_outer_loop_vars(scf_env, scf_control)
+         CALL qs_scf_ensure_outer_loop_vars(scf_env, scf_control, nvariables)
       ENDIF
       ! Executed only on first call (OT settings active in scf_control)
       ! Save OT settings and constraint initial values in CDFT control
@@ -362,16 +373,6 @@ CONTAINS
             dft_control%qs_control%cdft_control%ot_control%bisect_trust_count = scf_control%outer_scf%bisect_trust_count
             CALL cdft_opt_type_copy(dft_control%qs_control%cdft_control%ot_control%cdft_opt_control, &
                                     scf_control%outer_scf%cdft_opt_control)
-            !IF (scf_control%outer_scf%cdft_opt_control%jacobian_restart) THEN
-            !   ! This code block should not do anything
-            !   nvariables = SIZE(scf_control%outer_scf%cdft_opt_control%jacobian_vector)
-            !   IF (ASSOCIATED(dft_control%qs_control%cdft_control%constraint_control%cdft_opt_control%jacobian_vector)) &
-            !      CPABORT("")
-            !   ALLOCATE (dft_control%qs_control%cdft_control%constraint_control%cdft_opt_control%jacobian_vector(nvariables))
-            !   dft_control%qs_control%cdft_control%constraint_control%cdft_opt_control%jacobian_vector = &
-            !      scf_control%outer_scf%cdft_opt_control%jacobian_vector
-            !END IF
-
             nvariables = 1
             ! Constraint specific initializations
             IF (dft_control%qs_control%becke_constraint) THEN

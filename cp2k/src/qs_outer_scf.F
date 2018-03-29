@@ -578,12 +578,9 @@ CONTAINS
          ! Switch data in scf_control: first save values that might have changed
          IF (ASSOCIATED(scf_control%outer_scf%cdft_opt_control)) THEN
             CPASSERT(ASSOCIATED(cdft_control%constraint_control%cdft_opt_control))
-            cdft_control%constraint_control%cdft_opt_control%broyden_update = &
-               scf_control%outer_scf%cdft_opt_control%broyden_update
-            cdft_control%constraint_control%cdft_opt_control%newton_step = &
-               scf_control%outer_scf%cdft_opt_control%newton_step
-            cdft_control%constraint_control%cdft_opt_control%ijacobian = &
-               scf_control%outer_scf%cdft_opt_control%ijacobian
+            CALL cdft_opt_type_copy(cdft_control%constraint_control%cdft_opt_control, &
+                                    scf_control%outer_scf%cdft_opt_control)
+            ! OT SCF does not need cdft_opt_control
             CALL cdft_opt_type_release(scf_control%outer_scf%cdft_opt_control)
          END IF
          ! Now switch
@@ -595,11 +592,12 @@ CONTAINS
          scf_control%outer_scf%optimizer = cdft_control%ot_control%optimizer
          scf_control%outer_scf%diis_buffer_length = cdft_control%ot_control%diis_buffer_length
          scf_control%outer_scf%bisect_trust_count = cdft_control%ot_control%bisect_trust_count
-         !CALL cdft_opt_type_copy(scf_control%outer_scf%cdft_opt_control, &
-         !                        cdft_control%ot_control%cdft_opt_control)
          ! Switch data in scf_env: first save current values for constraint
          cdft_control%constraint%iter_count = scf_env%outer_scf%iter_count
          cdft_control%constraint%energy = scf_env%outer_scf%energy
+         print *, SIZE(scf_env%outer_scf%variables ,1), SIZE(scf_env%outer_scf%variables ,2)
+         print *, SIZE(cdft_control%constraint%variables ,1), SIZE(cdft_control%constraint%variables ,2)
+         print *, scf_env%outer_scf%deallocate_jacobian, cdft_control%constraint%deallocate_jacobian
          cdft_control%constraint%variables = scf_env%outer_scf%variables
          cdft_control%constraint%gradient = scf_env%outer_scf%gradient
          cdft_control%constraint%count = scf_env%outer_scf%count
@@ -661,6 +659,7 @@ CONTAINS
          ALLOCATE (scf_env%outer_scf%count(scf_control%outer_scf%max_scf+1))
          scf_env%outer_scf%count = cdft_control%constraint%count
          scf_env%outer_scf%iter_count = cdft_control%constraint%iter_count
+         print *, 'Dealloc', scf_env%outer_scf%deallocate_jacobian, cdft_control%constraint%deallocate_jacobian
          scf_env%outer_scf%deallocate_jacobian = cdft_control%constraint%deallocate_jacobian
          IF (ASSOCIATED(cdft_control%constraint%inv_jacobian)) THEN
             IF (ASSOCIATED(scf_env%outer_scf%inv_jacobian)) &

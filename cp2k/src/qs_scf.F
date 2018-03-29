@@ -252,8 +252,10 @@ CONTAINS
             IF (used_history) used_history = .FALSE.
             ! Update a counter and check if the Jacobian should be deallocated
             IF (ASSOCIATED(scf_env%outer_scf%inv_jacobian)) THEN
-               scf_control%outer_scf%cdft_opt_control%ijacobian = scf_control%outer_scf%cdft_opt_control%ijacobian+1
-               IF (scf_control%outer_scf%cdft_opt_control%ijacobian .GE. scf_control%outer_scf%cdft_opt_control%jacobian_freq(2)) &
+               scf_control%outer_scf%cdft_opt_control%ijacobian(2) = scf_control%outer_scf%cdft_opt_control%ijacobian(2)+1
+               IF (scf_control%outer_scf%cdft_opt_control%ijacobian(2) .GE. &
+                   scf_control%outer_scf%cdft_opt_control%jacobian_freq(2) .AND. &
+                   scf_control%outer_scf%cdft_opt_control%jacobian_freq(2) > 0) &
                   scf_env%outer_scf%deallocate_jacobian = .TRUE.
             END IF
          END IF
@@ -1360,6 +1362,8 @@ CONTAINS
          ! Write restart file for inverse Jacobian
          CALL print_inverse_jacobian(logger, scf_env%outer_scf%inv_jacobian, iter_count)
       END IF
+      ! Update counter
+      scf_control%outer_scf%cdft_opt_control%ijacobian(1) = scf_control%outer_scf%cdft_opt_control%ijacobian(1) + 1
       CALL timestop(handle)
 
    END SUBROUTINE qs_calculate_inverse_jacobian

@@ -48,8 +48,8 @@ MODULE qs_cdft_opt_types
 !> \param jacobian_type the finite difference scheme to compute the Jacobian
 !> \param broyden_type the variant of Broyden's method to use
 !> \param jacobian_freq control parameters defining how often the Jacobian is built
-!> \param ijacobian counter to track how many outer_scf iterations have passed since the last
-!>                  Jacobian rebuild
+!> \param ijacobian counter to track how many SCF iterations/energy evaluations have passed since
+!>                  the last Jacobian rebuild
 !> \param broyden_update logical which determines if a Broyden update is needed
 !> \param max_ls the maximum number of backtracking line search steps to perform
 !> \param continue_ls continue line search until max steps are reached or until the gradient
@@ -75,7 +75,7 @@ MODULE qs_cdft_opt_types
       INTEGER                              :: jacobian_type
       INTEGER                              :: broyden_type
       INTEGER                              :: jacobian_freq(2)
-      INTEGER                              :: ijacobian
+      INTEGER                              :: ijacobian(2)
       INTEGER                              :: max_ls
    END TYPE cdft_opt_type
 
@@ -106,11 +106,11 @@ CONTAINS
 
       cdft_opt_control%jacobian_type = -1
       cdft_opt_control%broyden_type = -1
-      cdft_opt_control%jacobian_freq = 1
+      cdft_opt_control%jacobian_freq(:) = 1
       cdft_opt_control%newton_step = 1.0_dp
       cdft_opt_control%newton_step_save = 1.0_dp
       cdft_opt_control%factor_ls = 0.5_dp
-      cdft_opt_control%ijacobian = 0
+      cdft_opt_control%ijacobian(:) = 0
       cdft_opt_control%max_ls = 0
       cdft_opt_control%build_jacobian = .FALSE.
       cdft_opt_control%broyden_update = .FALSE.
@@ -244,7 +244,7 @@ CONTAINS
       CASE DEFAULT
          ! Do nothing
       CASE (outer_scf_optimizer_broyden)
-         WRITE (output_unit, '(T25,A)') "Optimization with Broyden's method"
+         WRITE (output_unit, '(T3,A)') "Optimization with Broyden's method"
          SELECT CASE (cdft_opt_control%broyden_type)
          CASE (broyden_type_1)
             WRITE (output_unit, '(A)') "                  variant : 1st method"
@@ -270,19 +270,25 @@ CONTAINS
                "                            and backtracking line search"
          END SELECT
       CASE (outer_scf_optimizer_newton)
-         WRITE (output_unit, '(T25,A)') "Optimization with Newton's method"
+         WRITE (output_unit, '(T3,A)') "Optimization with Newton's method"
       CASE (outer_scf_optimizer_newton_ls)
-         WRITE (output_unit, '(T25,A)') "Optimization with Newton's method using backtracking line search"
+         WRITE (output_unit, '(T3,A)') "Optimization with Newton's method using backtracking line search"
       END SELECT
       SELECT CASE (optimizer)
       CASE DEFAULT
          ! Do nothing
       CASE (outer_scf_optimizer_broyden, outer_scf_optimizer_newton, outer_scf_optimizer_newton_ls)
-         WRITE (output_unit, '(T25,A,I4,A)') &
-            "The Jacobian is restarted every ", cdft_opt_control%jacobian_freq(2), " energy evaluation"
-         WRITE (output_unit, '(T25,A,I4,A)') &
-            " or if the number of SCF iterations exceeds ", cdft_opt_control%jacobian_freq(1)
-         WRITE (output_unit, '(T25,A,F8.4)') &
+         IF (cdft_opt_control%jacobian_freq(2) > 0) THEN
+            WRITE (output_unit, '(T6,A,I4,A)') &
+               "The Jacobian is restarted every ", cdft_opt_control%jacobian_freq(2), " energy evaluation"
+            IF (cdft_opt_control%jacobian_freq(1) > 0) &
+               WRITE (output_unit, '(T29,A,I4,A)') &
+                  "or every ", cdft_opt_control%jacobian_freq(1), " CDFT SCF iteration"
+         ELSE
+            WRITE (output_unit, '(T6,A,I4,A)') &
+               "The Jacobian is restarted every ", cdft_opt_control%jacobian_freq(1), " CDFT SCF iteration"
+         END IF
+         WRITE (output_unit, '(T3,A,F8.4)') &
             "Optimizer step size: ", cdft_opt_control%newton_step_save
       END SELECT
 
@@ -317,10 +323,10 @@ CONTAINS
       new%continue_ls = old%continue_ls
       new%factor_ls = old%factor_ls
       new%jacobian_type = old%jacobian_type
-      new%jacobian_freq = old%jacobian_freq
+      new%jacobian_freq(:) = old%jacobian_freq(:)
       new%newton_step = old%newton_step
       new%newton_step_save = old%newton_step_save
-      new%ijacobian = old%ijacobian
+      new%ijacobian(:) = old%ijacobian(:)
       new%build_jacobian = old%build_jacobian
       new%broyden_type = old%broyden_type
       new%broyden_update = old%broyden_update
