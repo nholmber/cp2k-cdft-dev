@@ -283,7 +283,7 @@ CONTAINS
                "The Jacobian is restarted every ", cdft_opt_control%jacobian_freq(2), " energy evaluation"
             IF (cdft_opt_control%jacobian_freq(1) > 0) &
                WRITE (output_unit, '(T29,A,I4,A)') &
-                  "or every ", cdft_opt_control%jacobian_freq(1), " CDFT SCF iteration"
+               "or every ", cdft_opt_control%jacobian_freq(1), " CDFT SCF iteration"
          ELSE
             WRITE (output_unit, '(T6,A,I4,A)') &
                "The Jacobian is restarted every ", cdft_opt_control%jacobian_freq(1), " CDFT SCF iteration"
@@ -310,7 +310,6 @@ CONTAINS
          routineP = moduleN//':'//routineN
 
       INTEGER                                            :: handle
-
 
       ! Do nothing if cdft_opt_type is not allocated
       ! this happens if CDFT is performed with an optimizer other than Broyden/Newton

@@ -1208,7 +1208,6 @@ CONTAINS
       TYPE(qs_scf_env_type), POINTER                     :: scf_env
       TYPE(scf_control_type), POINTER                    :: scf_control
 
-
       NULLIFY (energy, gradient, p_rmpv, rho_ao_kp, mos, rho, mos_stashed, &
                ks_env, scf_env, scf_control, dft_control, cdft_control, &
                inv_jacobian, para_env, tmp_logger, energy_qs)
@@ -1363,7 +1362,7 @@ CONTAINS
          CALL print_inverse_jacobian(logger, scf_env%outer_scf%inv_jacobian, iter_count)
       END IF
       ! Update counter
-      scf_control%outer_scf%cdft_opt_control%ijacobian(1) = scf_control%outer_scf%cdft_opt_control%ijacobian(1) + 1
+      scf_control%outer_scf%cdft_opt_control%ijacobian(1) = scf_control%outer_scf%cdft_opt_control%ijacobian(1)+1
       CALL timestop(handle)
 
    END SUBROUTINE qs_calculate_inverse_jacobian

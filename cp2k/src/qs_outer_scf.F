@@ -595,9 +595,6 @@ CONTAINS
          ! Switch data in scf_env: first save current values for constraint
          cdft_control%constraint%iter_count = scf_env%outer_scf%iter_count
          cdft_control%constraint%energy = scf_env%outer_scf%energy
-         print *, SIZE(scf_env%outer_scf%variables ,1), SIZE(scf_env%outer_scf%variables ,2)
-         print *, SIZE(cdft_control%constraint%variables ,1), SIZE(cdft_control%constraint%variables ,2)
-         print *, scf_env%outer_scf%deallocate_jacobian, cdft_control%constraint%deallocate_jacobian
          cdft_control%constraint%variables = scf_env%outer_scf%variables
          cdft_control%constraint%gradient = scf_env%outer_scf%gradient
          cdft_control%constraint%count = scf_env%outer_scf%count
@@ -659,7 +656,6 @@ CONTAINS
          ALLOCATE (scf_env%outer_scf%count(scf_control%outer_scf%max_scf+1))
          scf_env%outer_scf%count = cdft_control%constraint%count
          scf_env%outer_scf%iter_count = cdft_control%constraint%iter_count
-         print *, 'Dealloc', scf_env%outer_scf%deallocate_jacobian, cdft_control%constraint%deallocate_jacobian
          scf_env%outer_scf%deallocate_jacobian = cdft_control%constraint%deallocate_jacobian
          IF (ASSOCIATED(cdft_control%constraint%inv_jacobian)) THEN
             IF (ASSOCIATED(scf_env%outer_scf%inv_jacobian)) &

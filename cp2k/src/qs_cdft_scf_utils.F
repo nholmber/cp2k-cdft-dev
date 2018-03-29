@@ -440,14 +440,11 @@ CONTAINS
       END SELECT
       IF (scf_control%outer_scf%cdft_opt_control%build_jacobian) THEN
          ! Check if an old Jacobian can be reused avoiding a rebuild
-         print *, 'ASSOCIATED and ITER', ASSOCIATED(scf_env%outer_scf%inv_jacobian),  scf_env%outer_scf%iter_count, &
-            scf_control%outer_scf%cdft_opt_control%ijacobian(1),scf_control%outer_scf%cdft_opt_control%ijacobian(1), &
-            scf_control%outer_scf%cdft_opt_control%jacobian_freq(2)
          IF (ASSOCIATED(scf_env%outer_scf%inv_jacobian)) THEN
             ! Rebuild if number of previous energy evaluations exceeds limit
             IF (scf_control%outer_scf%cdft_opt_control%ijacobian(2) .GE. &
                 scf_control%outer_scf%cdft_opt_control%jacobian_freq(2) .AND. .NOT. used_history .AND. &
-                scf_control%outer_scf%cdft_opt_control%jacobian_freq(2) > 0)  THEN
+                scf_control%outer_scf%cdft_opt_control%jacobian_freq(2) > 0) THEN
                should_build = .TRUE.
                ! Zero the corresponding counter
                scf_control%outer_scf%cdft_opt_control%ijacobian(2) = 0

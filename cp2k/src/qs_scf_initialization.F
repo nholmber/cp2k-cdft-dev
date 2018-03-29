@@ -350,7 +350,6 @@ CONTAINS
                nvariables = SIZE(dft_control%qs_control%cdft_control%target)
             END SELECT
          END IF
-         print *, 'Number of variables', nvariables
          ALLOCATE (dft_control%qs_control%cdft_control%constraint%variables(nvariables, nhistory))
          ALLOCATE (dft_control%qs_control%cdft_control%constraint%count(nhistory))
          dft_control%qs_control%cdft_control%constraint%count = 0
