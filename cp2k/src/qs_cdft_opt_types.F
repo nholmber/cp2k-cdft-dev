@@ -82,7 +82,7 @@ MODULE qs_cdft_opt_types
 CONTAINS
 
 ! **************************************************************************************************
-!> \brief allocates and initializes the CDFT optimizer control object with the default values
+!> \brief allocates and initializes the CDFT optimizer control object with default values
 !> \param cdft_opt_control the object to initialize
 !> \par History
 !>      03.2018 created [Nico Holmberg]

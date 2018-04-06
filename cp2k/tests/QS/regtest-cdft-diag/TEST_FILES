@@ -21,4 +21,6 @@ He2-cdft-alphabeta-diag-md-1.inp                      11      6e-10             
 He2-cdft-alphabeta-diag-md-2.inp                      11      6e-10             -3.044689112623726
 He2-cdft-alphabeta-diag-md-3.inp                      11      6e-10             -3.044689112623726
 He2-cdft-alphabeta-diag-md-4.inp                      11      6e-10             -3.044689112623726
+# Use different Jacobian step sizes for constraints 1 and 2
+He2-cdft-alphabeta-diag-3.inp                         11      6e-10             -3.044689112623726
 #EOF

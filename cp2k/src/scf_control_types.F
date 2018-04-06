@@ -87,21 +87,8 @@ MODULE scf_control_types
 !> \param id_nr unique number to identify an scf control
 !> \param ref_count reference count (see cp2k/doc/ReferenceCounting.html)
 !> \param added_mos additional number of MOs that might be used in the SCF
-!> \param build_jacobian logical which determines if the inverse Jacobian should be computed
 !> \param step_size the optimizer step size
-!> \param jacobian_step the step size for calculating the finite difference Jacobian
-!> \param newton_step the step size used by the Newton optimizer with values between 0 and 1
-!> \param newton_step_save permanent copy of the above
-!> \param jacobian_type the finite difference scheme to compute the Jacobian
-!> \param broyden_type the variant of Broyden's method to use
-!> \param jacobian_freq control parameters defining how often the Jacobian is built
-!> \param ijacobian counter to track how many outer_scf iterations have passed since the last
-!>                  Jacobian rebuild
-!> \param broyden_update logical which determines if a Broyden update is needed
-!> \param max_ls the maximum number of backtracking line search steps to perform
-!> \param continue_ls continue line search until max steps are reached or until the gradient
-!>                    no longer decreases
-!> \param factor_ls line search parameter used in generating a new step size
+!> \param cdft_opt_control settings for optimizers that work only together with CDFT constraints
 !> \par History
 !>      09.2002 created [fawzi]
 !> \author Fawzi Mohamed
