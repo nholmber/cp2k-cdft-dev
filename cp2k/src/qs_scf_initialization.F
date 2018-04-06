@@ -266,9 +266,9 @@ CONTAINS
 
 ! **************************************************************************************************
 !> \brief performs allocation of outer SCF variables
-!> \param scf_env ...
-!> \param scf_control ...
-!> \param nvar ...
+!> \param scf_env the SCF environment which contains the outer SCF variables
+!> \param scf_control control settings for the outer SCF loop
+!> \param nvar (optional) set number of outer SCF variables externally if CDFT SCF is active
 ! **************************************************************************************************
    SUBROUTINE qs_scf_ensure_outer_loop_vars(scf_env, scf_control, nvar)
       TYPE(qs_scf_env_type), POINTER                     :: scf_env

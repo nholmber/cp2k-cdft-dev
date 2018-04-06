@@ -40,7 +40,7 @@ MODULE qs_cdft_opt_types
              cdft_opt_type_copy
 
 ! **************************************************************************************************
-!> \brief contains the parameters needed by a scf run
+!> \brief contains the parameters needed by CDFT specific optimizers
 !> \param build_jacobian logical which determines if the inverse Jacobian should be computed
 !> \param jacobian_step the step size for calculating the finite difference Jacobian
 !> \param newton_step the step size used by the Newton optimizer with values between 0 and 1
