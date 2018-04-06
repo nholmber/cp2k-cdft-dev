@@ -152,7 +152,7 @@ CONTAINS
 !> \brief maps an integer to a string
 !> \param enum the enumeration to use for the mapping
 !> \param i the value to map
-!> \retval res ...
+!> \return ...
 !> \author fawzi
 ! **************************************************************************************************
    FUNCTION enum_i2c(enum, i) RESULT(res)
@@ -179,10 +179,10 @@ CONTAINS
       IF (.NOT. found) THEN
          IF (enum%strict) THEN
             DO j = 1, SIZE(enum%desc)
-               PRINT*, TRIM(a2s(enum%desc(j)%chars))
-               PRINT*, TRIM(enum%c_vals(j))
+               PRINT *, TRIM(a2s(enum%desc(j)%chars))
+               PRINT *, TRIM(enum%c_vals(j))
             ENDDO
-            PRINT*, enum%i_vals
+            PRINT *, enum%i_vals
          END IF
          IF (enum%strict) &
             CPABORT("invalid value for enumeration:"//cp_to_string(i))
@@ -194,7 +194,7 @@ CONTAINS
 !> \brief maps a string to an integer
 !> \param enum the enumeration to use for the mapping
 !> \param c the value to map
-!> \retval res ...
+!> \return ...
 !> \author fawzi
 ! **************************************************************************************************
    FUNCTION enum_c2i(enum, c) RESULT(res)

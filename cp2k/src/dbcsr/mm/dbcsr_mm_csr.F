@@ -81,7 +81,7 @@ MODULE dbcsr_mm_csr
       TYPE(dbcsr_mm_sched_type)                      :: sched
    END TYPE dbcsr_mm_csr_type
 
-#include "../base/hash_table_types.f90"
+#include "../base/dbcsr_hash_table_types.f90"
 
 ! **************************************************************************************************
    PUBLIC :: dbcsr_mm_csr_type
@@ -971,7 +971,7 @@ CONTAINS
 !> \brief Determines whether a transpose must be applied
 !> \param[in] row   The absolute matrix row.
 !> \param[in] column          The absolute matrix column.
-!> \retval transpose ...
+!> \return ...
 !> \par Source
 !> This function is copied from dbcsr_dist_operations for speed reasons.
 ! **************************************************************************************************
@@ -983,6 +983,6 @@ CONTAINS
 
    END FUNCTION my_checker_tr
 
-#include "../base/hash_table.f90"
+#include "../base/dbcsr_hash_table.f90"
 
 END MODULE dbcsr_mm_csr

@@ -1814,6 +1814,12 @@ CONTAINS
                           default_i_val=100)
       CALL section_add_keyword(print_key, keyword)
       CALL keyword_release(keyword)
+      CALL keyword_create(keyword, name="EPS_FILTER", &
+                          description="Filtering threshold for sparse matrix operations.", &
+                          usage="EPS_FILTER 1.0E-6", &
+                          default_r_val=1.0E-14_dp)
+      CALL section_add_keyword(print_key, keyword)
+      CALL keyword_release(keyword)
       CALL keyword_create(keyword, name="RESTRICT_RANGE", &
                           description="Restricts the energy windows to states close to the fermi level", &
                           usage="RESTRICT_RANGE .TRUE.", &
@@ -1864,6 +1870,14 @@ CONTAINS
                           lone_keyword_l_val=.TRUE.)
       CALL section_add_keyword(print_key, keyword)
       CALL keyword_release(keyword)
+      CALL keyword_create(keyword=keyword, name="Binary", &
+                          description="Whether or not to generate the file in a binary format. ", &
+                          usage="BINARY {logical}", &
+                          repeats=.FALSE., &
+                          default_l_val=.FALSE., &
+                          lone_keyword_l_val=.TRUE.)
+      CALL section_add_keyword(print_key, keyword)
+      CALL keyword_release(keyword)
       CALL section_add_subsection(section, print_key)
       CALL section_release(print_key)
 
@@ -1888,6 +1902,25 @@ CONTAINS
                           lone_keyword_l_val=.TRUE.)
       CALL section_add_keyword(print_key, keyword)
       CALL keyword_release(keyword)
+      CALL keyword_create(keyword=keyword, name="Binary", &
+                          description="Whether or not to generate the file in a binary format. ", &
+                          usage="BINARY {logical}", &
+                          repeats=.FALSE., &
+                          default_l_val=.FALSE., &
+                          lone_keyword_l_val=.TRUE.)
+      CALL section_add_keyword(print_key, keyword)
+      CALL keyword_release(keyword)
+      CALL section_add_subsection(section, print_key)
+      CALL section_release(print_key)
+
+      ! interaction adjacency matrix
+      CALL cp_print_key_section_create(print_key, "ADJMAT_WRITE", &
+                                       description="Writes an (upper-triangular) adjacency matrix indicating the "// &
+                                       "interaction between atoms (according to overlapping basis functions). The "// &
+                                       "columns are: iatom, jatom, ikind, jkind; where iatom and jatom are the atom "// &
+                                       "indices (based on the coordinate file), ikind and jkind are the atomic kinds "// &
+                                       "(indeces as shown in the ATOMIC KIND INFORMATION section of a CP2K output). ", &
+                                       print_level=debug_print_level, filename="")
       CALL section_add_subsection(section, print_key)
       CALL section_release(print_key)
 

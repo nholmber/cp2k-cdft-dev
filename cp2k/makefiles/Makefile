@@ -82,9 +82,12 @@ OBJ_SRC_FILES += $(shell cd $(SRCDIR);  find . ! -path "*/preprettify/*" ! -name
 OBJ_SRC_FILES += $(LIBCUSMM_DIR)/libcusmm.cu
 endif
 
+# Included files used by Fypp preprocessor and standard includes
+INCLUDED_SRC_FILES = $(filter-out base_uses.f90, $(notdir $(shell find $(SRCDIR) ! -path "*/preprettify/*" -name "*.f90")))
+
 # Include also source files which won't compile into an object file
 ALL_SRC_FILES  = $(strip $(subst $(NULL) .,$(NULL) $(SRCDIR),$(NULL) $(OBJ_SRC_FILES)))
-ALL_SRC_FILES += $(shell find $(SRCDIR) ! -path "*/preprettify/*" -name "*.f90")
+ALL_SRC_FILES += $(INCLUDED_SRC_FILES)
 ALL_SRC_FILES += $(shell find $(SRCDIR) ! -path "*/preprettify/*" -name "*.h")
 ALL_SRC_FILES += $(shell find $(SRCDIR) ! -path "*/preprettify/*" -name "*.hpp")
 ALL_SRC_FILES += $(shell find $(SRCDIR) ! -path "*/preprettify/*" -name "*.hxx")
@@ -144,11 +147,23 @@ dirs:
 toolversions:
 ifneq ($(FC),)
 	@echo "=========== FC ($(ONEVERSION)) ==========="
+ifeq (Cray,$(shell $(CC) -V 2>&1 | head -n1 | cut -d' ' -f1))
+	$(FC) -V
+else ifeq (IBM,$(shell $(CC) -qversion 2>&1 | head -n1 | cut -d' ' -f1))
+	$(FC) -qversion
+else
 	$(FC) --version
+endif
 endif
 ifneq ($(CC),)
 	@echo "=========== CC ($(ONEVERSION)) ==========="
+ifeq (Cray,$(shell $(CC) -V 2>&1 | head -n1 | cut -d' ' -f1))
+	$(CC) -V
+else ifeq (IBM,$(shell $(CC) -qversion 2>&1 | head -n1 | cut -d' ' -f1))
+	$(CC) -qversion
+else
 	$(CC) --version
+endif
 endif
 ifneq ($(NVCC),)
 	@echo "========== NVCC ($(ONEVERSION)) =========="
@@ -275,7 +290,7 @@ OTHER_HELP += "mrproper : Remove ALL files not in SVN"
 # Prettyfier stuff ==========================================================
 vpath %.pretty $(PRETTYOBJDIR)
 
-pretty: $(addprefix $(PRETTYOBJDIR)/, $(ALL_OBJECTS:.o=.pretty))
+pretty: $(addprefix $(PRETTYOBJDIR)/, $(ALL_OBJECTS:.o=.pretty)) $(addprefix $(PRETTYOBJDIR)/, $(INCLUDED_SRC_FILES:.f90=.pretty_included))
 TOOL_HELP += "pretty : Reformat all source files in a pretty way."
 
 prettyclean:
@@ -284,7 +299,12 @@ TOOL_HELP += "prettyclean : Remove prettify marker files and preprettify directo
 
 $(PRETTYOBJDIR)/%.pretty: %.F $(DOXIFYOBJDIR)/%.doxified
 	@mkdir -p $(PRETTYOBJDIR)
-	cd $(dir $<); $(TOOLSRC)/prettify/fprettify.py --do-backup --backup-dir=$(PRETTYOBJDIR) $(notdir $<)
+	cd $(dir $<); $(TOOLSRC)/prettify/prettify.py --do-backup --backup-dir=$(PRETTYOBJDIR) $(notdir $<)
+	@touch $@
+
+$(PRETTYOBJDIR)/%.pretty_included: %.f90 $(DOXIFYOBJDIR)/%.doxified_included
+	@mkdir -p $(PRETTYOBJDIR)
+	cd $(dir $<); $(TOOLSRC)/prettify/prettify.py --do-backup --backup-dir=$(PRETTYOBJDIR) $(notdir $<)
 	@touch $@
 
 $(PRETTYOBJDIR)/%.pretty: %.c $(DOXIFYOBJDIR)/%.doxified
@@ -300,7 +320,7 @@ $(PRETTYOBJDIR)/%.pretty: %.cpp $(DOXIFYOBJDIR)/%.doxified
 # Doxyifier stuff ===========================================================
 vpath %.doxified $(DOXIFYOBJDIR)
 
-doxify: $(addprefix $(DOXIFYOBJDIR)/, $(ALL_OBJECTS:.o=.doxified))
+doxify: $(addprefix $(DOXIFYOBJDIR)/, $(ALL_OBJECTS:.o=.doxified)) $(addprefix $(DOXIFYOBJDIR)/, $(INCLUDED_SRC_FILES:.f90=.doxified_included))
 TOOL_HELP += "doxify : Autogenerate doxygen headers for subroutines"
 
 doxifyclean:
@@ -308,6 +328,11 @@ doxifyclean:
 TOOL_HELP += "doxifyclean : Remove doxify marker files"
 
 $(DOXIFYOBJDIR)/%.doxified: %.F
+	$(TOOLSRC)/doxify/doxify.sh $<
+	@mkdir -p $(DOXIFYOBJDIR)
+	@touch $@
+
+$(DOXIFYOBJDIR)/%.doxified_included: %.f90
 	$(TOOLSRC)/doxify/doxify.sh $<
 	@mkdir -p $(DOXIFYOBJDIR)
 	@touch $@

@@ -22,66 +22,66 @@ MODULE xc_libxc_wrap
 ! check for LibXC version
 #if (XC_MAJOR_VERSION < 4)
    This version of CP2K ONLY works with libxc versions 4.0.3 and above.
-   Furthermore, -I[LIBXC_DIR]/INCLUDE needs to be added to FCFLAGS.
+   Furthermore, -I${LIBXC_DIR}/include needs to be added to FCFLAGS.
 #else
 
    ! Functionals which require parameters
-  USE cp_log_handling,                 ONLY: cp_to_string
-  USE kinds,                           ONLY: dp
-  USE xc_f03_lib_m,                    ONLY: xc_f03_func_end,&
-                                             xc_f03_func_init,&
-                                             xc_f03_func_set_ext_params,&
-                                             xc_f03_functional_get_number,&
-!
-                                             xc_f03_gga_exc,&
-                                             xc_f03_gga_exc_vxc,&
-                                             xc_f03_gga_fxc,&
-                                             xc_f03_gga_vxc,&
-!
-                                             xc_f03_func_get_info,&
-                                             xc_f03_func_info_get_family,&
-                                             xc_f03_func_info_get_kind,&
-                                             xc_f03_func_info_get_name,&
-                                             xc_f03_func_info_get_references,&
-                                             xc_f03_func_info_get_flags,&
-                                             xc_f03_func_info_get_n_ext_params,&
-                                             xc_f03_func_info_get_ext_params_description,&
-!
-                                             xc_f03_func_reference_get_ref, &
-                                             xc_f03_func_reference_get_doi, &
-!
-                                             xc_f03_lda, &
-                                             xc_f03_lda_exc, &
-                                             xc_f03_lda_exc_vxc, &
-                                             xc_f03_lda_fxc, &
-                                             xc_f03_lda_kxc, &
-                                             xc_f03_lda_vxc, &
-!
-                                             xc_f03_mgga, &
-                                             xc_f03_mgga_exc, &
-                                             xc_f03_mgga_exc_vxc, &
-                                             xc_f03_mgga_fxc, &
-                                             xc_f03_mgga_vxc, &
-!
-                                             xc_f03_func_t, &
-                                             xc_f03_func_info_t, &
-                                             xc_f03_func_reference_t, &
-!
-                                             XC_FAMILY_LDA, &
-                                             XC_FAMILY_GGA, &
-                                             XC_FAMILY_MGGA, &
-                                             XC_FAMILY_HYB_GGA, &
-!
-                                             XC_UNPOLARIZED, &
-                                             XC_POLARIZED, &
-!
-                                             XC_EXCHANGE, &
-                                             XC_CORRELATION, &
-                                             XC_EXCHANGE_CORRELATION, &
-                                             XC_KINETIC, &
-!
-                                             XC_FLAGS_NEEDS_LAPLACIAN, &
-                                             XC_FLAGS_HAVE_EXC
+   USE cp_log_handling, ONLY: cp_to_string
+   USE kinds, ONLY: dp
+   USE xc_f03_lib_m, ONLY: xc_f03_func_end, &
+      xc_f03_func_init, &
+      xc_f03_func_set_ext_params, &
+      xc_f03_functional_get_number, &
+      !
+      xc_f03_gga_exc, &
+      xc_f03_gga_exc_vxc, &
+      xc_f03_gga_fxc, &
+      xc_f03_gga_vxc, &
+      !
+      xc_f03_func_get_info, &
+      xc_f03_func_info_get_family, &
+      xc_f03_func_info_get_kind, &
+      xc_f03_func_info_get_name, &
+      xc_f03_func_info_get_references, &
+      xc_f03_func_info_get_flags, &
+      xc_f03_func_info_get_n_ext_params, &
+      xc_f03_func_info_get_ext_params_description, &
+      !
+      xc_f03_func_reference_get_ref, &
+      xc_f03_func_reference_get_doi, &
+      !
+      xc_f03_lda, &
+      xc_f03_lda_exc, &
+      xc_f03_lda_exc_vxc, &
+      xc_f03_lda_fxc, &
+      xc_f03_lda_kxc, &
+      xc_f03_lda_vxc, &
+      !
+      xc_f03_mgga, &
+      xc_f03_mgga_exc, &
+      xc_f03_mgga_exc_vxc, &
+      xc_f03_mgga_fxc, &
+      xc_f03_mgga_vxc, &
+      !
+      xc_f03_func_t, &
+      xc_f03_func_info_t, &
+      xc_f03_func_reference_t, &
+      !
+      XC_FAMILY_LDA, &
+      XC_FAMILY_GGA, &
+      XC_FAMILY_MGGA, &
+      XC_FAMILY_HYB_GGA, &
+      !
+      XC_UNPOLARIZED, &
+      XC_POLARIZED, &
+      !
+      XC_EXCHANGE, &
+      XC_CORRELATION, &
+      XC_EXCHANGE_CORRELATION, &
+      XC_KINETIC, &
+      !
+      XC_FLAGS_NEEDS_LAPLACIAN, &
+      XC_FLAGS_HAVE_EXC
 
 #include "../base/base_uses.f90"
 
@@ -229,7 +229,7 @@ CONTAINS
 ! **************************************************************************************************
 !> \brief Provides the functional ID.
 !> \param func_string ...
-!> \retval func_id ...
+!> \return ...
 !> \author A. Gloess (agloess)
 !> \note Remove prefix to keep compatibility, functionals can be specified (in
 !>       LIBXC section) as:
@@ -239,12 +239,12 @@ CONTAINS
 !>
 ! **************************************************************************************************
    INTEGER FUNCTION xc_libxc_wrap_functional_get_number(func_string) RESULT(func_id)
-      CHARACTER(LEN=*), INTENT(IN)       :: func_string
+      CHARACTER(LEN=*), INTENT(IN)                       :: func_string
 
-      CHARACTER(LEN=*), PARAMETER :: routineN = 'xc_libxc_wrap_version', &
-                                     routineP = moduleN//':'//routineN
+      CHARACTER(LEN=*), PARAMETER :: routineN = 'xc_libxc_wrap_functional_get_number', &
+         routineP = moduleN//':'//routineN
 
-      INTEGER                            :: handle
+      INTEGER                                            :: handle
 
       CALL timeset(routineN, handle)
 
@@ -266,19 +266,19 @@ CONTAINS
 !>        a dummy array.
 !> \param func_id ...
 !>
-!> \retval xc_libxc_wrap_needs_laplace ...
+!> \return ...
 !> \author A. Gloess (agloess)
 ! **************************************************************************************************
    LOGICAL FUNCTION xc_libxc_wrap_needs_laplace(func_id)
       ! Only some MGGA functionals needs the laplacian
-      INTEGER, INTENT(IN)                        :: func_id
+      INTEGER, INTENT(IN)                                :: func_id
 
       CHARACTER(LEN=*), PARAMETER :: routineN = 'xc_libxc_wrap_needs_laplace', &
-                                     routineP = moduleN//':'//routineN
+         routineP = moduleN//':'//routineN
 
-      INTEGER                                  :: handle
-      TYPE(xc_f03_func_t)                      :: xc_func
-      TYPE(xc_f03_func_info_t)                 :: xc_info
+      INTEGER                                            :: handle
+      TYPE(xc_f03_func_info_t)                           :: xc_info
+      TYPE(xc_f03_func_t)                                :: xc_func
 
       CALL timeset(routineN, handle)
 

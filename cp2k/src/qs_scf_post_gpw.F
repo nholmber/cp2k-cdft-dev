@@ -18,6 +18,8 @@ MODULE qs_scf_post_gpw
    USE atom_kind_orbitals,              ONLY: calculate_atomic_density
    USE atomic_kind_types,               ONLY: atomic_kind_type,&
                                               get_atomic_kind
+   USE basis_set_types,                 ONLY: gto_basis_set_p_type,&
+                                              gto_basis_set_type
    USE cell_types,                      ONLY: cell_type,&
                                               pbc
    USE cp_array_utils,                  ONLY: cp_1d_r_p_type
@@ -151,6 +153,7 @@ MODULE qs_scf_post_gpw
                                               set_qs_env
    USE qs_epr_hyp,                      ONLY: qs_epr_hyp_calc
    USE qs_grid_atom,                    ONLY: grid_atom_type
+   USE qs_integral_utils,               ONLY: basis_set_list_setup
    USE qs_kind_types,                   ONLY: get_qs_kind,&
                                               qs_kind_type
    USE qs_ks_methods,                   ONLY: qs_ks_update_qs_env
@@ -175,6 +178,13 @@ MODULE qs_scf_post_gpw
                                               mo_set_p_type
    USE qs_moments,                      ONLY: qs_moment_berry_phase,&
                                               qs_moment_locop
+   USE qs_neighbor_list_types,          ONLY: get_iterator_info,&
+                                              get_neighbor_list_set_p,&
+                                              neighbor_list_iterate,&
+                                              neighbor_list_iterator_create,&
+                                              neighbor_list_iterator_p_type,&
+                                              neighbor_list_iterator_release,&
+                                              neighbor_list_set_p_type
    USE qs_ot_eigensolver,               ONLY: ot_eigensolver
    USE qs_pdos,                         ONLY: calculate_projected_dos
    USE qs_resp,                         ONLY: resp_fit
@@ -2821,6 +2831,9 @@ CONTAINS
       CALL write_ks_matrix_csr(qs_env, input)
       CALL write_s_matrix_csr(qs_env, input)
 
+      ! write adjacency matrix
+      CALL write_adjacency_matrix(qs_env, input)
+
       ! Write the xc matrix
       IF (write_xc) THEN
          CALL get_qs_env(qs_env=qs_env, matrix_vxc_kp=matrix_vxc)
@@ -3317,8 +3330,7 @@ CONTAINS
 
       CHARACTER(len=*), PARAMETER :: routineN = 'energy_windows', routineP = moduleN//':'//routineN
       LOGICAL, PARAMETER                                 :: debug = .FALSE.
-      REAL(KIND=dp), PARAMETER                           :: filter_eps = 0.0_dp, one = 1.0_dp, &
-                                                            zero = 0.0_dp
+      REAL(KIND=dp), PARAMETER                           :: one = 1.0_dp, zero = 0.0_dp
 
       CHARACTER(len=40)                                  :: ext, title
       INTEGER                                            :: handle, i, lanzcos_max_iter, last, nao, &
@@ -3327,7 +3339,7 @@ CONTAINS
       INTEGER, DIMENSION(:), POINTER                     :: stride(:)
       LOGICAL                                            :: mpi_io, print_cube, restrict_range
       REAL(KIND=dp) :: bin_width, density_ewindow_total, density_total, energy_range, fermi_level, &
-         frob_norm, lanzcos_threshold, lower_bound, occupation, total_rho, upper_bound
+         filter_eps, frob_norm, lanzcos_threshold, lower_bound, occupation, total_rho, upper_bound
       REAL(KIND=dp), ALLOCATABLE, DIMENSION(:)           :: eigenvalues, P_eigenvalues, &
                                                             window_eigenvalues
       TYPE(cp_blacs_env_type), POINTER                   :: blacs_env
@@ -3371,7 +3383,7 @@ CONTAINS
       NULLIFY (stride)
       ALLOCATE (stride(3))
       stride = section_get_ivals(dft_section, "PRINT%ENERGY_WINDOWS%STRIDE")
-      ! CALL section_vals_val_get(ls_scf_section, "EPS_FILTER", r_val=filter_eps) ! disable filtering, as many parts here are full matrix anyway
+      CALL section_vals_val_get(dft_section, "PRINT%ENERGY_WINDOWS%EPS_FILTER", r_val=filter_eps)
       CALL section_vals_val_get(ls_scf_section, "EPS_LANCZOS", r_val=lanzcos_threshold)
       CALL section_vals_val_get(ls_scf_section, "MAX_ITER_LANCZOS", i_val=lanzcos_max_iter)
       CALL section_vals_val_get(ls_scf_section, "SIGN_SQRT_ORDER", i_val=newton_schulz_order)
@@ -3572,9 +3584,9 @@ CONTAINS
       CHARACTER(len=*), PARAMETER :: routineN = 'write_ks_matrix_csr', &
          routineP = moduleN//':'//routineN
 
-      CHARACTER(LEN=default_path_length)                 :: file_name
+      CHARACTER(LEN=default_path_length)                 :: file_name, fileformat
       INTEGER                                            :: handle, ispin, output_unit, unit_nr
-      LOGICAL                                            :: do_kpoints, do_ks_csr_write, uptr
+      LOGICAL                                            :: bin, do_kpoints, do_ks_csr_write, uptr
       REAL(KIND=dp)                                      :: thld
       TYPE(cp_logger_type), POINTER                      :: logger
       TYPE(csr_type)                                     :: ks_mat_csr
@@ -3599,7 +3611,14 @@ CONTAINS
       IF (do_ks_csr_write .AND. (.NOT. do_kpoints)) THEN
          CALL section_vals_val_get(dft_section, "PRINT%KS_CSR_WRITE%THRESHOLD", r_val=thld)
          CALL section_vals_val_get(dft_section, "PRINT%KS_CSR_WRITE%UPPER_TRIANGULAR", l_val=uptr)
+         CALL section_vals_val_get(dft_section, "PRINT%KS_CSR_WRITE%BINARY", l_val=bin)
          CALL get_qs_env(qs_env=qs_env, matrix_ks=matrix_ks)
+
+         IF (bin) THEN
+            fileformat = "UNFORMATTED"
+         ELSE
+            fileformat = "FORMATTED"
+         END IF
 
          DO ispin = 1, SIZE(matrix_ks)
 
@@ -3615,8 +3634,8 @@ CONTAINS
             WRITE (file_name, '(A,I0)') "KS_SPIN_", ispin
             unit_nr = cp_print_key_unit_nr(logger, dft_section, "PRINT%KS_CSR_WRITE", &
                                            extension=".csr", middle_name=TRIM(file_name), &
-                                           file_status="REPLACE", file_form="FORMATTED")
-            CALL csr_write(ks_mat_csr, unit_nr, upper_triangle=uptr, threshold=thld)
+                                           file_status="REPLACE", file_form=fileformat)
+            CALL csr_write(ks_mat_csr, unit_nr, upper_triangle=uptr, threshold=thld, binary=bin)
 
             CALL cp_print_key_finished_output(unit_nr, logger, dft_section, "PRINT%KS_CSR_WRITE")
 
@@ -3642,9 +3661,9 @@ CONTAINS
       CHARACTER(len=*), PARAMETER :: routineN = 'write_s_matrix_csr', &
          routineP = moduleN//':'//routineN
 
-      CHARACTER(LEN=default_path_length)                 :: file_name
+      CHARACTER(LEN=default_path_length)                 :: file_name, fileformat
       INTEGER                                            :: handle, ispin, output_unit, unit_nr
-      LOGICAL                                            :: do_kpoints, do_s_csr_write, uptr
+      LOGICAL                                            :: bin, do_kpoints, do_s_csr_write, uptr
       REAL(KIND=dp)                                      :: thld
       TYPE(cp_logger_type), POINTER                      :: logger
       TYPE(csr_type)                                     :: s_mat_csr
@@ -3669,7 +3688,14 @@ CONTAINS
       IF (do_s_csr_write .AND. (.NOT. do_kpoints)) THEN
          CALL section_vals_val_get(dft_section, "PRINT%S_CSR_WRITE%THRESHOLD", r_val=thld)
          CALL section_vals_val_get(dft_section, "PRINT%S_CSR_WRITE%UPPER_TRIANGULAR", l_val=uptr)
+         CALL section_vals_val_get(dft_section, "PRINT%S_CSR_WRITE%BINARY", l_val=bin)
          CALL get_qs_env(qs_env=qs_env, matrix_s=matrix_s)
+
+         IF (bin) THEN
+            fileformat = "UNFORMATTED"
+         ELSE
+            fileformat = "FORMATTED"
+         END IF
 
          DO ispin = 1, SIZE(matrix_s)
 
@@ -3685,8 +3711,8 @@ CONTAINS
             WRITE (file_name, '(A,I0)') "S_SPIN_", ispin
             unit_nr = cp_print_key_unit_nr(logger, dft_section, "PRINT%S_CSR_WRITE", &
                                            extension=".csr", middle_name=TRIM(file_name), &
-                                           file_status="REPLACE", file_form="FORMATTED")
-            CALL csr_write(s_mat_csr, unit_nr, upper_triangle=uptr, threshold=thld)
+                                           file_status="REPLACE", file_form=fileformat)
+            CALL csr_write(s_mat_csr, unit_nr, upper_triangle=uptr, threshold=thld, binary=bin)
 
             CALL cp_print_key_finished_output(unit_nr, logger, dft_section, "PRINT%S_CSR_WRITE")
 
@@ -3698,5 +3724,123 @@ CONTAINS
       CALL timestop(handle)
 
    END SUBROUTINE write_s_matrix_csr
+
+!**************************************************************************************************
+!> \brief write an adjacency (interaction) matrix
+!> \param qs_env qs environment
+!> \param input the input
+!> \author Mohammad Hossein Bani-Hashemian
+! **************************************************************************************************
+   SUBROUTINE write_adjacency_matrix(qs_env, input)
+      TYPE(qs_environment_type), POINTER                 :: qs_env
+      TYPE(section_vals_type), POINTER                   :: input
+
+      CHARACTER(len=*), PARAMETER :: routineN = 'write_adjacency_matrix', &
+         routineP = moduleN//':'//routineN
+
+      INTEGER                                            :: adjm_size, colind, handle, iatom, ikind, &
+                                                            ind, jatom, jkind, k, natom, nkind, &
+                                                            output_unit, rowind, unit_nr
+      INTEGER, ALLOCATABLE, DIMENSION(:)                 :: interact_adjm
+      LOGICAL                                            :: do_adjm_write, do_symmetric
+      TYPE(cp_logger_type), POINTER                      :: logger
+      TYPE(cp_para_env_type), POINTER                    :: para_env
+      TYPE(gto_basis_set_p_type), DIMENSION(:), POINTER  :: basis_set_list_a, basis_set_list_b
+      TYPE(gto_basis_set_type), POINTER                  :: basis_set_a, basis_set_b
+      TYPE(neighbor_list_iterator_p_type), &
+         DIMENSION(:), POINTER                           :: nl_iterator
+      TYPE(neighbor_list_set_p_type), DIMENSION(:), &
+         POINTER                                         :: nl
+      TYPE(qs_kind_type), DIMENSION(:), POINTER          :: qs_kind_set
+      TYPE(section_vals_type), POINTER                   :: dft_section
+
+      CALL timeset(routineN, handle)
+
+      NULLIFY (dft_section)
+
+      logger => cp_get_default_logger()
+      output_unit = cp_logger_get_default_io_unit(logger)
+
+      dft_section => section_vals_get_subs_vals(input, "DFT")
+      do_adjm_write = BTEST(cp_print_key_should_output(logger%iter_info, dft_section, &
+                                                       "PRINT%ADJMAT_WRITE"), cp_p_file)
+
+      IF (do_adjm_write) THEN
+         NULLIFY (qs_kind_set, nl_iterator)
+         NULLIFY (basis_set_list_a, basis_set_list_b, basis_set_a, basis_set_b)
+
+         CALL get_qs_env(qs_env, qs_kind_set=qs_kind_set, sab_orb=nl, natom=natom, para_env=para_env)
+
+         nkind = SIZE(qs_kind_set)
+         CPASSERT(SIZE(nl) .GT. 0)
+         CALL get_neighbor_list_set_p(neighbor_list_sets=nl, symmetric=do_symmetric)
+         CPASSERT(do_symmetric)
+         ALLOCATE (basis_set_list_a(nkind), basis_set_list_b(nkind))
+         CALL basis_set_list_setup(basis_set_list_a, "ORB", qs_kind_set)
+         CALL basis_set_list_setup(basis_set_list_b, "ORB", qs_kind_set)
+
+         adjm_size = ((natom+1)*natom)/2
+         ALLOCATE (interact_adjm(4*adjm_size))
+         interact_adjm = 0
+
+         NULLIFY (nl_iterator)
+         CALL neighbor_list_iterator_create(nl_iterator, nl)
+         DO WHILE (neighbor_list_iterate(nl_iterator) .EQ. 0)
+            CALL get_iterator_info(nl_iterator, &
+                                   ikind=ikind, jkind=jkind, &
+                                   iatom=iatom, jatom=jatom)
+
+            basis_set_a => basis_set_list_a(ikind)%gto_basis_set
+            IF (.NOT. ASSOCIATED(basis_set_a)) CYCLE
+            basis_set_b => basis_set_list_b(jkind)%gto_basis_set
+            IF (.NOT. ASSOCIATED(basis_set_b)) CYCLE
+
+            ! move everything to the upper triangular part
+            IF (iatom .LE. jatom) THEN
+               rowind = iatom
+               colind = jatom
+            ELSE
+               rowind = jatom
+               colind = iatom
+               ! swap the kinds too
+               ikind = ikind+jkind
+               jkind = ikind-jkind
+               ikind = ikind-jkind
+            END IF
+
+            ! indexing upper triangular matrix
+            ind = adjm_size-(natom-rowind+1)*((natom-rowind+1)+1)/2+colind-rowind+1
+            ! convert the upper triangular matrix into a adjm_size x 4 matrix
+            ! columns are: iatom, jatom, ikind, jkind
+            interact_adjm((ind-1)*4+1) = rowind
+            interact_adjm((ind-1)*4+2) = colind
+            interact_adjm((ind-1)*4+3) = ikind
+            interact_adjm((ind-1)*4+4) = jkind
+         ENDDO
+
+         CALL mp_sum(interact_adjm, para_env%group)
+
+         unit_nr = cp_print_key_unit_nr(logger, dft_section, "PRINT%ADJMAT_WRITE", &
+                                        extension=".adjmat", file_form="FORMATTED", &
+                                        file_status="REPLACE")
+         IF (unit_nr .GT. 0) THEN
+            WRITE (unit_nr, "(1A,2X,1A,5X,1A,4X,A5,3X,A5)") "#", "iatom", "jatom", "ikind", "jkind"
+            DO k = 1, 4*adjm_size, 4
+               ! print only the interacting atoms
+               IF (interact_adjm(k) .GT. 0 .AND. interact_adjm(k+1) .GT. 0) THEN
+                  WRITE (unit_nr, "(I8,2X,I8,3X,I6,2X,I6)") interact_adjm(k:k+3)
+               END IF
+            END DO
+         END IF
+
+         CALL cp_print_key_finished_output(unit_nr, logger, dft_section, "PRINT%ADJMAT_WRITE")
+
+         CALL neighbor_list_iterator_release(nl_iterator)
+         DEALLOCATE (basis_set_list_a, basis_set_list_b)
+      END IF
+
+      CALL timestop(handle)
+
+   END SUBROUTINE write_adjacency_matrix
 
 END MODULE qs_scf_post_gpw

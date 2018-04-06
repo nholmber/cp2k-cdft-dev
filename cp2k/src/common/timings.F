@@ -138,7 +138,7 @@ CONTAINS
 
 ! **************************************************************************************************
 !> \brief returns the current timer env from the stack
-!> \retval timer_env ...
+!> \return ...
 !> \author fawzi
 ! **************************************************************************************************
    FUNCTION get_timer_env() RESULT(timer_env)
@@ -318,7 +318,7 @@ CONTAINS
       r_stat => list_get(timer_env%routine_stats, cs_entry%routine_id)
 
       IF (handle /= cs_entry%routine_id) THEN
-         PRINT*, "list_size(timer_env%callstack) ", list_size(timer_env%callstack), &
+         PRINT *, "list_size(timer_env%callstack) ", list_size(timer_env%callstack), &
             " handle ", handle, " list_size(timers_stack) ", list_size(timers_stack)
          CPABORT('mismatched timestop '//TRIM(r_stat%routineN)//' in routine timestop')
       END IF
@@ -459,7 +459,7 @@ CONTAINS
 !>        If no routine with given name is found in timer_env%routine_names
 !>        then a new entiry is created.
 !> \param routineN ...
-!> \retval routine_id ...
+!> \return ...
 !> \author Ole Schuett
 ! **************************************************************************************************
    FUNCTION routine_name2id(routineN) RESULT(routine_id)

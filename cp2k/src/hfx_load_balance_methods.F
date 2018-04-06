@@ -1765,7 +1765,7 @@ CONTAINS
 !> \param p1 ...
 !> \param p2 ...
 !> \param p3 ...
-!> \retval res ...
+!> \return ...
 !> \par History
 !>      08.2009 created Joost VandeVondele
 !> \author Joost VandeVondele
@@ -1791,11 +1791,14 @@ CONTAINS
 ! **************************************************************************************************
 !> \brief ...
 !> \param p ...
-!> \retval res ...
+!> \return ...
 ! **************************************************************************************************
       REAL(KIND=dp) FUNCTION estimate_basic(p) RESULT(res)
-         REAL(KIND=dp) :: p(12)
-         REAL(KIND=dp) :: p1, p2, p3, p4, p5, p6, p7, p8, p9, p10, p11, p12
+      REAL(KIND=dp)                                      :: p(12)
+
+      REAL(KIND=dp)                                      :: p1, p10, p11, p12, p2, p3, p4, p5, p6, &
+                                                            p7, p8, p9
+
          p1 = p(1); p2 = p(2); p3 = p(3); p4 = p(4)
          p5 = p(5); p6 = p(6); p7 = p(7); p8 = p(8)
          p9 = p(9); p10 = p(10); p11 = p(11); p12 = p(12)
@@ -1812,11 +1815,12 @@ CONTAINS
 !> \param a0 ...
 !> \param a1 ...
 !> \param a2 ...
-!> \retval poly2 ...
+!> \return ...
 ! **************************************************************************************************
       REAL(KIND=dp) FUNCTION poly2(x, a0, a1, a2)
-         INTEGER :: x
-         REAL(KIND=dp) :: a0, a1, a2
+      INTEGER                                            :: x
+      REAL(KIND=dp)                                      :: a0, a1, a2
+
          poly2 = a0+a1*x+a2*x*x
       END FUNCTION poly2
 
@@ -1840,7 +1844,7 @@ CONTAINS
       LOGICAL, INTENT(IN)                                :: do_randomize
 
       CHARACTER(LEN=*), PARAMETER :: routineN = 'optimize_distribution', &
-         routineP = moduleN//':'//routineN
+                                     routineP = moduleN//':'//routineN
 
       INTEGER                                            :: i, itmp, j, nstep
       INTEGER(int_8), DIMENSION(:), POINTER              :: my_cost_cpu, tmp_cost, tmp_cpu_cost
@@ -1902,7 +1906,7 @@ CONTAINS
 !> \param i 2d index
 !> \param j 2d index
 !> \param N matrix size
-!> \retval get_1D_idx ...
+!> \return ...
 !> \par History
 !>      03.2009 created [Manuel Guidon]
 !> \author Manuel Guidon
@@ -1954,7 +1958,7 @@ CONTAINS
 !> \param coeffs_kind_max0 ...
 !> \param use_virial ...
 !> \param atomic_pair_list ...
-!> \retval estimate_block_cost ...
+!> \return ...
 ! **************************************************************************************************
    FUNCTION estimate_block_cost(natom, nkind, list_ij, list_kl, set_list_ij, set_list_kl, &
                                 iatom_start, iatom_end, jatom_start, jatom_end, &
