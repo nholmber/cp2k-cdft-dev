@@ -1,5 +1,8 @@
+!
+!  Open-shell grid-based optimization of the embedding potential
+! 
 &GLOBAL                                                                                           
-  PROJECT  h2o_h2_pbe
+  PROJECT  h_h_pbe_pbe0_triplet_grid
   PRINT_LEVEL MEDIUM
   RUN_TYPE ENERGY
 &END GLOBAL
@@ -14,36 +17,36 @@
        &MAPPING
           &FORCE_EVAL_EMBED
              &FRAGMENT 1
-                1 3  
+                1 1  
              &END
              &FRAGMENT 2
-                4 5  
+                2 2  
              &END
              &FRAGMENT 3
-                1 5  
+                1 2  
              &END
           &END
           &FORCE_EVAL 1
              &FRAGMENT 1
-                1 3
+                1 1
                 MAP 1 
               &END
           &END
           &FORCE_EVAL 2
              &FRAGMENT 1
-                1 2
+                1 1
                 MAP 2 
              &END
           &END
           &FORCE_EVAL 3
              &FRAGMENT 1
-                1 5
+                1 2
                 MAP 3 
               &END
           &END
           &FORCE_EVAL 4
              &FRAGMENT 1
-                1 2
+                1 1
                 MAP 2 
              &END
           &END
@@ -55,20 +58,17 @@
     &END CELL
     &KIND H
       BASIS_SET  cc-TZ
-      BASIS_SET RI_AUX  RI_TZ
+      RI_AUX_BASIS_SET  RI_TZ
       POTENTIAL  GTH-HF-q1
     &END KIND
     &KIND O
       BASIS_SET  cc-TZ
-      BASIS_SET RI_AUX  RI_TZ
+      RI_AUX_BASIS_SET  RI_TZ
       POTENTIAL  GTH-HF-q6
     &END KIND
     &COORD
-  O      1.75  1.5  0.0   
-  H      1.0   1.0  0.0   
-  H      2.5   1.0  0.0    
   H      1.75  2.75  0.0   
-  H      1.75  3.50 0.0    
+  H      1.75  4.25  0.0    
     &END
   &END SUBSYS
 &END FORCE_EVAL
@@ -80,6 +80,8 @@
   &DFT
     BASIS_SET_FILE_NAME  BASIS_RI_cc-TZ
     POTENTIAL_FILE_NAME   HF_POTENTIALS
+    UKS .TRUE.
+    MULTIPLICITY 2
     &MGRID
       CUTOFF  100
       REL_CUTOFF  20
@@ -113,18 +115,11 @@
     &END CELL
     &KIND H
       BASIS_SET  cc-TZ
-      BASIS_SET RI_AUX  RI_TZ
+      RI_AUX_BASIS_SET  RI_TZ
       POTENTIAL  GTH-HF-q1
     &END KIND
-    &KIND O
-      BASIS_SET  cc-TZ
-      BASIS_SET RI_AUX  RI_TZ
-      POTENTIAL  GTH-HF-q6
-    &END KIND
     &COORD
-  O      1.75  1.5  0.0   
-  H      1.0   1.0  0.0   
-  H      2.5   1.0  0.0    
+  H      1.75  2.75  0.0   
     &END
   &END SUBSYS
 &END FORCE_EVAL
@@ -136,6 +131,8 @@
   &DFT
     BASIS_SET_FILE_NAME  BASIS_RI_cc-TZ
     POTENTIAL_FILE_NAME   HF_POTENTIALS
+    UKS .TRUE.
+    MULTIPLICITY 2
     &MGRID
       CUTOFF  100
       REL_CUTOFF  20
@@ -170,17 +167,11 @@
     &END CELL
     &KIND H
       BASIS_SET  cc-TZ
-      BASIS_SET RI_AUX  RI_TZ
+      RI_AUX_BASIS_SET  RI_TZ
       POTENTIAL  GTH-HF-q1
     &END KIND
-    &KIND O
-      BASIS_SET  cc-TZ
-      BASIS_SET RI_AUX  RI_TZ
-      POTENTIAL  GTH-HF-q6
-    &END KIND
     &COORD
-  H      1.75  2.75  0.0   
-  H      1.75  3.50 0.0    
+  H      1.75  4.25  0.0    
     &END
   &END SUBSYS
 &END FORCE_EVAL
@@ -190,6 +181,8 @@
 &FORCE_EVAL
   METHOD Quickstep
   &DFT
+    UKS .TRUE.
+    MULTIPLICITY 3
     BASIS_SET_FILE_NAME  BASIS_RI_cc-TZ
     POTENTIAL_FILE_NAME   HF_POTENTIALS
     &PRINT
@@ -210,9 +203,11 @@
       &OPT_EMBED
          REG_LAMBDA 0.00001
          N_ITER 50
-         DENS_CONV_INT 0.5
-         DENS_CONV_MAX 0.025
-         OPTIMIZER LEVEL_SHIFT
+         DENS_CONV_INT 0.2
+         SPIN_DENS_CONV_INT 0.2
+         DENS_CONV_MAX 0.02
+         SPIN_DENS_CONV_MAX 0.02
+         GRID_OPT .TRUE.
       &END
     &END QS
     &SCF
@@ -237,20 +232,12 @@
     &END CELL
     &KIND H
       BASIS_SET  cc-TZ
-      BASIS_SET RI_AUX  RI_TZ
+      RI_AUX_BASIS_SET  RI_TZ
       POTENTIAL  GTH-HF-q1
     &END KIND
-    &KIND O
-      BASIS_SET  cc-TZ
-      BASIS_SET RI_AUX  RI_TZ
-      POTENTIAL  GTH-HF-q6
-    &END KIND
     &COORD
-  O      1.75  1.5  0.0   
-  H      1.0   1.0  0.0   
-  H      2.5   1.0  0.0    
   H      1.75  2.75  0.0   
-  H      1.75  3.50 0.0    
+  H      1.75  4.25  0.0    
     &END
   &END SUBSYS
 &END FORCE_EVAL
@@ -260,6 +247,8 @@
 &FORCE_EVAL
   METHOD Quickstep
   &DFT
+    UKS .TRUE.
+    MULTIPLICITY 2
     BASIS_SET_FILE_NAME  BASIS_RI_cc-TZ
     POTENTIAL_FILE_NAME   HF_POTENTIALS
     &MGRID
@@ -309,17 +298,11 @@
     &END CELL
     &KIND H
       BASIS_SET  cc-TZ
-      BASIS_SET RI_AUX  RI_TZ
+      RI_AUX_BASIS_SET  RI_TZ
       POTENTIAL  GTH-HF-q1
     &END KIND
-    &KIND O
-      BASIS_SET  cc-TZ
-      BASIS_SET RI_AUX  RI_TZ
-      POTENTIAL  GTH-HF-q6
-    &END KIND
     &COORD
-  H      1.75  2.75  0.0   
-  H      1.75  3.50 0.0    
+  H      1.75  4.25 0.0    
     &END
   &END SUBSYS
 &END FORCE_EVAL
