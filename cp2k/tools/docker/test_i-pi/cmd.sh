@@ -47,6 +47,8 @@ set +e # disable error trapping for remainder of script
 sed -i "s/total_steps>1000/total_steps>10/" input.xml
 /usr/local/bin/i-pi input.xml
 IPI_EXIT_CODE=$?
+
+wait # for cp2k to shutdown
 CP2K_EXIT_CODE=`cat ./run_1/cp2k_exit_code`
 
 echo ""
@@ -58,7 +60,7 @@ if (( $IPI_EXIT_CODE || $CP2K_EXIT_CODE )); then
     echo "Summary: Something is wrong with i-Pi commit ${IPI_REVISION}."
     echo "Status: FAILED"
 else
-    echo "Summary: I-Pi commit ${IPI_REVISION} works fine."
+    echo "Summary: i-Pi commit ${IPI_REVISION} works fine."
     echo "Status: OK"
 fi
 
