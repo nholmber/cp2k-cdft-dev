@@ -59,8 +59,11 @@ MODULE optimize_embedding_potential
                                               pw_env_type
    USE pw_methods,                      ONLY: pw_axpy,&
                                               pw_copy,&
+                                              pw_derive,&
+                                              pw_dr2,&
                                               pw_integrate_function,&
                                               pw_scale,&
+                                              pw_transfer,&
                                               pw_zero
    USE pw_pool_types,                   ONLY: pw_pool_create_pw,&
                                               pw_pool_give_back_pw,&
@@ -70,11 +73,13 @@ MODULE optimize_embedding_potential
                                               REALSPACE,&
                                               RECIPROCALSPACE,&
                                               pw_p_type,&
-                                              pw_release
+                                              pw_release,&
+                                              pw_type
    USE qs_collocate_density,            ONLY: calculate_ppl_grid,&
                                               calculate_wavefunction
    USE qs_environment_types,            ONLY: get_qs_env,&
-                                              qs_environment_type
+                                              qs_environment_type,&
+                                              set_qs_env
    USE qs_integrate_potential_single,   ONLY: integrate_v_rspace_one_center
    USE qs_kind_types,                   ONLY: get_qs_kind,&
                                               qs_kind_type
@@ -85,6 +90,7 @@ MODULE optimize_embedding_potential
    USE qs_neighbor_list_types,          ONLY: neighbor_list_set_p_type
    USE qs_subsys_types,                 ONLY: qs_subsys_get,&
                                               qs_subsys_type
+   USE realspace_grid_cube,             ONLY: cube_to_pw
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE
@@ -96,7 +102,7 @@ MODULE optimize_embedding_potential
    PUBLIC :: prepare_embed_opt, init_embed_pot, release_opt_embed, calculate_embed_pot_grad, &
              opt_embed_step, print_rho_diff, step_control, max_dens_diff, print_emb_opt_info, &
              conv_check_embed, make_subsys_embed_pot, print_embed_restart, find_aux_dimen, &
-             read_embed_pot, understand_spin_states
+             read_embed_pot, understand_spin_states, given_embed_pot, print_rho_spin_diff
 
 CONTAINS
 
@@ -450,6 +456,9 @@ CONTAINS
       CALL section_vals_val_get(opt_embed_section, "READ_EMBED_POT", &
                                 l_val=opt_embed%read_embed_pot)
 
+      CALL section_vals_val_get(opt_embed_section, "READ_EMBED_POT_CUBE", &
+                                l_val=opt_embed%read_embed_pot_cube)
+
       CALL section_vals_val_get(opt_embed_section, "GRID_OPT", &
                                 l_val=opt_embed%grid_opt)
 
@@ -541,6 +550,126 @@ CONTAINS
    END SUBROUTINE make_lri_object
 
 ! **************************************************************************************************
+!> \brief Read the external embedding potential, not to be optimized
+!> \param qs_env ...
+! **************************************************************************************************
+   SUBROUTINE given_embed_pot(qs_env)
+      TYPE(qs_environment_type), POINTER                 :: qs_env
+
+      LOGICAL                                            :: open_shell_embed
+      TYPE(dft_control_type), POINTER                    :: dft_control
+      TYPE(pw_env_type), POINTER                         :: pw_env
+      TYPE(pw_p_type), POINTER                           :: embed_pot, spin_embed_pot
+      TYPE(pw_pool_type), POINTER                        :: auxbas_pw_pool_subsys
+      TYPE(section_vals_type), POINTER                   :: input, qs_section
+
+      qs_env%given_embed_pot = .TRUE.
+      NULLIFY (input, dft_control, embed_pot, spin_embed_pot, embed_pot, spin_embed_pot, &
+               qs_section)
+      CALL get_qs_env(qs_env=qs_env, &
+                      input=input, &
+                      dft_control=dft_control, &
+                      pw_env=pw_env)
+      qs_section => section_vals_get_subs_vals(input, "DFT%QS")
+      open_shell_embed = .FALSE.
+      IF (dft_control%nspins .EQ. 2) open_shell_embed = .TRUE.
+
+      ! Prepare plane-waves pool
+      CALL pw_env_get(pw_env, auxbas_pw_pool=auxbas_pw_pool_subsys)
+
+      ! Create embedding potential
+      !CALL get_qs_env(qs_env=qs_env, &
+      !                embed_pot=embed_pot)
+      ALLOCATE (embed_pot)
+      NULLIFY (embed_pot%pw)
+      CALL pw_pool_create_pw(auxbas_pw_pool_subsys, embed_pot%pw, &
+                             use_data=REALDATA3D, &
+                             in_space=REALSPACE)
+      IF (open_shell_embed) THEN
+         ! Create spin embedding potential
+         !  CALL get_qs_env(qs_env=qs_env, &
+         !               spin_embed_pot=spin_embed_pot)
+         ALLOCATE (spin_embed_pot)
+         NULLIFY (spin_embed_pot%pw)
+         CALL pw_pool_create_pw(auxbas_pw_pool_subsys, spin_embed_pot%pw, &
+                                use_data=REALDATA3D, &
+                                in_space=REALSPACE)
+      ENDIF
+      ! Read the cubes
+      CALL read_embed_pot_cube(embed_pot, spin_embed_pot, qs_section, open_shell_embed)
+
+      IF (.NOT. open_shell_embed) THEN
+         CALL set_qs_env(qs_env=qs_env, embed_pot=embed_pot)
+      ELSE
+         CALL set_qs_env(qs_env=qs_env, embed_pot=embed_pot, spin_embed_pot=spin_embed_pot)
+      ENDIF
+
+   END SUBROUTINE given_embed_pot
+
+! **************************************************************************************************
+!> \brief ...
+!> \param qs_env ...
+!> \param embed_pot ...
+!> \param spin_embed_pot ...
+!> \param section ...
+!> \param opt_embed ...
+! **************************************************************************************************
+   SUBROUTINE read_embed_pot(qs_env, embed_pot, spin_embed_pot, section, opt_embed)
+      TYPE(qs_environment_type), POINTER                 :: qs_env
+      TYPE(pw_p_type), POINTER                           :: embed_pot, spin_embed_pot
+      TYPE(section_vals_type), POINTER                   :: section
+      TYPE(opt_embed_pot_type)                           :: opt_embed
+
+      ! Read the potential as a vector in the auxiliary basis
+      IF (opt_embed%read_embed_pot) &
+         CALL read_embed_pot_vector(qs_env, embed_pot, spin_embed_pot, section, opt_embed%embed_pot_coef, &
+                                    opt_embed%open_shell_embed)
+      ! Read the potential as a cube (two cubes for open shell)
+      IF (opt_embed%read_embed_pot_cube) &
+         CALL read_embed_pot_cube(embed_pot, spin_embed_pot, section, opt_embed%open_shell_embed)
+
+   END SUBROUTINE read_embed_pot
+
+! **************************************************************************************************
+!> \brief ...
+!> \param embed_pot ...
+!> \param spin_embed_pot ...
+!> \param section ...
+!> \param open_shell_embed ...
+! **************************************************************************************************
+   SUBROUTINE read_embed_pot_cube(embed_pot, spin_embed_pot, section, open_shell_embed)
+      TYPE(pw_p_type), POINTER                           :: embed_pot, spin_embed_pot
+      TYPE(section_vals_type), POINTER                   :: section
+      LOGICAL                                            :: open_shell_embed
+
+      CHARACTER(LEN=default_path_length)                 :: filename
+      LOGICAL                                            :: exist
+      REAL(KIND=dp)                                      :: scaling_factor
+
+      exist = .FALSE.
+      CALL section_vals_val_get(section, "EMBED_CUBE_FILE_NAME", c_val=filename)
+      INQUIRE (FILE=filename, exist=exist)
+      IF (.NOT. exist) &
+         CPABORT("Embedding cube file not found. ")
+
+      scaling_factor = 1.0_dp
+      CALL cube_to_pw(embed_pot%pw, filename, scaling_factor)
+
+      ! Spin-dependent part of the potential
+      IF (open_shell_embed) THEN
+         exist = .FALSE.
+         CALL section_vals_val_get(section, "EMBED_SPIN_CUBE_FILE_NAME", c_val=filename)
+         INQUIRE (FILE=filename, exist=exist)
+         IF (.NOT. exist) &
+            CPABORT("Embedding spin cube file not found. ")
+
+         scaling_factor = 1.0_dp
+         CALL cube_to_pw(spin_embed_pot%pw, filename, scaling_factor)
+      ENDIF
+
+   END SUBROUTINE read_embed_pot_cube
+
+! **************************************************************************************************
 !> \brief Read the embedding potential from the binary file
 !> \param qs_env ...
 !> \param embed_pot ...
@@ -549,8 +678,8 @@ CONTAINS
 !> \param embed_pot_coef ...
 !> \param open_shell_embed ...
 ! **************************************************************************************************
-   SUBROUTINE read_embed_pot(qs_env, embed_pot, spin_embed_pot, section, embed_pot_coef, &
-                             open_shell_embed)
+   SUBROUTINE read_embed_pot_vector(qs_env, embed_pot, spin_embed_pot, section, embed_pot_coef, &
+                                    open_shell_embed)
       TYPE(qs_environment_type), POINTER                 :: qs_env
       TYPE(pw_p_type), POINTER                           :: embed_pot, spin_embed_pot
       TYPE(section_vals_type), POINTER                   :: section
@@ -658,7 +787,7 @@ CONTAINS
       ! Release blacs environment
       CALL cp_blacs_env_release(blacs_env)
 
-   END SUBROUTINE read_embed_pot
+   END SUBROUTINE read_embed_pot_vector
 
 ! **************************************************************************************************
 !> \brief Find the embedding restart file name
@@ -1075,6 +1204,128 @@ CONTAINS
    END SUBROUTINE compute_kinetic_mat
 
 ! **************************************************************************************************
+!> \brief Regularizes the Wu-Yang potential on the grid
+!> \param potential ...
+!> \param pw_env ...
+!> \param lambda ...
+!> \param reg_term ...
+! **************************************************************************************************
+   SUBROUTINE grid_regularize(potential, pw_env, lambda, reg_term)
+      TYPE(pw_p_type), POINTER                           :: potential
+      TYPE(pw_env_type), POINTER                         :: pw_env
+      REAL(KIND=dp)                                      :: lambda, reg_term
+
+      INTEGER                                            :: i, j, k
+      INTEGER, DIMENSION(3)                              :: lb, n, ub
+      TYPE(pw_p_type), DIMENSION(3)                      :: dpot, dpot_g
+      TYPE(pw_pool_type), POINTER                        :: auxbas_pw_pool
+      TYPE(pw_type), POINTER                             :: dr2_pot, grid_reg, grid_reg_g, &
+                                                            potential_g, square_norm_dpot
+
+      !
+      ! First, the contribution to the gradient
+      !
+
+      ! Get some of the grids ready
+      CALL pw_env_get(pw_env, auxbas_pw_pool=auxbas_pw_pool)
+
+      NULLIFY (potential_g)
+      CALL pw_pool_create_pw(auxbas_pw_pool, potential_g, &
+                             use_data=COMPLEXDATA1D, &
+                             in_space=RECIPROCALSPACE)
+
+      NULLIFY (dr2_pot)
+      CALL pw_pool_create_pw(auxbas_pw_pool, dr2_pot, &
+                             use_data=COMPLEXDATA1D, &
+                             in_space=RECIPROCALSPACE)
+
+      NULLIFY (grid_reg)
+      CALL pw_pool_create_pw(auxbas_pw_pool, grid_reg, &
+                             use_data=REALDATA3D, &
+                             in_space=REALSPACE)
+
+      NULLIFY (grid_reg_g)
+      CALL pw_pool_create_pw(auxbas_pw_pool, grid_reg_g, &
+                             use_data=COMPLEXDATA1D, &
+                             in_space=RECIPROCALSPACE)
+      CALL pw_zero(grid_reg_g)
+
+      ! Transfer potential to the reciprocal space
+      CALL pw_transfer(potential%pw, potential_g)
+
+      ! Calculate second derivatives: dx^2, dy^2, dz^2
+      DO i = 1, 3
+         CALL pw_dr2(potential_g, dr2_pot, i, i)
+         CALL pw_axpy(dr2_pot, grid_reg_g, 1.0_dp)
+      ENDDO
+      ! Transfer potential to the real space
+      CALL pw_transfer(grid_reg_g, grid_reg)
+
+      ! Update the potential with a regularization term
+      CALL pw_axpy(grid_reg, potential%pw, -4.0_dp*lambda)
+
+      !
+      ! Second, the contribution to the functional
+      !
+      DO i = 1, 3
+         NULLIFY (dpot(i)%pw)
+         CALL pw_pool_create_pw(auxbas_pw_pool, dpot(i)%pw, &
+                                use_data=REALDATA3D, &
+                                in_space=REALSPACE)
+         NULLIFY (dpot_g(i)%pw)
+         CALL pw_pool_create_pw(auxbas_pw_pool, dpot_g(i)%pw, &
+                                use_data=COMPLEXDATA1D, &
+                                in_space=RECIPROCALSPACE)
+      ENDDO
+
+      NULLIFY (square_norm_dpot)
+      CALL pw_pool_create_pw(auxbas_pw_pool, square_norm_dpot, &
+                             use_data=REALDATA3D, &
+                             in_space=REALSPACE)
+
+      DO i = 1, 3
+         n(:) = 0
+         n(i) = 1
+         CALL pw_copy(potential_g, dpot_g(i)%pw)
+         CALL pw_derive(dpot_g(i)%pw, n(:))
+         CALL pw_transfer(dpot_g(i)%pw, dpot(i)%pw)
+      END DO
+
+      lb(1:3) = square_norm_dpot%pw_grid%bounds_local(1, 1:3)
+      ub(1:3) = square_norm_dpot%pw_grid%bounds_local(2, 1:3)
+!$OMP    PARALLEL DO DEFAULT(NONE) &
+!$OMP                PRIVATE(i,j,k) &
+!$OMP                SHARED(dpot,lb,square_norm_dpot,ub)
+      DO k = lb(3), ub(3)
+         DO j = lb(2), ub(2)
+            DO i = lb(1), ub(1)
+               square_norm_dpot%cr3d(i, j, k) = (dpot(1)%pw%cr3d(i, j, k)* &
+                                                 dpot(1)%pw%cr3d(i, j, k)+ &
+                                                 dpot(2)%pw%cr3d(i, j, k)* &
+                                                 dpot(2)%pw%cr3d(i, j, k)+ &
+                                                 dpot(3)%pw%cr3d(i, j, k)* &
+                                                 dpot(3)%pw%cr3d(i, j, k))
+            END DO
+         END DO
+      END DO
+!$OMP    END PARALLEL DO
+
+      reg_term = 2*lambda*pw_integrate_function(fun=square_norm_dpot)
+
+      ! Release
+      CALL pw_pool_give_back_pw(auxbas_pw_pool, potential_g)
+      CALL pw_pool_give_back_pw(auxbas_pw_pool, dr2_pot)
+      CALL pw_pool_give_back_pw(auxbas_pw_pool, grid_reg)
+      CALL pw_pool_give_back_pw(auxbas_pw_pool, grid_reg_g)
+      CALL pw_pool_give_back_pw(auxbas_pw_pool, square_norm_dpot)
+      DO i = 1, 3
+         CALL pw_pool_give_back_pw(auxbas_pw_pool, dpot(i)%pw)
+         CALL pw_pool_give_back_pw(auxbas_pw_pool, dpot_g(i)%pw)
+      END DO
+
+   END SUBROUTINE grid_regularize
+
+! **************************************************************************************************
 !> \brief Takes maximization step in embedding potential optimization
 !> \param diff_rho_r ...
 !> \param diff_rho_spin ...
@@ -1098,11 +1349,13 @@ CONTAINS
       REAL(KIND=dp), ALLOCATABLE, DIMENSION(:)           :: eigenval
       TYPE(cp_fm_struct_type), POINTER                   :: fm_struct
       TYPE(cp_fm_type), POINTER                          :: diag_grad, diag_step, fm_U, fm_U_scale
+      TYPE(pw_env_type), POINTER                         :: pw_env
 
       CALL timeset(routineN, handle)
 
       IF (opt_embed%grid_opt) THEN ! Grid based optimization
-         CALL grid_based_step(diff_rho_r, diff_rho_spin, opt_embed, embed_pot, spin_embed_pot)
+         CALL get_qs_env(qs_env=qs_env, pw_env=pw_env)
+         CALL grid_based_step(diff_rho_r, diff_rho_spin, pw_env, opt_embed, embed_pot, spin_embed_pot)
 
       ELSE ! Finite basis optimization
          ! If the previous step has been rejected, we go back to the previous expansion coefficients
@@ -1253,12 +1506,14 @@ CONTAINS
 !> \brief ...
 !> \param diff_rho_r ...
 !> \param diff_rho_spin ...
+!> \param pw_env ...
 !> \param opt_embed ...
 !> \param embed_pot ...
 !> \param spin_embed_pot ...
 ! **************************************************************************************************
-   SUBROUTINE grid_based_step(diff_rho_r, diff_rho_spin, opt_embed, embed_pot, spin_embed_pot)
+   SUBROUTINE grid_based_step(diff_rho_r, diff_rho_spin, pw_env, opt_embed, embed_pot, spin_embed_pot)
       TYPE(pw_p_type), POINTER                           :: diff_rho_r, diff_rho_spin
+      TYPE(pw_env_type), POINTER                         :: pw_env
       TYPE(opt_embed_pot_type)                           :: opt_embed
       TYPE(pw_p_type), POINTER                           :: embed_pot, spin_embed_pot
 
@@ -1266,15 +1521,21 @@ CONTAINS
          routineP = moduleN//':'//routineN
 
       INTEGER                                            :: handle
+      REAL(KIND=dp)                                      :: my_reg_term
 
       CALL timeset(routineN, handle)
 
       opt_embed%step_len = opt_embed%trust_rad
       ! Take the step for spin-free part
       CALL pw_axpy(diff_rho_r%pw, embed_pot%pw, opt_embed%step_len)
+      ! Regularize
+      CALL grid_regularize(embed_pot, pw_env, opt_embed%lambda, my_reg_term)
+      opt_embed%reg_term = opt_embed%reg_term+my_reg_term
 
       IF (opt_embed%open_shell_embed) THEN
          CALL pw_axpy(diff_rho_spin%pw, spin_embed_pot%pw, opt_embed%step_len)
+         CALL grid_regularize(spin_embed_pot, pw_env, opt_embed%lambda, my_reg_term)
+         opt_embed%reg_term = opt_embed%reg_term+my_reg_term
       ENDIF
 
       CALL timestop(handle)
@@ -2095,12 +2356,14 @@ CONTAINS
 !> \param diff_rho_r ...
 !> \param i_iter ...
 !> \param qs_env ...
+!> \param final_one ...
 !> \author Vladimir Rybkin
 ! **************************************************************************************************
-   SUBROUTINE print_rho_diff(diff_rho_r, i_iter, qs_env)
+   SUBROUTINE print_rho_diff(diff_rho_r, i_iter, qs_env, final_one)
       TYPE(pw_p_type), POINTER                           :: diff_rho_r
       INTEGER                                            :: i_iter
       TYPE(qs_environment_type), POINTER                 :: qs_env
+      LOGICAL                                            :: final_one
 
       CHARACTER(LEN=default_path_length)                 :: filename, my_pos_cube, title
       INTEGER                                            :: unit_nr
@@ -2121,7 +2384,11 @@ CONTAINS
       IF (BTEST(cp_print_key_should_output(logger%iter_info, input, &
                                            "DFT%QS%OPT_EMBED%EMBED_DENS_DIFF"), cp_p_file)) THEN
          my_pos_cube = "REWIND"
-         WRITE (filename, '(a5,I3.3,a1,I1.1)') "DIFF_", i_iter
+         IF (.NOT. final_one) THEN
+            WRITE (filename, '(a5,I3.3,a1,I1.1)') "DIFF_", i_iter
+         ELSE
+            WRITE (filename, '(a5,I3.3,a1,I1.1)') "DIFF"
+         ENDIF
          unit_nr = cp_print_key_unit_nr(logger, input, "DFT%QS%OPT_EMBED%EMBED_DENS_DIFF", &
                                         extension=".cube", middle_name=TRIM(filename), file_position=my_pos_cube, &
                                         log_filename=.FALSE.)
@@ -2136,6 +2403,56 @@ CONTAINS
    END SUBROUTINE print_rho_diff
 
 ! **************************************************************************************************
+!> \brief Prints a cube for the (spin_rho_A + spin_rho_B - spin_rho_ref) to be minimized in embedding
+!> \param spin_diff_rho_r ...
+!> \param i_iter ...
+!> \param qs_env ...
+!> \param final_one ...
+!> \author Vladimir Rybkin
+! **************************************************************************************************
+   SUBROUTINE print_rho_spin_diff(spin_diff_rho_r, i_iter, qs_env, final_one)
+      TYPE(pw_p_type), POINTER                           :: spin_diff_rho_r
+      INTEGER                                            :: i_iter
+      TYPE(qs_environment_type), POINTER                 :: qs_env
+      LOGICAL                                            :: final_one
+
+      CHARACTER(LEN=default_path_length)                 :: filename, my_pos_cube, title
+      INTEGER                                            :: unit_nr
+      TYPE(cp_logger_type), POINTER                      :: logger
+      TYPE(particle_list_type), POINTER                  :: particles
+      TYPE(qs_subsys_type), POINTER                      :: subsys
+      TYPE(section_vals_type), POINTER                   :: dft_section, input
+
+      NULLIFY (subsys, input)
+
+      CALL get_qs_env(qs_env=qs_env, &
+                      subsys=subsys, &
+                      input=input)
+      dft_section => section_vals_get_subs_vals(input, "DFT")
+      CALL qs_subsys_get(subsys, particles=particles)
+
+      logger => cp_get_default_logger()
+      IF (BTEST(cp_print_key_should_output(logger%iter_info, input, &
+                                           "DFT%QS%OPT_EMBED%EMBED_DENS_DIFF"), cp_p_file)) THEN
+         my_pos_cube = "REWIND"
+         IF (.NOT. final_one) THEN
+            WRITE (filename, '(a5,I3.3,a1,I1.1)') "SPIN_DIFF_", i_iter
+         ELSE
+            WRITE (filename, '(a9,I3.3,a1,I1.1)') "SPIN_DIFF"
+         ENDIF
+         unit_nr = cp_print_key_unit_nr(logger, input, "DFT%QS%OPT_EMBED%EMBED_DENS_DIFF", &
+                                        extension=".cube", middle_name=TRIM(filename), file_position=my_pos_cube, &
+                                        log_filename=.FALSE.)
+
+         WRITE (title, *) "EMBEDDING SPIN DENSITY DIFFERENCE ", " optimization step ", i_iter
+         CALL cp_pw_to_cube(spin_diff_rho_r%pw, unit_nr, title, particles=particles, &
+                            stride=section_get_ivals(dft_section, "QS%OPT_EMBED%EMBED_DENS_DIFF%STRIDE"))
+         CALL cp_print_key_finished_output(unit_nr, logger, input, &
+                                           "DFT%QS%OPT_EMBED%EMBED_DENS_DIFF")
+      ENDIF
+
+   END SUBROUTINE print_rho_spin_diff
+! **************************************************************************************************
 !> \brief Print embedding potential as a cube and as a binary (for restarting)
 !> \param qs_env ...
 !> \param dimen_aux ...
@@ -2145,16 +2462,17 @@ CONTAINS
 !> \param embed_pot_spin ...
 !> \param open_shell_embed ...
 !> \param grid_opt ...
+!> \param final_one ...
 ! **************************************************************************************************
    SUBROUTINE print_embed_restart(qs_env, dimen_aux, embed_pot_coef, embed_pot, i_iter, &
-                                  embed_pot_spin, open_shell_embed, grid_opt)
+                                  embed_pot_spin, open_shell_embed, grid_opt, final_one)
       TYPE(qs_environment_type), POINTER                 :: qs_env
       INTEGER                                            :: dimen_aux
       TYPE(cp_fm_type), POINTER                          :: embed_pot_coef
       TYPE(pw_p_type), POINTER                           :: embed_pot
       INTEGER                                            :: i_iter
       TYPE(pw_p_type), POINTER                           :: embed_pot_spin
-      LOGICAL                                            :: open_shell_embed, grid_opt
+      LOGICAL                                            :: open_shell_embed, grid_opt, final_one
 
       CHARACTER(LEN=default_path_length)                 :: filename, my_pos_cube, title
       INTEGER                                            :: unit_nr
@@ -2172,8 +2490,11 @@ CONTAINS
          logger => cp_get_default_logger()
          IF (BTEST(cp_print_key_should_output(logger%iter_info, input, &
                                               "DFT%QS%OPT_EMBED%EMBED_POT_VECTOR"), cp_p_file)) THEN
-
-            WRITE (filename, '(a10,I3.3)') "embed_pot_", i_iter
+            IF (.NOT. final_one) THEN
+               WRITE (filename, '(a10,I3.3)') "embed_pot_", i_iter
+            ELSE
+               WRITE (filename, '(a10,I3.3)') "embed_pot"
+            ENDIF
             unit_nr = cp_print_key_unit_nr(logger, input, "DFT%QS%OPT_EMBED%EMBED_POT_VECTOR", extension=".wfn", &
                                            middle_name=TRIM(filename), file_form="UNFORMATTED")
             IF (unit_nr > 0) THEN
@@ -2194,26 +2515,36 @@ CONTAINS
       IF (BTEST(cp_print_key_should_output(logger%iter_info, input, &
                                            "DFT%QS%OPT_EMBED%EMBED_POT_CUBE"), cp_p_file)) THEN
          my_pos_cube = "REWIND"
-         WRITE (filename, '(a10,I3.3)') "embed_pot_", i_iter
+         IF (.NOT. final_one) THEN
+            WRITE (filename, '(a10,I3.3)') "embed_pot_", i_iter
+         ELSE
+            WRITE (filename, '(a10,I3.3)') "embed_pot"
+         ENDIF
          unit_nr = cp_print_key_unit_nr(logger, input, "DFT%QS%OPT_EMBED%EMBED_POT_CUBE", &
                                         extension=".cube", middle_name=TRIM(filename), file_position=my_pos_cube, &
                                         log_filename=.FALSE.)
 
          WRITE (title, *) "EMBEDDING POTENTIAL at optimization step ", i_iter
-         CALL cp_pw_to_cube(embed_pot%pw, unit_nr, title, particles=particles, &
-                            stride=section_get_ivals(dft_section, "QS%OPT_EMBED%EMBED_POT_CUBE%STRIDE"))
+         CALL cp_pw_to_cube(embed_pot%pw, unit_nr, title, particles=particles)
+!, &
+!                            stride=section_get_ivals(dft_section, "QS%OPT_EMBED%EMBED_POT_CUBE%STRIDE"))
          CALL cp_print_key_finished_output(unit_nr, logger, input, &
                                            "DFT%QS%OPT_EMBED%EMBED_POT_CUBE")
          IF (open_shell_embed) THEN ! Print spin part of the embedding potential
             my_pos_cube = "REWIND"
-            WRITE (filename, '(a15,I3.3)') "spin_embed_pot_", i_iter
+            IF (.NOT. final_one) THEN
+               WRITE (filename, '(a15,I3.3)') "spin_embed_pot_", i_iter
+            ELSE
+               WRITE (filename, '(a15,I3.3)') "spin_embed_pot"
+            ENDIF
             unit_nr = cp_print_key_unit_nr(logger, input, "DFT%QS%OPT_EMBED%EMBED_POT_CUBE", &
                                            extension=".cube", middle_name=TRIM(filename), file_position=my_pos_cube, &
                                            log_filename=.FALSE.)
 
             WRITE (title, *) "SPIN EMBEDDING POTENTIAL at optimization step ", i_iter
-            CALL cp_pw_to_cube(embed_pot_spin%pw, unit_nr, title, particles=particles, &
-                               stride=section_get_ivals(dft_section, "QS%OPT_EMBED%EMBED_POT_CUBE%STRIDE"))
+            CALL cp_pw_to_cube(embed_pot_spin%pw, unit_nr, title, particles=particles)
+!,  &
+!                               stride=section_get_ivals(dft_section, "QS%OPT_EMBED%EMBED_POT_CUBE%STRIDE"))
             CALL cp_print_key_finished_output(unit_nr, logger, input, &
                                               "DFT%QS%OPT_EMBED%EMBED_POT_CUBE")
          ENDIF

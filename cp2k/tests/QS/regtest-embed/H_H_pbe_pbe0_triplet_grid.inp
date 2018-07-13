@@ -208,6 +208,8 @@
          DENS_CONV_MAX 0.02
          SPIN_DENS_CONV_MAX 0.02
          GRID_OPT .TRUE.
+         &EMBED_POT_CUBE MEDIUM
+         &END
       &END
     &END QS
     &SCF

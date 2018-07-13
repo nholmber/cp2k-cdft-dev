@@ -89,7 +89,8 @@ MODULE input_cp2k_dft
         weight_type_unit, wfi_aspc_nr, wfi_frozen_method_nr, wfi_linear_p_method_nr, &
         wfi_linear_ps_method_nr, wfi_linear_wf_method_nr, wfi_ps_method_nr, &
         wfi_use_guess_method_nr, wfi_use_prev_p_method_nr, wfi_use_prev_rho_r_method_nr, &
-        wfi_use_prev_wf_method_nr, xas_1s_type, xas_2p_type, xas_2s_type, xas_dip_len, &
+        wfi_use_prev_wf_method_nr, xas_1s_type, xas_2p_type, xas_2s_type, xas_3d_type, &
+        xas_3p_type, xas_3s_type, xas_4d_type, xas_4f_type, xas_4p_type, xas_4s_type, xas_dip_len, &
         xas_dip_vel, xas_dscf, xas_none, xas_tp_fh, xas_tp_flex, xas_tp_hh, xas_tp_xfh, &
         xas_tp_xhh, xes_tp_val
    USE input_cp2k_almo,                 ONLY: create_almo_scf_section
@@ -2952,6 +2953,13 @@ CONTAINS
       CALL section_add_keyword(section, keyword)
       CALL keyword_release(keyword)
 
+      CALL keyword_create(keyword, name="DFET_EMBEDDED", &
+                          description="Calculation with DFT-embedding potential. ", &
+                          usage="DFET_EMBEDDED FALSE", &
+                          default_l_val=.FALSE., lone_keyword_l_val=.TRUE.)
+      CALL section_add_keyword(section, keyword)
+      CALL keyword_release(keyword)
+
       ! Integers
       CALL keyword_create(keyword, name="LMAXN1", &
                           variants=(/"LMAXRHO1"/), &
@@ -3101,6 +3109,30 @@ CONTAINS
                                         "Numerical integration on real space grid. Lumped together with core charge"), &
                           enum_i_vals=(/do_ppl_analytic, do_ppl_grid/), &
                           default_i_val=do_ppl_analytic)
+      CALL section_add_keyword(section, keyword)
+      CALL keyword_release(keyword)
+
+      CALL keyword_create(keyword, name="EMBED_RESTART_FILE_NAME", &
+                          description="Root of the file name where to read the embedding "// &
+                          "potential guess.", &
+                          usage="EMBED_RESTART_FILE_NAME <FILENAME>", &
+                          type_of_var=lchar_t)
+      CALL section_add_keyword(section, keyword)
+      CALL keyword_release(keyword)
+
+      CALL keyword_create(keyword, name="EMBED_CUBE_FILE_NAME", &
+                          description="Root of the file name where to read the embedding "// &
+                          "potential (guess) as a cube.", &
+                          usage="EMBED_CUBE_FILE_NAME <FILENAME>", &
+                          type_of_var=lchar_t)
+      CALL section_add_keyword(section, keyword)
+      CALL keyword_release(keyword)
+
+      CALL keyword_create(keyword, name="EMBED_SPIN_CUBE_FILE_NAME", &
+                          description="Root of the file name where to read the spin part "// &
+                          "of the embedding potential (guess) as a cube.", &
+                          usage="EMBED_SPIN_CUBE_FILE_NAME <FILENAME>", &
+                          type_of_var=lchar_t)
       CALL section_add_keyword(section, keyword)
       CALL keyword_release(keyword)
 
@@ -5946,7 +5978,7 @@ CONTAINS
       CPASSERT(.NOT. ASSOCIATED(section))
       CALL section_create(section, name="OPT_EMBED", &
                           description="This section specifies optional parameters for DFT embedding potential optimization.", &
-                          n_keywords=12, n_subsections=3, repeats=.FALSE.)
+                          n_keywords=15, n_subsections=3, repeats=.FALSE.)
 
       NULLIFY (keyword)
 
@@ -6012,7 +6044,7 @@ CONTAINS
       CALL keyword_create(keyword, name="GRID_OPT", &
                           description="Optimize embedding potential on the grid. ", &
                           usage="GRID_OPT .TRUE.", &
-                          default_l_val=.FALSE.)
+                          default_l_val=.TRUE.)
       CALL section_add_keyword(section, keyword)
       CALL keyword_release(keyword)
 
@@ -6030,10 +6062,33 @@ CONTAINS
       CALL section_add_keyword(section, keyword)
       CALL keyword_release(keyword)
 
+      CALL keyword_create(keyword, name="READ_EMBED_POT_CUBE", &
+                          description="Read the embedding potential  "// &
+                          "(restart) from the cube file.", &
+                          usage="READ_EMBED_POT_CUBE .FALSE.", default_l_val=.FALSE.)
+      CALL section_add_keyword(section, keyword)
+      CALL keyword_release(keyword)
+
       CALL keyword_create(keyword, name="EMBED_RESTART_FILE_NAME", &
                           description="Root of the file name where to read the embedding "// &
                           "potential guess.", &
                           usage="EMBED_RESTART_FILE_NAME <FILENAME>", &
+                          type_of_var=lchar_t)
+      CALL section_add_keyword(section, keyword)
+      CALL keyword_release(keyword)
+
+      CALL keyword_create(keyword, name="EMBED_CUBE_FILE_NAME", &
+                          description="Root of the file name where to read the embedding "// &
+                          "potential (guess) as a cube.", &
+                          usage="EMBED_CUBE_FILE_NAME <FILENAME>", &
+                          type_of_var=lchar_t)
+      CALL section_add_keyword(section, keyword)
+      CALL keyword_release(keyword)
+
+      CALL keyword_create(keyword, name="EMBED_SPIN_CUBE_FILE_NAME", &
+                          description="Root of the file name where to read the spin part "// &
+                          "of the embedding potential (guess) as a cube.", &
+                          usage="EMBED_SPIN_CUBE_FILE_NAME <FILENAME>", &
                           type_of_var=lchar_t)
       CALL section_add_keyword(section, keyword)
       CALL keyword_release(keyword)
@@ -7531,9 +7586,11 @@ CONTAINS
                           description="Type of the orbitals that are excited for the xas spectra calculation", &
                           usage="STATE_TYPE 1S", &
                           default_i_val=xas_1s_type, &
-                          enum_c_vals=s2a("1S", "2S", "2P"), &
-                          enum_desc=s2a("1s orbitals", "2s orbitals", "2p orbitals"), &
-                          enum_i_vals=(/xas_1s_type, xas_2s_type, xas_2p_type/))
+                          enum_c_vals=s2a("1S", "2S", "2P", "3S", "3P", "3D", "4S", "4P", "4D", "4F"), &
+                          enum_desc=s2a("1s orbitals", "2s orbitals", "2p orbitals", "3s orbitals", "3p orbitals", &
+                                        "3d orbitals", "4s orbitals", "4p orbitals", "4d orbitals", "4f orbitals"), &
+                          enum_i_vals=(/xas_1s_type, xas_2s_type, xas_2p_type, xas_3s_type, xas_3p_type, xas_3d_type, &
+                                        xas_4s_type, xas_4p_type, xas_4d_type, xas_4f_type/))
       CALL section_add_keyword(section, keyword)
       CALL keyword_release(keyword)
 
@@ -7557,6 +7614,23 @@ CONTAINS
                           "This keyword can be repeated several times"// &
                           "(useful if you have to specify many indexes).", &
                           usage="ATOMS_LIST {integer}  {integer} ..  {integer} ", &
+                          n_var=-1, type_of_var=integer_t, repeats=.TRUE.)
+      CALL section_add_keyword(section, keyword)
+      CALL keyword_release(keyword)
+
+      CALL keyword_create(keyword, name="OVERLAP_THRESHOLD", &
+                          description="Threshold for including more than one initial core excited state "// &
+                          "per atom. The threshold is taken relative to the maximum overlap.", &
+                          usage="OVERLAP_THRESHOLD 8.e-1", default_r_val=1.0_dp)
+      CALL section_add_keyword(section, keyword)
+      CALL keyword_release(keyword)
+
+      CALL keyword_create(keyword, name="ORBITAL_LIST", &
+                          variants=(/"ORBITAL_LIST"/), &
+                          description="Indices of the localized orbitals to be excited. "// &
+                          "This keyword can be repeated several times"// &
+                          "(useful if you have to specify many indexes).", &
+                          usage="ORBITAL_LIST {integer}  {integer} ..  {integer} ", &
                           n_var=-1, type_of_var=integer_t, repeats=.TRUE.)
       CALL section_add_keyword(section, keyword)
       CALL keyword_release(keyword)

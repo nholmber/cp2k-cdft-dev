@@ -19,24 +19,15 @@ RUN apt-get update && apt-get install -y \
     --no-install-recommends \
   && rm -rf /var/lib/apt/lists/*
 
-# Shifter at CSCS requires MPICH v3.1.4 for ABI-compatibility
-# https://user.cscs.ch/scientific_computing/supported_applications/shifter/advanced_shifter/#native-mpi-support
-RUN wget -q http://www.mpich.org/static/downloads/3.1.4/mpich-3.1.4.tar.gz \
-    && tar xf mpich-3.1.4.tar.gz \
-    && cd mpich-3.1.4 \
-    && ./configure --enable-fast=all,O3 --prefix=/usr \
-    && make -j \
-    && make install \
-    && ldconfig \
-    && cd .. \
-    && rm -rf mpich-3.1.4 \
-    && rm mpich-3.1.4.tar.gz
-
 # build toolchain
 WORKDIR /opt/cp2k-toolchain/
 COPY install_cp2k_toolchain.sh ./
 COPY scripts ./scripts/
-RUN ./install_cp2k_toolchain.sh --install-all  &&  rm -rf ./build
+
+# Do not compile make until glibc issue is resolved:
+#  http://gnu-make.2324884.n4.nabble.com/undefined-reference-to-alloca-td18308.html
+#  http://git.savannah.gnu.org/cgit/make.git/commit/?id=48c8a116a914a325a0497721f5d8b58d5bba34d4
+RUN ./install_cp2k_toolchain.sh --install-all --with-make=no && rm -rf ./build
 
 # configure shell
 RUN ln -sf bash /bin/sh && \
