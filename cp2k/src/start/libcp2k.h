@@ -56,7 +56,7 @@ void cp2k_create_force_env(force_env_t* new_force_env, const char* input_file_pa
  * \param input_file_path Path to a CP2K input file
  * \param output_file_path Path to a file where CP2K is going to write its output.
  *                         Will be created if not existent, otherwise appended.
- * \param mpi_comm MPI_COMM if MPI is not managed by CP2K
+ * \param mpi_comm Fortran MPI communicator if MPI is not managed by CP2K
  * \warning You are supposed to call cp2k_destroy_force_env() to cleanup, before cp2k_finalize().
  */
 void cp2k_create_force_env_comm(force_env_t* new_force_env, const char* input_file_path, const char* output_file_path, int mpi_comm);
@@ -86,7 +86,7 @@ void cp2k_set_velocities(force_env_t force_env, const double* new_vel, int n_el)
  * \param results Pre-allocated array
  * \param n_el size of the results array
  */
-void cp2k_get_results(force_env_t force_env, const char* description, double* result, int n_el);
+void cp2k_get_result(force_env_t force_env, const char* description, double* result, int n_el);
 
 /** \brief Get the number of atoms
  * \param force_env the force environment
@@ -139,7 +139,7 @@ void cp2k_run_input(const char* input_file_path, const char* output_file_path);
 /** \brief Make a CP2K run with the given input file (custom managed MPI)
  * \param input_file_path Path to a CP2K input file
  * \param output_file_path Path to a file where CP2K is going to append its output (created if non-existent)
- * \param mpi_comm MPI_COMM if MPI is not managed by CP2K
+ * \param mpi_comm Fortran MPI communicator if MPI is not managed by CP2K
  */
 void cp2k_run_input_comm(const char* input_file_path, const char* output_file_path, int mpi_comm);
 
@@ -247,6 +247,43 @@ typedef void (*ext_method_callback_f_ptr) (
 /** \brief Set the function callback for the externally evaluated density matrix
  */
 void cp2k_transport_set_callback(force_env_t force_env, ext_method_callback_f_ptr func);
+
+/** \brief Get the number of molecular orbitals in the active space
+ * \param force_env the force environment
+ * \returns The number of elements or -1 if unavailable
+ */
+int cp2k_active_space_get_mo_count(force_env_t force_env);
+
+/** \brief Get the Fock submatrix for the active space
+ * \param force_env the force environment
+ * \param buf Pre-allocated array of at least mo_count^2 elements.
+ *            Use `cp2k_active_space_get_mo_count()` to get the number of molecular orbitals.
+ * \param buf_len Size of the buf array
+ * \returns The number of elements written to buf or -1 if unavailable
+ */
+long int cp2k_active_space_get_fock_sub(force_env_t force_env, double* buf, long int buf_len);
+
+/** \brief Get the number of non-zero elements in the ERI matrix
+ * \param force_env the force environment
+ * \returns The number of elements or -1 if unavailable
+ */
+long int cp2k_active_space_get_eri_nze_count(force_env_t force_env);
+
+/** \brief Get the non-zero elements of the ERI matrix
+ *
+ * The buf_coords will contain the coordinates in the format `[i1, j1, k1, l1, i2, j2, k2, l2, ... ]`.
+ * \param force_env the force environment
+ * \param buf_coords Pre-allocated array of at least 4*nze_count elements.
+ *                   Use `cp2k_active_space_get_eri_nze_count()` to get the number of non-zero elements.
+ * \param buf_coords_len Size of the buf_coords array
+ * \param buf_values Pre-allocated array of at least nze_count elements.
+ *                   Use `cp2k_active_space_get_eri_nze_count()` to get the number of non-zero elements.
+ * \param buf_values_len Size of the buf_values array
+ * \returns The number of elements written to buf_values or -1 if unavailable
+ */
+int cp2k_active_space_get_eri(force_env_t force_env,
+                              int* buf_coords, long int buf_coords_len,
+                              double* buf_values, long int buf_values_len);
 
 #ifdef __cplusplus
 }

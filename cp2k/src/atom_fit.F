@@ -487,6 +487,7 @@ CONTAINS
 
       CHARACTER(len=*), PARAMETER :: routineN = 'atom_fit_pseudo', &
          routineP = moduleN//':'//routineN
+      LOGICAL, PARAMETER                                 :: debug = .FALSE.
 
       CHARACTER(len=2)                                   :: pc1, pc2, pct
       INTEGER                                            :: i, i1, i2, iw, j, j1, j2, k, l, m, n, &
@@ -495,8 +496,8 @@ CONTAINS
       INTEGER, DIMENSION(0:lmat)                         :: ncore
       LOGICAL                                            :: explicit
       REAL(KIND=dp) :: afun, charge, de, deig, drho, dx, eig, fopt, oc, pchg, peig, pv, rcm, rcov, &
-         rmax, semicore_level, t_ener, t_psir0, t_semi, t_valence, t_virt, w_ener, w_node, &
-         w_psir0, w_semi, w_valence, w_virt, wtot
+         rmax, semicore_level, step_size_scaling, t_ener, t_psir0, t_semi, t_valence, t_virt, &
+         w_ener, w_node, w_psir0, w_semi, w_valence, w_virt, wtot
       REAL(KIND=dp), ALLOCATABLE, DIMENSION(:)           :: x, xi
       REAL(KIND=dp), ALLOCATABLE, DIMENSION(:, :)        :: wem
       REAL(KIND=dp), ALLOCATABLE, &
@@ -511,6 +512,7 @@ CONTAINS
       CALL section_vals_val_get(powell_section, "STEP_SIZE", r_val=ostate%rhobeg)
       CALL section_vals_val_get(powell_section, "MAX_FUN", i_val=ostate%maxfun)
       CALL section_vals_val_get(powell_section, "MAX_INIT", i_val=nreinit)
+      CALL section_vals_val_get(powell_section, "STEP_SIZE_SCALING", r_val=step_size_scaling)
 
       CALL section_vals_val_get(powell_section, "WEIGHT_POT_VALENCE", r_val=w_valence)
       CALL section_vals_val_get(powell_section, "WEIGHT_POT_VIRTUAL", r_val=w_virt)
@@ -565,7 +567,9 @@ CONTAINS
          END DO
       END IF
 
-      CALL open_file(file_name="POWELL_RESULT", file_status="UNKNOWN", file_action="WRITE", unit_number=iw)
+      IF (debug) THEN
+         CALL open_file(file_name="POWELL_RESULT", file_status="UNKNOWN", file_action="WRITE", unit_number=iw)
+      END IF
 
       ALLOCATE (xi(200))
       !decide here what to optimize
@@ -897,6 +901,8 @@ CONTAINS
 
          END IF
 
+         WRITE (iunit, '(" POWELL| Start optimization",I4," of total",I4,T60,"rhobeg = ",F12.8)') &
+            nre, nreinit, ostate%rhobeg
          fopt = HUGE(0._dp)
          ostate%state = 0
          CALL powell_optimize(ostate%nvar, x, ostate)
@@ -924,7 +930,9 @@ CONTAINS
 
             IF (fopt < 1.e-12_dp) EXIT
 
-            WRITE (iw, *) ostate%nf, ostate%f, x(1:ostate%nvar)
+            IF (debug) THEN
+               WRITE (iw, *) ostate%nf, ostate%f, x(1:ostate%nvar)
+            END IF
 
          END DO
 
@@ -938,7 +946,7 @@ CONTAINS
          CALL atom_write_pseudo_param(ppot%gth_pot)
          ! dx < SQRT(ostate%rhoend)
          IF ((dx*dx) < ostate%rhoend) EXIT
-         ostate%rhobeg = 0.25_dp*ostate%rhobeg
+         ostate%rhobeg = step_size_scaling*ostate%rhobeg
       END DO
       DEALLOCATE (xi)
 
@@ -1502,29 +1510,19 @@ CONTAINS
 !> \brief ...
 !> \param fval ...
 !> \param ftarget ...
-!> \retval errval ...
+!> \return ...
 ! **************************************************************************************************
    FUNCTION get_error_value(fval, ftarget) RESULT(errval)
       REAL(KIND=dp), INTENT(in)                          :: fval, ftarget
       REAL(KIND=dp)                                      :: errval
-
-      REAL(KIND=dp), PARAMETER                           :: dt = LOG(10._dp)
-
-      REAL(KIND=dp)                                      :: lt, lv, t2
 
       CPASSERT(fval >= 0.0_dp)
 
       IF (fval <= ftarget) THEN
          errval = 0.0_dp
       ELSE
-         lv = LOG(fval)
-         lt = LOG(ftarget)
-         errval = -(LOG(fval)-LOG(ftarget))/LOG(ftarget)
-         errval = SQRT(-(lv-lt)/lt)
-         t2 = lt+dt
-         errval = errval*0.5_dp*(1._dp+TANH((lv-t2)/dt/12.566_dp))
-         t2 = ABS(fval-ftarget)-100_dp*ABS(ftarget)
-         IF (t2 > 0._dp) errval = errval+10._dp*t2*t2
+         errval = (fval-ftarget)/MAX(ftarget, 1.e-10_dp)
+         errval = errval*errval
       END IF
 
    END FUNCTION get_error_value
@@ -1681,7 +1679,7 @@ CONTAINS
 !> \brief ...
 !> \param id ...
 !> \param xval ...
-!> \retval yval ...
+!> \return ...
 ! **************************************************************************************************
    FUNCTION rcpro(id, xval) RESULT(yval)
       INTEGER, INTENT(IN)                                :: id

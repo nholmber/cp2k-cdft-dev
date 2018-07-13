@@ -167,21 +167,20 @@ CONTAINS
 ! ***************************************************************************
 !> \brief  Computes the total harmonic link action of the helium
 !> \param helium ...
-!> \retval linkaction ...
+!> \return ...
 !> \date   2016-05-03
 !> \author Felix Uhl
 ! **************************************************************************************************
    REAL(KIND=dp) FUNCTION helium_total_link_action(helium) RESULT(linkaction)
 
-      IMPLICIT NONE
-      TYPE(helium_solvent_type), POINTER       :: helium
+      TYPE(helium_solvent_type), POINTER                 :: helium
 
       CHARACTER(len=*), PARAMETER :: routineN = 'helium_total_link_action', &
-                                     routineP = moduleN//':'//routineN
+         routineP = moduleN//':'//routineN
 
-      REAL(KIND=dp), DIMENSION(3) :: r
-      INTEGER :: ibead, iatom
-      INTEGER, DIMENSION(:), POINTER           :: perm
+      INTEGER                                            :: iatom, ibead
+      INTEGER, DIMENSION(:), POINTER                     :: perm
+      REAL(KIND=dp), DIMENSION(3)                        :: r
 
       perm => helium%permutation
       linkaction = 0.0_dp
@@ -210,21 +209,20 @@ CONTAINS
 ! ***************************************************************************
 !> \brief  Computes the total pair action of the helium
 !> \param helium ...
-!> \retval pairaction ...
+!> \return ...
 !> \date   2016-05-03
 !> \author Felix Uhl
 ! **************************************************************************************************
    REAL(KIND=dp) FUNCTION helium_total_pair_action(helium) RESULT(pairaction)
 
-      IMPLICIT NONE
-      TYPE(helium_solvent_type), POINTER       :: helium
+      TYPE(helium_solvent_type), POINTER                 :: helium
 
       CHARACTER(len=*), PARAMETER :: routineN = 'helium_total_pair_action', &
-                                     routineP = moduleN//':'//routineN
+         routineP = moduleN//':'//routineN
 
-      REAL(KIND=dp), DIMENSION(3) :: r, rp
-      INTEGER :: ibead, iatom, jatom
-      INTEGER, DIMENSION(:), POINTER           :: perm
+      INTEGER                                            :: iatom, ibead, jatom
+      INTEGER, DIMENSION(:), POINTER                     :: perm
+      REAL(KIND=dp), DIMENSION(3)                        :: r, rp
 
       perm => helium%permutation
       pairaction = 0.0_dp
@@ -257,21 +255,20 @@ CONTAINS
 !> \brief  Computes the total interaction of the helium with the solute
 !> \param pint_env ...
 !> \param helium ...
-!> \retval interaction ...
+!> \return ...
 !> \date   2016-05-03
 !> \author Felix Uhl
 ! **************************************************************************************************
    REAL(KIND=dp) FUNCTION helium_total_inter_action(pint_env, helium) RESULT(interaction)
 
-      IMPLICIT NONE
-      TYPE(pint_env_type), POINTER             :: pint_env
-      TYPE(helium_solvent_type), POINTER       :: helium
+      TYPE(pint_env_type), POINTER                       :: pint_env
+      TYPE(helium_solvent_type), POINTER                 :: helium
 
       CHARACTER(len=*), PARAMETER :: routineN = 'helium_total_inter_action', &
-                                     routineP = moduleN//':'//routineN
+         routineP = moduleN//':'//routineN
 
-      INTEGER :: ibead, iatom
-      REAL(KIND=dp) :: e
+      INTEGER                                            :: iatom, ibead
+      REAL(KIND=dp)                                      :: e
 
       interaction = 0.0_dp
 
@@ -309,7 +306,7 @@ CONTAINS
       INTEGER, INTENT(IN)                                :: helium_part_index, helium_slice_index
       REAL(KIND=dp), DIMENSION(3), INTENT(IN), OPTIONAL  :: helium_r_opt
       REAL(KIND=dp), INTENT(OUT)                         :: energy
-      REAL(KIND=dp), DIMENSION(:, :), INTENT(OUT), &
+      REAL(KIND=dp), DIMENSION(:, :), INTENT(INOUT), &
          OPTIONAL, POINTER                               :: force
 
       CHARACTER(len=*), PARAMETER :: routineN = 'helium_bead_solute_e_f', &
@@ -443,7 +440,7 @@ CONTAINS
 !> \brief Calculate l-th Legendre polynomial P_{l}(x) at point x
 !> \param x ...
 !> \param n ...
-!> \retval Pl ...
+!> \return ...
 ! **************************************************************************************************
    FUNCTION Pl(x, n)
       REAL(KIND=dp), INTENT(IN)                          :: x
@@ -559,7 +556,7 @@ CONTAINS
       TYPE(helium_solvent_type), POINTER                 :: helium
       REAL(KIND=dp), DIMENSION(3), INTENT(IN)            :: helium_x
       REAL(KIND=dp), INTENT(OUT)                         :: energy
-      REAL(KIND=dp), DIMENSION(:), INTENT(OUT), &
+      REAL(KIND=dp), DIMENSION(:), INTENT(INOUT), &
          OPTIONAL, POINTER                               :: force
 
       CHARACTER(LEN=*), PARAMETER :: routineN = 'helium_intpot_model_water', &
@@ -633,7 +630,7 @@ CONTAINS
 ! ***************************************************************************
 !> \brief Helium-helium pair interaction potential.
 !> \param r ...
-!> \retval vij ...
+!> \return ...
 ! **************************************************************************************************
    FUNCTION helium_vij(r) RESULT(vij)
 
@@ -662,7 +659,7 @@ CONTAINS
 ! ***************************************************************************
 !> \brief Helium-helium pair interaction potential's derivative.
 !> \param r ...
-!> \retval dvij ...
+!> \return ...
 ! **************************************************************************************************
    FUNCTION helium_d_vij(r) RESULT(dvij)
 
@@ -696,7 +693,7 @@ CONTAINS
 !> \param helium ...
 !> \param n ...
 !> \param i ...
-!> \retval res ...
+!> \return ...
 ! **************************************************************************************************
    FUNCTION helium_atom_action(helium, n, i) RESULT(res)
 
@@ -769,7 +766,7 @@ CONTAINS
 !> \brief ...
 !> \param helium ...
 !> \param n ...
-!> \retval res ...
+!> \return ...
 ! **************************************************************************************************
    FUNCTION helium_link_action(helium, n) RESULT(res)
 
@@ -826,7 +823,7 @@ CONTAINS
 ! **************************************************************************************************
 !> \brief ...
 !> \param helium ...
-!> \retval res ...
+!> \return ...
 ! **************************************************************************************************
    FUNCTION helium_total_action(helium) RESULT(res)
 

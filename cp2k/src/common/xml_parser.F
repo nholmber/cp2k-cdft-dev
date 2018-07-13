@@ -853,10 +853,10 @@ CONTAINS
 ! **************************************************************************************************
 !> \brief Function that returns whether all was okay or not
 !> \param info Structure holding information on the XML-file
-!> \retval xml_ok .true. if there was no error, .false. otherwise
+!> \return .true. if there was no error, .false. otherwise
 ! **************************************************************************************************
    LOGICAL FUNCTION xml_ok(info)
-      TYPE(XML_PARSE), INTENT(in)               :: info
+      TYPE(XML_PARSE), INTENT(in)                        :: info
 
       xml_ok = info%eof .OR. info%error .OR. &
                (info%no_data_truncation .AND. &
@@ -867,10 +867,10 @@ CONTAINS
 ! **************************************************************************************************
 !> \brief Function that returns whether there was an error
 !> \param info Structure holding information on the XML-file
-!> \retval xml_error .true. if there was an error, .false. if there was none
+!> \return .true. if there was an error, .false. if there was none
 ! **************************************************************************************************
    LOGICAL FUNCTION xml_error(info)
-      TYPE(XML_PARSE), INTENT(in)               :: info
+      TYPE(XML_PARSE), INTENT(in)                        :: info
 
       xml_error = info%error .OR. &
                   (info%no_data_truncation .AND. &
@@ -880,10 +880,10 @@ CONTAINS
 ! **************************************************************************************************
 !> \brief Function that returns whether data were truncated or not
 !> \param info Structure holding information on the XML-file
-!> \retval xml_data_trunc .true. if data were truncated, .false. otherwise
+!> \return .true. if data were truncated, .false. otherwise
 ! **************************************************************************************************
    LOGICAL FUNCTION xml_data_trunc(info)
-      TYPE(XML_PARSE), INTENT(in)               :: info
+      TYPE(XML_PARSE), INTENT(in)                        :: info
 
       xml_data_trunc = info%too_many_attribs .OR. info%too_many_data
    END FUNCTION xml_data_trunc
@@ -894,15 +894,14 @@ CONTAINS
 !> \param no_attribs ...
 !> \param name ...
 !> \param value ...
-!> \retval xml_find_attrib ...
+!> \return ...
 ! **************************************************************************************************
    INTEGER FUNCTION xml_find_attrib(attribs, no_attribs, name, value)
-      CHARACTER(len=*), DIMENSION(:, :)  :: attribs
-      INTEGER                           :: no_attribs
-      CHARACTER(len=*)                  :: name
-      CHARACTER(len=*)                  :: value
+      CHARACTER(len=*), DIMENSION(:, :)                  :: attribs
+      INTEGER                                            :: no_attribs
+      CHARACTER(len=*)                                   :: name, value
 
-      INTEGER :: i
+      INTEGER                                            :: i
 
       xml_find_attrib = -1
       DO i = 1, no_attribs

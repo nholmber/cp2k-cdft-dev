@@ -7,8 +7,16 @@ MODULE qs_tddfpt2_methods
    USE admm_types,                      ONLY: admm_type
    USE bibliography,                    ONLY: Iannuzzi2005,&
                                               cite_reference
+   USE cell_types,                      ONLY: cell_type
    USE cp_blacs_env,                    ONLY: cp_blacs_env_type,&
                                               get_blacs_info
+   USE cp_cfm_basic_linalg,             ONLY: cp_cfm_solve
+   USE cp_cfm_types,                    ONLY: cp_cfm_create,&
+                                              cp_cfm_p_type,&
+                                              cp_cfm_release,&
+                                              cp_cfm_set_all,&
+                                              cp_cfm_to_fm,&
+                                              cp_fm_to_cfm
    USE cp_control_types,                ONLY: dft_control_type,&
                                               tddfpt2_control_type
    USE cp_dbcsr_operations,             ONLY: copy_dbcsr_to_fm,&
@@ -53,7 +61,7 @@ MODULE qs_tddfpt2_methods
                                               cp_rm_iter_level
    USE cp_para_types,                   ONLY: cp_para_env_type
    USE dbcsr_api,                       ONLY: &
-        dbcsr_add, dbcsr_allocate_matrix_set, dbcsr_copy, dbcsr_deallocate_matrix, &
+        dbcsr_allocate_matrix_set, dbcsr_copy, dbcsr_deallocate_matrix, &
         dbcsr_deallocate_matrix_set, dbcsr_distribution_type, dbcsr_get_info, dbcsr_init_p, &
         dbcsr_p_type, dbcsr_scale, dbcsr_set, dbcsr_type
    USE hfx_admm_utils,                  ONLY: tddft_hfx_matrix
@@ -61,8 +69,9 @@ MODULE qs_tddfpt2_methods
                                               cholesky_inverse,&
                                               cholesky_off,&
                                               cholesky_restore,&
-                                              xas_dip_len,&
-                                              xas_dip_vel
+                                              tddfpt_dipole_berry,&
+                                              tddfpt_dipole_length,&
+                                              tddfpt_dipole_velocity
    USE input_section_types,             ONLY: section_get_ival,&
                                               section_get_rval,&
                                               section_vals_get,&
@@ -76,6 +85,10 @@ MODULE qs_tddfpt2_methods
                                               int_8
    USE machine,                         ONLY: m_flush,&
                                               m_walltime
+   USE mathconstants,                   ONLY: pi,&
+                                              twopi,&
+                                              z_one,&
+                                              z_zero
    USE message_passing,                 ONLY: mp_bcast,&
                                               mp_irecv,&
                                               mp_isend,&
@@ -112,6 +125,7 @@ MODULE qs_tddfpt2_methods
                                               init_mo_set,&
                                               mo_set_p_type,&
                                               mo_set_type
+   USE qs_moments,                      ONLY: build_berry_moment_matrix
    USE qs_neighbor_list_types,          ONLY: neighbor_list_set_p_type
    USE qs_operators_ao,                 ONLY: rRc_xyz_ao
    USE qs_rho_methods,                  ONLY: qs_rho_rebuild,&
@@ -126,9 +140,7 @@ MODULE qs_tddfpt2_methods
                                               tddfpt_sub_env_init,&
                                               tddfpt_sub_env_release,&
                                               tddfpt_subgroup_env_type
-   USE qs_vxc,                          ONLY: qs_vxc_create
    USE string_utilities,                ONLY: integer_to_string
-   USE task_list_types,                 ONLY: task_list_type
    USE util,                            ONLY: sort
    USE xc,                              ONLY: xc_calc_2nd_deriv,&
                                               xc_prep_2nd_deriv
@@ -222,10 +234,6 @@ MODULE qs_tddfpt2_methods
       !> sparse matrix with shape [nao x nao] distributed across subgroups;
       !> Aop_evects_sub(spin,:) = A_ia_munu_sub(spin) * mos_occ(spin)
       TYPE(dbcsr_p_type), DIMENSION(:), POINTER          :: A_ia_munu_sub
-      !> another sparse matrix with shape [nao x nao] distributed across subgroups
-      TYPE(dbcsr_p_type)                                 :: wdbcsr_ao_ao_sub
-      !> sparse matrix with shape [nao_aux x nao_aux] distributed across subgroups
-      TYPE(dbcsr_p_type)                                 :: wdbcsr_ao_ao_aux_fit_sub
       !
       ! *** structures to store electron densities distributed across parallel (sub)groups ***
       !
@@ -233,6 +241,8 @@ MODULE qs_tddfpt2_methods
       TYPE(qs_rho_type), POINTER                         :: rho_orb_struct_sub
       !> electron density in terms of auxiliary basis set
       TYPE(qs_rho_type), POINTER                         :: rho_aux_fit_struct_sub
+      !> group-specific copy of a Coulomb/xc-potential on a real-space grid
+      TYPE(pw_p_type), DIMENSION(:), POINTER             :: A_ia_rspace_sub
       !> group-specific copy of a reciprocal-space grid
       TYPE(pw_p_type), DIMENSION(:), POINTER             :: wpw_gspace_sub
       !> group-specific copy of a real-space grid
@@ -303,26 +313,30 @@ CONTAINS
 
       CHARACTER(len=20)                                  :: nstates_str
       INTEGER                                            :: energy_unit, handle, ispin, istate, &
-                                                            iter, log_unit, mult, niters, nspins, &
-                                                            nstates, nstates_read
-      LOGICAL                                            :: do_hfx, is_restarted
+                                                            iter, log_unit, mult, ndim_periodic, &
+                                                            niters, nspins, nstates, nstates_read
+      LOGICAL                                            :: do_admm, do_hfx, is_restarted
       REAL(kind=dp)                                      :: C_hf, conv
       REAL(kind=dp), ALLOCATABLE, DIMENSION(:)           :: evals
-      REAL(kind=dp), DIMENSION(3)                        :: reference_point
+      REAL(kind=dp), DIMENSION(3)                        :: kvec, reference_point
+      TYPE(admm_type), POINTER                           :: admm_env
+      TYPE(cell_type), POINTER                           :: cell
       TYPE(cp_blacs_env_type), POINTER                   :: blacs_env
       TYPE(cp_fm_p_type), ALLOCATABLE, DIMENSION(:, :)   :: evects, S_evects
       TYPE(cp_logger_type), POINTER                      :: logger
-      TYPE(dbcsr_p_type), DIMENSION(:), POINTER          :: dipole_op_xyz, matrix_ks, matrix_s, &
-                                                            matrix_s_aux_fit, rRc_xyz
+      TYPE(dbcsr_p_type), DIMENSION(:), POINTER          :: berry_cossin_xyz, dipole_op_xyz, &
+                                                            matrix_ks, matrix_s, rRc_xyz
       TYPE(dft_control_type), POINTER                    :: dft_control
       TYPE(mo_set_p_type), DIMENSION(:), POINTER         :: mos
+      TYPE(pw_env_type), POINTER                         :: pw_env
+      TYPE(pw_poisson_type), POINTER                     :: poisson_env
       TYPE(section_vals_type), POINTER                   :: hfx_section, input, &
                                                             tddfpt_print_section, tddfpt_section, &
                                                             xc_section
       TYPE(tddfpt2_control_type), POINTER                :: tddfpt_control
       TYPE(tddfpt_ground_state_mos), ALLOCATABLE, &
          DIMENSION(:)                                    :: gs_mos
-      TYPE(tddfpt_kernel_env_type)                       :: kernel_env
+      TYPE(tddfpt_kernel_env_type)                       :: kernel_env, kernel_env_admm_aux
       TYPE(tddfpt_subgroup_env_type)                     :: sub_env
       TYPE(tddfpt_work_matrices)                         :: work_matrices
 
@@ -331,12 +345,9 @@ CONTAINS
 
       CALL cite_reference(Iannuzzi2005)
 
-      NULLIFY (blacs_env, dft_control, input, matrix_ks, matrix_s, mos)
-      CALL get_qs_env(qs_env, blacs_env=blacs_env, dft_control=dft_control, &
-                      input=input, matrix_ks=matrix_ks, matrix_s=matrix_s, mos=mos)
-      IF (dft_control%do_admm) THEN
-         CALL get_qs_env(qs_env, matrix_s_aux_fit=matrix_s_aux_fit)
-      END IF
+      NULLIFY (blacs_env, cell, dft_control, input, matrix_ks, matrix_s, mos, pw_env)
+      CALL get_qs_env(qs_env, blacs_env=blacs_env, cell=cell, dft_control=dft_control, &
+                      input=input, matrix_ks=matrix_ks, matrix_s=matrix_s, mos=mos, pw_env=pw_env)
       tddfpt_control => dft_control%tddfpt2_control
 
       nspins = dft_control%nspins
@@ -361,16 +372,61 @@ CONTAINS
          do_hfx = (C_hf /= 0.0_dp)
       END IF
 
+      do_admm = do_hfx .AND. dft_control%do_admm
+      IF (do_admm) &
+         CALL get_qs_env(qs_env, admm_env=admm_env)
+
       ! reset rks_triplets if UKS is in use
       IF (tddfpt_control%rks_triplets .AND. nspins > 1) THEN
          tddfpt_control%rks_triplets = .FALSE.
          CALL cp_warn(__LOCATION__, "Keyword RKS_TRIPLETS has been ignored for spin-polarised calculations")
       END IF
 
+      ! check that the chosen dipole operator is consistent with the periodic boundary conditions used
+      CALL pw_env_get(pw_env, poisson_env=poisson_env)
+      ndim_periodic = COUNT(poisson_env%parameters%periodic == 1)
+
       ! choose appropriate components of the dipole operator
       NULLIFY (dipole_op_xyz)
       SELECT CASE (tddfpt_control%dipole_form)
-      CASE (xas_dip_len)
+      CASE (tddfpt_dipole_berry)
+         IF (ndim_periodic /= 3) THEN
+            CALL cp_warn(__LOCATION__, &
+                         "Fully periodic Poisson solver (PERIODIC xyz) is needed "// &
+                         "for oscillator strengths based on the Berry phase formula")
+         END IF
+
+         NULLIFY (berry_cossin_xyz)
+         ! index: 1 = Re[exp(-i * G_x * x)], 2 = Im[exp(-i * G_x * x)],
+         !        3 = Re[exp(-i * G_y * y)], 4 = Im[exp(-i * G_y * y)],
+         !        5 = Re[exp(-i * G_z * z)], 4 = Im[exp(-i * G_z * z)].
+         CALL dbcsr_allocate_matrix_set(berry_cossin_xyz, 2*nderivs)
+
+         DO ispin = 1, nderivs
+            ! cos component
+            CALL dbcsr_init_p(berry_cossin_xyz(2*ispin-1)%matrix)
+            CALL dbcsr_copy(berry_cossin_xyz(2*ispin-1)%matrix, matrix_s(1)%matrix)
+            CALL dbcsr_set(berry_cossin_xyz(2*ispin-1)%matrix, 0.0_dp)
+
+            ! sin component
+            CALL dbcsr_init_p(berry_cossin_xyz(2*ispin)%matrix)
+            CALL dbcsr_copy(berry_cossin_xyz(2*ispin)%matrix, matrix_s(1)%matrix)
+            CALL dbcsr_set(berry_cossin_xyz(2*ispin)%matrix, 0.0_dp)
+
+            kvec(:) = twopi*cell%h_inv(ispin, :)
+            CALL build_berry_moment_matrix(qs_env, berry_cossin_xyz(2*ispin-1)%matrix, berry_cossin_xyz(2*ispin)%matrix, kvec)
+         END DO
+
+         ! assign computed components to the generic variable
+         dipole_op_xyz => berry_cossin_xyz
+
+      CASE (tddfpt_dipole_length)
+         IF (ndim_periodic /= 0) THEN
+            CALL cp_warn(__LOCATION__, &
+                         "Non-periodic Poisson solver (PERIODIC none) is needed "// &
+                         "for oscillator strengths based on the length operator")
+         END IF
+
          ! compute components of the dipole operator in the length form
          NULLIFY (rRc_xyz)
          CALL dbcsr_allocate_matrix_set(rRc_xyz, nderivs)
@@ -389,7 +445,7 @@ CONTAINS
          ! assign computed components to the generic variable
          dipole_op_xyz => rRc_xyz
 
-      CASE (xas_dip_vel)
+      CASE (tddfpt_dipole_velocity)
          dipole_op_xyz => matrix_s(2:nderivs+1)
 
       CASE DEFAULT
@@ -430,7 +486,34 @@ CONTAINS
       CALL tddfpt_create_work_matrices(work_matrices, gs_mos, nstates, do_hfx, qs_env, sub_env)
 
       ! create kernel environment
-      CALL tddfpt_create_kernel_env(kernel_env, tddfpt_control%rks_triplets, xc_section, qs_env, sub_env, work_matrices)
+      CALL tddfpt_construct_ground_state_orb_density(rho_orb_struct=work_matrices%rho_orb_struct_sub, &
+                                                     is_rks_triplets=tddfpt_control%rks_triplets, &
+                                                     qs_env=qs_env, sub_env=sub_env, &
+                                                     wfm_rho_orb=work_matrices%rho_ao_orb_fm_sub)
+
+      IF (do_admm) THEN
+         CALL tddfpt_create_kernel_env(kernel_env=kernel_env, &
+                                       rho_struct_sub=work_matrices%rho_orb_struct_sub, &
+                                       xc_section=admm_env%xc_section_primary, &
+                                       is_rks_triplets=tddfpt_control%rks_triplets, sub_env=sub_env)
+
+         CALL tddfpt_construct_aux_fit_density(rho_orb_struct=work_matrices%rho_orb_struct_sub, &
+                                               rho_aux_fit_struct=work_matrices%rho_aux_fit_struct_sub, &
+                                               qs_env=qs_env, sub_env=sub_env, &
+                                               wfm_rho_orb=work_matrices%rho_ao_orb_fm_sub, &
+                                               wfm_rho_aux_fit=work_matrices%rho_ao_aux_fit_fm_sub, &
+                                               wfm_aux_orb=work_matrices%wfm_aux_orb_sub)
+
+         CALL tddfpt_create_kernel_env(kernel_env=kernel_env_admm_aux, &
+                                       rho_struct_sub=work_matrices%rho_aux_fit_struct_sub, &
+                                       xc_section=admm_env%xc_section_aux, &
+                                       is_rks_triplets=tddfpt_control%rks_triplets, sub_env=sub_env)
+      ELSE
+         CALL tddfpt_create_kernel_env(kernel_env=kernel_env, &
+                                       rho_struct_sub=work_matrices%rho_orb_struct_sub, &
+                                       xc_section=xc_section, &
+                                       is_rks_triplets=tddfpt_control%rks_triplets, sub_env=sub_env)
+      END IF
 
       ALLOCATE (evals(nstates))
       ALLOCATE (evects(nspins, nstates), S_evects(nspins, nstates))
@@ -479,7 +562,8 @@ CONTAINS
             ! *** perform Davidson iterations ***
             conv = tddfpt_davidson_solver(evects=evects, evals=evals, S_evects=S_evects, gs_mos=gs_mos, &
                                           do_hfx=do_hfx, tddfpt_control=tddfpt_control, qs_env=qs_env, &
-                                          kernel_env=kernel_env, sub_env=sub_env, logger=logger, &
+                                          kernel_env=kernel_env, kernel_env_admm_aux=kernel_env_admm_aux, &
+                                          sub_env=sub_env, logger=logger, &
                                           iter_unit=log_unit, energy_unit=energy_unit, &
                                           tddfpt_print_section=tddfpt_print_section, work_matrices=work_matrices)
 
@@ -528,7 +612,7 @@ CONTAINS
 
       CALL tddfpt_print_summary(log_unit, evects, evals, mult, gs_mos, matrix_s=matrix_s(1)%matrix, &
                                 dipole_op_xyz=dipole_op_xyz, dipole_form=tddfpt_control%dipole_form, &
-                                min_amplitude=tddfpt_control%min_excitation_amplitude, &
+                                cell=cell, min_amplitude=tddfpt_control%min_excitation_amplitude, &
                                 fm_pool_ao_mo_occ=work_matrices%fm_pool_ao_mo_occ)
 
       ! -- clean up all useless stuff
@@ -540,6 +624,9 @@ CONTAINS
       END DO
       DEALLOCATE (evects, S_evects, evals)
 
+      IF (do_admm) THEN
+         CALL tddfpt_release_kernel_env(kernel_env_admm_aux)
+      END IF
       CALL tddfpt_release_kernel_env(kernel_env)
       CALL tddfpt_release_work_matrices(work_matrices, sub_env)
       CALL tddfpt_sub_env_release(sub_env)
@@ -549,8 +636,10 @@ CONTAINS
       END DO
       DEALLOCATE (gs_mos)
 
-      IF (tddfpt_control%dipole_form == xas_dip_len) &
+      IF (tddfpt_control%dipole_form == tddfpt_dipole_length) &
          CALL dbcsr_deallocate_matrix_set(rRc_xyz)
+      IF (tddfpt_control%dipole_form == tddfpt_dipole_berry) &
+         CALL dbcsr_deallocate_matrix_set(berry_cossin_xyz)
 
       CALL timestop(handle)
    END SUBROUTINE tddfpt
@@ -707,11 +796,6 @@ CONTAINS
                                           dbcsr_dist=sub_env%dbcsr_dist, sab=sub_env%sab_orb)
       END DO
 
-      NULLIFY (work_matrices%wdbcsr_ao_ao_sub%matrix)
-      CALL dbcsr_init_p(work_matrices%wdbcsr_ao_ao_sub%matrix)
-      CALL tddfpt_dbcsr_create_by_dist(work_matrices%wdbcsr_ao_ao_sub%matrix, template=matrix_s(1)%matrix, &
-                                       dbcsr_dist=sub_env%dbcsr_dist, sab=sub_env%sab_orb)
-
       ! group-specific response density
       NULLIFY (rho_ia_ao)
       CALL dbcsr_allocate_matrix_set(rho_ia_ao, nspins)
@@ -727,12 +811,8 @@ CONTAINS
       CALL qs_rho_rebuild(work_matrices%rho_orb_struct_sub, qs_env, rebuild_ao=.FALSE., &
                           rebuild_grids=.TRUE., pw_env_external=sub_env%pw_env)
 
-      NULLIFY (work_matrices%wdbcsr_ao_ao_aux_fit_sub%matrix, work_matrices%rho_aux_fit_struct_sub)
+      NULLIFY (work_matrices%rho_aux_fit_struct_sub)
       IF (do_admm) THEN
-         CALL dbcsr_init_p(work_matrices%wdbcsr_ao_ao_aux_fit_sub%matrix)
-         CALL tddfpt_dbcsr_create_by_dist(work_matrices%wdbcsr_ao_ao_aux_fit_sub%matrix, template=matrix_s_aux_fit(1)%matrix, &
-                                          dbcsr_dist=sub_env%dbcsr_dist, sab=sub_env%sab_aux_fit)
-
          NULLIFY (rho_ia_ao)
          CALL dbcsr_allocate_matrix_set(rho_ia_ao, nspins)
          DO ispin = 1, nspins
@@ -749,8 +829,13 @@ CONTAINS
 
       ! work plain-wave grids
       CALL pw_env_get(sub_env%pw_env, auxbas_pw_pool=auxbas_pw_pool)
+      ALLOCATE (work_matrices%A_ia_rspace_sub(nspins))
       ALLOCATE (work_matrices%wpw_gspace_sub(nspins), work_matrices%wpw_rspace_sub(nspins))
       DO ispin = 1, nspins
+         NULLIFY (work_matrices%A_ia_rspace_sub(ispin)%pw)
+         CALL pw_pool_create_pw(auxbas_pw_pool, work_matrices%A_ia_rspace_sub(ispin)%pw, &
+                                use_data=REALDATA3D, in_space=REALSPACE)
+
          NULLIFY (work_matrices%wpw_gspace_sub(ispin)%pw, work_matrices%wpw_rspace_sub(ispin)%pw)
          CALL pw_pool_create_pw(auxbas_pw_pool, work_matrices%wpw_gspace_sub(ispin)%pw, &
                                 use_data=COMPLEXDATA1D, in_space=RECIPROCALSPACE)
@@ -833,16 +918,13 @@ CONTAINS
       DO ispin = SIZE(work_matrices%wpw_rspace_sub), 1, -1
          CALL pw_pool_give_back_pw(auxbas_pw_pool, work_matrices%wpw_rspace_sub(ispin)%pw)
          CALL pw_pool_give_back_pw(auxbas_pw_pool, work_matrices%wpw_gspace_sub(ispin)%pw)
+         CALL pw_pool_give_back_pw(auxbas_pw_pool, work_matrices%A_ia_rspace_sub(ispin)%pw)
       END DO
-      DEALLOCATE (work_matrices%wpw_gspace_sub, work_matrices%wpw_rspace_sub)
+      DEALLOCATE (work_matrices%A_ia_rspace_sub, work_matrices%wpw_gspace_sub, work_matrices%wpw_rspace_sub)
 
       IF (ASSOCIATED(work_matrices%rho_aux_fit_struct_sub)) &
          CALL qs_rho_release(work_matrices%rho_aux_fit_struct_sub)
       CALL qs_rho_release(work_matrices%rho_orb_struct_sub)
-
-      IF (ASSOCIATED(work_matrices%wdbcsr_ao_ao_aux_fit_sub%matrix)) &
-         CALL dbcsr_deallocate_matrix(work_matrices%wdbcsr_ao_ao_aux_fit_sub%matrix)
-      CALL dbcsr_deallocate_matrix(work_matrices%wdbcsr_ao_ao_sub%matrix)
 
       DO ispin = SIZE(work_matrices%A_ia_munu_sub), 1, -1
          CALL dbcsr_deallocate_matrix(work_matrices%A_ia_munu_sub(ispin)%matrix)
@@ -886,22 +968,21 @@ CONTAINS
 ! **************************************************************************************************
 !> \brief Create kernel environment.
 !> \param kernel_env       kernel environment (allocated and initialised on exit)
+!> \param rho_struct_sub   ground state charge density
+!> \param xc_section       input section which defines an exchange-correlation functional
 !> \param is_rks_triplets  indicates that the triplet excited states calculation using
 !>                         spin-unpolarised molecular orbitals has been requested
-!> \param xc_section       XC input section
-!> \param qs_env           Quickstep environment
 !> \param sub_env          parallel group environment
-!> \param work_matrices    work matrices (modified components: rho_orb_struct_sub, rho_ao_orb_fm_sub)
 !> \par History
 !>    * 02.2017 created [Sergey Chulkov]
+!>    * 06.2018 the charge density needs to be provided via a dummy argument [Sergey Chulkov]
 ! **************************************************************************************************
-   SUBROUTINE tddfpt_create_kernel_env(kernel_env, is_rks_triplets, xc_section, qs_env, sub_env, work_matrices)
+   SUBROUTINE tddfpt_create_kernel_env(kernel_env, rho_struct_sub, xc_section, is_rks_triplets, sub_env)
       TYPE(tddfpt_kernel_env_type), INTENT(out)          :: kernel_env
-      LOGICAL, INTENT(in)                                :: is_rks_triplets
+      TYPE(qs_rho_type), POINTER                         :: rho_struct_sub
       TYPE(section_vals_type), POINTER                   :: xc_section
-      TYPE(qs_environment_type), POINTER                 :: qs_env
+      LOGICAL, INTENT(in)                                :: is_rks_triplets
       TYPE(tddfpt_subgroup_env_type), INTENT(in)         :: sub_env
-      TYPE(tddfpt_work_matrices), INTENT(in)             :: work_matrices
 
       CHARACTER(LEN=*), PARAMETER :: routineN = 'tddfpt_create_kernel_env', &
          routineP = moduleN//':'//routineN
@@ -909,7 +990,6 @@ CONTAINS
       INTEGER                                            :: handle, ispin, nao, nspins
       INTEGER, DIMENSION(maxspins)                       :: nmo_occ
       LOGICAL                                            :: lsd
-      TYPE(dbcsr_p_type), DIMENSION(:), POINTER          :: rho_ij_ao
       TYPE(pw_p_type), DIMENSION(:), POINTER             :: rho_ij_r, rho_ij_r2, tau_ij_r, tau_ij_r2
       TYPE(pw_pool_type), POINTER                        :: auxbas_pw_pool
       TYPE(section_vals_type), POINTER                   :: xc_fun_section
@@ -925,22 +1005,7 @@ CONTAINS
 
       CALL pw_env_get(sub_env%pw_env, auxbas_pw_pool=auxbas_pw_pool)
 
-      CALL qs_rho_get(work_matrices%rho_orb_struct_sub, rho_ao=rho_ij_ao, rho_r=rho_ij_r, tau_r=tau_ij_r)
-      DO ispin = 1, nspins
-         CALL cp_gemm('N', 'T', nao, nao, nmo_occ(ispin), 1.0_dp, &
-                      sub_env%mos_occ(ispin)%matrix, sub_env%mos_occ(ispin)%matrix, &
-                      0.0_dp, work_matrices%rho_ao_orb_fm_sub)
-
-         CALL copy_fm_to_dbcsr(work_matrices%rho_ao_orb_fm_sub, &
-                               rho_ij_ao(ispin)%matrix, keep_sparsity=.TRUE.)
-      END DO
-
-      ! take into account that all MOs are doubly occupied in spin-restricted case
-      IF (nspins == 1 .AND. (.NOT. is_rks_triplets)) &
-         CALL dbcsr_scale(rho_ij_ao(1)%matrix, 2.0_dp)
-
-      CALL qs_rho_update_rho(work_matrices%rho_orb_struct_sub, qs_env, pw_env_external=sub_env%pw_env, &
-                             task_list_external=sub_env%task_list_orb)
+      CALL qs_rho_get(rho_struct_sub, rho_r=rho_ij_r, tau_r=tau_ij_r)
 
       NULLIFY (kernel_env%xc_rho_set, kernel_env%xc_rho1_set, kernel_env%xc_deriv_set)
 
@@ -984,6 +1049,7 @@ CONTAINS
 
       kernel_env%alpha = 1.0_dp
       kernel_env%beta = 0.0_dp
+
       ! kernel_env%beta is taken into account in spin-restricted case only
       IF (nspins == 1) THEN
          IF (is_rks_triplets) THEN
@@ -1266,7 +1332,7 @@ CONTAINS
 ! **************************************************************************************************
 !> \brief Compute the number of possible singly excited states (occ -> virt)
 !> \param gs_mos          occupied and virtual molecular orbitals optimised for the ground state
-!> \retval nstates_total  the number of possible single excitations
+!> \return the number of possible single excitations
 !> \par History
 !>    * 01.2017 created [Sergey Chulkov]
 ! **************************************************************************************************
@@ -1506,7 +1572,7 @@ CONTAINS
 !>                  excited state wave functions
 !> \param work_fm_mo_occ_mo_occ work matrices with shape [nmo_occ(spin) x nmo_occ(spin)]
 !>                              to store matrix products S_0^T * S * evects (modified on exit)
-!> \retval is_nonortho true if trial vectors are non-orthogonal to occupied molecular orbitals
+!> \return true if trial vectors are non-orthogonal to occupied molecular orbitals
 !> \par History
 !>    * 07.2016 created [Sergey Chulkov]
 ! **************************************************************************************************
@@ -1711,32 +1777,27 @@ CONTAINS
    END SUBROUTINE tddfpt_apply_energy_diff
 
 ! **************************************************************************************************
-!> \brief Update A_ia_munu by adding coulomb term.
-!> \param A_ia_munu  action of TDDFPT operator on trial vectors expressed in atomic basis set
-!>                   (modified on exit)
-!> \param rho_ia_g   response density in reciprocal space
-!> \param qs_env     Quickstep environment
-!> \param pw_env     plain wave environment
-!> \param task_list  task list
-!> \param v_gspace   work reciprocal-space grid to store Coulomb potential (modified on exit)
-!> \param v_rspace   work real-space grid to store Coulomb potential (modified on exit)
-!> \param J_ia_munu  work sparse matrix with shape [nao x nao] to store unscaled coulomb term
-!>                   expressed in atomic basis set (modified on exit)
+!> \brief Update v_rspace by adding coulomb term.
+!> \param A_ia_rspace    action of TDDFPT operator on the trial vector expressed in a plane wave
+!>                       representation (modified on exit)
+!> \param rho_ia_g       response density in reciprocal space for the given trial vector
+!> \param pw_env         plain wave environment
+!> \param work_v_gspace  work reciprocal-space grid to store Coulomb potential (modified on exit)
+!> \param work_v_rspace  work real-space grid to store Coulomb potential (modified on exit)
 !> \par History
 !>    * 05.2016 compute all coulomb terms in one go [Sergey Chulkov]
-!>    * 03.2017 proceed excited states sequentially; minimise the number of conversions netween
+!>    * 03.2017 proceed excited states sequentially; minimise the number of conversions between
 !>              DBCSR and FM matrices [Sergey Chulkov]
+!>    * 06.2018 return the action expressed in the plane wave representation instead of the one
+!>              in the atomic basis set representation
 !> \note Based on the subroutine kpp1_calc_k_p_p1() which was originally created by
 !>       Mohamed Fawzi on 10.2002.
 ! **************************************************************************************************
-   SUBROUTINE tddfpt_apply_coulomb(A_ia_munu, rho_ia_g, qs_env, pw_env, task_list, v_gspace, v_rspace, J_ia_munu)
-      TYPE(dbcsr_p_type), DIMENSION(:), INTENT(inout)    :: A_ia_munu
+   SUBROUTINE tddfpt_apply_coulomb(A_ia_rspace, rho_ia_g, pw_env, work_v_gspace, work_v_rspace)
+      TYPE(pw_p_type), DIMENSION(:), POINTER             :: A_ia_rspace
       TYPE(pw_type), POINTER                             :: rho_ia_g
-      TYPE(qs_environment_type), POINTER                 :: qs_env
       TYPE(pw_env_type), POINTER                         :: pw_env
-      TYPE(task_list_type), POINTER                      :: task_list
-      TYPE(pw_p_type), INTENT(inout)                     :: v_gspace, v_rspace
-      TYPE(dbcsr_p_type), INTENT(inout)                  :: J_ia_munu
+      TYPE(pw_p_type), INTENT(inout)                     :: work_v_gspace, work_v_rspace
 
       CHARACTER(LEN=*), PARAMETER :: routineN = 'tddfpt_apply_coulomb', &
          routineP = moduleN//':'//routineN
@@ -1747,7 +1808,7 @@ CONTAINS
 
       CALL timeset(routineN, handle)
 
-      nspins = SIZE(A_ia_munu)
+      nspins = SIZE(A_ia_rspace)
       CALL pw_env_get(pw_env, poisson_env=poisson_env)
 
       IF (nspins > 1) THEN
@@ -1758,73 +1819,61 @@ CONTAINS
          alpha = 2.0_dp
       END IF
 
-      CALL pw_poisson_solve(poisson_env, rho_ia_g, pair_energy, v_gspace%pw)
-      CALL pw_transfer(v_gspace%pw, v_rspace%pw)
-      CALL pw_scale(v_rspace%pw, v_rspace%pw%pw_grid%dvol)
-
-      CALL dbcsr_set(J_ia_munu%matrix, 0.0_dp)
-
-      CALL integrate_v_rspace(v_rspace=v_rspace, hmat=J_ia_munu, qs_env=qs_env, &
-                              calculate_forces=.FALSE., compute_tau=.FALSE., gapw=.FALSE., &
-                              pw_env_external=pw_env, task_list_external=task_list)
-      ! TO DO: tau component
+      CALL pw_poisson_solve(poisson_env, rho_ia_g, pair_energy, work_v_gspace%pw)
+      CALL pw_transfer(work_v_gspace%pw, work_v_rspace%pw)
 
       ! (i a || j b) = ( i_alpha a_alpha + i_beta a_beta || j_alpha b_alpha + j_beta b_beta) =
       !                tr (Cj_alpha^T * [J_i{alpha}a{alpha}_munu + J_i{beta}a{beta}_munu] * Cb_alpha) +
       !                tr (Cj_beta^T * [J_i{alpha}a{alpha}_munu + J_i{beta}a{beta}_munu] * Cb_beta)
       DO ispin = 1, nspins
-         CALL dbcsr_add(A_ia_munu(ispin)%matrix, J_ia_munu%matrix, 1.0_dp, alpha)
+         CALL pw_axpy(work_v_rspace%pw, A_ia_rspace(ispin)%pw, alpha)
       END DO
+
+      ! TO DO: tau component
 
       CALL timestop(handle)
    END SUBROUTINE tddfpt_apply_coulomb
 
 ! **************************************************************************************************
 !> \brief Update A_ia_munu by adding exchange-correlation term.
-!> \param A_ia_munu        action of TDDFPT operator on a trial vector expressed in atomic basis set
-!>                         (modified on exit)
+!> \param A_ia_rspace      action of TDDFPT operator on trial vectors expressed in a plane wave
+!>                         representation (modified on exit)
 !> \param kernel_env       kernel environment
-!> \param rho_ia_g         response density in reciprocal space
-!> \param rho_ia_r         response density in real space
-!> \param tau_ia_r         kinetic energy density in real space
+!> \param rho_ia_struct    response density for the given trial vector
 !> \param is_rks_triplets  indicates that the triplet excited states calculation using
 !>                         spin-unpolarised molecular orbitals has been requested
-!> \param qs_env           Quickstep environment
 !> \param pw_env           plain wave environment
-!> \param task_list        task list
-!> \param work_v_xc        work real-space grid to store exchange-correlation potential
-!>                         (modified on exit)
-!> \param F_ia_munu        work sparse matrix with shape [nao x nao] to store unscaled exchange-
-!>                         correlation term expressed in atomic basis set (modified on exit)
+!> \param work_v_xc        work real-space grid to store the gradient of the exchange-correlation
+!>                         potential with respect to the response density (modified on exit)
 !> \par History
 !>    * 05.2016 compute all kernel terms in one go [Sergey Chulkov]
 !>    * 03.2017 proceed excited states sequentially; minimise the number of conversions between
 !>              DBCSR and FM matrices [Sergey Chulkov]
+!>    * 06.2018 return the action expressed in the plane wave representation instead of the one
+!>              in the atomic basis set representation
 !> \note Based on the subroutine kpp1_calc_k_p_p1() which was originally created by
 !>       Mohamed Fawzi on 10.2002.
 ! **************************************************************************************************
-   SUBROUTINE tddfpt_apply_xc(A_ia_munu, kernel_env, rho_ia_g, rho_ia_r, tau_ia_r, is_rks_triplets, &
-                              qs_env, pw_env, task_list, work_v_xc, F_ia_munu)
-      TYPE(dbcsr_p_type), DIMENSION(:), INTENT(inout)    :: A_ia_munu
+   SUBROUTINE tddfpt_apply_xc(A_ia_rspace, kernel_env, rho_ia_struct, is_rks_triplets, pw_env, work_v_xc)
+      TYPE(pw_p_type), DIMENSION(:), POINTER             :: A_ia_rspace
       TYPE(tddfpt_kernel_env_type), INTENT(in)           :: kernel_env
-      TYPE(pw_p_type), DIMENSION(:), POINTER             :: rho_ia_g, rho_ia_r, tau_ia_r
+      TYPE(qs_rho_type), POINTER                         :: rho_ia_struct
       LOGICAL, INTENT(in)                                :: is_rks_triplets
-      TYPE(qs_environment_type), POINTER                 :: qs_env
       TYPE(pw_env_type), POINTER                         :: pw_env
-      TYPE(task_list_type), POINTER                      :: task_list
       TYPE(pw_p_type), DIMENSION(:), POINTER             :: work_v_xc
-      TYPE(dbcsr_p_type), INTENT(inout)                  :: F_ia_munu
 
       CHARACTER(LEN=*), PARAMETER :: routineN = 'tddfpt_apply_xc', &
          routineP = moduleN//':'//routineN
 
       INTEGER                                            :: handle, ispin, nspins
-      TYPE(pw_p_type), DIMENSION(:), POINTER             :: rho_ia_g2, rho_ia_r2, tau_ia_r2
+      TYPE(pw_p_type), DIMENSION(:), POINTER             :: rho_ia_g, rho_ia_g2, rho_ia_r, &
+                                                            rho_ia_r2, tau_ia_r, tau_ia_r2
       TYPE(pw_pool_type), POINTER                        :: auxbas_pw_pool
 
       CALL timeset(routineN, handle)
 
-      nspins = SIZE(A_ia_munu)
+      nspins = SIZE(A_ia_rspace)
+      CALL qs_rho_get(rho_ia_struct, rho_g=rho_ia_g, rho_r=rho_ia_r, tau_r=tau_ia_r)
       CALL pw_env_get(pw_env, auxbas_pw_pool=auxbas_pw_pool)
 
       IF (debug_this_module) THEN
@@ -1864,47 +1913,89 @@ CONTAINS
          END IF
       END IF
 
-      CALL xc_rho_set_update(rho_set=kernel_env%xc_rho1_set, rho_r=rho_ia_r2, rho_g=rho_ia_g2, tau=tau_ia_r2, &
-                             needs=kernel_env%xc_rho1_cflags, xc_deriv_method_id=kernel_env%deriv_method_id, &
-                             xc_rho_smooth_id=kernel_env%rho_smooth_id, pw_pool=auxbas_pw_pool)
-
       DO ispin = 1, nspins
          CALL pw_zero(work_v_xc(ispin)%pw)
       END DO
+
+      CALL xc_rho_set_update(rho_set=kernel_env%xc_rho1_set, rho_r=rho_ia_r2, rho_g=rho_ia_g2, tau=tau_ia_r2, &
+                             needs=kernel_env%xc_rho1_cflags, xc_deriv_method_id=kernel_env%deriv_method_id, &
+                             xc_rho_smooth_id=kernel_env%rho_smooth_id, pw_pool=auxbas_pw_pool)
 
       CALL xc_calc_2nd_deriv(v_xc=work_v_xc, deriv_set=kernel_env%xc_deriv_set, rho_set=kernel_env%xc_rho_set, &
                              rho1_set=kernel_env%xc_rho1_set, pw_pool=auxbas_pw_pool, &
                              xc_section=kernel_env%xc_section, gapw=.FALSE., tddfpt_fac=kernel_env%beta)
 
       DO ispin = 1, nspins
-         CALL pw_scale(work_v_xc(ispin)%pw, work_v_xc(ispin)%pw%pw_grid%dvol)
-
-         CALL dbcsr_set(F_ia_munu%matrix, 0.0_dp)
-         CALL integrate_v_rspace(v_rspace=work_v_xc(ispin), hmat=F_ia_munu, qs_env=qs_env, &
-                                 calculate_forces=.FALSE., gapw=.FALSE., &
-                                 pw_env_external=pw_env, task_list_external=task_list)
-         CALL dbcsr_add(A_ia_munu(ispin)%matrix, F_ia_munu%matrix, 1.0_dp, kernel_env%alpha)
+         ! pw2 = pw2 + alpha * pw1
+         CALL pw_axpy(work_v_xc(ispin)%pw, A_ia_rspace(ispin)%pw, kernel_env%alpha)
       END DO
 
-      IF (ASSOCIATED(tau_ia_r)) &
-         DEALLOCATE (tau_ia_r)
       DEALLOCATE (rho_ia_g2, rho_ia_r2)
 
       CALL timestop(handle)
    END SUBROUTINE tddfpt_apply_xc
 
 ! **************************************************************************************************
-!> \brief Update A_ia_munu by adding ADMM correction terms.
-!> \param A_ia_munu           action of TDDFPT operator on a trial vector expressed in atomic basis
-!>                            set (modified on exit)
-!> \param rho_orb_struct      response density in primary basis set
-!> \param rho_aux_fit_struct  response density in auxiliary basis set
+!> \brief Compute the ground-state charge density expressed in primary basis set.
+!> \param rho_orb_struct      ground-state density in primary basis set
+!> \param is_rks_triplets     indicates that the triplet excited states calculation using
+!>                            spin-unpolarised molecular orbitals has been requested
 !> \param qs_env              Quickstep environment
 !> \param sub_env             parallel (sub)group environment
-!> \param work_hmat_orb       work sparse matrix with shape [nao x nao] distributed among
+!> \param wfm_rho_orb         work dense matrix with shape [nao x nao] distributed among
 !>                            processors of the given parallel group (modified on exit)
-!> \param work_hmat_aux_fit   work sparse matrix with shape [nao_aux x nao_aux] distributed among
-!>                            processors of the given parallel group (modified on exit)
+!> \par History
+!>    * 06.2018 created by splitting the subroutine tddfpt_apply_admm_correction() in two
+!>              subroutines tddfpt_construct_ground_state_orb_density() and
+!>              tddfpt_construct_aux_fit_density [Sergey Chulkov]
+! **************************************************************************************************
+   SUBROUTINE tddfpt_construct_ground_state_orb_density(rho_orb_struct, is_rks_triplets, qs_env, sub_env, wfm_rho_orb)
+      TYPE(qs_rho_type), POINTER                         :: rho_orb_struct
+      LOGICAL, INTENT(in)                                :: is_rks_triplets
+      TYPE(qs_environment_type), POINTER                 :: qs_env
+      TYPE(tddfpt_subgroup_env_type), INTENT(in)         :: sub_env
+      TYPE(cp_fm_type), POINTER                          :: wfm_rho_orb
+
+      CHARACTER(LEN=*), PARAMETER :: routineN = 'tddfpt_construct_ground_state_orb_density', &
+         routineP = moduleN//':'//routineN
+
+      INTEGER                                            :: handle, ispin, nao, nspins
+      INTEGER, DIMENSION(maxspins)                       :: nmo_occ
+      TYPE(dbcsr_p_type), DIMENSION(:), POINTER          :: rho_ij_ao
+
+      CALL timeset(routineN, handle)
+
+      nspins = SIZE(sub_env%mos_occ)
+      DO ispin = 1, nspins
+         CALL cp_fm_get_info(sub_env%mos_occ(ispin)%matrix, nrow_global=nao, ncol_global=nmo_occ(ispin))
+      END DO
+
+      CALL qs_rho_get(rho_orb_struct, rho_ao=rho_ij_ao)
+      DO ispin = 1, nspins
+         CALL cp_gemm('N', 'T', nao, nao, nmo_occ(ispin), 1.0_dp, &
+                      sub_env%mos_occ(ispin)%matrix, sub_env%mos_occ(ispin)%matrix, &
+                      0.0_dp, wfm_rho_orb)
+
+         CALL copy_fm_to_dbcsr(wfm_rho_orb, rho_ij_ao(ispin)%matrix, keep_sparsity=.TRUE.)
+      END DO
+
+      ! take into account that all MOs are doubly occupied in spin-restricted case
+      IF (nspins == 1 .AND. (.NOT. is_rks_triplets)) &
+         CALL dbcsr_scale(rho_ij_ao(1)%matrix, 2.0_dp)
+
+      CALL qs_rho_update_rho(rho_orb_struct, qs_env, &
+                             pw_env_external=sub_env%pw_env, &
+                             task_list_external=sub_env%task_list_orb)
+
+      CALL timestop(handle)
+   END SUBROUTINE tddfpt_construct_ground_state_orb_density
+
+! **************************************************************************************************
+!> \brief Project a charge density expressed in primary basis set into the auxiliary basis set.
+!> \param rho_orb_struct      response density in primary basis set
+!> \param rho_aux_fit_struct  response density in auxiliary basis set (modified on exit)
+!> \param qs_env              Quickstep environment
+!> \param sub_env             parallel (sub)group environment
 !> \param wfm_rho_orb         work dense matrix with shape [nao x nao] distributed among
 !>                            processors of the given parallel group (modified on exit)
 !> \param wfm_rho_aux_fit     work dense matrix with shape [nao_aux x nao_aux] distributed among
@@ -1912,78 +2003,39 @@ CONTAINS
 !> \param wfm_aux_orb         work dense matrix with shape [nao_aux x nao] distributed among
 !>                            processors of the given parallel group (modified on exit)
 !> \par History
-!>    * 03.2017 created by splitting the subroutine tddfpt_apply_hfx() in two parts [Sergey Chulkov]
+!>    * 03.2017 the subroutine tddfpt_apply_admm_correction() was originally created by splitting
+!>              the subroutine tddfpt_apply_hfx() in two parts [Sergey Chulkov]
+!>    * 06.2018 created by splitting the subroutine tddfpt_apply_admm_correction() in two subroutines
+!>              tddfpt_construct_ground_state_orb_density() and tddfpt_construct_aux_fit_density()
+!>              in order to avoid code duplication [Sergey Chulkov]
 ! **************************************************************************************************
-   SUBROUTINE tddfpt_apply_admm_correction(A_ia_munu, rho_orb_struct, rho_aux_fit_struct, qs_env, sub_env, &
-                                           work_hmat_orb, work_hmat_aux_fit, wfm_rho_orb, wfm_rho_aux_fit, wfm_aux_orb)
-      TYPE(dbcsr_p_type), DIMENSION(:), INTENT(inout)    :: A_ia_munu
+   SUBROUTINE tddfpt_construct_aux_fit_density(rho_orb_struct, rho_aux_fit_struct, qs_env, sub_env, &
+                                               wfm_rho_orb, wfm_rho_aux_fit, wfm_aux_orb)
       TYPE(qs_rho_type), POINTER                         :: rho_orb_struct, rho_aux_fit_struct
       TYPE(qs_environment_type), POINTER                 :: qs_env
       TYPE(tddfpt_subgroup_env_type), INTENT(in)         :: sub_env
-      TYPE(dbcsr_p_type), INTENT(inout)                  :: work_hmat_orb, work_hmat_aux_fit
       TYPE(cp_fm_type), POINTER                          :: wfm_rho_orb, wfm_rho_aux_fit, wfm_aux_orb
 
-      CHARACTER(LEN=*), PARAMETER :: routineN = 'tddfpt_apply_admm_correction', &
+      CHARACTER(LEN=*), PARAMETER :: routineN = 'tddfpt_construct_aux_fit_density', &
          routineP = moduleN//':'//routineN
 
       INTEGER                                            :: handle, ispin, nao, nao_aux, nspins
-      REAL(kind=dp)                                      :: exc
       REAL(kind=dp), DIMENSION(:), POINTER               :: tot_rho_aux_fit_r
-      TYPE(admm_type), POINTER                           :: admm_env
       TYPE(dbcsr_p_type), DIMENSION(:), POINTER          :: rho_ao_aux_fit, rho_ao_orb
-      TYPE(pw_p_type), DIMENSION(:), POINTER             :: rho_aux_fit_g, rho_aux_fit_r, vxc_rho, &
-                                                            vxc_tau
-      TYPE(pw_pool_type), POINTER                        :: auxbas_pw_pool
+      TYPE(pw_p_type), DIMENSION(:), POINTER             :: rho_aux_fit_g, rho_aux_fit_r
       TYPE(qs_ks_env_type), POINTER                      :: ks_env
 
       CALL timeset(routineN, handle)
 
-      nspins = SIZE(A_ia_munu)
+      CPASSERT(ASSOCIATED(sub_env%admm_A))
 
-      CALL get_qs_env(qs_env, admm_env=admm_env, ks_env=ks_env)
-      CALL pw_env_get(sub_env%pw_env, auxbas_pw_pool=auxbas_pw_pool)
+      CALL get_qs_env(qs_env, ks_env=ks_env)
       CALL qs_rho_get(rho_orb_struct, rho_ao=rho_ao_orb)
-
-      ! E_{x}^{DFT}[\rho]
-      NULLIFY (vxc_rho, vxc_tau)
-      CALL qs_vxc_create(ks_env=ks_env, rho_struct=rho_orb_struct, xc_section=admm_env%xc_section_aux, &
-                         vxc_rho=vxc_rho, vxc_tau=vxc_tau, exc=exc, just_energy=.FALSE., pw_env_external=sub_env%pw_env)
-
-      DO ispin = 1, nspins
-         CALL dbcsr_set(work_hmat_orb%matrix, 0.0_dp)
-
-         IF (ASSOCIATED(vxc_rho)) THEN
-            CALL pw_scale(vxc_rho(ispin)%pw, vxc_rho(ispin)%pw%pw_grid%dvol)
-
-            CALL integrate_v_rspace(v_rspace=vxc_rho(ispin), pmat=rho_ao_orb(ispin), hmat=work_hmat_orb, &
-                                    qs_env=qs_env, calculate_forces=.FALSE., gapw=.FALSE., &
-                                    pw_env_external=sub_env%pw_env, task_list_external=sub_env%task_list_orb)
-
-            CALL pw_pool_give_back_pw(auxbas_pw_pool, vxc_rho(ispin)%pw)
-         END IF
-
-         IF (ASSOCIATED(vxc_tau)) THEN
-            CALL pw_scale(vxc_tau(ispin)%pw, vxc_tau(ispin)%pw%pw_grid%dvol)
-
-            CALL integrate_v_rspace(v_rspace=vxc_tau(ispin), pmat=rho_ao_orb(ispin), hmat=work_hmat_orb, &
-                                    qs_env=qs_env, calculate_forces=.FALSE., compute_tau=.TRUE., gapw=.FALSE., &
-                                    pw_env_external=sub_env%pw_env, task_list_external=sub_env%task_list_orb)
-
-            CALL pw_pool_give_back_pw(auxbas_pw_pool, vxc_tau(ispin)%pw)
-         END IF
-
-         CALL dbcsr_add(A_ia_munu(ispin)%matrix, work_hmat_orb%matrix, 1.0_dp, -1.0_dp)
-      END DO
-
-      IF (ASSOCIATED(vxc_rho)) &
-         DEALLOCATE (vxc_rho)
-
-      IF (ASSOCIATED(vxc_tau)) &
-         DEALLOCATE (vxc_tau)
-
-      ! E_{x}^{DFT}[\hat{\rho}]
       CALL qs_rho_get(rho_aux_fit_struct, rho_ao=rho_ao_aux_fit, rho_g=rho_aux_fit_g, &
                       rho_r=rho_aux_fit_r, tot_rho_r=tot_rho_aux_fit_r)
+
+      nspins = SIZE(rho_ao_orb)
+
       CALL cp_fm_get_info(sub_env%admm_A, nrow_global=nao_aux, ncol_global=nao)
       DO ispin = 1, nspins
          ! TO DO: consider sub_env%admm_A to be a DBCSR matrix
@@ -2001,51 +2053,8 @@ CONTAINS
                                  pw_env_external=sub_env%pw_env, task_list_external=sub_env%task_list_aux_fit)
       END DO
 
-      CALL qs_vxc_create(ks_env=ks_env, rho_struct=rho_aux_fit_struct, xc_section=admm_env%xc_section_aux, &
-                         vxc_rho=vxc_rho, vxc_tau=vxc_tau, exc=exc, just_energy=.FALSE., pw_env_external=sub_env%pw_env)
-
-      DO ispin = 1, nspins
-         CALL dbcsr_set(work_hmat_aux_fit%matrix, 0.0_dp)
-
-         IF (ASSOCIATED(vxc_rho)) THEN
-            CALL pw_scale(vxc_rho(ispin)%pw, vxc_rho(ispin)%pw%pw_grid%dvol)
-
-            CALL integrate_v_rspace(v_rspace=vxc_rho(ispin), pmat=rho_ao_aux_fit(ispin), hmat=work_hmat_aux_fit, &
-                                    qs_env=qs_env, calculate_forces=.FALSE., gapw=.FALSE., basis_type="AUX_FIT", &
-                                    pw_env_external=sub_env%pw_env, task_list_external=sub_env%task_list_aux_fit)
-
-            CALL pw_pool_give_back_pw(auxbas_pw_pool, vxc_rho(ispin)%pw)
-         END IF
-
-         IF (ASSOCIATED(vxc_tau)) THEN
-            CALL pw_scale(vxc_tau(ispin)%pw, vxc_tau(ispin)%pw%pw_grid%dvol)
-
-            CALL integrate_v_rspace(v_rspace=vxc_tau(ispin), pmat=rho_ao_aux_fit(ispin), hmat=work_hmat_aux_fit, &
-                                    qs_env=qs_env, calculate_forces=.FALSE., compute_tau=.TRUE., gapw=.FALSE., &
-                                    basis_type="AUX_FIT", pw_env_external=sub_env%pw_env, &
-                                    task_list_external=sub_env%task_list_aux_fit)
-
-            CALL pw_pool_give_back_pw(auxbas_pw_pool, vxc_tau(ispin)%pw)
-         END IF
-
-         CALL cp_dbcsr_sm_fm_multiply(work_hmat_aux_fit%matrix, sub_env%admm_A, wfm_aux_orb, &
-                                      ncol=nao, alpha=1.0_dp, beta=0.0_dp)
-         CALL cp_gemm('T', 'N', nao, nao, nao_aux, 1.0_dp, sub_env%admm_A, wfm_aux_orb, &
-                      0.0_dp, wfm_rho_orb)
-
-         CALL copy_fm_to_dbcsr(wfm_rho_orb, work_hmat_orb%matrix, keep_sparsity=.FALSE.)
-
-         CALL dbcsr_add(A_ia_munu(ispin)%matrix, work_hmat_orb%matrix, 1.0_dp, 1.0_dp)
-      END DO
-
-      IF (ASSOCIATED(vxc_rho)) &
-         DEALLOCATE (vxc_rho)
-
-      IF (ASSOCIATED(vxc_tau)) &
-         DEALLOCATE (vxc_tau)
-
       CALL timestop(handle)
-   END SUBROUTINE tddfpt_apply_admm_correction
+   END SUBROUTINE tddfpt_construct_aux_fit_density
 
 ! **************************************************************************************************
 !> \brief Update action of TDDFPT operator on trial vectors by adding exact-exchange term.
@@ -2167,22 +2176,23 @@ CONTAINS
 !> \param matrix_ks             Kohn-Sham matrix
 !> \param qs_env                Quickstep environment
 !> \param kernel_env            kernel environment
+!> \param kernel_env_admm_aux   kernel environment for ADMM correction
 !> \param sub_env               parallel (sub)group environment
 !> \param work_matrices         collection of work matrices (modified on exit)
 !> \par History
 !>    * 06.2016 created [Sergey Chulkov]
 !>    * 03.2017 refactored [Sergey Chulkov]
 ! **************************************************************************************************
-   SUBROUTINE tddfpt_compute_Aop_evects(Aop_evects, evects, S_evects, gs_mos, &
-                                        is_rks_triplets, do_hfx, matrix_ks, &
-                                        qs_env, kernel_env, sub_env, work_matrices)
+   SUBROUTINE tddfpt_compute_Aop_evects(Aop_evects, evects, S_evects, gs_mos, is_rks_triplets, &
+                                        do_hfx, matrix_ks, qs_env, kernel_env, kernel_env_admm_aux, &
+                                        sub_env, work_matrices)
       TYPE(cp_fm_p_type), DIMENSION(:, :), INTENT(in)    :: Aop_evects, evects, S_evects
       TYPE(tddfpt_ground_state_mos), DIMENSION(:), &
          INTENT(in)                                      :: gs_mos
       LOGICAL, INTENT(in)                                :: is_rks_triplets, do_hfx
       TYPE(dbcsr_p_type), DIMENSION(:), INTENT(in)       :: matrix_ks
       TYPE(qs_environment_type), POINTER                 :: qs_env
-      TYPE(tddfpt_kernel_env_type), INTENT(in)           :: kernel_env
+      TYPE(tddfpt_kernel_env_type), INTENT(in)           :: kernel_env, kernel_env_admm_aux
       TYPE(tddfpt_subgroup_env_type), INTENT(in)         :: sub_env
       TYPE(tddfpt_work_matrices), INTENT(inout)          :: work_matrices
 
@@ -2193,8 +2203,10 @@ CONTAINS
       INTEGER, DIMENSION(maxspins)                       :: nmo_occ
       LOGICAL                                            :: do_admm
       TYPE(cp_para_env_type), POINTER                    :: para_env
-      TYPE(dbcsr_p_type), DIMENSION(:), POINTER          :: rho_ia_ao
-      TYPE(pw_p_type), DIMENSION(:), POINTER             :: rho_ia_g, rho_ia_r, tau_ia_r
+      TYPE(dbcsr_p_type), DIMENSION(:), POINTER          :: rho_ia_ao, rho_ia_ao_aux_fit
+      TYPE(pw_p_type), DIMENSION(:), POINTER             :: rho_ia_g, rho_ia_g_aux_fit, rho_ia_r, &
+                                                            rho_ia_r_aux_fit, tau_ia_r, &
+                                                            tau_ia_r_aux_fit
 
       CALL timeset(routineN, handle)
 
@@ -2219,6 +2231,10 @@ CONTAINS
       IF (nvects > 0) THEN
          CALL cp_fm_get_info(evects(1, 1)%matrix, para_env=para_env)
          CALL qs_rho_get(work_matrices%rho_orb_struct_sub, rho_ao=rho_ia_ao, rho_g=rho_ia_g, rho_r=rho_ia_r, tau_r=tau_ia_r)
+         IF (do_hfx .AND. do_admm) THEN
+            CALL qs_rho_get(work_matrices%rho_aux_fit_struct_sub, rho_ao=rho_ia_ao_aux_fit, rho_g=rho_ia_g_aux_fit, &
+                            rho_r=rho_ia_r_aux_fit, tau_r=tau_ia_r_aux_fit)
+         END IF
 
          IF (ALLOCATED(work_matrices%evects_sub)) THEN
             DO ivect = 1, nvects
@@ -2268,23 +2284,33 @@ CONTAINS
             END DO
 
             ! electron-hole exchange-correlation interaction
-            CALL tddfpt_apply_xc(A_ia_munu=work_matrices%A_ia_munu_sub, kernel_env=kernel_env, rho_ia_g=rho_ia_g, &
-                                 rho_ia_r=rho_ia_r, tau_ia_r=tau_ia_r, &
-                                 is_rks_triplets=is_rks_triplets, qs_env=qs_env, &
-                                 pw_env=sub_env%pw_env, task_list=sub_env%task_list_orb, &
-                                 work_v_xc=work_matrices%wpw_rspace_sub, F_ia_munu=work_matrices%wdbcsr_ao_ao_sub)
+            DO ispin = 1, nspins
+               CALL pw_zero(work_matrices%A_ia_rspace_sub(ispin)%pw)
+            END DO
+
+            ! C_x d^{2}E_{x}^{DFT}[\rho] / d\rho^2
+            ! + C_{HF} d^{2}E_{x, ADMM}^{DFT}[\rho] / d\rho^2 in case of ADMM calculation
+            CALL tddfpt_apply_xc(A_ia_rspace=work_matrices%A_ia_rspace_sub, kernel_env=kernel_env, &
+                                 rho_ia_struct=work_matrices%rho_orb_struct_sub, &
+                                 is_rks_triplets=is_rks_triplets, pw_env=sub_env%pw_env, &
+                                 work_v_xc=work_matrices%wpw_rspace_sub)
 
             ! ADMM correction
-            IF (do_hfx .AND. do_admm) &
-               CALL tddfpt_apply_admm_correction(A_ia_munu=work_matrices%A_ia_munu_sub, &
-                                                 rho_orb_struct=work_matrices%rho_orb_struct_sub, &
-                                                 rho_aux_fit_struct=work_matrices%rho_aux_fit_struct_sub, &
-                                                 qs_env=qs_env, sub_env=sub_env, &
-                                                 work_hmat_orb=work_matrices%wdbcsr_ao_ao_sub, &
-                                                 work_hmat_aux_fit=work_matrices%wdbcsr_ao_ao_aux_fit_sub, &
-                                                 wfm_rho_orb=work_matrices%rho_ao_orb_fm_sub, &
-                                                 wfm_rho_aux_fit=work_matrices%rho_ao_aux_fit_fm_sub, &
-                                                 wfm_aux_orb=work_matrices%wfm_aux_orb_sub)
+            IF (do_admm) THEN
+               CALL tddfpt_construct_aux_fit_density(rho_orb_struct=work_matrices%rho_orb_struct_sub, &
+                                                     rho_aux_fit_struct=work_matrices%rho_aux_fit_struct_sub, &
+                                                     qs_env=qs_env, sub_env=sub_env, &
+                                                     wfm_rho_orb=work_matrices%rho_ao_orb_fm_sub, &
+                                                     wfm_rho_aux_fit=work_matrices%rho_ao_aux_fit_fm_sub, &
+                                                     wfm_aux_orb=work_matrices%wfm_aux_orb_sub)
+
+               ! - C_{HF} d^{2}E_{x, ADMM}^{DFT}[\hat{\rho}] / d\hat{\rho}^2
+               CALL tddfpt_apply_xc(A_ia_rspace=work_matrices%A_ia_rspace_sub, &
+                                    kernel_env=kernel_env_admm_aux, &
+                                    rho_ia_struct=work_matrices%rho_aux_fit_struct_sub, &
+                                    is_rks_triplets=is_rks_triplets, pw_env=sub_env%pw_env, &
+                                    work_v_xc=work_matrices%wpw_rspace_sub)
+            END IF
 
             ! electron-hole Coulomb interaction
             IF (.NOT. is_rks_triplets) THEN
@@ -2295,12 +2321,21 @@ CONTAINS
                   CALL pw_axpy(rho_ia_g(ispin)%pw, rho_ia_g(1)%pw)
                END DO
 
-               CALL tddfpt_apply_coulomb(A_ia_munu=work_matrices%A_ia_munu_sub, rho_ia_g=rho_ia_g(1)%pw, qs_env=qs_env, &
-                                         pw_env=sub_env%pw_env, task_list=sub_env%task_list_orb, &
-                                         v_gspace=work_matrices%wpw_gspace_sub(1), &
-                                         v_rspace=work_matrices%wpw_rspace_sub(1), &
-                                         J_ia_munu=work_matrices%wdbcsr_ao_ao_sub)
+               CALL tddfpt_apply_coulomb(A_ia_rspace=work_matrices%A_ia_rspace_sub, &
+                                         rho_ia_g=rho_ia_g(1)%pw, pw_env=sub_env%pw_env, &
+                                         work_v_gspace=work_matrices%wpw_gspace_sub(1), &
+                                         work_v_rspace=work_matrices%wpw_rspace_sub(1))
             END IF
+
+            ! convert from the plane-wave representation into the Gaussian basis set representation
+            DO ispin = 1, nspins
+               CALL pw_scale(work_matrices%A_ia_rspace_sub(ispin)%pw, work_matrices%A_ia_rspace_sub(ispin)%pw%pw_grid%dvol)
+
+               CALL integrate_v_rspace(v_rspace=work_matrices%A_ia_rspace_sub(ispin), &
+                                       hmat=work_matrices%A_ia_munu_sub(ispin), &
+                                       qs_env=qs_env, calculate_forces=.FALSE., gapw=.FALSE., &
+                                       pw_env_external=sub_env%pw_env, task_list_external=sub_env%task_list_orb)
+            END DO
 
             IF (ALLOCATED(work_matrices%evects_sub)) THEN
                DO ispin = 1, nspins
@@ -2330,7 +2365,6 @@ CONTAINS
                                        matrix_ks=matrix_ks, work_fm_ao_mo_occ=work_matrices%wfm_ao_mo_occ)
 
          IF (do_hfx) THEN
-            do_admm = ASSOCIATED(sub_env%admm_A)
             CALL tddfpt_apply_hfx(Aop_evects=Aop_evects, evects=evects, gs_mos=gs_mos, do_admm=do_admm, &
                                   qs_env=qs_env, work_rho_ia_ao=work_matrices%hfx_rho_ao, &
                                   work_hmat=work_matrices%hfx_hmat, wfm_rho_orb=work_matrices%hfx_fm_ao_ao)
@@ -2523,13 +2557,14 @@ CONTAINS
 !> \param tddfpt_control        TDDFPT control parameters
 !> \param qs_env                Quickstep environment
 !> \param kernel_env            kernel environment
+!> \param kernel_env_admm_aux   kernel environment for ADMM correction
 !> \param sub_env               parallel (sub)group environment
 !> \param logger                CP2K logger
 !> \param iter_unit             I/O unit to write basic iteration information
 !> \param energy_unit           I/O unit to write detailed energy information
 !> \param tddfpt_print_section  TDDFPT print input section (need to write TDDFPT restart files)
 !> \param work_matrices         collection of work matrices (modified on exit)
-!> \retval conv                 energy convergence achieved (in Hartree)
+!> \return energy convergence achieved (in Hartree)
 !> \par History
 !>    * 03.2017 code related to Davidson eigensolver has been moved here from the main subroutine
 !>              tddfpt() [Sergey Chulkov]
@@ -2537,7 +2572,8 @@ CONTAINS
 !>       Thomas Chassaing in 2002.
 ! **************************************************************************************************
    FUNCTION tddfpt_davidson_solver(evects, evals, S_evects, gs_mos, do_hfx, tddfpt_control, &
-                                   qs_env, kernel_env, sub_env, logger, iter_unit, energy_unit, &
+                                   qs_env, kernel_env, kernel_env_admm_aux, &
+                                   sub_env, logger, iter_unit, energy_unit, &
                                    tddfpt_print_section, work_matrices) RESULT(conv)
       TYPE(cp_fm_p_type), DIMENSION(:, :), INTENT(inout) :: evects
       REAL(kind=dp), DIMENSION(:), INTENT(inout)         :: evals
@@ -2547,7 +2583,7 @@ CONTAINS
       LOGICAL, INTENT(in)                                :: do_hfx
       TYPE(tddfpt2_control_type), POINTER                :: tddfpt_control
       TYPE(qs_environment_type), POINTER                 :: qs_env
-      TYPE(tddfpt_kernel_env_type), INTENT(in)           :: kernel_env
+      TYPE(tddfpt_kernel_env_type), INTENT(in)           :: kernel_env, kernel_env_admm_aux
       TYPE(tddfpt_subgroup_env_type), INTENT(in)         :: sub_env
       TYPE(cp_logger_type), POINTER                      :: logger
       INTEGER, INTENT(in)                                :: iter_unit, energy_unit
@@ -2630,7 +2666,9 @@ CONTAINS
                                         S_evects=S_krylov(:, nvects_exist+1:nvects_exist+nvects_new), &
                                         gs_mos=gs_mos, is_rks_triplets=tddfpt_control%rks_triplets, &
                                         do_hfx=do_hfx, matrix_ks=matrix_ks, &
-                                        qs_env=qs_env, kernel_env=kernel_env, sub_env=sub_env, &
+                                        qs_env=qs_env, kernel_env=kernel_env, &
+                                        kernel_env_admm_aux=kernel_env_admm_aux, &
+                                        sub_env=sub_env, &
                                         work_matrices=work_matrices)
 
          CALL tddfpt_compute_ritz_vects(ritz_vects=evects, Aop_ritz=Aop_ritz, &
@@ -2751,7 +2789,8 @@ CONTAINS
 !> \param gs_mos             molecular orbitals optimised for the ground state
 !> \param matrix_s           overlap matrix
 !> \param dipole_op_xyz      components of the dipole operator in terms of contracted basis functions
-!> \param dipole_form        form of the dipole operator (length / vector)
+!> \param dipole_form        form of the dipole operator (berry-phase / length / vector)
+!> \param cell               unit cell
 !> \param min_amplitude      the smallest excitation amplitude to print
 !> \param fm_pool_ao_mo_occ  pools of dense matrices with shape [nao x nmo_occ(spin)]
 !> \par History
@@ -2769,8 +2808,8 @@ CONTAINS
 !>       \f[\vec{r}\hat{H} - \hat{H}\vec{r} = [\vec{r},\hat{H}] = [\vec{r},-1/2 \nabla^2] = \nabla\f] .
 !>       \endparblock
 ! **************************************************************************************************
-   SUBROUTINE tddfpt_print_summary(log_unit, evects, evals, mult, gs_mos, matrix_s, dipole_op_xyz, dipole_form, &
-                                   min_amplitude, fm_pool_ao_mo_occ)
+   SUBROUTINE tddfpt_print_summary(log_unit, evects, evals, mult, gs_mos, matrix_s, dipole_op_xyz, &
+                                   dipole_form, cell, min_amplitude, fm_pool_ao_mo_occ)
       INTEGER, INTENT(in)                                :: log_unit
       TYPE(cp_fm_p_type), DIMENSION(:, :), INTENT(in)    :: evects
       REAL(kind=dp), DIMENSION(:), INTENT(in)            :: evals
@@ -2780,6 +2819,7 @@ CONTAINS
       TYPE(dbcsr_type), POINTER                          :: matrix_s
       TYPE(dbcsr_p_type), DIMENSION(:), POINTER          :: dipole_op_xyz
       INTEGER, INTENT(in)                                :: dipole_form
+      TYPE(cell_type), POINTER                           :: cell
       REAL(kind=dp), INTENT(in)                          :: min_amplitude
       TYPE(cp_fm_pool_p_type), DIMENSION(:), INTENT(in)  :: fm_pool_ao_mo_occ
 
@@ -2789,8 +2829,8 @@ CONTAINS
       CHARACTER(len=1)                                   :: lsd_str
       CHARACTER(len=20)                                  :: mult_str
       CHARACTER(len=5)                                   :: spin_label
-      INTEGER :: handle, icol, ideriv, iproc, irow, ispin, istate, nao, ncols_local, nrows_local, &
-         nspins, nstates, send_handler, send_handler2, state_spin
+      INTEGER :: handle, icol, ideriv, iproc, irow, ispin, istate, jderiv, nao, ncols_local, &
+         nrows_local, nspins, nstates, send_handler, send_handler2, state_spin
       INTEGER(kind=int_8)                                :: iexc, imo_occ, imo_virt, ind, nexcs, &
                                                             nexcs_local, nexcs_max_local, &
                                                             nmo_virt_occ, nmo_virt_occ_alpha
@@ -2807,9 +2847,11 @@ CONTAINS
       REAL(kind=dp), DIMENSION(:, :), POINTER            :: local_data
       REAL(kind=dp), DIMENSION(nderivs)                  :: trans_dipoles
       TYPE(cp_blacs_env_type), POINTER                   :: blacs_env
+      TYPE(cp_cfm_p_type), ALLOCATABLE, DIMENSION(:)     :: gamma_00, gamma_inv_00
       TYPE(cp_fm_p_type), ALLOCATABLE, DIMENSION(:)      :: ediff_inv, ediff_inv_weights, &
-                                                            S_mos_virt, scaled_evect, weights_fm
-      TYPE(cp_fm_p_type), ALLOCATABLE, DIMENSION(:, :)   :: dS_mos_occ
+                                                            gamma_imag, gamma_real, S_mos_virt, &
+                                                            scaled_evect, weights_fm
+      TYPE(cp_fm_p_type), ALLOCATABLE, DIMENSION(:, :)   :: dS_mos_occ, opvec
       TYPE(cp_fm_struct_type), POINTER                   :: fm_struct
       TYPE(cp_para_env_type), POINTER                    :: para_env
 
@@ -2853,7 +2895,77 @@ CONTAINS
          CALL cp_fm_struct_release(fm_struct)
       END DO
 
-      IF (dipole_form == xas_dip_vel) THEN
+      IF (dipole_form == tddfpt_dipole_berry) THEN
+         ALLOCATE (gamma_00(nspins), gamma_inv_00(nspins), gamma_imag(nspins), gamma_real(nspins), opvec(2, nspins))
+         NULLIFY (fm_struct)
+
+         DO ispin = 1, nspins
+            CALL cp_fm_struct_create(fm_struct, nrow_global=nmo_occ(ispin), ncol_global=nmo_occ(ispin), context=blacs_env)
+
+            NULLIFY (gamma_00(ispin)%matrix, gamma_inv_00(ispin)%matrix)
+            NULLIFY (gamma_imag(ispin)%matrix, gamma_real(ispin)%matrix)
+
+            CALL cp_cfm_create(gamma_00(ispin)%matrix, fm_struct)
+            CALL cp_cfm_create(gamma_inv_00(ispin)%matrix, fm_struct)
+            CALL cp_fm_create(gamma_imag(ispin)%matrix, fm_struct)
+            CALL cp_fm_create(gamma_real(ispin)%matrix, fm_struct)
+
+            CALL cp_fm_struct_release(fm_struct)
+
+            DO ideriv = 1, 2 ! G_real C_0, G_imag C_0
+               NULLIFY (opvec(ideriv, ispin)%matrix)
+               CALL fm_pool_create_fm(fm_pool_ao_mo_occ(ispin)%pool, opvec(ideriv, ispin)%matrix)
+            END DO
+         END DO
+
+         DO ispin = 1, nspins
+            DO ideriv = 1, nderivs
+               ! cos (real) component; opvec(1) = gamma_real C_0
+               CALL cp_dbcsr_sm_fm_multiply(dipole_op_xyz(2*ideriv-1)%matrix, gs_mos(ispin)%mos_occ, &
+                                            opvec(1, ispin)%matrix, ncol=nmo_occ(ispin), alpha=1.0_dp, beta=0.0_dp)
+               CALL cp_gemm('T', 'N', nmo_occ(ispin), nmo_occ(ispin), nao, 1.0_dp, gs_mos(ispin)%mos_occ, &
+                            opvec(1, ispin)%matrix, 0.0_dp, gamma_real(ispin)%matrix)
+
+               ! sin (imaginary) component; opvec(2) = gamma_imag C_0
+               CALL cp_dbcsr_sm_fm_multiply(dipole_op_xyz(2*ideriv)%matrix, gs_mos(ispin)%mos_occ, &
+                                            opvec(2, ispin)%matrix, ncol=nmo_occ(ispin), alpha=1.0_dp, beta=0.0_dp)
+               CALL cp_gemm('T', 'N', nmo_occ(ispin), nmo_occ(ispin), nao, -1.0_dp, gs_mos(ispin)%mos_occ, &
+                            opvec(2, ispin)%matrix, 0.0_dp, gamma_imag(ispin)%matrix)
+
+               CALL cp_fm_to_cfm(msourcer=gamma_real(ispin)%matrix, &
+                                 msourcei=gamma_imag(ispin)%matrix, &
+                                 mtarget=gamma_00(ispin)%matrix)
+
+               ! gamma_inv_00 = Q = [C_0^T (gamma_real - i gamma_imag) C_0] ^ {-1}
+               CALL cp_cfm_set_all(gamma_inv_00(ispin)%matrix, z_zero, z_one)
+               CALL cp_cfm_solve(gamma_00(ispin)%matrix, gamma_inv_00(ispin)%matrix)
+
+               CALL cp_cfm_to_fm(msource=gamma_inv_00(ispin)%matrix, &
+                                 mtargetr=gamma_real(ispin)%matrix, &
+                                 mtargeti=gamma_imag(ispin)%matrix)
+
+               ! dS_mos_occ is identical to dBerry_psi0 from qs_linres_op % polar_operators()
+               CALL cp_gemm("N", "N", nao, nmo_occ(ispin), nmo_occ(ispin), 1.0_dp, opvec(1, ispin)%matrix, &
+                            gamma_imag(ispin)%matrix, 0.0_dp, dS_mos_occ(ideriv, ispin)%matrix)
+               CALL cp_gemm("N", "N", nao, nmo_occ(ispin), nmo_occ(ispin), -1.0_dp, opvec(2, ispin)%matrix, &
+                            gamma_real(ispin)%matrix, 1.0_dp, dS_mos_occ(ideriv, ispin)%matrix)
+            END DO
+         END DO
+
+         DO ispin = nspins, 1, -1
+            DO ideriv = 2, 1, -1
+               CALL fm_pool_give_back_fm(fm_pool_ao_mo_occ(ispin)%pool, opvec(ideriv, ispin)%matrix)
+            END DO
+
+            CALL cp_fm_release(gamma_real(ispin)%matrix)
+            CALL cp_fm_release(gamma_imag(ispin)%matrix)
+            CALL cp_cfm_release(gamma_inv_00(ispin)%matrix)
+            CALL cp_cfm_release(gamma_00(ispin)%matrix)
+         END DO
+         DEALLOCATE (gamma_00, gamma_inv_00, gamma_imag, gamma_real, opvec)
+      END IF
+
+      IF (dipole_form == tddfpt_dipole_velocity) THEN
          ALLOCATE (ediff_inv(nspins), ediff_inv_weights(nspins), scaled_evect(nspins))
          DO ispin = 1, nspins
             NULLIFY (ediff_inv(ispin)%matrix, ediff_inv_weights(ispin)%matrix, scaled_evect(ispin)%matrix)
@@ -2890,10 +3002,13 @@ CONTAINS
       DO ispin = 1, nspins
          CALL cp_dbcsr_sm_fm_multiply(matrix_s, gs_mos(ispin)%mos_virt, S_mos_virt(ispin)%matrix, &
                                       ncol=nmo_virt(ispin), alpha=1.0_dp, beta=0.0_dp)
-         DO ideriv = 1, nderivs
-            CALL cp_dbcsr_sm_fm_multiply(dipole_op_xyz(ideriv)%matrix, gs_mos(ispin)%mos_occ, &
-                                         dS_mos_occ(ideriv, ispin)%matrix, ncol=nmo_occ(ispin), alpha=1.0_dp, beta=0.0_dp)
-         END DO
+
+         IF (dipole_form == tddfpt_dipole_length .OR. dipole_form == tddfpt_dipole_velocity) THEN
+            DO ideriv = 1, nderivs
+               CALL cp_dbcsr_sm_fm_multiply(dipole_op_xyz(ideriv)%matrix, gs_mos(ispin)%mos_occ, &
+                                            dS_mos_occ(ideriv, ispin)%matrix, ncol=nmo_occ(ispin), alpha=1.0_dp, beta=0.0_dp)
+            END DO
+         END IF
       END DO
 
       ! *** summary header ***
@@ -2916,7 +3031,7 @@ CONTAINS
                             evects(ispin, istate)%matrix, 0.0_dp, weights_fm(ispin)%matrix)
 
                ! compute electric dipole moments
-               IF (dipole_form == xas_dip_vel) THEN
+               IF (dipole_form == tddfpt_dipole_velocity) THEN
                   CALL cp_fm_schur_product(weights_fm(ispin)%matrix, ediff_inv(ispin)%matrix, ediff_inv_weights(ispin)%matrix)
                   CALL cp_gemm('N', 'N', nao, nmo_occ(ispin), nmo_virt(ispin), 1.0_dp, gs_mos(ispin)%mos_virt, &
                                ediff_inv_weights(ispin)%matrix, 0.0_dp, scaled_evect(ispin)%matrix)
@@ -2924,23 +3039,42 @@ CONTAINS
 
                DO ideriv = 1, nderivs
                   SELECT CASE (dipole_form)
-                  CASE (xas_dip_len)
+                  CASE (tddfpt_dipole_berry)
+                     ! trans_dipole = 2|e|/|G_mu| * Tr Imag(evects^T * (gamma_real - i gamma_imag) * C_0 * gamma_inv_00) +
+                     !                2|e|/|G_mu| * Tr Imag(C_0^T * (gamma_real - i gamma_imag) * evects * gamma_inv_00) ,
+                     !
+                     ! Taking into account the symmetry of the matrices 'gamma_real' and 'gamma_imag' and the fact
+                     ! that the response wave-function is a real-valued function, the above expression can be simplified as
+                     ! trans_dipole = 4|e|/|G_mu| * Tr Imag(evects^T * (gamma_real - i gamma_imag) * C_0 * gamma_inv_00)
                      CALL cp_fm_trace(dS_mos_occ(ideriv, ispin)%matrix, evects(ispin, istate)%matrix, trans_dipole)
 
-                  CASE (xas_dip_vel)
+                     ! 1/|G_mu| = |lattice_vector_mu| / (2*pi) .
+                     ! In case of an isolated molecule in a large unit cell, the scale factor 1.0_dp/(3.0_dp*pi)
+                     ! gives the same oscillator strengths as the ones obtained using the length operator.
+                     trans_dipole = 1.0_dp/(3.0_dp*pi)*trans_dipole
+                     DO jderiv = 1, nderivs
+                        trans_dipoles(jderiv) = trans_dipoles(jderiv)+cell%hmat(jderiv, ideriv)*trans_dipole
+                     END DO
+
+                  CASE (tddfpt_dipole_length)
+                     CALL cp_fm_trace(dS_mos_occ(ideriv, ispin)%matrix, evects(ispin, istate)%matrix, trans_dipole)
+                     trans_dipoles(ideriv) = trans_dipoles(ideriv)+trans_dipole
+
+                  CASE (tddfpt_dipole_velocity)
                      CALL cp_fm_trace(dS_mos_occ(ideriv, ispin)%matrix, scaled_evect(ispin)%matrix, trans_dipole)
+                     trans_dipoles(ideriv) = trans_dipoles(ideriv)+trans_dipole
 
                   CASE DEFAULT
                      CPABORT("Unimplemented form of the dipole operator")
                   END SELECT
-
-                  trans_dipoles(ideriv) = trans_dipoles(ideriv)+trans_dipole
                END DO
             END DO
          END IF
 
          ! *** summary information ***
          IF (log_unit > 0) THEN
+            IF (nspins == 1 .AND. dipole_form /= tddfpt_dipole_velocity) &
+               trans_dipoles(:) = SQRT(2.0_dp)*trans_dipoles(:)
             osc_strength = 2.0_dp/3.0_dp*evals(istate)*accurate_dot_product(trans_dipoles, trans_dipoles)
 
             WRITE (log_unit, '(1X,A,T9,I8,T21,F11.5,T34,3(1X,F9.4),T69,F10.5)') &
@@ -2948,7 +3082,7 @@ CONTAINS
          END IF
       END DO
 
-      IF (dipole_form == xas_dip_vel) THEN
+      IF (dipole_form == tddfpt_dipole_velocity) THEN
          DO ispin = nspins, 1, -1
             CALL fm_pool_give_back_fm(fm_pool_ao_mo_occ(ispin)%pool, scaled_evect(ispin)%matrix)
             CALL cp_fm_release(ediff_inv_weights(ispin)%matrix)
@@ -3232,7 +3366,7 @@ CONTAINS
 !> \param tddfpt_print_section TDDFPT%PRINT input section
 !> \param fm_pool_ao_mo_occ    pools of dense matrices with shape [nao x nmo_occ(spin)]
 !> \param blacs_env_global     BLACS parallel environment involving all the processor
-!> \retval nstates_read        the number of excited states found in the restart file
+!> \return the number of excited states found in the restart file
 !> \par History
 !>    * 08.2016 created [Sergey Chulkov]
 ! **************************************************************************************************

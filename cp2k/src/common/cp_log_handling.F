@@ -167,7 +167,7 @@ CONTAINS
 
 ! **************************************************************************************************
 !> \brief ...
-!> \retval res ...
+!> \return ...
 !> \author fawzi
 ! **************************************************************************************************
    FUNCTION cp_default_logger_stack_size() RESULT(res)
@@ -227,7 +227,7 @@ CONTAINS
 
 ! **************************************************************************************************
 !> \brief returns the default logger
-!> \retval res ...
+!> \return ...
 !> \par History
 !>      4.2002 created [fawzi]
 !> \author Fawzi Mohamed
@@ -471,7 +471,7 @@ CONTAINS
 !> \param logger the logger you want to log in
 !> \param level describes the of the message: cp_fatal_level(3),
 !>     cp_failure_level(2), cp_warning_level(1), cp_note_level(0).
-!> \retval res ...
+!> \return ...
 !> \par History
 !>      4.2002 revised [fawzi]
 !> \author Fawzi Mohamed
@@ -501,7 +501,7 @@ CONTAINS
 !>     returns a global logger (only the process with para_env%mepos==
 !>     para_env%source should write to the global logger). Defaults to
 !>     false
-!> \retval res ...
+!> \return ...
 !> \par History
 !>      4.2002 revised [fawzi]
 !> \author Fawzi Mohamed
@@ -518,7 +518,7 @@ CONTAINS
 !> \brief returns the unit nr for the ionode (-1 on all other processors)
 !>        skips as well checks if the procs calling this function is not the ionode
 !> \param logger the logger you want to log in
-!> \retval res ...
+!> \return ...
 !> \par History
 !>      12.2009 created [tlaino]
 !> \author Teodoro Laino
@@ -531,6 +531,9 @@ CONTAINS
 
       IF (PRESENT(logger)) THEN
          local_logger => logger
+      ELSE IF (stack_pointer == 0) THEN
+         res = -1 ! edge case: default logger not yet/anymore available
+         RETURN
       ELSE
          local_logger => cp_get_default_logger()
       ENDIF
@@ -569,7 +572,7 @@ CONTAINS
 !> \param logger the logger you want info from
 !> \param local if you want the local unit nr (defaults to false)
 !> \param skip_not_ionode ...
-!> \retval res ...
+!> \return ...
 !> \par History
 !>      4.2002 revised [fawzi]
 !> \author Fawzi Mohamed
@@ -622,11 +625,11 @@ CONTAINS
             IF (iostat /= 0) THEN
                CALL m_getpid(pid)
                CALL m_hostnm(host_name)
-               PRINT*, " *** Error trying to WRITE to the local logger ***"
-               PRINT*, " *** MPI_id           = ", lggr%para_env%mepos
-               PRINT*, " *** MPI_Communicator = ", lggr%para_env%group
-               PRINT*, " *** PID              = ", pid
-               PRINT*, " *** Hostname         = "//TRIM(host_name)
+               PRINT *, " *** Error trying to WRITE to the local logger ***"
+               PRINT *, " *** MPI_id           = ", lggr%para_env%mepos
+               PRINT *, " *** MPI_Communicator = ", lggr%para_env%group
+               PRINT *, " *** PID              = ", pid
+               PRINT *, " *** Hostname         = "//TRIM(host_name)
                CALL print_stack(default_output_unit)
             ELSE
                CALL print_stack(lggr%default_global_unit_nr)
@@ -655,11 +658,11 @@ CONTAINS
             IF (iostat /= 0) THEN
                CALL m_getpid(pid)
                CALL m_hostnm(host_name)
-               PRINT*, " *** Error trying to WRITE to the local logger ***"
-               PRINT*, " *** MPI_id           = ", lggr%para_env%mepos
-               PRINT*, " *** MPI_Communicator = ", lggr%para_env%group
-               PRINT*, " *** PID              = ", pid
-               PRINT*, " *** Hostname         = "//TRIM(host_name)
+               PRINT *, " *** Error trying to WRITE to the local logger ***"
+               PRINT *, " *** MPI_id           = ", lggr%para_env%mepos
+               PRINT *, " *** MPI_Communicator = ", lggr%para_env%group
+               PRINT *, " *** PID              = ", pid
+               PRINT *, " *** Hostname         = "//TRIM(host_name)
                CALL print_stack(default_output_unit)
             END IF
 
@@ -773,7 +776,7 @@ CONTAINS
 !>      (should be a variable length string, but that does not work with
 !>      all the compilers)
 !> \param i the integer to convert
-!> \retval res ...
+!> \return ...
 !> \par History
 !>      4.2002 revised [fawzi]
 !> \author Fawzi Mohamed
@@ -795,7 +798,7 @@ CONTAINS
       END IF
       res = t_res
       IF (iostat /= 0) THEN
-         PRINT*, "cp_int_to_string ioerror", iostat
+         PRINT *, "cp_int_to_string ioerror", iostat
          CALL print_stack(cp_logger_get_default_unit_nr())
       END IF
    END FUNCTION cp_int_to_string
@@ -805,7 +808,7 @@ CONTAINS
 !>      (should be a variable length string, but that does not work with
 !>      all the compilers)
 !> \param val the number to convert
-!> \retval res ...
+!> \return ...
 !> \par History
 !>      4.2002 revised [fawzi]
 !> \author Fawzi Mohamed
@@ -820,7 +823,7 @@ CONTAINS
 ! **************************************************************************************************
 !> \brief convert a logical in a string ('T' or 'F')
 !> \param val the number to convert
-!> \retval res ...
+!> \return ...
 !> \author fawzi
 ! **************************************************************************************************
    FUNCTION cp_logical_to_string(val) RESULT(res)

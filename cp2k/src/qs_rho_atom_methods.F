@@ -65,11 +65,11 @@ MODULE qs_rho_atom_methods
    USE whittaker,                       ONLY: whittaker_c0a,&
                                               whittaker_ci
 
-!$ USE OMP_LIB,                         ONLY: omp_get_max_threads,&
-!$                                            omp_get_thread_num,&
-!$                                            omp_lock_kind,&
-!$                                            omp_init_lock, omp_set_lock,&
-!$                                            omp_unset_lock, omp_destroy_lock
+!$ USE OMP_LIB, ONLY: omp_get_max_threads, &
+!$    omp_get_thread_num, &
+!$    omp_lock_kind, &
+!$    omp_init_lock, omp_set_lock, &
+!$    omp_unset_lock, omp_destroy_lock
 
 #include "./base/base_uses.f90"
 
@@ -958,8 +958,7 @@ CONTAINS
          maxs = nsoset(maxl)
          CALL create_harmonics_atom(harmonics, &
                                     my_CG, na, llmax, maxs, max_s_harm, ll, grid_atom%wa, &
-                                    grid_atom%pol, grid_atom%cos_pol, &
-                                    grid_atom%cotan_pol)
+                                    grid_atom%azi, grid_atom%pol)
          CALL get_maxl_CG(harmonics, orb_basis_set, llmax, max_s_harm)
 
       END DO

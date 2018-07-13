@@ -412,7 +412,7 @@ CONTAINS
 !> \param subbox_center actual center of sub box
 !> \param box_scale scaling factors for the cell
 !> \param tmc_params TMC parameters with sub box size and cell
-!> \retval inside ...
+!> \return ...
 !> \author Mandes 11.2012
 ! **************************************************************************************************
    FUNCTION check_pos_in_subbox(pos, subbox_center, box_scale, tmc_params) &
@@ -905,7 +905,7 @@ CONTAINS
 !> \param i_orig ...
 !> \param i_neighbor ...
 !> \param tmc_params ...
-!> \retval donor_acceptor ...
+!> \return ...
 !> \author Mandes 11.2012
 ! **************************************************************************************************
    FUNCTION check_donor_acceptor(elem, i_orig, i_neighbor, tmc_params) &
@@ -1070,7 +1070,7 @@ CONTAINS
             ! O atom next to not involved proton for axis calculation
             dist_near = HUGE(dist_near)
             search_O_loop: DO ind = 1, SIZE(elem%pos), &
-                                    tmc_params%dim_per_elem*3
+               tmc_params%dim_per_elem*3
                IF (ind .EQ. ind_arr(i)) CYCLE search_O_loop
                tmp = nearest_distance(x1=vec_2H_f, &
                                       x2=elem%pos(ind:ind+tmc_params%dim_per_elem-1), &

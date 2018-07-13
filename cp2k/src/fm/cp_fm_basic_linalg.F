@@ -1303,7 +1303,7 @@ CONTAINS
       REAL(KIND=dp), INTENT(OUT), OPTIONAL     :: det_a
       REAL(KIND=dp), INTENT(IN), OPTIONAL      :: eps_svd
       REAL(KIND=dp), DIMENSION(:), POINTER, &
-         INTENT(OUT), OPTIONAL                 :: eigval
+         INTENT(INOUT), OPTIONAL               :: eigval
 
       CHARACTER(LEN=*), PARAMETER :: routineN = 'cp_fm_invert', &
                                      routineP = moduleN//':'//routineN
@@ -1868,7 +1868,7 @@ CONTAINS
 !>                   '1' or 'O' one norm, i.e. maximum column sum
 !>                   'I' infinity norm, i.e. maximum row sum
 !>                   'F' or 'E' Frobenius norm, i.e. sqrt of sum of all squares of elements
-!> \retval res     : the norm according to mode
+!> \return : the norm according to mode
 !> \author Lianheng Tong
 ! **************************************************************************************************
    FUNCTION cp_fm_norm(matrix, mode) RESULT(res)
@@ -1959,7 +1959,7 @@ CONTAINS
 ! **************************************************************************************************
 !> \brief trace of a matrix using pdlatra
 !> \param matrix   : input a square matrix
-!> \retval res     : the trace
+!> \return : the trace
 !> \author Lianheng Tong
 ! **************************************************************************************************
    FUNCTION cp_fm_latra(matrix) RESULT(res)

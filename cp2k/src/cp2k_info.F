@@ -45,8 +45,8 @@ MODULE cp2k_info
    CHARACTER(LEN=*), PARAMETER :: compile_revision = "unknown"
 #endif
 
-   CHARACTER(LEN=*), PARAMETER :: version_nr = "6.0"
-   CHARACTER(LEN=*), PARAMETER :: cp2k_year = "2017"
+   CHARACTER(LEN=*), PARAMETER :: version_nr = "7.0"
+   CHARACTER(LEN=*), PARAMETER :: cp2k_year = "2018"
    CHARACTER(LEN=*), PARAMETER :: cp2k_version = "CP2K version "//TRIM(version_nr)
    CHARACTER(LEN=*), PARAMETER :: cp2k_home = "https://www.cp2k.org/"
 
@@ -81,7 +81,7 @@ CONTAINS
 ! **************************************************************************************************
 !> \brief list all compile time options that influence the capabilities of cp2k.
 !>        All new flags should be added here (and be unique grep-able)
-!> \retval flags ...
+!> \return ...
 ! **************************************************************************************************
    FUNCTION cp2k_flags() RESULT(flags)
       CHARACTER(len=10*default_string_length)            :: flags
@@ -226,9 +226,6 @@ CONTAINS
 #endif
 #if defined __HAS_NO_MPI_MOD
       flags = TRIM(flags)//" has_no_mpi_mod"
-#endif
-#if defined __HAS_NO_SHARED_GLIBC
-      flags = TRIM(flags)//" has_no_shared_glibc"
 #endif
 #if defined __LIBDERIV_MAX_AM1
       CALL integer_to_string(__LIBDERIV_MAX_AM1, tmp_str)

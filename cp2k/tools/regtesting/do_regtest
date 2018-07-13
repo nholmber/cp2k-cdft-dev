@@ -23,6 +23,7 @@ ndirstorestrict=0
 restrict_dirs[1]=""
 default_err_tolerance="1.0E-14"
 mpiexec="mpiexec --bind-to none"
+svnrec=
 
 # parse options
 while [ $# -ge 1 ]; do
@@ -44,6 +45,10 @@ while [ $# -ge 1 ]; do
  -cp2kdir)
   cp2k_dir=$2
   shift ;;
+ # root path of output folder (default is ${dir_base})
+ -dirout)
+  dir_out=$2
+  shift ;;
  # MPI executable
  -mpiexec)
   mpiexec=$2 
@@ -59,6 +64,9 @@ while [ $# -ge 1 ]; do
  # maximum total number of tasks (processes)
  -maxtasks)
   maxtasks=$2
+  shift;;
+ -maxbuildtasks)
+  maxbuildtasks=$2
   shift;;
  # maximum time for a job [in s]
  -jobmaxtime)
@@ -95,6 +103,9 @@ while [ $# -ge 1 ]; do
   svndate=$2
   datum_short=${svndate}
   shift;;
+ -svnrev)
+  svnrev=$2
+  shift;;
  # do not check if code has changed
  -noemptycheck)
   emptycheck="NO";;
@@ -114,10 +125,12 @@ while [ $# -ge 1 ]; do
   echo "  -h, -help, --help         print this help screen."
   echo "  -c, -config FILE          read any of the following configuration switches from FILE."
   echo "  -cp2kdir PATH             location of cp2k source tree relative to current working directory."
+  echo "  -dirout PATH              root path of output folder (default: current working directory)."
   echo "  -mpiexec EXE              name of the executable to run mpi-ranks. Default: mpiexec."
   echo ""
   echo "Svn:"
   echo "  -svndate DATE             checkout svn revision of given DATE. Default: use trunk."
+  echo "  -svnrev REV               checkout svn revision of given REV. Default: use trunk."
   echo "  -nosvn                    do not run svn update. Default: off."
   echo "  -noemptycheck             run tests even when no changes in svn were made. Default: on."
   echo ""
@@ -130,7 +143,8 @@ while [ $# -ge 1 ]; do
   echo "Runtime:"
   echo "  -mpiranks NRANKS          number of mpi-ranks. Default: 2 for parallel versions, 1 for serial."
   echo "  -ompthreads NTHREADS      number of OpenMP threads. Default: 2 for smp versions otherwise 1."
-  echo "  -maxtasks NPROCS          total number of processor to use. Default: \`nproc --all\`."
+  echo "  -maxtasks NPROCS          total number of processor to use. Default: \`nproc\`."
+  echo "  -maxbuildtasks NPROCS     total number of processor to use for compilation. Default taken from -maxtasks."
   echo "  -jobmaxtime SECONDS       maximum execution time of a single test. Default 600."
   echo "  -farming                  test via a single farming run (only for parallel cp2k)."
   echo ""
@@ -173,6 +187,7 @@ done
 #
 ###################################################################################
 cp2k_version=${cp2k_version:-sopt}
+dir_out=${dir_out:-${dir_base}}
 dir_triplet=${dir_triplet:-Linux-x86-64-gfortran}
 emptycheck=${emptycheck:-"NO"}
 leakcheck=${leakcheck:-"NO"}
@@ -191,9 +206,10 @@ svndate=${svndate:-"$datum_full"}
 #
 # guessing the number of tasks / threads / ranks
 #
-# by default we use all proc of the machine
-maxtasksdefault=`nproc --all`
+# by default we use all available processors, obeys e.g. docker --cpuset-cpus
+maxtasksdefault=`nproc`
 maxtasks=${maxtasks:-${maxtasksdefault}}
+maxbuildtasks=${maxbuildtasks:-${maxtasks}}
 
 if [[ $dir_triplet == *valgrind* ]] ; then
    valgrindstring="valgrind $VALGRIND_OPTIONS"
@@ -212,7 +228,7 @@ fi
 
 if [[ $numprocs > 1 ]] ; then
     if [[ "$farming" == "yes" ]]; then
-       cp2k_run_prefix=${cp2k_run_prefix:-"${mpiexec} -np ${maxtasks} ${valgrindstring}"}
+       cp2k_run_prefix=${cp2k_run_prefix:-"${mpiexec} -np $(($maxtasks + 1)) ${valgrindstring}"}
     else
        cp2k_run_prefix=${cp2k_run_prefix:-"${mpiexec} -np ${numprocs} ${valgrindstring}"}
     fi
@@ -248,7 +264,8 @@ cp2k_postfix=${cp2k_postfix:-"${cp2k_run_postfix}"}
 ###################################################################################
 test_types_file=${dir_base}/${cp2k_dir}/tests/TEST_TYPES
 dir_last=${dir_base}/LAST-${dir_triplet}-${cp2k_version}
-dir_out=${dir_base}/TEST-${dir_triplet}-${cp2k_version}-${datum_short}
+dirout=${dirout:-${dir_base}}
+dir_out=${dir_out}/TEST-${dir_triplet}-${cp2k_version}-${datum_short}
 changelog=${dir_last}/ChangeLog
 changelog_diff=${changelog}.diff
 changelog_new=${changelog}.new
@@ -693,7 +710,11 @@ echo " regtesting location last dir: $dir_last"
 # Start testing
 echo "*************************** testing started ******************************"
 echo " started on " `date`
-echo " checking version ${svndate} "
+if [ -z "$svnver" ]; then
+    echo " checking version ${svndate} "
+else
+    echo " checking version ${svnrev} "
+fi
 echo " configuration: ${dir_triplet}-${cp2k_version} "
 file_info
 #
@@ -720,7 +741,12 @@ echo "noreset          = ${noreset}"
 echo "skiptest         = ${skiptest}"
 echo "do_unit_test     = ${do_unit_test}"
 echo "farming          = ${farming}"
-echo "svndate          = ${svndate}"
+echo "maxbuildtasks    = ${maxbuildtasks}"
+if [ -z "$svnver" ]; then
+    echo "svndate          = ${svndate}"
+else
+    echo "svnrev          = ${svnrev}"
+fi
 t=1
 while [ $t -le ${ndirstoskip} ]; do
  echo "skip_dirs        = ${skip_dirs[t]}"
@@ -746,7 +772,11 @@ if [[ ${nosvn} != "nosvn" ]]; then
   for d in src data makefiles tests tools
   do
       echo "Updating $d ..."
-      svn update -r {${svndate}} $d &>${svn_out}
+      if [ -z "$svnver" ]; then
+	  svn update -r {${svndate}} $d &>${svn_out}
+      else
+	  svn update -r ${svnrev} $d &>${svn_out}
+      fi
       if (( $? )); then
          echo "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx" >>${error_description_file}
          cat ${svn_out} >>${error_description_file}
@@ -831,19 +861,19 @@ if [[ ${nobuild} != "nobuild" ]]; then
       echo "Module system not installed."
    fi
    echo "------------------------ compiling cp2k ----------------------------------"
-   echo "${make} -j $((maxtasks)) ${ARCH_SPEC} VERSION=${cp2k_version}"
+   echo "${make} -j $((maxbuildtasks)) ${ARCH_SPEC} VERSION=${cp2k_version}"
    echo "(make output is written to ${make_out})"
-   ${make} -j $((maxtasks)) ${ARCH_SPEC} VERSION=${cp2k_version} >>${make_out} 2>&1
+   ${make} -j ${maxbuildtasks} ${ARCH_SPEC} VERSION=${cp2k_version} >>${make_out} 2>&1
    if (( $? )); then
       echo "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx" >>${error_description_file}
       cat ${make_out} >>${error_description_file}
       echo "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx" >>${error_description_file}
-      echo "ERROR: ${make} -j $((maxtasks)) ${ARCH_SPEC} VERSION=${cp2k_version} failed" >>${error_description_file}
+      echo "ERROR: ${make} -j $((maxbuildtasks)) ${ARCH_SPEC} VERSION=${cp2k_version} failed" >>${error_description_file}
       cat "${error_description_file}"
       end_test 4 ${lockfile}
    else
       compile_warnings=`grep "Warning" ${make_out} | wc -l`
-      echo "${make} -j $((maxtasks)) ${ARCH_SPEC} VERSION=${cp2k_version} went fine (${compile_warnings} warnings)"
+      echo "${make} -j $((maxbuildtasks)) ${ARCH_SPEC} VERSION=${cp2k_version} went fine (${compile_warnings} warnings)"
    fi
 else
    echo "No build, continue regression testing"
@@ -897,20 +927,31 @@ if [[ ${skiptest} != "skiptest" ]]; then
    echo "ldd  ${dir_base}/${cp2k_dir}/exe/${dir_triplet}/cp2k.${cp2k_version} : "
    ldd  ${dir_base}/${cp2k_dir}/exe/${dir_triplet}/cp2k.${cp2k_version}
    echo "--------------------------------------------------------------------------"
-   
+
    printf "Copying tests into working directory ... "
-   
+
    # Copy the tests into the working regtest directory.
-   cp -al ${dir_base}/${cp2k_dir}/tests ${dir_out}/tests || \
-   cp -rpl ${dir_base}/${cp2k_dir}/tests ${dir_out}/tests || ( \
-     echo "Could not copy testing directory as hard links."
-     echo "Using normal copy instead."
-     sleep 10
-     cp -R -p ${dir_base}/${cp2k_dir}/tests ${dir_out}/tests
-   )
-   
+   if df --output=target >/dev/null ; then
+     # GNU coreutils version for Linux etc.
+     source_device=$(df --output=target ${dir_base}/${cp2k_dir}/tests | tail -1)
+     target_device=$(df --output=target ${dir_out} | tail -1)
+     if [[ ${source_device} == ${target_device} ]]; then
+        cp -al ${dir_base}/${cp2k_dir}/tests ${dir_out}/tests || \
+        cp -rpl ${dir_base}/${cp2k_dir}/tests ${dir_out}/tests
+     else
+       echo "cannot use hard links to copy the tests folder."
+       echo "Source device is ${source_device} for ${dir_base}/${cp2k_dir}/tests"
+       echo "Target device is ${target_device} for ${dir_out}"
+       echo "Using normal copy instead."
+       cp -a ${dir_base}/${cp2k_dir}/tests ${dir_out}
+     fi
+   else
+     # Probably running on a mac, just use normal cp
+     cp -a ${dir_base}/${cp2k_dir}/tests ${dir_out}
+   fi
+
    printf "done!\n"
-   
+
    #
    # preprocess the restrict directories if the retest is enabled
    #

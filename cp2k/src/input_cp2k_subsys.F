@@ -1124,7 +1124,8 @@ CONTAINS
       CALL keyword_release(keyword)
 
       CALL keyword_create(keyword, name="MAGNETIZATION", &
-                          description="Specifieds a magnetization used in the atomic initial guess", &
+                          description="The magnetization used in the atomic initial guess. "// &
+                          "Adds magnetization/2 spin-alpha electrons and removes magnetization/2 spin-beta electrons.", &
                           usage="MAGNETIZATION 0.5", n_var=1, &
                           default_r_val=0.0_dp)
       CALL section_add_keyword(section, keyword)
@@ -2344,6 +2345,17 @@ CONTAINS
                           usage="&ENFORCE_OCCUPATION ON", &
                           default_l_val=.FALSE., &
                           lone_keyword_l_val=.TRUE.)
+      CALL section_add_keyword(subsection, keyword)
+      CALL keyword_release(keyword)
+
+      CALL keyword_create(keyword, name="NELEC", &
+                          variants=(/"N_ELECTRONS"/), &
+                          description="Number of alpha and beta electrons. An occupation (per spin) smaller than 0.5 is ignored.", &
+                          repeats=.FALSE., &
+                          n_var=-1, &
+                          type_of_var=real_t, &
+                          default_r_val=0.0_dp, &
+                          usage="NELEC 5.0 4.0")
       CALL section_add_keyword(subsection, keyword)
       CALL keyword_release(keyword)
 

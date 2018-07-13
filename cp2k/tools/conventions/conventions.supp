@@ -58,6 +58,8 @@ Flag __SCALAPACK2 not mentioned in INSTALL
 Flag __F2008 not mentioned in cp2k_flags()
 al_system_dynamics.F: Found WRITE statement with hardcoded unit in "dump_vel"
 almo_scf.F: Found WRITE statement with hardcoded unit in "almo_scf_init"
+almo_scf_optimizer.F: Found CLOSE statement in procedure "print_mathematica_matrix"
+almo_scf_optimizer.F: Found OPEN statement in procedure "print_mathematica_matrix"
 base_hooks.F: Found CALL m_abort in procedure "cp_abort"
 base_hooks.F: Found STOP statement in procedure "cp__a"
 base_hooks.F: Found STOP statement in procedure "cp__b"
@@ -374,3 +376,7 @@ xml_parser.F: Found WRITE statement with hardcoded unit in "xml_report_errors_st
 dbcsr_tensor_test.F: Found CALL RANDOM_NUMBER in procedure "dbcsr_t_random_dist"
 optimize_embedding_potential.F: Found FLOAT in "init_embed_pot"
 et_coupling_proj.F: Routine INFOG2L called with an implicit interface.
+libcp2k.F: Found GOTO statement in procedure "cp2k_active_space_get_eri"
+libcp2k.F: Found GOTO statement in procedure "cp2k_active_space_get_eri_nze_count"
+libcp2k.F: Found GOTO statement in procedure "cp2k_active_space_get_fock_sub"
+libcp2k.F: Found GOTO statement in procedure "cp2k_active_space_get_mo_count"

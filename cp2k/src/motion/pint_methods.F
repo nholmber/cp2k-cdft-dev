@@ -159,8 +159,8 @@ CONTAINS
 
       CHARACTER(len=*), PARAMETER :: routineN = 'pint_create', routineP = moduleN//':'//routineN
 
+      CHARACTER(len=2*default_string_length)             :: msg
       CHARACTER(len=default_path_length)                 :: output_file_name, project_name
-      CHARACTER(len=default_string_length)               :: msg
       INTEGER                                            :: handle, iat, ibead, idim, idir, ierr, &
                                                             itmp, nrep, prep, stat
       LOGICAL                                            :: explicit, ltmp
@@ -2261,7 +2261,7 @@ CONTAINS
 ! ***************************************************************************
 !> \brief calculates the total link action of the PI system (excluding helium)
 !> \param pint_env the path integral environment
-!> \retval link_action ...
+!> \return ...
 !> \author Felix Uhl
 ! **************************************************************************************************
    FUNCTION pint_calc_total_link_action(pint_env) RESULT(link_action)
@@ -2309,7 +2309,7 @@ CONTAINS
 ! ***************************************************************************
 !> \brief calculates the potential action of the PI system (excluding helium)
 !> \param pint_env the path integral environment
-!> \retval pot_action ...
+!> \return ...
 !> \author Felix Uhl
 ! **************************************************************************************************
    FUNCTION pint_calc_total_pot_action(pint_env) RESULT(pot_action)

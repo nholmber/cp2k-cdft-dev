@@ -450,7 +450,7 @@ CONTAINS
                should_build = .TRUE.
                ! Zero the corresponding counters
                scf_control%outer_scf%cdft_opt_control%ijacobian(:) = 0
-            ! Rebuild if number of previous SCF iterations exceeds limit (on this energy eval)
+               ! Rebuild if number of previous SCF iterations exceeds limit (on this energy eval)
             ELSE IF (scf_control%outer_scf%cdft_opt_control%ijacobian(1) .GE. &
                      scf_control%outer_scf%cdft_opt_control%jacobian_freq(1) .AND. &
                      scf_control%outer_scf%cdft_opt_control%jacobian_freq(1) > 0) THEN

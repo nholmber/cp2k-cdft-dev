@@ -77,9 +77,6 @@ MODULE qs_environment_types
                                               mp2_type
    USE mscfg_types,                     ONLY: molecular_scf_guess_env_destroy,&
                                               molecular_scf_guess_env_type
-   USE negf_qs_env_types,               ONLY: negf_qs_env_create,&
-                                              negf_qs_env_release,&
-                                              negf_qs_env_type
    USE particle_types,                  ONLY: particle_type
    USE pw_env_types,                    ONLY: pw_env_type
    USE pw_types,                        ONLY: pw_p_type,&
@@ -108,7 +105,9 @@ MODULE qs_environment_types
                                               set_ks_env
    USE qs_linres_types,                 ONLY: linres_control_release,&
                                               linres_control_retain,&
-                                              linres_control_type
+                                              linres_control_type,&
+                                              polar_env_release,&
+                                              polar_env_type
    USE qs_local_rho_types,              ONLY: get_local_rho,&
                                               local_rho_set_create,&
                                               local_rho_set_release,&
@@ -212,6 +211,7 @@ MODULE qs_environment_types
 !> \par History
 !>      11.2002 added doc and attribute description [fawzi]
 !>      08.2004 renamed some of the very short names (s,c,k,h) for easier grepping
+!>      06.2018 polar_env added (MK)
 !> \author Matthias Krack & fawzi
 ! **************************************************************************************************
 
@@ -226,6 +226,7 @@ MODULE qs_environment_types
       LOGICAL :: calc_image_preconditioner
       LOGICAL :: do_transport
       LOGICAL :: single_point_run
+      LOGICAL :: given_embed_pot
       REAL(KIND=dp)                                         :: sim_time
       REAL(KIND=dp) :: start_time, target_time
       REAL(KIND=dp), DIMENSION(:, :), POINTER               :: image_matrix
@@ -297,8 +298,8 @@ MODULE qs_environment_types
       ! Embedding potential
       TYPE(pw_p_type), POINTER                              :: embed_pot
       TYPE(pw_p_type), POINTER                              :: spin_embed_pot
-      ! NEGF external potential
-      TYPE(negf_qs_env_type), POINTER                       :: negf_env
+      ! Polarizability tensor
+      TYPE(polar_env_type), POINTER                         :: polar_env
    END TYPE qs_environment_type
 
 ! **************************************************************************************************
@@ -474,7 +475,7 @@ CONTAINS
 !> \param variable_history ...
 !> \param embed_pot ...
 !> \param spin_embed_pot ...
-!> \param negf_env  data needed for NEGF calculation
+!> \param polar_env ...
 !> \date    23.01.2002
 !> \author  MK
 !> \version 1.0
@@ -505,7 +506,7 @@ CONTAINS
                          lri_env, lri_density, dispersion_env, vee, rho_external, external_vxc, mask, &
                          mp2_env, kg_env, WannierCentres, atprop, ls_scf_env, do_transport, transport_env, v_hartree_rspace, &
                          s_mstruct_changed, rho_changed, potential_changed, forces_up_to_date, mscfg_env, almo_scf_env, &
-                         gradient_history, variable_history, embed_pot, spin_embed_pot, negf_env)
+                         gradient_history, variable_history, embed_pot, spin_embed_pot, polar_env)
       TYPE(qs_environment_type), POINTER                 :: qs_env
       TYPE(atomic_kind_type), DIMENSION(:), OPTIONAL, &
          POINTER                                         :: atomic_kind_set
@@ -636,7 +637,7 @@ CONTAINS
       TYPE(almo_scf_env_type), OPTIONAL, POINTER         :: almo_scf_env
       REAL(KIND=dp), DIMENSION(:, :), OPTIONAL, POINTER  :: gradient_history, variable_history
       TYPE(pw_p_type), OPTIONAL, POINTER                 :: embed_pot, spin_embed_pot
-      TYPE(negf_qs_env_type), OPTIONAL, POINTER          :: negf_env
+      TYPE(polar_env_type), OPTIONAL, POINTER            :: polar_env
 
       CHARACTER(len=*), PARAMETER :: routineN = 'get_qs_env', routineP = moduleN//':'//routineN
 
@@ -702,8 +703,8 @@ CONTAINS
       IF (PRESENT(embed_pot)) embed_pot => qs_env%embed_pot
       IF (PRESENT(spin_embed_pot)) spin_embed_pot => qs_env%spin_embed_pot
 
-      ! NEGF
-      IF (PRESENT(negf_env)) negf_env => qs_env%negf_env
+      ! Polarisability tensor
+      IF (PRESENT(polar_env)) polar_env => qs_env%polar_env
 
       IF (PRESENT(rho_atom_set)) &
          CALL get_local_rho(qs_env%local_rho_set, rho_atom_set=rho_atom_set)
@@ -869,9 +870,8 @@ CONTAINS
       NULLIFY (qs_env%embed_pot)
       NULLIFY (qs_env%spin_embed_pot)
 
-      ! NEGF
-      NULLIFY (qs_env%negf_env)
-      CALL negf_qs_env_create(qs_env%negf_env)
+      ! Polarisability tensor
+      NULLIFY (qs_env%polar_env)
 
       NULLIFY (qs_env%ks_env)
       NULLIFY (qs_env%ks_qmmm_env)
@@ -925,6 +925,7 @@ CONTAINS
       qs_env%has_unit_metric = .FALSE.
       qs_env%calc_image_preconditioner = .TRUE.
       qs_env%do_transport = .FALSE.
+      qs_env%given_embed_pot = .FALSE.
       IF (PRESENT(globenv)) THEN
          qs_env%target_time = globenv%cp2k_target_time
          qs_env%start_time = globenv%cp2k_start_time
@@ -1012,6 +1013,7 @@ CONTAINS
 !> \param variable_history ...
 !> \param embed_pot ...
 !> \param spin_embed_pot ...
+!> \param polar_env ...
 !> \date    23.01.2002
 !> \author  MK
 !> \version 1.0
@@ -1030,7 +1032,7 @@ CONTAINS
                          se_taper, se_store_int_env, se_nddo_mpole, se_nonbond_env, admm_env, ls_scf_env, &
                          do_transport, transport_env, lri_env, lri_density, dispersion_env, mp2_env, kg_env, &
                          kpoints, WannierCentres, almo_scf_env, gradient_history, variable_history, embed_pot, &
-                         spin_embed_pot)
+                         spin_embed_pot, polar_env)
 
       TYPE(qs_environment_type), POINTER                 :: qs_env
       TYPE(cell_type), OPTIONAL, POINTER                 :: super_cell
@@ -1098,6 +1100,7 @@ CONTAINS
       TYPE(almo_scf_env_type), OPTIONAL, POINTER         :: almo_scf_env
       REAL(KIND=dp), DIMENSION(:, :), OPTIONAL, POINTER  :: gradient_history, variable_history
       TYPE(pw_p_type), OPTIONAL, POINTER                 :: embed_pot, spin_embed_pot
+      TYPE(polar_env_type), OPTIONAL, POINTER            :: polar_env
 
       CHARACTER(len=*), PARAMETER :: routineN = 'set_qs_env', routineP = moduleN//':'//routineN
 
@@ -1173,6 +1176,9 @@ CONTAINS
       ! Embedding potential
       IF (PRESENT(embed_pot)) qs_env%embed_pot => embed_pot
       IF (PRESENT(spin_embed_pot)) qs_env%spin_embed_pot => spin_embed_pot
+
+      ! Polarisability tensor
+      IF (PRESENT(polar_env)) qs_env%polar_env => polar_env
 
       IF (PRESENT(qs_charges)) THEN
          CALL qs_charges_retain(qs_charges)
@@ -1268,6 +1274,7 @@ CONTAINS
       IF (PRESENT(dispersion_env)) qs_env%dispersion_env => dispersion_env
       IF (PRESENT(WannierCentres)) qs_env%WannierCentres => WannierCentres
       IF (PRESENT(kpoints)) CALL set_ks_env(qs_env%ks_env, kpoints=kpoints)
+
    END SUBROUTINE set_qs_env
 
 ! **************************************************************************************************
@@ -1310,6 +1317,7 @@ CONTAINS
 !> \param qs_env the object to release
 !> \par History
 !>      12.2002 created [fawzi]
+!>      06.2018 polar_env added (MK)
 !> \author Fawzi Mohamed
 ! **************************************************************************************************
    SUBROUTINE qs_env_release(qs_env)
@@ -1318,7 +1326,6 @@ CONTAINS
       CHARACTER(len=*), PARAMETER :: routineN = 'qs_env_release', routineP = moduleN//':'//routineN
 
       INTEGER                                            :: i
-      TYPE(pw_env_type), POINTER                         :: pw_env
 
       IF (ASSOCIATED(qs_env)) THEN
          CPASSERT(qs_env%ref_count > 0)
@@ -1427,12 +1434,18 @@ CONTAINS
             IF (ASSOCIATED(qs_env%active_space)) THEN
                CALL release_active_space_type(qs_env%active_space)
             ENDIF
+            ! Embedding potentials if provided as input
+            IF (qs_env%given_embed_pot) THEN
+               CALL pw_release(qs_env%embed_pot%pw)
+               DEALLOCATE (qs_env%embed_pot)
+               IF (ASSOCIATED(qs_env%spin_embed_pot)) THEN
+                  CALL pw_release(qs_env%spin_embed_pot%pw)
+                  DEALLOCATE (qs_env%spin_embed_pot)
+               ENDIF
+            ENDIF
 
-            ! NEGF
-            IF (ASSOCIATED(qs_env%negf_env)) THEN
-               CALL get_ks_env(qs_env%ks_env, pw_env=pw_env)
-               CALL negf_qs_env_release(qs_env%negf_env, pw_env)
-            END IF
+            ! Polarisability tensor
+            CALL polar_env_release(qs_env%polar_env)
 
             CALL qs_charges_release(qs_env%qs_charges)
             CALL qs_ks_release(qs_env%ks_env)
@@ -1496,7 +1509,9 @@ CONTAINS
             DEALLOCATE (qs_env)
          END IF
       END IF
+
       NULLIFY (qs_env)
+
    END SUBROUTINE qs_env_release
 
 END MODULE qs_environment_types

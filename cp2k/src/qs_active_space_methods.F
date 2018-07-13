@@ -60,9 +60,7 @@ MODULE qs_active_space_methods
                                               int_8
    USE mathconstants,                   ONLY: fourpi
    USE memory_utilities,                ONLY: reallocate
-   USE message_passing,                 ONLY: mp_environ,&
-                                              mp_sum,&
-                                              mp_sync
+   USE message_passing,                 ONLY: mp_sum
    USE particle_list_types,             ONLY: particle_list_type
    USE particle_types,                  ONLY: particle_type
    USE periodic_table,                  ONLY: ptable
@@ -94,7 +92,11 @@ MODULE qs_active_space_methods
                                               pw_type
    USE qs_active_space_types,           ONLY: active_space_type,&
                                               create_active_space_type,&
-                                              eri_type
+                                              csr_idx_from_combined,&
+                                              csr_idx_to_combined,&
+                                              eri_type,&
+                                              eri_type_eri_element_func,&
+                                              get_irange_csr
    USE qs_collocate_density,            ONLY: calculate_wavefunction
    USE qs_energy_types,                 ONLY: qs_energy_type
    USE qs_environment_types,            ONLY: get_qs_env,&
@@ -134,6 +136,12 @@ MODULE qs_active_space_methods
    CHARACTER(len=*), PARAMETER, PRIVATE :: moduleN = 'qs_active_space_methods'
 
    PUBLIC :: active_space_main
+
+   TYPE, EXTENDS(eri_type_eri_element_func) :: eri_fcidump_print
+      INTEGER :: unit_nr
+   CONTAINS
+      PROCEDURE :: func => eri_fcidump_print_func
+   END TYPE
 
 ! **************************************************************************************************
 
@@ -659,6 +667,7 @@ CONTAINS
          nn1 = (n1*(n1+1))/2
          nn2 = (n2*(n2+1))/2
          CALL csr_create(eri_mat, nn1, nn2, 0_int_8, 0, 0, para_env%group)
+         CALL get_mo_set(active_space_env%mos_active(i)%mo_set, nmo=active_space_env%eri%norb)
       END DO
 
       SELECT CASE (eri_method)
@@ -1100,7 +1109,7 @@ CONTAINS
                CPABORT("")
             END IF
             DO iwa2 = iwa1, nmo1
-               iwa12 = get_index_ij(iwa1, iwa2, nmo1)
+               iwa12 = csr_idx_to_combined(iwa1, iwa2, nmo1)
                IF (iwa12 >= irange(1) .AND. iwa12 <= irange(2)) THEN
                   iwa12 = iwa12-irange(1)+1
                ELSE
@@ -1159,7 +1168,7 @@ CONTAINS
                               END IF
                               icount2 = icount2+1
                               eri(icount2) = erint
-                              eri_index(icount2) = get_index_ij(iwb1, iwb2, nmo2)
+                              eri_index(icount2) = csr_idx_to_combined(iwb1, iwb2, nmo2)
                            END IF
                         END DO
                      END DO
@@ -1324,91 +1333,6 @@ CONTAINS
       END SELECT
 
    END SUBROUTINE pw_eri_green_create
-
-! **************************************************************************************************
-!> \brief calculates combined index (ij)
-!> \param i ...
-!> \param j ...
-!> \param n ...
-!> \retval ij ...
-!> \par History
-!>      04.2016 created [JGH]
-! **************************************************************************************************
-   FUNCTION get_index_ij(i, j, n) RESULT(ij)
-
-      INTEGER                                            :: i, j, n, ij
-
-      CPASSERT(i <= j)
-      CPASSERT(i <= n)
-      CPASSERT(j <= n)
-
-      ij = (i-1)*n-((i-1)*(i-2))/2+(j-i+1)
-
-      CPASSERT(ij <= (n*(n+1))/2)
-
-   END FUNCTION get_index_ij
-! **************************************************************************************************
-!> \brief extracts indeces i and j from combined index ij
-!> \param ij ...
-!> \param n ...
-!> \param i ...
-!> \param j ...
-!> \par History
-!>      04.2016 created [JGH]
-! **************************************************************************************************
-   SUBROUTINE get_index_pair(ij, n, i, j)
-      INTEGER                                            :: ij, n, i, j
-
-      INTEGER                                            :: m, m0
-
-      m = MAX(ij/n, 1)
-      DO i = m, n
-         m0 = (i-1)*n-((i-1)*(i-2))/2
-         j = ij-m0+i-1
-         IF (j <= n) EXIT
-      END DO
-
-      CPASSERT(i > 0 .AND. i <= n)
-      CPASSERT(j > 0 .AND. j <= n)
-      CPASSERT(i <= j)
-
-   END SUBROUTINE get_index_pair
-! **************************************************************************************************
-!> \brief calculates index range for processor in group mp_group
-!> \param nindex ...
-!> \param mp_group ...
-!> \retval irange ...
-!> \par History
-!>      04.2016 created [JGH]
-! **************************************************************************************************
-   FUNCTION get_irange_csr(nindex, mp_group) RESULT(irange)
-
-      INTEGER                                            :: nindex, mp_group
-      INTEGER, DIMENSION(2)                              :: irange
-
-      INTEGER                                            :: numtask, taskid
-      REAL(KIND=dp)                                      :: rat
-
-      CALL mp_environ(numtask, taskid, mp_group)
-
-      IF (numtask == 1 .AND. taskid == 0) THEN
-         irange(1) = 1
-         irange(2) = nindex
-      ELSEIF (numtask >= nindex) THEN
-         IF (taskid >= nindex) THEN
-            irange(1) = 1
-            irange(2) = 0
-         ELSE
-            irange(1) = taskid+1
-            irange(2) = taskid+1
-         END IF
-      ELSE
-         rat = REAL(nindex, KIND=dp)/REAL(numtask, KIND=dp)
-         irange(1) = NINT(rat*taskid)+1
-         irange(2) = NINT(rat*taskid+rat)
-      END IF
-
-   END FUNCTION get_irange_csr
 
 ! **************************************************************************************************
 !> \brief Adds data for a new row to the csr matrix
@@ -1576,16 +1500,11 @@ CONTAINS
 
       CHARACTER(len=*), PARAMETER :: routineN = 'fcidump', routineP = moduleN//':'//routineN
 
-      INTEGER                                            :: i, i1, i12, i12l, i2, i3, i34, i34l, i4, &
-                                                            irange(2), irptr, isym, iw, ms2, &
-                                                            nelec, nindex, norb, nspins
-      INTEGER, ALLOCATABLE, DIMENSION(:)                 :: colind
-      REAL(KIND=dp)                                      :: erint, esub, mval
-      REAL(KIND=dp), ALLOCATABLE, DIMENSION(:)           :: erival
+      INTEGER                                            :: i, i1, i2, i3, i4, isym, iw, nspins
+      REAL(KIND=dp)                                      :: esub, mval
       REAL(KIND=dp), ALLOCATABLE, DIMENSION(:, :)        :: fmat
       TYPE(cp_fm_type), POINTER                          :: matrix
       TYPE(cp_logger_type), POINTER                      :: logger
-      TYPE(csr_type), POINTER                            :: eri
 
       logger => cp_get_default_logger()
       IF (BTEST(cp_print_key_should_output(logger%iter_info, &
@@ -1595,77 +1514,47 @@ CONTAINS
          !
          nspins = active_space_env%nspins
          IF (nspins == 1) THEN
-            ms2 = 0 !active_space_env%multiplicity ?
-            nelec = active_space_env%nactive
-            CALL get_mo_set(active_space_env%mos_active(1)%mo_set, nmo=norb)
-            IF (iw > 0) THEN
-               WRITE (iw, "(A,A,I4,A,I4,A,I2,A)") "&FCI", " NORB=", norb, ",NELEC=", nelec, ",MS2=", ms2, ","
-               isym = 1
-               WRITE (iw, "(A,1000(I1,','))") "  ORBSYM=", (isym, i=1, norb)
-               isym = 0
-               WRITE (iw, "(A,I1,A)") "  ISYM=", isym, ","
-               WRITE (iw, "(A)") " /"
-            END IF
-            !
-            ! Print integrals: ERI
-            eri => active_space_env%eri%eri(1)%csr_mat
-            nindex = (norb*(norb+1))/2
-            irange = get_irange_csr(nindex, eri%mp_group)
-            ALLOCATE (erival(nindex), colind(nindex))
-            DO i1 = 1, norb
-               DO i2 = i1, norb
-                  i12 = get_index_ij(i1, i2, norb)
-                  IF (i12 >= irange(1) .AND. i12 <= irange(2)) THEN
-                     i12l = i12-irange(1)+1
-                     irptr = eri%rowptr_local(i12l)
-                     nindex = eri%nzerow_local(i12l)
-                     colind(1:nindex) = eri%colind_local(irptr:irptr+nindex-1)
-                     erival(1:nindex) = eri%nzval_local%r_dp(irptr:irptr+nindex-1)
-                  ELSE
-                     erival = 0.0_dp
-                     colind = 0
-                     nindex = 0
-                  END IF
-                  CALL mp_sum(nindex, eri%mp_group)
-                  CALL mp_sum(colind(1:nindex), eri%mp_group)
-                  CALL mp_sum(erival(1:nindex), eri%mp_group)
-                  CALL mp_sync(eri%mp_group)
-                  IF (iw > 0) THEN
-                     DO i34l = 1, nindex
-                        i34 = colind(i34l)
-                        erint = erival(i34l)
-                        CALL get_index_pair(i34, norb, i3, i4)
-                        WRITE (iw, "(ES23.16,4I4)") erint, i1, i2, i3, i4
-                     END DO
-                  END IF
-               END DO
-            END DO
-            DEALLOCATE (erival, colind)
-            ! Print integrals: Fij
-            ! replicate Fock matrix
-            ALLOCATE (fmat(norb, norb))
-            fmat = 0.0_dp
-            matrix => active_space_env%fock_sub(1)%matrix
-            DO i1 = 1, norb
-               DO i2 = i1, norb
-                  CALL cp_fm_get_element(matrix, i1, i2, mval)
-                  fmat(i1, i2) = mval
-                  fmat(i2, i1) = mval
-               END DO
-            END DO
-            IF (iw > 0) THEN
-               i3 = 0; i4 = 0
+            ASSOCIATE (norb=>active_space_env%eri%norb, &
+                       ms2=>0, & ! active_space_env%multiplicity ?
+                       nelec=>active_space_env%nactive)
+
+               IF (iw > 0) THEN
+                  WRITE (iw, "(A,A,I4,A,I4,A,I2,A)") "&FCI", " NORB=", norb, ",NELEC=", nelec, ",MS2=", ms2, ","
+                  isym = 1
+                  WRITE (iw, "(A,1000(I1,','))") "  ORBSYM=", (isym, i=1, norb)
+                  isym = 0
+                  WRITE (iw, "(A,I1,A)") "  ISYM=", isym, ","
+                  WRITE (iw, "(A)") " /"
+               END IF
+               !
+               ! Print integrals: ERI
+               CALL active_space_env%eri%eri_foreach(1, eri_fcidump_print(iw))
+               ! Print integrals: Fij
+               ! replicate Fock matrix
+               ALLOCATE (fmat(norb, norb))
+               fmat = 0.0_dp
+               matrix => active_space_env%fock_sub(1)%matrix
                DO i1 = 1, norb
                   DO i2 = i1, norb
-                     WRITE (iw, "(ES23.16,4I4)") fmat(i1, i2), i1, i2, i3, i4
+                     CALL cp_fm_get_element(matrix, i1, i2, mval)
+                     fmat(i1, i2) = mval
+                     fmat(i2, i1) = mval
                   END DO
                END DO
-            END IF
-            DEALLOCATE (fmat)
-            ! Print energy
-            esub = active_space_env%energy_inactive
-            i1 = 0; i2 = 0; i3 = 0; i4 = 0
-            IF (iw > 0) WRITE (iw, "(ES23.16,4I4)") esub, i1, i2, i3, i4
+               IF (iw > 0) THEN
+                  i3 = 0; i4 = 0
+                  DO i1 = 1, norb
+                     DO i2 = i1, norb
+                        WRITE (iw, "(ES23.16,4I4)") fmat(i1, i2), i1, i2, i3, i4
+                     END DO
+                  END DO
+               END IF
+               DEALLOCATE (fmat)
+               ! Print energy
+               esub = active_space_env%energy_inactive
+               i1 = 0; i2 = 0; i3 = 0; i4 = 0
+               IF (iw > 0) WRITE (iw, "(ES23.16,4I4)") esub, i1, i2, i3, i4
+            END ASSOCIATE
          ELSE
             CPABORT("Option not yet available")
          END IF
@@ -1727,13 +1616,13 @@ CONTAINS
          irange = get_irange_csr(nindex, eri%mp_group)
          DO i1 = 1, norb
             DO i2 = i1, norb
-               i12 = get_index_ij(i1, i2, norb)
+               i12 = csr_idx_to_combined(i1, i2, norb)
                IF (i12 >= irange(1) .AND. i12 <= irange(2)) THEN
                   i12l = i12-irange(1)+1
                   irptr = eri%rowptr_local(i12l)-1
                   DO i34l = 1, eri%nzerow_local(i12l)
                      i34 = eri%colind_local(irptr+i34l)
-                     CALL get_index_pair(i34, norb, i3, i4)
+                     CALL csr_idx_from_combined(i34, norb, i3, i4)
                      erint = eri%nzval_local%r_dp(irptr+i34l)
                      ! Coulomb
                      ks_ref(i1, i2) = ks_ref(i1, i2)+erint*p_mat(i3, i4)
@@ -1971,5 +1860,28 @@ CONTAINS
       CALL cp_fm_release(bmat)
 
    END SUBROUTINE cp_fm_sqrt
+
+! **************************************************************************************************
+!> \brief Print each value on the master node
+!> \param this object reference
+!> \param i i-index
+!> \param j j-index
+!> \param k k-index
+!> \param l l-index
+!> \param val value of the integral at (i,j,k.l)
+!> \return always true to dump all integrals
+! **************************************************************************************************
+   LOGICAL FUNCTION eri_fcidump_print_func(this, i, j, k, l, val) RESULT(cont)
+      CLASS(eri_fcidump_print), INTENT(inout) :: this
+      INTEGER, INTENT(in)                     :: i, j, k, l
+      REAL(KIND=dp), INTENT(in)               :: val
+
+      ! write to the actual file only on the master
+      IF (this%unit_nr > 0) THEN
+         WRITE (this%unit_nr, "(ES23.16,4I4)") val, i, j, k, l
+      END IF
+
+      cont = .TRUE.
+   END FUNCTION eri_fcidump_print_func
 
 END MODULE qs_active_space_methods

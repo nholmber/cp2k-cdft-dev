@@ -5,7 +5,7 @@
 
 MODULE acc_device
 #if defined (__ACC)
-  USE ISO_C_BINDING,                  ONLY: C_INT
+   USE ISO_C_BINDING, ONLY: C_INT
 #endif
 #include "../base/base_uses.f90"
 
@@ -46,7 +46,7 @@ CONTAINS
 
 ! **************************************************************************************************
 !> \brief Get number of accelerator devices
-!> \retval n number of accelerator devices
+!> \return number of accelerator devices
 ! **************************************************************************************************
    FUNCTION acc_get_ndevices() RESULT(n)
       INTEGER                                  :: n

@@ -1346,7 +1346,7 @@ CONTAINS
             DO ispin = 1, nspins
                CALL deallocate_mo_set(mos_stashed(ispin)%mo_set)
             END DO
-            DEALLOCATE (mos_stashed, jacobian, gradient, energy, coeff, step_multiplier)
+            DEALLOCATE (mos_stashed, jacobian, gradient, energy, coeff, step_multiplier, dh)
             IF (output_unit > 0) THEN
                WRITE (output_unit, FMT="(/,A)") &
                   " ================================== JACOBIAN CALCULATED =================================="
