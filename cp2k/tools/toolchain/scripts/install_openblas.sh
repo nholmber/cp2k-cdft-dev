@@ -2,8 +2,8 @@
 [ "${BASH_SOURCE[0]}" ] && SCRIPT_NAME="${BASH_SOURCE[0]}" || SCRIPT_NAME=$0
 SCRIPT_DIR="$(cd "$(dirname "$SCRIPT_NAME")" && pwd -P)"
 
+openblas_ver=${openblas_ver:-0.2.20}  # Keep in sync with get_openblas_arch.sh.
 source "${SCRIPT_DIR}"/common_vars.sh
-source "${SCRIPT_DIR}"/package_versions.sh
 source "${SCRIPT_DIR}"/tool_kit.sh
 source "${SCRIPT_DIR}"/signal_trap.sh
 
@@ -21,7 +21,7 @@ case "$with_openblas" in
         echo "==================== Installing OpenBLAS ===================="
         pkg_install_dir="${INSTALLDIR}/openblas-${openblas_ver}"
         install_lock_file="$pkg_install_dir/install_successful"
-        if [ -f "${install_lock_file}" ] ; then
+        if [[ $install_lock_file -nt $SCRIPT_NAME ]]; then
             echo "openblas-${openblas_ver} is already installed, skipping it."
         else
             if [ -f OpenBLAS-${openblas_ver}.tar.gz ] ; then
@@ -89,9 +89,8 @@ case "$with_openblas" in
         ;;
     __SYSTEM__)
         echo "==================== Finding LAPACK from system paths ===================="
+        # assume that system openblas is threaded
         check_lib -lopenblas "OpenBLAS"
-        # somewhat unclear ... the system threaded openblas might not be suffixed _omp
-        [ $ENABLE_OMP = "__TRUE__" ] && check_lib -lopenblas_omp "OpenBLAS"
         add_include_from_paths OPENBLAS_CFLAGS "openblas_config.h" $INCLUDE_PATHS
         add_lib_from_paths OPENBLAS_LDFLAGS "libopenblas.*" $LIB_PATHS
         ;;
@@ -108,8 +107,9 @@ case "$with_openblas" in
 esac
 if [ "$with_openblas" != "__DONTUSE__" ] ; then
     OPENBLAS_LIBS="-lopenblas"
-    OPENBLAS_LIBS_OMP="-lopenblas_omp"
+    OPENBLAS_LIBS_OMP="-lopenblas"
     if [ "$with_openblas" != "__SYSTEM__" ] ; then
+        OPENBLAS_LIBS_OMP="-lopenblas_omp"
         cat <<EOF > "${BUILDDIR}/setup_openblas"
 prepend_path LD_LIBRARY_PATH "$pkg_install_dir/lib"
 prepend_path LD_RUN_PATH "$pkg_install_dir/lib"

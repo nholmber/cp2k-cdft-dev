@@ -21,15 +21,17 @@
     &HELIUM
       SOLUTE_INTERACTION     MWATER
       POTENTIAL_FILE_NAME    lj-test-pot.dat
+      COORD_INIT_TEMP        -1
       GET_FORCES             LAST
       NATOMS                32
       NBEADS                16
       NUM_ENV                2
       INOROT                80
       IROT                  40
-      PERIODIC               T
+      PERIODIC               F
       CELL_SHAPE             OCTAHEDRON
       SAMPLING_METHOD        WORM
+      DROPLET_RADIUS        20
       &WORM
          CENTROID_MOVE_FREQ   300
          CENTROID_MOVE_DRMAX  0.15

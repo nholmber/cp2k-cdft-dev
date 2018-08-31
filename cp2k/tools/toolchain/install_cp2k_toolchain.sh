@@ -30,7 +30,6 @@ export ARCH_FILE_TEMPLATE="${SCRIPTDIR}/arch_base.tmpl"
 # Load common variables and tools
 # ------------------------------------------------------------------------
 source "${SCRIPTDIR}"/common_vars.sh
-source "${SCRIPTDIR}"/package_versions.sh
 source "${SCRIPTDIR}"/tool_kit.sh
 
 # ------------------------------------------------------------------------
@@ -886,7 +885,7 @@ NOOPT_FLAGS="-O1"
 
 # those flags that do not influence code generation are used always, the others if debug
 FCDEB_FLAGS="-ffree-form -std=f2003 -fimplicit-none"
-FCDEB_FLAGS_DEBUG="-fsanitize=leak -fcheck=bounds,do,recursion,pointer -ffpe-trap=invalid,zero,overflow -finit-real=snan -fno-fast-math"
+FCDEB_FLAGS_DEBUG="-fsanitize=leak -fcheck=bounds,do,recursion,pointer -ffpe-trap=invalid,zero,overflow -finit-real=snan -fno-fast-math -Werror=realloc-lhs-all -finline-matmul-limit=0"
 
 # code coverage generation flags
 COVERAGE_FLAGS="-O1 -coverage -fkeep-static-functions"
@@ -898,7 +897,7 @@ PROFOPT_FLAGS="\$(PROFOPT)"
 # special flags for gfortran
 # https://gcc.gnu.org/onlinedocs/gfortran/Error-and-Warning-Options.html
 # we error out for these warnings (-Werror=uninitialized -Wno-maybe-uninitialized -> error on variables that must be used uninitialized)
-WFLAGS_ERROR="-Werror=aliasing -Werror=ampersand -Werror=c-binding-type -Werror=intrinsic-shadow -Werror=intrinsics-std -Werror=line-truncation -Werror=tabs -Werror=realloc-lhs-all -Werror=target-lifetime -Werror=underflow -Werror=unused-but-set-variable -Werror=unused-variable -Werror=unused-dummy-argument -Werror=conversion -Werror=zerotrip -Werror=uninitialized -Wno-maybe-uninitialized"
+WFLAGS_ERROR="-Werror=aliasing -Werror=ampersand -Werror=c-binding-type -Werror=intrinsic-shadow -Werror=intrinsics-std -Werror=line-truncation -Werror=tabs -Werror=target-lifetime -Werror=underflow -Werror=unused-but-set-variable -Werror=unused-variable -Werror=unused-dummy-argument -Werror=conversion -Werror=zerotrip -Werror=uninitialized -Wno-maybe-uninitialized"
 # we just warn for those (that eventually might be promoted to WFLAGSERROR). It is useless to put something here with 100s of warnings.
 WFLAGS_WARN="-Wuse-without-only"
 # while here we collect all other warnings, some we'll ignore
@@ -994,6 +993,12 @@ EOF
 #
 FCLOGPIPE   =  2> \\\$(notdir \\\$<).warn
 export LC_ALL=C
+EOF
+    fi
+    if [ "$with_gcc" != "__DONTUSE__" ] ; then
+        cat <<EOF >> $__filename
+#
+FYPPFLAGS   = -n --line-marker-format=gfortran5
 EOF
     fi
     # replace variable values in output file using eval

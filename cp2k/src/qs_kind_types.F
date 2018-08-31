@@ -35,9 +35,11 @@ MODULE qs_kind_types
                                               remove_basis_from_container,&
                                               remove_basis_set_container
    USE basis_set_types,                 ONLY: &
-        allocate_gto_basis_set, combine_basis_sets, deallocate_gto_basis_set, get_gto_basis_set, &
-        gto_basis_set_type, init_aux_basis_set, init_orb_basis_set, read_gto_basis_set, &
-        write_gto_basis_set, write_orb_basis_set
+        allocate_gto_basis_set, allocate_sto_basis_set, combine_basis_sets, &
+        create_gto_from_sto_basis, deallocate_gto_basis_set, deallocate_sto_basis_set, &
+        get_gto_basis_set, gto_basis_set_type, init_aux_basis_set, init_orb_basis_set, &
+        read_gto_basis_set, read_sto_basis_set, sto_basis_set_type, write_gto_basis_set, &
+        write_orb_basis_set
    USE cp_control_types,                ONLY: dft_control_type,&
                                               qs_control_type
    USE cp_log_handling,                 ONLY: cp_get_default_logger,&
@@ -51,7 +53,8 @@ MODULE qs_kind_types
         set_default_all_potential, set_potential, sgp_potential_type, write_potential
    USE input_constants,                 ONLY: &
         do_method_am1, do_method_dftb, do_method_mndo, do_method_mndod, do_method_pdg, &
-        do_method_pm3, do_method_pm6, do_method_pm6fm, do_method_pnnl, do_method_rm1, do_qs
+        do_method_pm3, do_method_pm6, do_method_pm6fm, do_method_pnnl, do_method_pw, &
+        do_method_rm1, do_qs, do_sirius
    USE input_section_types,             ONLY: section_vals_get,&
                                               section_vals_get_subs_vals,&
                                               section_vals_type,&
@@ -151,6 +154,8 @@ MODULE qs_kind_types
       TYPE(sgp_potential_type), POINTER      :: sgp_potential => Null()
       TYPE(semi_empirical_type), POINTER     :: se_parameter => Null()
       TYPE(qs_dftb_atom_type), POINTER       :: dftb_parameter => Null()
+      !
+      TYPE(atom_upfpot_type), POINTER        :: upf_potential => Null()
       !
       TYPE(gto_basis_set_type), POINTER      :: soft_basis_set => Null()
       TYPE(gto_basis_set_type), POINTER      :: hard_basis_set => Null()
@@ -254,6 +259,9 @@ CONTAINS
             IF (ASSOCIATED(qs_kind_set(ikind)%sgp_potential)) THEN
                CALL deallocate_potential(qs_kind_set(ikind)%sgp_potential)
             ENDIF
+            IF (ASSOCIATED(qs_kind_set(ikind)%upf_potential)) THEN
+               CALL atom_release_upf(qs_kind_set(ikind)%upf_potential)
+            ENDIF
             IF (ASSOCIATED(qs_kind_set(ikind)%se_parameter)) THEN
                CALL semi_empirical_release(qs_kind_set(ikind)%se_parameter)
             END IF
@@ -340,6 +348,7 @@ CONTAINS
 !> \param tnadd_potential ...
 !> \param gth_potential ...
 !> \param sgp_potential ...
+!> \param upf_potential ...
 !> \param se_parameter ...
 !> \param dftb_parameter ...
 !> \param dftb3_param ...
@@ -397,7 +406,7 @@ CONTAINS
 ! **************************************************************************************************
    SUBROUTINE get_qs_kind(qs_kind, &
                           basis_set, basis_type, ncgf, nsgf, &
-                          all_potential, tnadd_potential, gth_potential, sgp_potential, &
+                          all_potential, tnadd_potential, gth_potential, sgp_potential, upf_potential, &
                           se_parameter, dftb_parameter, &
                           dftb3_param, zeff, elec_conf, mao, lmax_dftb, &
                           alpha_core_charge, ccore_charge, core_charge, core_charge_radius, &
@@ -419,6 +428,7 @@ CONTAINS
       TYPE(local_potential_type), OPTIONAL, POINTER      :: tnadd_potential
       TYPE(gth_potential_type), OPTIONAL, POINTER        :: gth_potential
       TYPE(sgp_potential_type), OPTIONAL, POINTER        :: sgp_potential
+      TYPE(atom_upfpot_type), OPTIONAL, POINTER          :: upf_potential
       TYPE(semi_empirical_type), OPTIONAL, POINTER       :: se_parameter
       TYPE(qs_dftb_atom_type), OPTIONAL, POINTER         :: dftb_parameter
       REAL(KIND=dp), INTENT(OUT), OPTIONAL               :: dftb3_param, zeff
@@ -519,6 +529,7 @@ CONTAINS
       IF (PRESENT(tnadd_potential)) tnadd_potential => qs_kind%tnadd_potential
       IF (PRESENT(gth_potential)) gth_potential => qs_kind%gth_potential
       IF (PRESENT(sgp_potential)) sgp_potential => qs_kind%sgp_potential
+      IF (PRESENT(upf_potential)) upf_potential => qs_kind%upf_potential
       IF (PRESENT(se_parameter)) se_parameter => qs_kind%se_parameter
       IF (PRESENT(dftb_parameter)) dftb_parameter => qs_kind%dftb_parameter
 
@@ -550,6 +561,8 @@ CONTAINS
          ELSE IF (ASSOCIATED(qs_kind%sgp_potential)) THEN
             CALL get_potential(potential=qs_kind%sgp_potential, &
                                ccore_charge=ccore_charge)
+         ELSE IF (ASSOCIATED(qs_kind%upf_potential)) THEN
+            CPABORT("UPF CCORE CHARGE RADIUS NOT AVAILABLE")
          ELSE
             ccore_charge = 0.0_dp
          END IF
@@ -564,6 +577,8 @@ CONTAINS
          ELSE IF (ASSOCIATED(qs_kind%sgp_potential)) THEN
             CALL get_potential(potential=qs_kind%sgp_potential, &
                                core_charge_radius=core_charge_radius)
+         ELSE IF (ASSOCIATED(qs_kind%upf_potential)) THEN
+            CPABORT("UPF CORE CHARGE RADIUS NOT AVAILABLE")
          ELSE
             core_charge_radius = 0.0_dp
          END IF
@@ -578,6 +593,8 @@ CONTAINS
          ELSE IF (ASSOCIATED(qs_kind%sgp_potential)) THEN
             CALL get_potential(potential=qs_kind%sgp_potential, &
                                zeff=core_charge)
+         ELSE IF (ASSOCIATED(qs_kind%upf_potential)) THEN
+            CPABORT("UPF CORE CHARGE NOT AVAILABLE")
          ELSE
             core_charge = 0.0_dp
          END IF
@@ -590,6 +607,8 @@ CONTAINS
             CALL get_potential(potential=qs_kind%gth_potential, zeff=zeff)
          ELSE IF (ASSOCIATED(qs_kind%sgp_potential)) THEN
             CALL get_potential(potential=qs_kind%sgp_potential, zeff=zeff)
+         ELSE IF (ASSOCIATED(qs_kind%upf_potential)) THEN
+            zeff = qs_kind%upf_potential%zion
          ELSE
             zeff = 0.0_dp
          END IF
@@ -1355,7 +1374,8 @@ CONTAINS
       CHARACTER(LEN=default_string_length), &
          DIMENSION(:), POINTER                           :: tmpstringlist
       CHARACTER(LEN=default_string_length), &
-         DIMENSION(maxbas)                               :: basis_set_name, basis_set_type
+         DIMENSION(maxbas)                               :: basis_set_form, basis_set_name, &
+                                                            basis_set_type
       INTEGER :: handle, i, i_rep, ipaodesc, ipaopot, ipos, j, jj, k_rep, l, m, n_rep, nb_rep, &
          nexp, ngauss, nlcc, nloc, nnl, norbitals, npaodesc, npaopot, nppnl, nspin, z
       INTEGER, DIMENSION(:), POINTER                     :: add_el, elec_conf, orbitals
@@ -1373,6 +1393,7 @@ CONTAINS
       TYPE(section_vals_type), POINTER :: basis_section, bs_section, dft_plus_u_section, &
          dft_section, enforce_occupation_section, kgpot_section, pao_desc_section, &
          pao_pot_section, potential_section, spin_section
+      TYPE(sto_basis_set_type), POINTER                  :: sto_basis_set
 
       CALL timeset(routineN, handle)
 
@@ -1381,6 +1402,7 @@ CONTAINS
       update_input = .TRUE.
       basis_set_name(:) = ""
       basis_set_type(:) = ""
+      basis_set_form(:) = ""
       aux_basis_set_name = ""
       ri_aux_basis_set_name = ""
       orb_basis_set_name = ""
@@ -1477,14 +1499,25 @@ CONTAINS
             CALL section_vals_val_get(kind_section, i_rep_section=k_rep, &
                                       keyword_name="BASIS_SET", i_rep_val=i, c_vals=tmpstringlist)
             IF (SIZE(tmpstringlist) == 1) THEN
-               ! default is orbital type
+               ! default is orbital type and GTO
                basis_set_type(i) = "ORB"
+               basis_set_form(i) = "GTO"
                basis_set_name(i) = tmpstringlist(1)
             ELSEIF (SIZE(tmpstringlist) == 2) THEN
+               ! default is GTO
                basis_set_type(i) = tmpstringlist(1)
+               basis_set_form(i) = "GTO"
                basis_set_name(i) = tmpstringlist(2)
+            ELSEIF (SIZE(tmpstringlist) == 3) THEN
+               basis_set_type(i) = tmpstringlist(1)
+               basis_set_form(i) = tmpstringlist(2)
+               basis_set_name(i) = tmpstringlist(3)
             ELSE
                CPABORT("")
+            END IF
+            ! check that we have a valid basis set form
+            IF (basis_set_form(i) /= "GTO" .AND. basis_set_form(i) /= "STO") THEN
+               CPABORT("BASIS_SET_FORM invalid")
             END IF
          END DO
 
@@ -1523,6 +1556,7 @@ CONTAINS
             nb_rep = nb_rep+1
             CPASSERT(nb_rep <= maxbas)
             basis_set_type(nb_rep) = "RI_AUX"
+            basis_set_form(nb_rep) = "GTO"
             basis_set_name(nb_rep) = ri_aux_basis_set_name
          END IF
          ! end of deprecated input
@@ -1926,15 +1960,62 @@ CONTAINS
                          "Information provided in the input file regarding BASIS for KIND <"// &
                          TRIM(qs_kind%name)//"> will be ignored!")
 
+      CASE (do_method_pw)
+         ! PW DFT
+         ! Allocate and initialise the potential data set structure
+         IF (potential_name /= '') THEN
+            SELECT CASE (TRIM (potential_type))
+            CASE ("ALL", "GTH", "ECP")
+               CALL cp_abort(__LOCATION__, &
+                             "PW DFT calculations only with potential type UPF possible."// &
+                             " <"//TRIM(potential_type)//"> was specified "// &
+                             "for the atomic kind <"//TRIM(qs_kind%name))
+            CASE ("UPF")
+               ALLOCATE (qs_kind%upf_potential)
+               CALL atom_read_upf(qs_kind%upf_potential, potential_name, read_header=.TRUE.)
+               CALL get_qs_kind(qs_kind, elec_conf=elec_conf)
+               IF (.NOT. ASSOCIATED(elec_conf)) THEN
+                  CALL set_qs_kind(qs_kind, elec_conf=qs_kind%upf_potential%econf)
+               END IF
+            CASE DEFAULT
+               CALL cp_abort(__LOCATION__, &
+                             "An invalid potential type <"// &
+                             TRIM(potential_type)//"> was specified "// &
+                             "for the atomic kind <"// &
+                             TRIM(qs_kind%name))
+            END SELECT
+         ELSE
+            CALL cp_abort(__LOCATION__, &
+                          "No potential type was defined for the "// &
+                          "atomic kind <"//TRIM(qs_kind%name)//">")
+         END IF
+
       CASE DEFAULT
 
+         ! set nauss for STO expansion
+         CALL section_vals_val_get(dft_section, "QS%STO_NG", i_val=ngauss)
          ! Allocate and initialise the basis set data set structure
          ! first external basis sets
          DO i = 1, nb_rep
-            NULLIFY (tmp_basis_set)
-            CALL allocate_gto_basis_set(tmp_basis_set)
-            CALL read_gto_basis_set(qs_kind%element_symbol, basis_set_name(i), &
-                                    tmp_basis_set, para_env, dft_section)
+            SELECT CASE (basis_set_form (i))
+            CASE ("GTO")
+               NULLIFY (tmp_basis_set)
+               CALL allocate_gto_basis_set(tmp_basis_set)
+               CALL read_gto_basis_set(qs_kind%element_symbol, basis_set_name(i), &
+                                       tmp_basis_set, para_env, dft_section)
+            CASE ("STO")
+               NULLIFY (sto_basis_set)
+               CALL allocate_sto_basis_set(sto_basis_set)
+               CALL read_sto_basis_set(qs_kind%element_symbol, basis_set_name(i), &
+                                       sto_basis_set, para_env, dft_section)
+               NULLIFY (tmp_basis_set)
+               CALL create_gto_from_sto_basis(sto_basis_set, tmp_basis_set, ngauss)
+               CALL deallocate_sto_basis_set(sto_basis_set)
+            CASE DEFAULT
+               CALL cp_abort(__LOCATION__, &
+                             "Invalid basis set form "//TRIM(basis_set_form(i))// &
+                             "for atomic kind <"//TRIM(qs_kind%name)//">")
+            END SELECT
             tmp = basis_set_type(i)
             CALL uppercase(tmp)
             CALL add_basis_set_to_container(qs_kind%basis_sets, tmp_basis_set, tmp)
@@ -2271,6 +2352,8 @@ CONTAINS
          CASE (do_method_dftb)
             no_fail = .TRUE.
          END SELECT
+      ELSE IF (method == do_sirius) THEN
+         qs_method = do_method_pw
       ELSE
          qs_method = method
       END IF
@@ -2694,8 +2777,6 @@ CONTAINS
       CALL timestop(handle)
 
    END SUBROUTINE write_gto_basis_sets
-
-! **************************************************************************************************
 
 ! **************************************************************************************************
 !> \brief ...

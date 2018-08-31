@@ -2,8 +2,8 @@
 [ "${BASH_SOURCE[0]}" ] && SCRIPT_NAME="${BASH_SOURCE[0]}" || SCRIPT_NAME=$0
 SCRIPT_DIR="$(cd "$(dirname "$SCRIPT_NAME")" && pwd -P)"
 
+libint_ver=${libint_ver:-1.1.6}
 source "${SCRIPT_DIR}"/common_vars.sh
-source "${SCRIPT_DIR}"/package_versions.sh
 source "${SCRIPT_DIR}"/tool_kit.sh
 source "${SCRIPT_DIR}"/signal_trap.sh
 
@@ -21,7 +21,7 @@ case "$with_libint" in
         echo "==================== Installing LIBINT ===================="
         pkg_install_dir="${INSTALLDIR}/libint-${libint_ver}"
         install_lock_file="$pkg_install_dir/install_successful"
-        if [ -f "${install_lock_file}" ] ; then
+        if [[ $install_lock_file -nt $SCRIPT_NAME ]]; then
             echo "libint-${libint_ver} is already installed, skipping it."
         else
             if [ -f libint-${libint_ver}.tar.gz ] ; then
@@ -89,7 +89,8 @@ export LIBINT_LIBS="${LIBINT_LIBS}"
 export CP_DFLAGS="\${CP_DFLAGS} -D__LIBINT -D__LIBINT_MAX_AM=6 -D__LIBDERIV_MAX_AM1=5"
 export CP_CFLAGS="\${CP_CFLAGS} ${LIBINT_CFLAGS}"
 export CP_LDFLAGS="\${CP_LDFLAGS} ${LIBINT_LDFLAGS}"
-export CP_LIBS="${LIBINT_LIBS} \${CP_LIBS}"
+# Libint doesn't always work with dynamic linking.
+export CP_LIBS="-Wl,-Bstatic ${LIBINT_LIBS} -Wl,-Bdynamic \${CP_LIBS}"
 EOF
 fi
 cd "${ROOTDIR}"

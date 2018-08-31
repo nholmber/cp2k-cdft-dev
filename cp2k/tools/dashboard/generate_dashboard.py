@@ -234,8 +234,7 @@ def gen_archive(config, log, outdir):
             output += '<p>Go back to <a href="../../index.html">main page</a></p>\n'
             if(info_url):
                 output += '<p>Get <a href="%s">more information</a></p>\n'%info_url
-            if(report_type == "generic"):
-                output += gen_plots(archive_reports, log, outdir+"archive/"+s+"/", full_archive)
+            output += gen_plots(archive_reports, log, outdir+"archive/"+s+"/", full_archive)
             output += other_index_link
             output += '<table border="1" cellspacing="3" cellpadding="5">\n'
             output += '<tr><th>Commit</th><th>Status</th><th>Summary</th><th>Author</th><th>Commit Message</th></tr>\n\n'
@@ -553,12 +552,15 @@ def parse_report(report_txt, report_type, log):
             report = parse_generic_report(report_txt)
         else:
             raise(Exception("Unknown report_type"))
+
         if ('svn-rev' in report):
             assert 'git-sha' not in report
             rev = report['svn-rev']
             if rev not in log.svn2git:
                 return( {'status':'UNKNOWN', 'summary':'Could not convert svn revision to git commit.', 'git-sha':None} )
             report['git-sha'] = log.svn2git[rev]
+
+        report.update(parse_plots(report_txt))
         return(report)
     except:
         print(traceback.print_exc())
@@ -632,9 +634,13 @@ def parse_generic_report(report_txt):
 
     report['summary'] = re.findall("(^|\n)Summary: (.+)\n", report_txt)[-1][1]
     report['status'] = re.findall("(^|\n)Status: (.+)\n", report_txt)[-1][1]
-    report['plots'] = [eval("dict(%s)"%m[1]) for m in re.findall("(^|\n)Plot: (.+)(?=\n)", report_txt)]
-    report['plotpoints'] = [eval("dict(%s)"%m[1]) for m in re.findall("(^|\n)PlotPoint: (.+)(?=\n)", report_txt)]
     return(report)
+
+#===============================================================================
+def parse_plots(report_txt):
+    plots = [eval("dict(%s)"%m[1]) for m in re.findall("(^|\n)Plot: (.+)(?=\n)", report_txt)]
+    plotpoints = [eval("dict(%s)"%m[1]) for m in re.findall("(^|\n)PlotPoint: (.+)(?=\n)", report_txt)]
+    return({'plots': plots, 'plotpoints': plotpoints})
 
 #===============================================================================
 if(len(sys.argv)==2 and sys.argv[-1]=="--selftest"):

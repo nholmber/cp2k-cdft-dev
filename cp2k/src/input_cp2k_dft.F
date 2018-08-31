@@ -54,15 +54,16 @@ MODULE input_cp2k_dft
         do_ppl_grid, do_pwgrid_ns_fullspace, do_pwgrid_ns_halfspace, do_pwgrid_spherical, &
         do_s2_constraint, do_s2_restraint, do_se_is_kdso, do_se_is_kdso_d, do_se_is_slater, &
         do_se_lr_ewald, do_se_lr_ewald_gks, do_se_lr_ewald_r3, do_se_lr_none, do_spin_density, &
-        do_taylor, ehrenfest, embed_level_shift, embed_quasi_newton, embed_steep_desc, &
-        eri_method_full_gpw, eri_method_gpw_ht, eri_operator_coulomb, eri_operator_erf, &
-        eri_operator_erfc, eri_operator_gaussian, eri_operator_yukawa, gaussian, general_roks, &
-        hf_model, high_spin_roks, history_guess, jacobian_fd1, jacobian_fd1_backward, &
-        jacobian_fd1_central, jacobian_fd2, jacobian_fd2_backward, kg_cholesky, kg_color_dsatur, &
-        kg_color_greedy, kg_ec_diagonalization, kg_ec_functional_harris, kg_tnadd_atomic, &
-        kg_tnadd_embed, kg_tnadd_embed_ri, kg_tnadd_none, ls_2pnt, ls_3pnt, ls_gold, ls_none, &
-        mao_basis_ext, mao_basis_orb, mao_basis_prim, mao_projection, mopac_guess, no_excitations, &
-        no_guess, numerical, oe_gllb, oe_lb, oe_none, oe_saop, oe_sic, op_loc_berry, op_loc_boys, &
+        do_taylor, ehrenfest, embed_grid_angstrom, embed_grid_bohr, embed_level_shift, &
+        embed_quasi_newton, embed_steep_desc, eri_method_full_gpw, eri_method_gpw_ht, &
+        eri_operator_coulomb, eri_operator_erf, eri_operator_erfc, eri_operator_gaussian, &
+        eri_operator_yukawa, gaussian, general_roks, hf_model, high_spin_roks, history_guess, &
+        jacobian_fd1, jacobian_fd1_backward, jacobian_fd1_central, jacobian_fd2, &
+        jacobian_fd2_backward, kg_cholesky, kg_color_dsatur, kg_color_greedy, &
+        kg_ec_diagonalization, kg_ec_functional_harris, kg_tnadd_atomic, kg_tnadd_embed, &
+        kg_tnadd_embed_ri, kg_tnadd_none, ls_2pnt, ls_3pnt, ls_gold, ls_none, mao_basis_ext, &
+        mao_basis_orb, mao_basis_prim, mao_projection, mopac_guess, no_excitations, no_guess, &
+        numerical, oe_gllb, oe_lb, oe_none, oe_saop, oe_sic, op_loc_berry, op_loc_boys, &
         op_loc_pipek, orb_dx2, orb_dxy, orb_dy2, orb_dyz, orb_dz2, orb_dzx, orb_px, orb_py, &
         orb_pz, orb_s, ot_algo_irac, ot_algo_taylor_or_diag, ot_chol_irac, ot_lwdn_irac, &
         ot_mini_broyden, ot_mini_cg, ot_mini_diis, ot_mini_sd, ot_poly_irac, ot_precond_full_all, &
@@ -165,8 +166,8 @@ CONTAINS
       TYPE(section_type), POINTER                        :: subsection
 
       CPASSERT(.NOT. ASSOCIATED(section))
-      CALL section_create(section, name="dft", &
-                          description="parameter needed by dft programs", &
+      CALL section_create(section, name="DFT", &
+                          description="Parameter needed by LCAO DFT programs", &
                           n_keywords=3, n_subsections=4, repeats=.FALSE.)
 
       NULLIFY (keyword)
@@ -2961,6 +2962,12 @@ CONTAINS
       CALL keyword_release(keyword)
 
       ! Integers
+      CALL keyword_create(keyword, name="STO_NG", &
+                          description="Order of Gaussian type expansion of Slater orbital basis sets.", &
+                          usage="STO_NG", default_i_val=6)
+      CALL section_add_keyword(section, keyword)
+      CALL keyword_release(keyword)
+
       CALL keyword_create(keyword, name="LMAXN1", &
                           variants=(/"LMAXRHO1"/), &
                           description="GAPW : max L number for expansion of the atomic densities in spherical gaussians", &
@@ -5978,7 +5985,7 @@ CONTAINS
       CPASSERT(.NOT. ASSOCIATED(section))
       CALL section_create(section, name="OPT_EMBED", &
                           description="This section specifies optional parameters for DFT embedding potential optimization.", &
-                          n_keywords=15, n_subsections=3, repeats=.FALSE.)
+                          n_keywords=15, n_subsections=4, repeats=.FALSE.)
 
       NULLIFY (keyword)
 
@@ -6099,6 +6106,8 @@ CONTAINS
 
       CALL create_print_embed_restart_vec(section)
 
+      CALL create_print_simple_grid(section)
+
    END SUBROUTINE create_optimize_embed
 
 ! **************************************************************************************************
@@ -6184,6 +6193,48 @@ CONTAINS
       CALL section_release(print_key)
 
    END SUBROUTINE create_print_embed_restart_vec
+
+! **************************************************************************************************
+!> \brief ...
+!> \param section ...
+! **************************************************************************************************
+   SUBROUTINE create_print_simple_grid(section)
+      TYPE(section_type), POINTER                        :: section
+
+      CHARACTER(len=*), PARAMETER :: routineN = 'create_print_simple_grid', &
+         routineP = moduleN//':'//routineN
+
+      TYPE(keyword_type), POINTER                        :: keyword
+      TYPE(section_type), POINTER                        :: print_key
+
+      NULLIFY (print_key, keyword)
+      CALL cp_print_key_section_create(print_key, "WRITE_SIMPLE_GRID", &
+                                       description="Controls the printing of simple grid "// &
+                                       "files with embedding potential: X Y Z value", &
+                                       print_level=high_print_level, add_last=add_last_numeric, filename="")
+
+      CALL keyword_create(keyword, name="STRIDE", &
+                          description="The stride (X,Y,Z) used to write the cube file "// &
+                          "(larger values result in smaller cube files). You can provide 3 numbers (for X,Y,Z) or"// &
+                          " 1 number valid for all components.", &
+                          usage="STRIDE 1 1 1", n_var=-1, default_i_vals=(/2, 2, 2/), type_of_var=integer_t)
+      CALL section_add_keyword(print_key, keyword)
+      CALL keyword_release(keyword)
+
+      CALL keyword_create(keyword, name="UNITS", &
+                          description="Units of the volumetric file: Angstrom or Bohr.", &
+                          usage="UNITS BOHR", &
+                          default_i_val=embed_grid_bohr, &
+                          enum_c_vals=s2a("BOHR", "ANGSTROM"), &
+                          enum_desc=s2a("Atomic units: Bohr", "Metric units: Angstrom."), &
+                          enum_i_vals=(/embed_grid_bohr, embed_grid_angstrom/))
+      CALL section_add_keyword(print_key, keyword)
+      CALL keyword_release(keyword)
+
+      CALL section_add_subsection(section, print_key)
+      CALL section_release(print_key)
+
+   END SUBROUTINE create_print_simple_grid
 
 ! **************************************************************************************************
 !> \brief input section for optional parameters for RIGPW

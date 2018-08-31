@@ -25,26 +25,24 @@
     &END SCF
     &XC
       &XC_FUNCTIONAL
-        &BECKE97
-            PARAMETRIZATION  wB97X-V
-            SCALE_X 1.0
-            SCALE_C 1.0
-        &END 
+        &LIBXC
+          FUNCTIONAL HYB_GGA_XC_WB97X_V
+        &END LIBXC
       &END XC_FUNCTIONAL
       &HF
+        FRACTION 1.000
         &SCREENING
-           EPS_SCHWARZ 1.0E-3
+           EPS_SCHWARZ 1.0E-10
         &END
         &INTERACTION_POTENTIAL
            POTENTIAL_TYPE MIX_CL
-           SCALE_COULOMB   0.833
-           SCALE_LONGRANGE 0.167
+           SCALE_COULOMB   0.167
+           SCALE_LONGRANGE 0.833
            OMEGA 0.30
         &END
         &MEMORY
           MAX_MEMORY  10
         &END
-        FRACTION 0.167
       &END
       &vdW_POTENTIAL
          DISPERSION_FUNCTIONAL NON_LOCAL
