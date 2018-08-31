@@ -103,6 +103,7 @@ MODULE helium_types
 
       ! some useful constants
       !
+      REAL(KIND=dp) :: he_mass_au ! mass of helium 4 in electron masses
       REAL(KIND=dp) :: hb2m !< hbar squared over m for 4He in CP2k units
       REAL(KIND=dp) :: tau !< 1/(k_B T p) with T - He temperature, p - number of beads
       REAL(KIND=dp) :: wpref !< prefactor for calculating superfluid fraction from <(M*W)^2>

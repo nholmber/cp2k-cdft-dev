@@ -2,8 +2,8 @@
 [ "${BASH_SOURCE[0]}" ] && SCRIPT_NAME="${BASH_SOURCE[0]}" || SCRIPT_NAME=$0
 SCRIPT_DIR="$(cd "$(dirname "$SCRIPT_NAME")" && pwd -P)"
 
+libxc_ver=${libxc_ver:-4.0.3}
 source "${SCRIPT_DIR}"/common_vars.sh
-source "${SCRIPT_DIR}"/package_versions.sh
 source "${SCRIPT_DIR}"/tool_kit.sh
 source "${SCRIPT_DIR}"/signal_trap.sh
 
@@ -21,7 +21,7 @@ case "$with_libxc" in
         echo "==================== Installing LIBXC ===================="
         pkg_install_dir="${INSTALLDIR}/libxc-${libxc_ver}"
         install_lock_file="$pkg_install_dir/install_successful"
-        if [ -f "${install_lock_file}" ] ; then
+        if [[ $install_lock_file -nt $SCRIPT_NAME ]]; then
             echo "libxc-${libxc_ver} is already installed, skipping it."
         else
             if [ -f libxc-${libxc_ver}.tar.gz ] ; then

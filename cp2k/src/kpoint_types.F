@@ -159,6 +159,7 @@ MODULE kpoint_types
       INTEGER, DIMENSION(2)                   :: kp_range
       TYPE(cp_blacs_env_type), POINTER        :: blacs_env => Null()
       INTEGER, DIMENSION(:, :, :), POINTER    :: cell_to_index => Null()
+      INTEGER, DIMENSION(:, :), POINTER       :: index_to_cell => Null()
       TYPE(neighbor_list_set_p_type), &
          DIMENSION(:), POINTER                :: sab_nl => Null()
       ! environment
@@ -216,6 +217,10 @@ CONTAINS
 
       ALLOCATE (kpoint%cell_to_index(0:0, 0:0, 0:0))
       kpoint%cell_to_index(:, :, :) = 1
+
+      ALLOCATE (kpoint%index_to_cell(0:0, 0:0))
+      kpoint%index_to_cell(:, :) = 0
+
    END SUBROUTINE kpoint_create
 
 ! **************************************************************************************************
@@ -253,6 +258,7 @@ CONTAINS
          CALL cp_para_env_release(kpoint%para_env_inter_kp)
 
          IF (ASSOCIATED(kpoint%cell_to_index)) DEALLOCATE (kpoint%cell_to_index)
+         IF (ASSOCIATED(kpoint%index_to_cell)) DEALLOCATE (kpoint%index_to_cell)
 
          IF (ASSOCIATED(kpoint%kp_env)) THEN
             DO ik = 1, SIZE(kpoint%kp_env)

@@ -2,8 +2,8 @@
 [ "${BASH_SOURCE[0]}" ] && SCRIPT_NAME="${BASH_SOURCE[0]}" || SCRIPT_NAME=$0
 SCRIPT_DIR="$(cd "$(dirname "$SCRIPT_NAME")" && pwd -P)"
 
+libxsmm_ver=${libxsmm_ver:-1.9.0}
 source "${SCRIPT_DIR}"/common_vars.sh
-source "${SCRIPT_DIR}"/package_versions.sh
 source "${SCRIPT_DIR}"/tool_kit.sh
 source "${SCRIPT_DIR}"/signal_trap.sh
 
@@ -28,7 +28,7 @@ EOF
         fi
         pkg_install_dir="${INSTALLDIR}/libxsmm-${libxsmm_ver}"
         install_lock_file="$pkg_install_dir/install_successful"
-        if [ -f "${install_lock_file}" ] ; then
+        if [[ $install_lock_file -nt $SCRIPT_NAME ]]; then
             echo "libxsmm-${libxsmm_ver} is already installed, skipping it."
         else
             if [ "$libxsmm_ver" = "master" ] ; then
@@ -55,20 +55,16 @@ EOF
             # stage of building an executable that uses the libxsmm
             # library
             cd libxsmm-${libxsmm_ver}
-            # we rely on the jit, but as it is not available for SSE,
-            # we also generate a subset statically.
             make -j $NPROCS \
                  CXX=$CXX \
                  CC=$CC \
                  FC=$FC \
-                 MNK="1 4 5 6 8 9 13 16 17 22 23 24 26 32" \
                  PREFIX=${pkg_install_dir} \
                  > make.log 2>&1
             make -j $NPROCS \
                  CXX=$CXX \
                  CC=$CC \
                  FC=$FC \
-                 MNK="1 4 5 6 8 9 13 16 17 22 23 24 26 32" \
                  PREFIX=${pkg_install_dir} \
                  install > install.log 2>&1
             cd ..

@@ -2,8 +2,8 @@
 [ "${BASH_SOURCE[0]}" ] && SCRIPT_NAME="${BASH_SOURCE[0]}" || SCRIPT_NAME=$0
 SCRIPT_DIR="$(cd "$(dirname "$SCRIPT_NAME")" && pwd -P)"
 
+fftw_ver=${fftw_ver:-3.3.7}
 source "${SCRIPT_DIR}"/common_vars.sh
-source "${SCRIPT_DIR}"/package_versions.sh
 source "${SCRIPT_DIR}"/tool_kit.sh
 source "${SCRIPT_DIR}"/signal_trap.sh
 
@@ -22,7 +22,7 @@ case "$with_fftw" in
         echo "==================== Installing FFTW ===================="
         pkg_install_dir="${INSTALLDIR}/fftw-${fftw_ver}"
         install_lock_file="$pkg_install_dir/install_successful"
-        if [ -f "${install_lock_file}" ] ; then
+        if [[ $install_lock_file -nt $SCRIPT_NAME ]]; then
             echo "fftw-${fftw_ver} is already installed, skipping it."
         else
             if [ -f fftw-${fftw_ver}.tar.gz ] ; then

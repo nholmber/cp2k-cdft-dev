@@ -18,11 +18,32 @@ rsync --exclude="*~"          \
       --checksum              \
       /opt/cp2k-local/  /opt/cp2k-master/
 
+rsync --exclude="*~"          \
+      --exclude=".*/"         \
+      --exclude="*.pyc"       \
+      --ignore-times          \
+      --update                \
+      --verbose               \
+      --recursive             \
+      --checksum              \
+      /opt/cp2k-local/cp2k/tools/toolchain/  /opt/cp2k-toolchain/
+
+echo -e "\n========== Updating Toolchain =========="
+cd /opt/cp2k-toolchain/
+./install_cp2k_toolchain.sh --install-all --with-make=no
+
 echo -e "\n========== Compiling CP2K =========="
 source /opt/cp2k-toolchain/install/setup
 cd /opt/cp2k-master/cp2k/makefiles
 make -j VERSION=pdbg cp2k
-ln -fs /opt/cp2k-master/cp2k/exe/local/cp2k.pdbg /usr/bin/cp2k
+
+echo -e "\n========== Installing CP2K =========="
+cat > /usr/bin/cp2k << EndOfMessage
+#!/bin/bash -e
+source /opt/cp2k-toolchain/install/setup
+/opt/cp2k-master/cp2k/exe/local/cp2k.pdbg "\$@"
+EndOfMessage
+chmod +x /usr/bin/cp2k
 
 echo -e "\n========== Installing AiiDA-CP2K plugin =========="
 cd /opt/
