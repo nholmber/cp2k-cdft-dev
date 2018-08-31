@@ -76,7 +76,7 @@ CONTAINS
          res = 1
       CASE (outer_scf_s2_constraint)
          res = 1
-      CASE (outer_scf_becke_constraint, outer_scf_cdft_constraint)
+      CASE (outer_scf_cdft_constraint)
          IF (PRESENT(cdft_control)) THEN
             res = SIZE(cdft_control%target)
          ELSE
@@ -154,14 +154,6 @@ CONTAINS
          scf_env%outer_scf%variables(:, ihistory) = s2_restraint_control%strength
          scf_env%outer_scf%gradient(:, ihistory) = s2_restraint_control%s2_order_p- &
                                                    s2_restraint_control%target
-      CASE (outer_scf_becke_constraint)
-         CPASSERT(dft_control%qs_control%becke_constraint)
-         becke_control => dft_control%qs_control%becke_control
-         DO ivar = 1, SIZE(scf_env%outer_scf%gradient, 1)
-            scf_env%outer_scf%variables(ivar, ihistory) = becke_control%strength(ivar)
-            scf_env%outer_scf%gradient(ivar, ihistory) = becke_control%becke_order_p(ivar)- &
-                                                         becke_control%target(ivar)
-         END DO
       CASE (outer_scf_cdft_constraint)
          CPASSERT(dft_control%qs_control%cdft)
          cdft_control => dft_control%qs_control%cdft_control
@@ -429,11 +421,6 @@ CONTAINS
       CASE (outer_scf_s2_constraint)
          s2_restraint_control => dft_control%qs_control%s2_restraint_control
          s2_restraint_control%strength = scf_env%outer_scf%variables(1, ihistory+1)
-      CASE (outer_scf_becke_constraint)
-         becke_control => dft_control%qs_control%becke_control
-         becke_control%strength(:) = scf_env%outer_scf%variables(:, ihistory+1)
-         IF (dft_control%qs_control%cdft) &
-            dft_control%qs_control%cdft_control%strength(:) = becke_control%strength(:)
       CASE (outer_scf_cdft_constraint)
          cdft_control => dft_control%qs_control%cdft_control
          cdft_control%strength(:) = scf_env%outer_scf%variables(:, ihistory+1)
@@ -502,9 +489,6 @@ CONTAINS
       CASE (outer_scf_s2_constraint)
          outer_scf_history(1, ivec) = &
             dft_control%qs_control%s2_restraint_control%strength
-      CASE (outer_scf_becke_constraint)
-         outer_scf_history(:, ivec) = &
-            dft_control%qs_control%becke_control%strength(:)
       CASE (outer_scf_cdft_constraint)
          outer_scf_history(:, ivec) = &
             dft_control%qs_control%cdft_control%strength(:)
@@ -533,10 +517,6 @@ CONTAINS
          ddapc_restraint_control%strength = extrapolation(1)
       CASE (outer_scf_s2_constraint)
          dft_control%qs_control%s2_restraint_control%strength = extrapolation(1)
-      CASE (outer_scf_becke_constraint)
-         dft_control%qs_control%becke_control%strength(:) = extrapolation(:)
-         IF (dft_control%qs_control%cdft) &
-            dft_control%qs_control%cdft_control%strength(:) = dft_control%qs_control%becke_control%strength(:)
       CASE (outer_scf_cdft_constraint)
          dft_control%qs_control%cdft_control%strength(:) = extrapolation(:)
       CASE (outer_scf_basis_center_opt)

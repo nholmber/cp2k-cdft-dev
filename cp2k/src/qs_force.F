@@ -196,13 +196,9 @@ CONTAINS
       END IF
       CALL zero_qs_force(force)
 
-      ! Check if Becke potential is needed and save it until forces have been calculated
-      IF (dft_control%qs_control%becke_constraint) &
-         dft_control%qs_control%becke_control%save_pot = .TRUE.
-
+      ! Check if CDFT potential is needed and save it until forces have been calculated
       IF (dft_control%qs_control%cdft) THEN
-         IF (dft_control%qs_control%cdft_control%type == outer_scf_hirshfeld_constraint) &
-            dft_control%qs_control%cdft_control%save_pot = .TRUE.
+         dft_control%qs_control%cdft_control%save_pot = .TRUE.
       END IF
 
       ! Set parameter for P screening with MP2

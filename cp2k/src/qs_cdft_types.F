@@ -120,21 +120,13 @@ MODULE qs_cdft_types
    END TYPE becke_vector_buffer
 
    TYPE becke_constraint_type
-      CHARACTER(LEN=default_path_length)   :: fragment_a_fname, &
-                                              fragment_b_fname, &
-                                              fragment_a_spin_fname, &
-                                              fragment_b_spin_fname
-      INTEGER                              :: ref_count, &
-                                              natoms, &
-                                              cavity_shape, cutoff_type, &
+      INTEGER                              :: cavity_shape, cutoff_type, &
                                               confine_bounds(2)
-      INTEGER, POINTER, DIMENSION(:)       :: atoms
-      LOGICAL                              :: need_pot, save_pot, in_memory, &
-                                              adjust, atomic_charges, cavity_confine, &
+      LOGICAL                              :: in_memory, &
+                                              adjust, cavity_confine, &
                                               should_skip, print_cavity, &
                                               external_control, first_iteration, &
-                                              fragment_density, fragments_integrated, &
-                                              use_bohr, transfer_pot, flip_fragment(2)
+                                              use_bohr, transfer_pot
       LOGICAL, POINTER, DIMENSION(:)       :: is_constraint
       REAL(KIND=dp)                        :: rglobal, &
                                               rcavity, eps_cavity
@@ -241,7 +233,35 @@ MODULE qs_cdft_types
       TYPE(cdft_opt_type), POINTER :: cdft_opt_control
    END TYPE outer_scf_control_type
 
+   ! To build multiple constraints
+   TYPE cdft_group_type
+      ! Atoms of this constraint group
+      INTEGER, POINTER, DIMENSION(:)       :: atoms
+      ! Constraint type: charge constraint, magnetization density constraint, or spin channel specific constraint
+      INTEGER                              :: constraint_type
+      ! Is the constraint fragment based
+      LOGICAL                              :: is_fragment_constraint
+      ! Temporary array holding a component of the weight function gradient that only includes
+      ! terms defined on constraint atoms
+      REAL(kind=dp), ALLOCATABLE, &
+         DIMENSION(:, :)                   :: d_sum_const_dR
+      ! Coefficients that determine how to sum up the atoms to form the constraint
+      REAL(KIND=dp), POINTER, DIMENSION(:) :: coeff
+      ! Result of integration dw/dR * rho_r dr where dw/dR is the weight function gradient
+      REAL(KIND=dp), POINTER, &
+         DIMENSION(:, :)                   :: integrated
+      ! Atomic gradients of the weight function at every grid point
+      REAL(KIND=dp), POINTER, &
+         DIMENSION(:, :, :, :)             :: gradients
+      ! The weight function of this constraint group
+      TYPE(pw_p_type)                      :: weight
+   END TYPE cdft_group_type
+
    TYPE cdft_control_type
+      CHARACTER(LEN=default_path_length)   :: fragment_a_fname, &
+                                              fragment_b_fname, &
+                                              fragment_a_spin_fname, &
+                                              fragment_b_spin_fname
       INTEGER                              :: ref_count, total_steps, TYPE, &
                                               precond_freq, nreused, max_reuse, &
                                               purge_freq, nbad_conv, purge_offset, &
@@ -249,7 +269,9 @@ MODULE qs_cdft_types
       INTEGER, DIMENSION(:), ALLOCATABLE   :: constraint_type
       LOGICAL                              :: need_pot, save_pot, do_et, &
                                               reuse_precond, purge_history, &
-                                              should_purge, calculate_metric
+                                              should_purge, calculate_metric, &
+                                              atomic_charges, fragment_density, &
+                                              fragments_integrated, flip_fragment(2)
       LOGICAL, DIMENSION(:), ALLOCATABLE   :: is_fragment_constraint
       REAL(KIND=dp), DIMENSION(:), POINTER :: strength, TARGET, value
       TYPE(cp_1d_r_p_type), ALLOCATABLE, &
@@ -259,10 +281,12 @@ MODULE qs_cdft_types
       TYPE(dbcsr_p_type)                   :: matrix_s
       TYPE(dbcsr_p_type), DIMENSION(:), &
          POINTER                           :: wmat, matrix_p
+      TYPE(becke_constraint_type), POINTER :: becke_control
       TYPE(hirshfeld_constraint_type), &
          POINTER                           :: hirshfeld_control
       TYPE(outer_scf_control_type)         :: constraint_control, ot_control
-      TYPE(pw_p_type)                      :: weight
+      TYPE(cdft_group_type), POINTER, &
+         DIMENSION(:)                      :: group
       TYPE(qs_outer_scf_type)              :: constraint
    END TYPE cdft_control_type
 
@@ -457,9 +481,23 @@ CONTAINS
       NULLIFY (cdft_control%strength)
       NULLIFY (cdft_control%target)
       NULLIFY (cdft_control%value)
+      NULLIFY (becke_control%atoms)
+      NULLIFY (becke_control%group)
+      NULLIFY (becke_control%charge)
+      NULLIFY (becke_control%is_constraint)
+      NULLIFY (becke_control%charges_fragment)
+      NULLIFY (becke_control%fragments)
+      cdft_control%natoms = 0
       cdft_control%type = outer_scf_none
       cdft_control%need_pot = .TRUE.
       cdft_control%save_pot = .FALSE.
+      cdft_control%transfer_pot = .FALSE.
+      cdft_control%atomic_charges = .FALSE.
+      cdft_control%first_iteration = .TRUE.
+      cdft_control%fragment_density = .FALSE.
+      cdft_control%fragments_integrated = .FALSE.
+      cdft_control%flip_fragment = .FALSE.
+      cdft_control%external_control = .FALSE.
       cdft_control%do_et = .FALSE.
       cdft_control%reuse_precond = .FALSE.
       cdft_control%nreused = 0
@@ -473,8 +511,9 @@ CONTAINS
       cdft_control%purge_offset = 0
       cdft_control%istep = 0
       cdft_control%ienergy = 0
+      NULLIFY (cdft_control%becke_control)
+      CALL becke_control_create(qs_control%becke_control)
       NULLIFY (cdft_control%hirshfeld_control)
-      NULLIFY (cdft_control%weight%pw)
       NULLIFY (cdft_control%wmat)
       NULLIFY (cdft_control%matrix_s%matrix)
       NULLIFY (cdft_control%mo_coeff)

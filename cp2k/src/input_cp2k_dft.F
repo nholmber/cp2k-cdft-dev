@@ -146,7 +146,7 @@ MODULE input_cp2k_dft
    PUBLIC :: create_bsse_section, create_qs_section
    PUBLIC :: create_scf_section
    PUBLIC :: create_interp_section, create_localize_section
-   PUBLIC :: create_becke_constraint_section, create_ddapc_restraint_section
+   PUBLIC :: create_ddapc_restraint_section
    PUBLIC :: create_mgrid_section
 
 CONTAINS
@@ -3163,10 +3163,6 @@ CONTAINS
       CALL section_add_subsection(section, subsection)
       CALL section_release(subsection)
 
-      CALL create_becke_constraint_section(subsection, "BECKE_CONSTRAINT")
-      CALL section_add_subsection(section, subsection)
-      CALL section_release(subsection)
-
       CALL create_cdft_control_section(subsection)
       CALL section_add_subsection(section, subsection)
       CALL section_release(subsection)
@@ -4109,47 +4105,22 @@ CONTAINS
    END SUBROUTINE create_ddapc_restraint_section
 
 ! **************************************************************************************************
-!> \brief ...
-!> \param section ...
-!> \param section_name ...
+!> \brief Create input section to define CDFT constraint settings specific to Becke weight function.
+!> \param section the section to create
 ! **************************************************************************************************
-   SUBROUTINE create_becke_constraint_section(section, section_name)
+   SUBROUTINE create_becke_constraint_section(section)
       TYPE(section_type), POINTER                        :: section
-      CHARACTER(len=*), INTENT(in)                       :: section_name
 
       CHARACTER(len=*), PARAMETER :: routineN = 'create_becke_constraint_section', &
          routineP = moduleN//':'//routineN
 
       TYPE(keyword_type), POINTER                        :: keyword
-      TYPE(section_type), POINTER                        :: group_section, print_key
 
-      NULLIFY (keyword, print_key, group_section)
+      NULLIFY (keyword)
       CPASSERT(.NOT. ASSOCIATED(section))
-      CALL section_create(section, TRIM(ADJUSTL(section_name)), &
-                          description="Use the Becke weight population to enforce a charge/spin density constraint. "// &
-                          "The constraint is defined in the section ATOM_GROUP.", &
-                          n_keywords=26, n_subsections=1, repeats=.FALSE., &
-                          citations=(/Becke1988b/))
-
-      CALL keyword_create(keyword, name="STRENGTH", &
-                          description="Constraint force constants (Lagrangian multipliers). "// &
-                          "Give one value per constraint group.", &
-                          type_of_var=real_t, n_var=-1, &
-                          default_r_val=0.0_dp)
-      CALL section_add_keyword(section, keyword)
-      CALL keyword_release(keyword)
-
-      CALL keyword_create(keyword, name="TARGET", &
-                          description="Constraint target values. Give one value per constraint group. "// &
-                          "The target value is the desired number of valence electrons, spin moment, or the number of "// &
-                          "alpha or beta electrons on the atoms that define the constraint, suitably multiplied by "// &
-                          "atomic coefficients in case a relative constraint between two sets of atoms is employed. "// &
-                          "Note that core charges are not subtracted from the target value.", &
-                          usage="TARGET {real}", repeats=.FALSE., &
-                          type_of_var=real_t, n_var=-1, &
-                          default_r_val=0.0_dp)
-      CALL section_add_keyword(section, keyword)
-      CALL keyword_release(keyword)
+      CALL section_create(section, "BECKE_CONSTRAINT", &
+                          description="Define settings influencing the construction of the Becke weight function.",&
+                          n_keywords=13, repeats=.FALSE., citations=(/Becke1988b/))
 
       CALL keyword_create(keyword, name="ADJUST_SIZE", &
                           description="Adjust Becke cell boundaries with atomic"// &
@@ -4174,18 +4145,6 @@ CONTAINS
                           description="If grid point is farther than GLOBAL_CUTOFF from all constraint atoms, "// &
                           "move directly to next grid point, thus saving computational resources.", &
                           usage="SHOULD_SKIP", &
-                          default_l_val=.FALSE., lone_keyword_l_val=.TRUE.)
-      CALL section_add_keyword(section, keyword)
-      CALL keyword_release(keyword)
-
-      CALL keyword_create(keyword, name="ATOMIC_CHARGES", &
-                          description="Calculate atomic Becke charges (Z = Z_core - Z_becke)."// &
-                          " With fragment based constraints, charges are relative to the fragment"// &
-                          " reference state i.e. Z = Z_becke - Z_frag_reference. Note:"// &
-                          " if the number of atoms is greater than the default"// &
-                          " pw_pool max cache, calculation of atomic charges"// &
-                          " will prompt a warning during deallocation of atomic grids.", &
-                          usage="ATOMIC_CHARGES", &
                           default_l_val=.FALSE., lone_keyword_l_val=.TRUE.)
       CALL section_add_keyword(section, keyword)
       CALL keyword_release(keyword)
@@ -4286,6 +4245,93 @@ CONTAINS
       CALL section_add_keyword(section, keyword)
       CALL keyword_release(keyword)
 
+   END SUBROUTINE create_becke_constraint_section
+
+! **************************************************************************************************
+!> \brief Creates the input section for defining CDFT constraints.
+!> \param section the section to create
+! **************************************************************************************************
+   SUBROUTINE create_cdft_control_section(section)
+      TYPE(section_type), POINTER                        :: section
+
+      CHARACTER(len=*), PARAMETER :: routineN = 'create_cdft_control_section', &
+         routineP = moduleN//':'//routineN
+
+      TYPE(keyword_type), POINTER                        :: keyword
+      TYPE(section_type), POINTER                        :: subsection, group_section, &
+                                                            print_key
+
+      NULLIFY (keyword, subsection, group_section, print_key)
+
+      CPASSERT(.NOT. ASSOCIATED(section))
+      CALL section_create(section, "CDFT", &
+                          description="Parameters needed to set up a constrained DFT calculation."// &
+                          " Each repetition of the ATOM_GROUP section defines a new constraint."// &
+                          " The constraint(s) is (are) converged in a separate external SCF loop with settings"// &
+                          " read from the OUTER_SCF section. Supported constraints: Gaussian Hirshfeld (partial)"// &
+                          " and Becke.", n_keywords=8, n_subsections=2, &
+                          repeats=.FALSE., citations=(/Holmberg2017/))
+
+      NULLIFY (subsection, keyword)
+      CALL create_outer_scf_section(subsection)
+      CALL section_add_subsection(section, subsection)
+      CALL section_release(subsection)
+
+      CALL create_becke_constraint_section(subsection)
+      CALL section_add_subsection(section, subsection)
+      CALL section_release(subsection)
+
+      CALL create_hirshfeld_constraint_section(subsection)
+      CALL section_add_subsection(section, subsection)
+      CALL section_release(subsection)
+
+      CALL keyword_create(keyword, name="TYPE_OF_CONSTRAINT", &
+                          description="Specifies the type of constraint used.", &
+                          usage="TYPE_OF_CONSTRAINT (NONE|HIRSHFELD|BECKE)", &
+                          enum_c_vals=s2a("NONE", "HIRSHFELD", "BECKE"), &
+                          enum_i_vals=(/outer_scf_none, outer_scf_hirshfeld_constraint, &
+                                        outer_scf_becke_constraint/), &
+                          enum_desc=s2a("No constraint (disables section).", &
+                                        "Hirshfeld-type constraint defined by constraint atom centered spherical Gaussians"// &
+                                        " Partial implementation: no forces or coupling. Requires corresponding section.", &
+                                        "Becke constraint. Requires corresponding section."), &
+                          citations=(/Becke1988b/), &
+                          default_i_val=outer_scf_none)
+      CALL section_add_keyword(section, keyword)
+      CALL keyword_release(keyword)
+
+      CALL keyword_create(keyword, name="STRENGTH", &
+                          description="Constraint force constants (Lagrange multipliers). "// &
+                          "Give one value per constraint group.", &
+                          type_of_var=real_t, n_var=-1, &
+                          default_r_val=0.0_dp)
+      CALL section_add_keyword(section, keyword)
+      CALL keyword_release(keyword)
+
+      CALL keyword_create(keyword, name="TARGET", &
+                          description="Constraint target values. Give one value per constraint group. "// &
+                          "The target value is the desired number of valence electrons, spin moment, or the number of "// &
+                          "alpha or beta electrons on the atoms that define the constraint, suitably multiplied by "// &
+                          "atomic coefficients in case a relative constraint between two sets of atoms is employed. "// &
+                          "Note that core charges are not subtracted from the target value.", &
+                          usage="TARGET {real}", repeats=.FALSE., &
+                          type_of_var=real_t, n_var=-1, &
+                          default_r_val=0.0_dp)
+      CALL section_add_keyword(section, keyword)
+      CALL keyword_release(keyword)
+
+      CALL keyword_create(keyword, name="ATOMIC_CHARGES", &
+                          description="Calculate atomic CDFT charges with selected weight function"// &
+                          " (Z = Z_core - Z_CDFT). With fragment based constraints, charges are"// &
+                          " relative to the fragment reference state i.e. Z = Z_CDFT - "// &
+                          " Z_frag_reference. Note: if the number of atoms is greater than the"// &
+                          " default pw_pool max cache, calculation of atomic Becke charges"// &
+                          " will prompt harmless warnings during deallocation of atomic grids.", &
+                          usage="ATOMIC_CHARGES", &
+                          default_l_val=.FALSE., lone_keyword_l_val=.TRUE.)
+      CALL section_add_keyword(section, keyword)
+      CALL keyword_release(keyword)
+
       CALL keyword_create(keyword, name="FRAGMENT_A_FILE_NAME", variants=(/"FRAGMENT_A_FILE"/), &
                           description="Name of the reference total electron density cube file for fragment A."// &
                           " May include a path. The reference electron density needs to be outputted"// &
@@ -4351,7 +4397,7 @@ CONTAINS
       CALL section_release(print_key)
 
       CALL section_create(group_section, "ATOM_GROUP", &
-                          description="Define a group of atoms for use in a Becke constraint. Each repetition of "// &
+                          description="Define a group of atoms for use in a CDFT constraint. Each repetition of "// &
                           "this section creates a new constraint.", &
                           n_keywords=4, n_subsections=0, repeats=.TRUE.)
 
@@ -4363,7 +4409,7 @@ CONTAINS
       CALL keyword_release(keyword)
 
       CALL keyword_create(keyword, name="COEFF", &
-                          description="Defines coefficients for the atoms in the list of atoms. Accepts value +/-1.0.", &
+                          description="Defines coefficients for the atoms in the list of atoms. Accepts values +/-1.0.", &
                           usage="COEFF 1.0 -1.0", repeats=.TRUE., &
                           type_of_var=real_t, n_var=-1)
       CALL section_add_keyword(group_section, keyword)
@@ -4401,9 +4447,9 @@ CONTAINS
       CALL section_release(group_section)
 
       CALL section_create(group_section, "DUMMY_ATOMS", &
-                          description="Define an extra group of atoms for which only atomic Becke charges "// &
+                          description="Define an extra group of atoms for which only atomic CDFT charges "// &
                           "should be computed. The section cannot contain any constraint "// &
-                          "atoms that were defined in section ATOM_GROUP.", &
+                          "atoms that were included in section ATOM_GROUP.", &
                           n_keywords=1, n_subsections=0, repeats=.TRUE.)
 
       CALL keyword_create(keyword, name="ATOMS", &
@@ -4415,54 +4461,6 @@ CONTAINS
 
       CALL section_add_subsection(section, group_section)
       CALL section_release(group_section)
-
-   END SUBROUTINE create_becke_constraint_section
-
-! **************************************************************************************************
-!> \brief ...
-!> \param section ...
-! **************************************************************************************************
-   SUBROUTINE create_cdft_control_section(section)
-      TYPE(section_type), POINTER                        :: section
-
-      CHARACTER(len=*), PARAMETER :: routineN = 'create_cdft_control_section', &
-         routineP = moduleN//':'//routineN
-
-      TYPE(keyword_type), POINTER                        :: keyword
-      TYPE(section_type), POINTER                        :: subsection
-
-      NULLIFY (keyword, subsection)
-
-      CPASSERT(.NOT. ASSOCIATED(section))
-      CALL section_create(section, "CDFT", &
-                          description="Parameters needed to set up a constrained DFT calculation."// &
-                          " The constraint(s) is (are) converged in a separate external SCF loop with settings"// &
-                          " read from the OUTER_SCF section. Supported constraints: Gaussian Hirshfeld (partial)"// &
-                          " and Becke.", n_keywords=8, n_subsections=2, &
-                          repeats=.FALSE., citations=(/Holmberg2017/))
-
-      NULLIFY (subsection, keyword)
-      CALL create_outer_scf_section(subsection)
-      CALL section_add_subsection(section, subsection)
-      CALL section_release(subsection)
-
-      CALL create_hirshfeld_constraint_section(subsection)
-      CALL section_add_subsection(section, subsection)
-      CALL section_release(subsection)
-
-      CALL keyword_create(keyword, name="TYPE_OF_CONSTRAINT", &
-                          description="Specifies the type of constraint used.", &
-                          usage="TYPE_OF_CONSTRAINT (NONE|HIRSHFELD|BECKE)", &
-                          enum_c_vals=s2a("NONE", "HIRSHFELD", "BECKE"), &
-                          enum_i_vals=(/outer_scf_none, outer_scf_hirshfeld_constraint, &
-                                        outer_scf_becke_constraint/), &
-                          enum_desc=s2a("No constraint (disables section).", &
-                                        "Hirshfeld-type constraint defined by constraint atom centered spherical Gaussians"// &
-                                        " Partial implementation: no forces or coupling. Requires corresponding section.", &
-                                        "Becke constraint. Requires corresponding section in &QS."), &
-                          default_i_val=outer_scf_none)
-      CALL section_add_keyword(section, keyword)
-      CALL keyword_release(keyword)
 
       CALL keyword_create(keyword, name="REUSE_PRECOND", &
                           description="Reuse a previously built OT preconditioner between subsequent CDFT SCF iterations "// &
@@ -5452,21 +5450,18 @@ CONTAINS
                           description="Specifies which kind of outer SCF should be employed", &
                           usage="TYPE DDAPC_CONSTRAINT ", &
                           default_i_val=outer_scf_none, &
-                          enum_c_vals=s2a("DDAPC_CONSTRAINT", "S2_CONSTRAINT", "BECKE_CONSTRAINT", &
+                          enum_c_vals=s2a("DDAPC_CONSTRAINT", "S2_CONSTRAINT", &
                                           "BASIS_CENTER_OPT", "CDFT_CONSTRAINT", "NONE"), &
                           enum_desc=s2a("Enforce a constraint on the DDAPC, requires the corresponding section", &
                                         "Enforce a constraint on the S2, requires the corresponding section", &
-                                        "Enforce a constraint on the Becke weight population, "// &
-                                        "requires the corresponding section", &
                                         "Optimize positions of basis functions, if atom types FLOATING_BASIS_CENTER "// &
                                         " are defined", &
-                                        "Enforce a constraint on a generic CDFT weight population, "// &
-                                        "requires the corresponding section"// &
-                                        " which determines the type of weight used "// &
-                                        "(currently only Gaussian Hirshfeld supported)", &
+                                        "Enforce a constraint on a generic CDFT weight population. "// &
+                                        "Requires the corresponding section QS&CDFT"// &
+                                        " which determines the type of weight used.", &
                                         "Do nothing in the outer loop, useful for resetting the inner loop,"), &
                           enum_i_vals=(/outer_scf_ddapc_constraint, outer_scf_s2_constraint, &
-                                        outer_scf_becke_constraint, outer_scf_basis_center_opt, &
+                                        outer_scf_basis_center_opt,3 &
                                         outer_scf_cdft_constraint, outer_scf_none/))
       CALL section_add_keyword(section, keyword)
       CALL keyword_release(keyword)

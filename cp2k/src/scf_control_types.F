@@ -21,7 +21,7 @@ MODULE scf_control_types
    USE cp_units,                        ONLY: cp_unit_from_cp2k
    USE input_constants,                 ONLY: &
         atomic_guess, core_guess, diag_ot, direct_p_mix, general_roks, high_spin_roks, &
-        ot_algo_taylor_or_diag, outer_scf_basis_center_opt, outer_scf_becke_constraint, &
+        ot_algo_taylor_or_diag, outer_scf_basis_center_opt, outer_scf_cdft_constraint, &
         outer_scf_ddapc_constraint, outer_scf_none, outer_scf_optimizer_bisect, &
         outer_scf_optimizer_broyden, outer_scf_optimizer_diis, outer_scf_optimizer_newton, &
         outer_scf_optimizer_newton_ls, outer_scf_optimizer_none, outer_scf_optimizer_sd, &
@@ -492,44 +492,9 @@ CONTAINS
          CPABORT("SCF_GUESS CORE is not supported for OT")
       END IF
 
+      ! Outer SCF subsection
       outer_scf_section => section_vals_get_subs_vals(scf_section, "OUTER_SCF")
-      CALL section_vals_val_get(outer_scf_section, "_SECTION_PARAMETERS_", &
-                                l_val=scf_control%outer_scf%have_scf)
-      IF (scf_control%outer_scf%have_scf) THEN
-         CALL section_vals_val_get(outer_scf_section, "EPS_SCF", &
-                                   r_val=scf_control%outer_scf%eps_scf)
-         CALL section_vals_val_get(outer_scf_section, "STEP_SIZE", &
-                                   r_val=scf_control%outer_scf%step_size, explicit=exists)
-         CALL section_vals_val_get(outer_scf_section, "DIIS_BUFFER_LENGTH", &
-                                   i_val=scf_control%outer_scf%diis_buffer_length)
-         CALL section_vals_val_get(outer_scf_section, "BISECT_TRUST_COUNT", &
-                                   i_val=scf_control%outer_scf%bisect_trust_count)
-         CALL section_vals_val_get(outer_scf_section, "TYPE", &
-                                   i_val=scf_control%outer_scf%type)
-         CALL section_vals_val_get(outer_scf_section, "MAX_SCF", &
-                                   i_val=scf_control%outer_scf%max_scf)
-         CALL section_vals_val_get(outer_scf_section, "EXTRAPOLATION_ORDER", &
-                                   i_val=scf_control%outer_scf%extrapolation_order)
-         CALL section_vals_val_get(outer_scf_section, "OPTIMIZER", &
-                                   i_val=scf_control%outer_scf%optimizer)
-         ! Optimizer specific initializations
-         SELECT CASE (scf_control%outer_scf%optimizer)
-         CASE DEFAULT
-            ! Do nothing
-         CASE (outer_scf_optimizer_broyden, outer_scf_optimizer_newton, &
-               outer_scf_optimizer_newton_ls)
-            ! CDFT optimizer -> read CDFT_OPT section
-            CALL cdft_opt_type_create(scf_control%outer_scf%cdft_opt_control)
-            CALL cdft_opt_type_read(scf_control%outer_scf%cdft_opt_control, &
-                                    outer_scf_section)
-            IF (exists) THEN
-               scf_control%outer_scf%cdft_opt_control%newton_step = ABS(scf_control%outer_scf%step_size)
-               ! Permanent copy needed in case line search is performed
-               scf_control%outer_scf%cdft_opt_control%newton_step_save = &
-                  scf_control%outer_scf%cdft_opt_control%newton_step
-            END IF
-         END SELECT
-      END IF
+      CALL outer_scf_read_parameters(scf_control%outer_scf, outer_scf_section)
 
       smear_section => section_vals_get_subs_vals(scf_section, "SMEAR")
       CALL init_smear(scf_control%smear)
@@ -548,6 +513,67 @@ CONTAINS
       CALL timestop(handle)
 
    END SUBROUTINE scf_c_read_parameters
+
+! **************************************************************************************************
+!> \brief reads the parameters of the outer_scf section into the given outer_scf
+!> \param outer_scf the object that wil contain the values read
+!> \param outer_scf_section the input section
+!> \par History
+!>      09.2018 created by separating from scf_c_read_parameters [Nico Holmberg]
+!> \author Nico Holmberg
+! **************************************************************************************************
+   SUBROUTINE outer_scf_read_parameters(outer_scf, outer_scf_section)
+
+      TYPE(outer_scf_control_type), POINTER              :: outer_scf
+      TYPE(section_vals_type), POINTER                   :: outer_scf_section
+
+      CHARACTER(LEN=*), PARAMETER :: routineN = 'outer_scf_read_parameters', &
+         routineP = moduleN//':'//routineN
+
+      LOGICAL                                            :: exists
+
+      CPASSERT(ASSOCIATED(scf_control))
+      CPASSERT(scf_control%ref_count > 0)
+
+      CALL section_vals_val_get(outer_scf_section, "_SECTION_PARAMETERS_", &
+                                l_val=outer_scf%have_scf)
+      IF (outer_scf%have_scf) THEN
+         CALL section_vals_val_get(outer_scf_section, "EPS_SCF", &
+                                   r_val=outer_scf%eps_scf)
+         CALL section_vals_val_get(outer_scf_section, "STEP_SIZE", &
+                                   r_val=outer_scf%step_size, explicit=exists)
+         CALL section_vals_val_get(outer_scf_section, "DIIS_BUFFER_LENGTH", &
+                                   i_val=outer_scf%diis_buffer_length)
+         CALL section_vals_val_get(outer_scf_section, "BISECT_TRUST_COUNT", &
+                                   i_val=outer_scf%bisect_trust_count)
+         CALL section_vals_val_get(outer_scf_section, "TYPE", &
+                                   i_val=outer_scf%type)
+         CALL section_vals_val_get(outer_scf_section, "MAX_SCF", &
+                                   i_val=outer_scf%max_scf)
+         CALL section_vals_val_get(outer_scf_section, "EXTRAPOLATION_ORDER", &
+                                   i_val=outer_scf%extrapolation_order)
+         CALL section_vals_val_get(outer_scf_section, "OPTIMIZER", &
+                                   i_val=outer_scf%optimizer)
+         ! Optimizer specific initializations
+         SELECT CASE (outer_scf%optimizer)
+         CASE DEFAULT
+            ! Do nothing
+         CASE (outer_scf_optimizer_broyden, outer_scf_optimizer_newton, &
+               outer_scf_optimizer_newton_ls)
+            ! CDFT optimizer -> read CDFT_OPT section
+            CALL cdft_opt_type_create(outer_scf%cdft_opt_control)
+            CALL cdft_opt_type_read(outer_scf%cdft_opt_control, &
+                                    outer_scf_section)
+            IF (exists) THEN
+               outer_scf%cdft_opt_control%newton_step = ABS(outer_scf%step_size)
+               ! Permanent copy needed in case line search is performed
+               outer_scf%cdft_opt_control%newton_step_save = &
+                  outer_scf%cdft_opt_control%newton_step
+            END IF
+         END SELECT
+      END IF
+
+   END SUBROUTINE outer_scf_read_parameters
 
 ! **************************************************************************************************
 !> \brief ...
@@ -752,10 +778,10 @@ CONTAINS
                   WRITE (output_unit, '(T25,A)') "DDAPC constraint enforced"
                CASE (outer_scf_s2_constraint)
                   WRITE (output_unit, '(T25,A)') "S2 constraint enforced"
-               CASE (outer_scf_becke_constraint)
-                  WRITE (output_unit, '(T25,A)') "Becke weight population constraint enforced"
                CASE (outer_scf_basis_center_opt)
                   WRITE (output_unit, '(T25,A)') "Floating basis function optimization enforced"
+               CASE (outer_scf_cdft_constraint)
+                  CPABORT("CDFT constraints must be defined in QS&CDFT")
                CASE DEFAULT
                   CPABORT("")
                END SELECT
@@ -775,8 +801,7 @@ CONTAINS
                      scf_control%outer_scf%diis_buffer_length
                CASE (outer_scf_optimizer_broyden, outer_scf_optimizer_newton, &
                      outer_scf_optimizer_newton_ls)
-                  CALL cdft_opt_type_write(scf_control%outer_scf%cdft_opt_control, &
-                                           scf_control%outer_scf%optimizer, output_unit)
+                  CPABORT("Selected optimizer only compatible with CDFT")
                CASE (outer_scf_optimizer_secant)
                   WRITE (output_unit, '(T25,A)') "Optimization with the secant method"
                CASE DEFAULT

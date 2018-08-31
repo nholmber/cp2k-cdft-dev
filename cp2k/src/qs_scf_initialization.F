@@ -323,10 +323,6 @@ CONTAINS
 
       NULLIFY (outer_scf_history, gradient_history, variable_history)
       CALL get_qs_env(qs_env=qs_env, do_kpoints=do_kpoints)
-      ! Check only one constraint section is active
-      IF (dft_control%qs_control%becke_constraint .AND. &
-          dft_control%qs_control%cdft_control%type == outer_scf_hirshfeld_constraint) &
-         CPABORT("Only one constraint can be active simultaneously")
       ! Test kpoints
       IF (do_kpoints) &
          CPABORT("CDFT calculation not possible with kpoints")
@@ -343,12 +339,7 @@ CONTAINS
                                                     dft_control%qs_control%cdft_control)
          ELSE
             ! First iteration: scf_control has not yet been updated
-            SELECT CASE (dft_control%qs_control%cdft_control%type)
-            CASE (outer_scf_becke_constraint)
-               nvariables = SIZE(dft_control%qs_control%becke_control%target)
-            CASE (outer_scf_hirshfeld_constraint)
-               nvariables = SIZE(dft_control%qs_control%cdft_control%target)
-            END SELECT
+            nvariables = SIZE(dft_control%qs_control%cdft_control%target)
          END IF
          ALLOCATE (dft_control%qs_control%cdft_control%constraint%variables(nvariables, nhistory))
          ALLOCATE (dft_control%qs_control%cdft_control%constraint%count(nhistory))
@@ -372,29 +363,8 @@ CONTAINS
             dft_control%qs_control%cdft_control%ot_control%bisect_trust_count = scf_control%outer_scf%bisect_trust_count
             CALL cdft_opt_type_copy(dft_control%qs_control%cdft_control%ot_control%cdft_opt_control, &
                                     scf_control%outer_scf%cdft_opt_control)
-            nvariables = 1
-            ! Constraint specific initializations
-            IF (dft_control%qs_control%becke_constraint) THEN
-               nvariables = SIZE(dft_control%qs_control%becke_control%target)
-               IF (.NOT. ASSOCIATED(dft_control%qs_control%cdft_control%target)) &
-                  ALLOCATE (dft_control%qs_control%cdft_control%target(nvariables))
-               IF (.NOT. ASSOCIATED(dft_control%qs_control%cdft_control%value)) &
-                  ALLOCATE (dft_control%qs_control%cdft_control%value(nvariables))
-               IF (.NOT. ASSOCIATED(dft_control%qs_control%cdft_control%strength)) &
-                  ALLOCATE (dft_control%qs_control%cdft_control%strength(nvariables))
-               dft_control%qs_control%cdft_control%target = dft_control%qs_control%becke_control%target
-               IF (.NOT. ALLOCATED(dft_control%qs_control%cdft_control%constraint_type)) &
-                  ALLOCATE (dft_control%qs_control%cdft_control%constraint_type(nvariables))
-               IF (.NOT. ALLOCATED(dft_control%qs_control%cdft_control%is_fragment_constraint)) &
-                  ALLOCATE (dft_control%qs_control%cdft_control%is_fragment_constraint(nvariables))
-               DO ivar = 1, nvariables
-                  dft_control%qs_control%cdft_control%constraint_type(ivar) = &
-                     dft_control%qs_control%becke_control%group(ivar)%constraint_type
-                  dft_control%qs_control%cdft_control%is_fragment_constraint(ivar) = &
-                     dft_control%qs_control%becke_control%group(ivar)%is_fragment_constraint
-               END DO
-            END IF
             ! In case constraint and OT extrapolation orders are different, make sure to use former
+            nvariables = SIZE(dft_control%qs_control%cdft_control%target)
             IF (scf_control%outer_scf%extrapolation_order /= &
                 dft_control%qs_control%cdft_control%constraint_control%extrapolation_order &
                 .OR. nvariables /= 1) THEN

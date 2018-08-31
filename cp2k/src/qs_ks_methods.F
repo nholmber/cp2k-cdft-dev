@@ -472,9 +472,6 @@ CONTAINS
 
       IF (gapw) CALL Vh_1c_gg_integrals(qs_env, energy%hartree_1c)
 
-      ! Check if becke potential is needed to constrain charges
-      CALL qs_ks_becke_constraint(qs_env, auxbas_pw_pool, calculate_forces, matrix_s, becke)
-
       ! Check if CDFT constraint is needed
       CALL qs_ks_cdft_constraint(qs_env, auxbas_pw_pool, calculate_forces, cdft_control)
 
@@ -707,39 +704,29 @@ CONTAINS
          CALL pw_pool_give_back_pw(auxbas_pw_pool, v_efield_rspace%pw)
       END IF
 
-      IF (calculate_forces .AND. dft_control%qs_control%becke_constraint) THEN
-         IF (.NOT. becke%transfer_pot) THEN
-            DO iatom = 1, SIZE(dft_control%qs_control%becke_control%group)
-               CALL pw_pool_give_back_pw(auxbas_pw_pool, &
-                                         dft_control%qs_control%becke_control%group(iatom)%weight%pw)
+      IF (calculate_forces .AND. dft_control%qs_control%cdft) THEN
+         IF (.NOT. cdft_control%transfer_pot) THEN
+            DO iatom = 1, SIZE(cdft_control%group)
+               CALL pw_pool_give_back_pw(auxbas_pw_pool, cdft_control%group(iatom)%weight%pw)
             END DO
-            IF (dft_control%qs_control%becke_control%atomic_charges) THEN
-               DO iatom = 1, dft_control%qs_control%becke_control%natoms
-                  CALL pw_pool_give_back_pw(auxbas_pw_pool, &
-                                            dft_control%qs_control%becke_control%charge(iatom)%pw)
+            IF (cdft_control%atomic_charges) THEN
+               DO iatom = 1, cdft_control%natoms
+                  CALL pw_pool_give_back_pw(auxbas_pw_pool, cdft_control%charge(iatom)%pw)
                END DO
-               DEALLOCATE (dft_control%qs_control%becke_control%charge)
+               DEALLOCATE (cdft_control%charge)
             END IF
-            IF (dft_control%qs_control%becke_control%cavity_confine) THEN
-               IF (.NOT. ASSOCIATED(becke%cavity_mat)) THEN
-                  CALL pw_pool_give_back_pw(auxbas_pw_pool, becke%cavity%pw)
+            IF (cdft_control%type == outer_scf_becke_constraint .AND. &
+                cdft_control%becke_control%cavity_confine) THEN
+               IF (.NOT. ASSOCIATED(cdft_control%becke_control%cavity_mat)) THEN
+                  CALL pw_pool_give_back_pw(auxbas_pw_pool, cdft_control%becke_control%cavity%pw)
                ELSE
-                  DEALLOCATE (becke%cavity_mat)
+                  DEALLOCATE (cdft_control%becke_control%cavity_mat)
                END IF
             END IF
-            IF (ASSOCIATED(dft_control%qs_control%becke_control%charges_fragment)) &
-               DEALLOCATE (dft_control%qs_control%becke_control%charges_fragment)
-            dft_control%qs_control%becke_control%save_pot = .FALSE.
-            dft_control%qs_control%becke_control%need_pot = .TRUE.
-            dft_control%qs_control%becke_control%external_control = .FALSE.
-         END IF
-      END IF
-
-      IF (calculate_forces .AND. dft_control%qs_control%cdft) THEN
-         IF (cdft_control%type == outer_scf_hirshfeld_constraint) THEN
-            CALL pw_pool_give_back_pw(auxbas_pw_pool, cdft_control%weight%pw)
+            IF (ASSOCIATED(cdft_control%charges_fragment)) DEALLOCATE (cdft_control%charges_fragment)
             cdft_control%save_pot = .FALSE.
             cdft_control%need_pot = .TRUE.
+            cdft_control%external_control = .FALSE.
          END IF
       END IF
 

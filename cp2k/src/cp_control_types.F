@@ -273,7 +273,6 @@ MODULE cp_control_types
          POINTER                           :: mulliken_restraint_control
       TYPE(ddapc_restraint_p_type), &
          DIMENSION(:), POINTER             :: ddapc_restraint_control
-      TYPE(becke_constraint_type), POINTER :: becke_control
       TYPE(cdft_control_type), POINTER     :: cdft_control
       TYPE(s2_restraint_type), POINTER     :: s2_restraint_control
       TYPE(dftb_control_type), POINTER     :: dftb_control
@@ -822,12 +821,10 @@ CONTAINS
       NULLIFY (qs_control%s2_restraint_control)
       NULLIFY (qs_control%se_control)
       NULLIFY (qs_control%dftb_control)
-      NULLIFY (qs_control%becke_control)
       NULLIFY (qs_control%cdft_control)
       NULLIFY (qs_control%ddapc_restraint_control)
 
       CALL mulliken_control_create(qs_control%mulliken_restraint_control)
-      CALL becke_control_create(qs_control%becke_control)
       CALL s2_control_create(qs_control%s2_restraint_control)
       CALL gapw_control_create(qs_control%gapw_control)
       CALL se_control_create(qs_control%se_control)

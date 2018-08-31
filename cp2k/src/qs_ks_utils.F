@@ -1314,9 +1314,10 @@ CONTAINS
                                                 +v_spin_ddapc_rest_r%pw%cr3d
                END IF
             END IF
-            IF (dft_control%qs_control%becke_constraint) THEN
-               DO igroup = 1, SIZE(becke%group)
-                  SELECT CASE (becke%group (igroup)%constraint_type)
+            ! CDFT constraint contribution
+            IF (dft_control%qs_control%cdft) THEN
+               DO igroup = 1, SIZE(cdft_control%group)
+                  SELECT CASE (cdft_control%group (igroup)%constraint_type)
                   CASE (cdft_charge_constraint)
                      sign = 1.0_dp
                   CASE (cdft_magnetization_constraint)
@@ -1335,13 +1336,9 @@ CONTAINS
                      CPABORT("Unknown constraint type.")
                   END SELECT
                   v_rspace_new(ispin)%pw%cr3d = v_rspace_new(ispin)%pw%cr3d &
-                                                +sign*becke%group(igroup)%weight%pw%cr3d*becke%strength(igroup)
+                                                +sign*cdft_control%group(igroup)%weight%pw%cr3d*&
+                                                 cdft_control%strength(igroup)
                END DO
-            END IF
-            IF (dft_control%qs_control%cdft) THEN
-               IF (cdft_control%type == outer_scf_hirshfeld_constraint) &
-                  v_rspace_new(ispin)%pw%cr3d = v_rspace_new(ispin)%pw%cr3d &
-                                                +cdft_control%weight%pw%cr3d*cdft_control%strength(1)
             END IF
             ! The efield contribution
             IF (dft_control%apply_efield_field) THEN

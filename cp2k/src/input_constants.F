@@ -40,8 +40,7 @@ MODULE input_constants
                                                do_spin_density = 1
 
    INTEGER, PARAMETER, PUBLIC               :: do_no_et = 0, &
-                                               do_et_ddapc = 1, &
-                                               do_et_becke = 2
+                                               do_et_ddapc = 1
    ! Method Names
    INTEGER, PARAMETER, PUBLIC               :: do_qs = 1, &
                                                do_fist = 2, &

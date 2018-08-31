@@ -608,7 +608,6 @@ CONTAINS
       mull_section => section_vals_get_subs_vals(qs_section, "MULLIKEN_RESTRAINT")
       ddapc_restraint_section => section_vals_get_subs_vals(qs_section, "DDAPC_RESTRAINT")
       s2_restraint_section => section_vals_get_subs_vals(qs_section, "S2_RESTRAINT")
-      becke_constraint_section => section_vals_get_subs_vals(qs_section, "BECKE_CONSTRAINT")
       se_section => section_vals_get_subs_vals(qs_section, "SE")
       dftb_section => section_vals_get_subs_vals(qs_section, "DFTB")
       dftb_parameter => section_vals_get_subs_vals(dftb_section, "PARAMETER")
@@ -850,10 +849,6 @@ CONTAINS
       ENDIF
 
       CALL section_vals_get(becke_constraint_section, explicit=qs_control%becke_constraint)
-
-      IF (qs_control%becke_constraint) THEN
-         CALL read_becke_section(qs_control, becke_constraint_section)
-      ENDIF
 
       CALL section_vals_get(cdft_control_section, explicit=qs_control%cdft)
       IF (qs_control%cdft) THEN

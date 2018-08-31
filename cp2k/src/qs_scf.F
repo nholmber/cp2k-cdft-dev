@@ -551,37 +551,6 @@ CONTAINS
          ENDIF !fm->dbcsr
       ENDDO !fm -> dbcsr
 
-      IF (dft_control%qs_control%becke_constraint) THEN
-         ! Check if Becke potential is not needed for force evaluation or CDFT and deallocate
-         IF (.NOT. dft_control%qs_control%becke_control%save_pot .AND. &
-             .NOT. dft_control%qs_control%cdft) THEN
-            CALL pw_env_get(pw_env, auxbas_pw_pool=auxbas_pw_pool)
-            DO iatom = 1, SIZE(dft_control%qs_control%becke_control%group)
-               CALL pw_pool_give_back_pw(auxbas_pw_pool, &
-                                         dft_control%qs_control%becke_control%group(iatom)%weight%pw)
-            END DO
-            IF (dft_control%qs_control%becke_control%atomic_charges) THEN
-               DO iatom = 1, dft_control%qs_control%becke_control%natoms
-                  CALL pw_pool_give_back_pw(auxbas_pw_pool, &
-                                            dft_control%qs_control%becke_control%charge(iatom)%pw)
-               END DO
-               DEALLOCATE (dft_control%qs_control%becke_control%charge)
-            END IF
-            IF (dft_control%qs_control%becke_control%cavity_confine) THEN
-               IF (.NOT. ASSOCIATED(dft_control%qs_control%becke_control%cavity_mat)) THEN
-                  CALL pw_pool_give_back_pw(auxbas_pw_pool, &
-                                            dft_control%qs_control%becke_control%cavity%pw)
-               ELSE
-                  DEALLOCATE (dft_control%qs_control%becke_control%cavity_mat)
-               END IF
-            END IF
-            IF (ASSOCIATED(dft_control%qs_control%becke_control%charges_fragment)) &
-               DEALLOCATE (dft_control%qs_control%becke_control%charges_fragment)
-            dft_control%qs_control%becke_control%need_pot = .TRUE.
-            dft_control%qs_control%becke_control%external_control = .FALSE.
-         END IF
-      END IF
-
       CALL cp_rm_iter_level(logger%iter_info, level_name="QS_SCF")
       CALL timestop(handle)
 
@@ -1038,108 +1007,92 @@ CONTAINS
 
       cdft_control%ienergy = cdft_control%ienergy+1
 
-      IF (dft_control%qs_control%becke_constraint) THEN
-         ! Store needed arrays for ET coupling calculation
-         IF (cdft_control%do_et) THEN
-            CALL get_qs_env(qs_env=qs_env, matrix_s=matrix_s, mos=mos)
-            nvar = SIZE(cdft_control%target)
-            ! Matrix representation of weight function
-            ALLOCATE (cdft_control%wmat(nvar))
-            DO ivar = 1, nvar
-               CALL dbcsr_init_p(cdft_control%wmat(ivar)%matrix)
-               CALL dbcsr_copy(cdft_control%wmat(ivar)%matrix, matrix_s(1)%matrix, &
-                               name="ET_RESTRAINT_MATRIX")
-               CALL dbcsr_set(cdft_control%wmat(ivar)%matrix, 0.0_dp)
-               CALL integrate_v_rspace(dft_control%qs_control%becke_control%group(ivar)%weight, &
-                                       hmat=cdft_control%wmat(ivar), qs_env=qs_env, &
-                                       calculate_forces=.FALSE., &
-                                       gapw=dft_control%qs_control%gapw)
-            END DO
-            ! Overlap matrix
-            CALL dbcsr_init_p(cdft_control%matrix_s%matrix)
-            CALL dbcsr_copy(cdft_control%matrix_s%matrix, matrix_s(1)%matrix, &
-                            name="OVERLAP")
-            ! Molecular orbital coefficients
-            NULLIFY (cdft_control%mo_coeff)
-            ALLOCATE (cdft_control%mo_coeff(dft_control%nspins))
+      ! Store needed arrays for ET coupling calculation
+      IF (cdft_control%do_et) THEN
+         CALL get_qs_env(qs_env=qs_env, matrix_s=matrix_s, mos=mos)
+         nvar = SIZE(cdft_control%target)
+         ! Matrix representation of weight function
+         ALLOCATE (cdft_control%wmat(nvar))
+         DO ivar = 1, nvar
+            CALL dbcsr_init_p(cdft_control%wmat(ivar)%matrix)
+            CALL dbcsr_copy(cdft_control%wmat(ivar)%matrix, matrix_s(1)%matrix, &
+                            name="ET_RESTRAINT_MATRIX")
+            CALL dbcsr_set(cdft_control%wmat(ivar)%matrix, 0.0_dp)
+            CALL integrate_v_rspace(cdft_control%group(ivar)%weight, &
+                                    hmat=cdft_control%wmat(ivar), qs_env=qs_env, &
+                                    calculate_forces=.FALSE., &
+                                    gapw=dft_control%qs_control%gapw)
+         END DO
+         ! Overlap matrix
+         CALL dbcsr_init_p(cdft_control%matrix_s%matrix)
+         CALL dbcsr_copy(cdft_control%matrix_s%matrix, matrix_s(1)%matrix, &
+                         name="OVERLAP")
+         ! Molecular orbital coefficients
+         NULLIFY (cdft_control%mo_coeff)
+         ALLOCATE (cdft_control%mo_coeff(dft_control%nspins))
+         DO ispin = 1, dft_control%nspins
+            NULLIFY (cdft_control%mo_coeff(ispin)%matrix)
+            CALL cp_fm_create(matrix=cdft_control%mo_coeff(ispin)%matrix, &
+                              matrix_struct=qs_env%mos(ispin)%mo_set%mo_coeff%matrix_struct, &
+                              name="MO_COEFF_A"//TRIM(ADJUSTL(cp_to_string(ispin)))//"MATRIX")
+            CALL cp_fm_to_fm(qs_env%mos(ispin)%mo_set%mo_coeff, &
+                             cdft_control%mo_coeff(ispin)%matrix)
+         END DO
+         ! Density matrix
+         IF (cdft_control%calculate_metric) THEN
+            CALL get_qs_env(qs_env, rho=rho)
+            CALL qs_rho_get(rho, rho_ao=rho_ao)
+            ALLOCATE (cdft_control%matrix_p(dft_control%nspins))
             DO ispin = 1, dft_control%nspins
-               NULLIFY (cdft_control%mo_coeff(ispin)%matrix)
-               CALL cp_fm_create(matrix=cdft_control%mo_coeff(ispin)%matrix, &
-                                 matrix_struct=qs_env%mos(ispin)%mo_set%mo_coeff%matrix_struct, &
-                                 name="MO_COEFF_A"//TRIM(ADJUSTL(cp_to_string(ispin)))//"MATRIX")
-               CALL cp_fm_to_fm(qs_env%mos(ispin)%mo_set%mo_coeff, &
-                                cdft_control%mo_coeff(ispin)%matrix)
+               NULLIFY (cdft_control%matrix_p(ispin)%matrix)
+               CALL dbcsr_init_p(cdft_control%matrix_p(ispin)%matrix)
+               CALL dbcsr_copy(cdft_control%matrix_p(ispin)%matrix, rho_ao(ispin)%matrix, &
+                               name="DENSITY MATRIX")
             END DO
-            ! Density matrix
-            IF (cdft_control%calculate_metric) THEN
-               CALL get_qs_env(qs_env, rho=rho)
-               CALL qs_rho_get(rho, rho_ao=rho_ao)
-               ALLOCATE (cdft_control%matrix_p(dft_control%nspins))
-               DO ispin = 1, dft_control%nspins
-                  NULLIFY (cdft_control%matrix_p(ispin)%matrix)
-                  CALL dbcsr_init_p(cdft_control%matrix_p(ispin)%matrix)
-                  CALL dbcsr_copy(cdft_control%matrix_p(ispin)%matrix, rho_ao(ispin)%matrix, &
-                                  name="DENSITY MATRIX")
-               END DO
-            END IF
-            ! Copy occupation numbers if non-uniform occupation
-            uniform_occupation = .TRUE.
-            DO ispin = 1, dft_control%nspins
-               CALL get_mo_set(mo_set=mos(ispin)%mo_set, uniform_occupation=my_uocc)
-               uniform_occupation = uniform_occupation .AND. my_uocc
-            END DO
-            IF (.NOT. uniform_occupation) THEN
-               ALLOCATE (cdft_control%occupations(dft_control%nspins))
-               DO ispin = 1, dft_control%nspins
-                  CALL get_mo_set(mo_set=mos(ispin)%mo_set, &
-                                  nmo=nmo, &
-                                  occupation_numbers=mo_occupations)
-                  ALLOCATE (cdft_control%occupations(ispin)%array(nmo))
-                  cdft_control%occupations(ispin)%array(1:nmo) = mo_occupations(1:nmo)
-               END DO
-            END IF
          END IF
-         ! Forces are not needed/serial mode if mixed CDFT calculation is not active => time to deallocate Becke
-         IF (.NOT. (dft_control%qs_control%becke_control%save_pot .OR. &
-                    dft_control%qs_control%becke_control%transfer_pot)) THEN
-            CALL get_qs_env(qs_env, pw_env=pw_env)
-            CALL pw_env_get(pw_env, auxbas_pw_pool=auxbas_pw_pool)
-            DO iatom = 1, SIZE(dft_control%qs_control%becke_control%group)
-               CALL pw_pool_give_back_pw(auxbas_pw_pool, &
-                                         dft_control%qs_control%becke_control%group(iatom)%weight%pw)
+         ! Copy occupation numbers if non-uniform occupation
+         uniform_occupation = .TRUE.
+         DO ispin = 1, dft_control%nspins
+            CALL get_mo_set(mo_set=mos(ispin)%mo_set, uniform_occupation=my_uocc)
+            uniform_occupation = uniform_occupation .AND. my_uocc
+         END DO
+         IF (.NOT. uniform_occupation) THEN
+            ALLOCATE (cdft_control%occupations(dft_control%nspins))
+            DO ispin = 1, dft_control%nspins
+               CALL get_mo_set(mo_set=mos(ispin)%mo_set, &
+                               nmo=nmo, &
+                               occupation_numbers=mo_occupations)
+               ALLOCATE (cdft_control%occupations(ispin)%array(nmo))
+               cdft_control%occupations(ispin)%array(1:nmo) = mo_occupations(1:nmo)
             END DO
-            IF (dft_control%qs_control%becke_control%atomic_charges) THEN
-               DO iatom = 1, dft_control%qs_control%becke_control%natoms
-                  CALL pw_pool_give_back_pw(auxbas_pw_pool, &
-                                            dft_control%qs_control%becke_control%charge(iatom)%pw)
-               END DO
-               DEALLOCATE (dft_control%qs_control%becke_control%charge)
-            END IF
-            IF (dft_control%qs_control%becke_control%cavity_confine) THEN
-               IF (.NOT. ASSOCIATED(dft_control%qs_control%becke_control%cavity_mat)) THEN
-                  CALL pw_pool_give_back_pw(auxbas_pw_pool, &
-                                            dft_control%qs_control%becke_control%cavity%pw)
-               ELSE
-                  DEALLOCATE (dft_control%qs_control%becke_control%cavity_mat)
-               END IF
-            END IF
-            IF (ASSOCIATED(dft_control%qs_control%becke_control%charges_fragment)) &
-               DEALLOCATE (dft_control%qs_control%becke_control%charges_fragment)
-            dft_control%qs_control%becke_control%need_pot = .TRUE.
-            dft_control%qs_control%becke_control%external_control = .FALSE.
          END IF
       END IF
 
-      IF (dft_control%qs_control%cdft) THEN
-         IF (cdft_control%type == outer_scf_hirshfeld_constraint) THEN
-            IF (.NOT. cdft_control%save_pot) THEN
-               CALL get_qs_env(qs_env, pw_env=pw_env)
-               CALL pw_env_get(pw_env, auxbas_pw_pool=auxbas_pw_pool)
-               CALL pw_pool_give_back_pw(auxbas_pw_pool, cdft_control%weight%pw)
-               cdft_control%need_pot = .TRUE.
+      ! Deallocate constraint storage if forces are not needed or if a serial model mixed CDFT calculation was not requested
+      IF (.NOT. (cdft_control%save_pot .OR. & cdft_control%transfer_pot)) THEN
+         CALL get_qs_env(qs_env, pw_env=pw_env)
+         CALL pw_env_get(pw_env, auxbas_pw_pool=auxbas_pw_pool)
+         DO iatom = 1, SIZE(cdft_control%group)
+            CALL pw_pool_give_back_pw(auxbas_pw_pool, cdft_control%group(iatom)%weight%pw)
+         END DO
+         IF (cdft_control%atomic_charges) THEN
+            DO iatom = 1, cdft_control%natoms
+               CALL pw_pool_give_back_pw(auxbas_pw_pool, cdft_control%charge(iatom)%pw)
+            END DO
+            DEALLOCATE (cdft_control%charge)
+         END IF
+         IF (cdft_control%type == outer_scf_becke_constraint .AND. cdft_control%becke_control%cavity_confine) THEN
+            IF (.NOT. ASSOCIATED(cdft_control%becke_control%cavity_mat)) THEN
+               CALL pw_pool_give_back_pw(auxbas_pw_pool, cdft_control%becke_control%cavity%pw)
+            ELSE
+               DEALLOCATE (cdft_control%becke_control%cavity_mat)
             END IF
          END IF
+         IF (ASSOCIATED(cdft_control%charges_fragment)) DEALLOCATE (cdft_control%charges_fragment)
+         cdft_control%need_pot = .TRUE.
+         cdft_control%external_control = .FALSE.
       END IF
+
       CALL timestop(handle)
 
    END SUBROUTINE cdft_scf
