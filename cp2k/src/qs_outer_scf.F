@@ -18,7 +18,7 @@ MODULE qs_outer_scf
         broyden_type_1, broyden_type_1_explicit, broyden_type_1_explicit_ls, broyden_type_1_ls, &
         broyden_type_2, broyden_type_2_explicit, broyden_type_2_explicit_ls, broyden_type_2_ls, &
         cdft2ot, do_ddapc_constraint, do_s2_constraint, ot2cdft, outer_scf_basis_center_opt, &
-        outer_scf_becke_constraint, outer_scf_cdft_constraint, outer_scf_ddapc_constraint, &
+        outer_scf_cdft_constraint, outer_scf_ddapc_constraint, &
         outer_scf_none, outer_scf_optimizer_bisect, outer_scf_optimizer_broyden, &
         outer_scf_optimizer_diis, outer_scf_optimizer_newton, outer_scf_optimizer_newton_ls, &
         outer_scf_optimizer_none, outer_scf_optimizer_sd, outer_scf_optimizer_secant, &
@@ -30,8 +30,7 @@ MODULE qs_outer_scf
                                               return_basis_center_gradient_norm
    USE qs_cdft_opt_types,               ONLY: cdft_opt_type_copy,&
                                               cdft_opt_type_release
-   USE qs_cdft_types,                   ONLY: becke_constraint_type,&
-                                              cdft_control_type
+   USE qs_cdft_types,                   ONLY: cdft_control_type
    USE qs_energy_types,                 ONLY: qs_energy_type
    USE qs_environment_types,            ONLY: get_qs_env,&
                                               qs_environment_type,&
@@ -108,7 +107,6 @@ CONTAINS
 
       INTEGER                                            :: handle, ihistory, ivar, n
       LOGICAL                                            :: is_constraint
-      TYPE(becke_constraint_type), POINTER               :: becke_control
       TYPE(cdft_control_type), POINTER                   :: cdft_control
       TYPE(ddapc_restraint_type), POINTER                :: ddapc_restraint_control
       TYPE(dft_control_type), POINTER                    :: dft_control
@@ -395,7 +393,6 @@ CONTAINS
 
       INTEGER                                            :: handle, ihistory, n
       LOGICAL                                            :: is_constraint
-      TYPE(becke_constraint_type), POINTER               :: becke_control
       TYPE(cdft_control_type), POINTER                   :: cdft_control
       TYPE(ddapc_restraint_type), POINTER                :: ddapc_restraint_control
       TYPE(dft_control_type), POINTER                    :: dft_control

@@ -31,6 +31,8 @@ MODULE qs_cdft_methods
                                               cdft_beta_constraint,&
                                               cdft_charge_constraint,&
                                               cdft_magnetization_constraint,&
+                                              outer_scf_becke_constraint,&
+                                              outer_scf_hirshfeld_constraint,&
                                               ref_charge_atomic,&
                                               ref_charge_mulliken
    USE input_section_types,             ONLY: section_vals_get_subs_vals,&
@@ -56,8 +58,8 @@ MODULE qs_cdft_methods
                                               pw_p_type,&
                                               pw_release
    USE qs_cdft_types,                   ONLY: becke_constraint_type,&
-                                              becke_group_type,&
-                                              cdft_control_type
+                                              cdft_control_type,&
+                                              cdft_group_type
    USE qs_cdft_utils,                   ONLY: becke_constraint_init,&
                                               hfun_scale
    USE qs_collocate_density,            ONLY: collocate_pgf_product_rspace
@@ -113,10 +115,12 @@ CONTAINS
 
       INTEGER                                            :: handle
       TYPE(dft_control_type), POINTER                    :: dft_control
+      TYPE(cdft_control_type), POINTER                   :: cdft_control
 
       CALL timeset(routineN, handle)
       CALL get_qs_env(qs_env, dft_control=dft_control)
-      IF (dft_control%qs_control%becke_constraint) THEN
+      cdft_control => dft_control%qs_control%cdft_control
+      IF (dft_control%qs_control%cdft .AND. cdft_control%type == outer_scf_becke_constraint) THEN
          IF (calc_pot) THEN
             ! Initialize the Becke constraint environment
             CALL becke_constraint_init(qs_env)
@@ -124,7 +128,7 @@ CONTAINS
             CALL becke_constraint_low(qs_env)
          END IF
          ! Integrate the Becke constraint
-         CALL becke_constraint_integrate(qs_env)
+         CALL cdft_constraint_integrate(qs_env)
          ! Calculate gradients
          IF (calculate_forces) CALL becke_constraint_force(qs_env)
       END IF
@@ -165,14 +169,14 @@ CONTAINS
                                                             dr_j_dR, grid_p, r, r1, shift
       REAL(KIND=dp), DIMENSION(:), POINTER               :: cutoffs
       TYPE(becke_constraint_type), POINTER               :: becke_control
-      TYPE(cdft_control_type)                            :: cdft_control
+      TYPE(cdft_control_type), POINTER                   :: cdft_control
       TYPE(cdft_group_type), DIMENSION(:), POINTER       :: group
       TYPE(cell_type), POINTER                           :: cell
       TYPE(dft_control_type), POINTER                    :: dft_control
       TYPE(particle_type), DIMENSION(:), POINTER         :: particle_set
       TYPE(pw_p_type), DIMENSION(:), POINTER             :: charge
 
-      NULLIFY (cutoffs, cell, dft_control, particle_set, group, charge)
+      NULLIFY (cutoffs, cell, dft_control, particle_set, group, charge, cdft_control)
       CALL timeset(routineN, handle)
       ! Get simulation environment
       CALL get_qs_env(qs_env, &
@@ -181,13 +185,13 @@ CONTAINS
                       natom=natom, &
                       dft_control=dft_control)
       cdft_control => dft_control%qs_control%cdft_control
-      becke_control => dft_control%qs_control%cdft_control%becke_control
+      becke_control => cdft_control%becke_control
       group => cdft_control%group
       cutoffs => becke_control%cutoffs
-      IF (becke_control%atomic_charges) &
+      IF (cdft_control%atomic_charges) &
          charge => cdft_control%charge
       in_memory = .FALSE.
-      IF (becke_control%save_pot) THEN
+      IF (cdft_control%save_pot) THEN
          in_memory = becke_control%in_memory
       END IF
       eps_cavity = becke_control%eps_cavity
@@ -502,7 +506,7 @@ CONTAINS
                      skip_me(iatom) = .TRUE.
                      IF (becke_control%should_skip) THEN
                         IF (is_constraint(iatom)) nskipped = nskipped+1
-                        IF (nskipped == becke_control%natoms) THEN
+                        IF (nskipped == cdft_control%natoms) THEN
                            IF (in_memory) THEN
                               IF (becke_control%cavity_confine) THEN
                                  becke_control%cavity%pw%cr3d(k, j, i) = 0.0_dp
@@ -513,7 +517,7 @@ CONTAINS
                      END IF
                   END IF
                END DO !iatom
-               IF (nskipped == becke_control%natoms) CYCLE
+               IF (nskipped == cdft_control%natoms) CYCLE
                ! Sum up cell functions
                sum_cell_f_group = 0.0_dp
                DO igroup = 1, SIZE(group)
@@ -541,8 +545,8 @@ CONTAINS
                   DO igroup = 1, SIZE(group)
                      group(igroup)%weight%pw%cr3d(k, j, i) = sum_cell_f_group(igroup)/sum_cell_f_all
                   END DO
-                  IF (becke_control%atomic_charges) THEN
-                     DO iatom = 1, becke_control%natoms
+                  IF (cdft_control%atomic_charges) THEN
+                     DO iatom = 1, cdft_control%natoms
                         charge(iatom)%pw%cr3d(k, j, i) = cell_functions(catom(iatom))/sum_cell_f_all
                      END DO
                   END IF
@@ -605,7 +609,7 @@ CONTAINS
       REAL(KIND=dp), DIMENSION(:), POINTER               :: cutoffs
       TYPE(atomic_kind_type), DIMENSION(:), POINTER      :: atomic_kind_set
       TYPE(becke_constraint_type), POINTER               :: becke_control
-      TYPE(cdft_control_type)                            :: cdft_control
+      TYPE(cdft_control_type), POINTER                   :: cdft_control
       TYPE(cdft_group_type), DIMENSION(:), POINTER       :: group
       TYPE(cell_type), POINTER                           :: cell
       TYPE(cp_para_env_type), POINTER                    :: para_env
@@ -775,7 +779,7 @@ CONTAINS
 !> \param qs_env the qs_env where to build the constraint
 !> \par   History
 !>        Created 3.2017 [Nico Holmberg]
-!>        Generalized to any CDFT weight function 9.2017 [Nico Holmberg]
+!>        Generalized to any CDFT weight function 9.2018 [Nico Holmberg]
 ! **************************************************************************************************
    SUBROUTINE cdft_constraint_integrate(qs_env)
       TYPE(qs_environment_type), POINTER                 :: qs_env
@@ -785,16 +789,15 @@ CONTAINS
 
       CHARACTER(len=2)                                   :: element_symbol
       INTEGER                                            :: handle, i, iatom, igroup, ikind, ivar, &
-                                                            iw, jatom, natom, nelectron_total, &
-                                                            nfrag_spins, nvar, unit_nr
-      INTEGER, DIMENSION(:), POINTER                     :: stride
-      LOGICAL                                            :: mpi_io, needs_spin_density, paw_atom
-      REAL(kind=dp)                                      :: dvol, eps_cavity, multiplier(2), &
-                                                            nelectron_frag, sign, tc(2), zeff
+                                                            iw, jatom, natom, nvar
+      LOGICAL                                            :: needs_spin_density, paw_atom,&
+                                                            is_becke
+      REAL(kind=dp)                                      :: dvol, eps_cavity, &
+                                                            sign, tc(2), zeff
       REAL(kind=dp), ALLOCATABLE, DIMENSION(:)           :: dE, strength, target_val
       REAL(kind=dp), ALLOCATABLE, DIMENSION(:, :)        :: electronic_charge, gapw_offset
       TYPE(becke_constraint_type), POINTER               :: becke_control
-      TYPE(cdft_control_type)                            :: cdft_control
+      TYPE(cdft_control_type), POINTER                   :: cdft_control
       TYPE(cdft_group_type), DIMENSION(:), POINTER       :: group
       TYPE(cp_logger_type), POINTER                      :: logger
       TYPE(cp_para_env_type), POINTER                    :: para_env
@@ -830,7 +833,7 @@ CONTAINS
       cdft_control => dft_control%qs_control%cdft_control
       is_becke = (cdft_control%type == outer_scf_becke_constraint)
       becke_control => cdft_control%becke_control
-      IF (is_becke and .NOT. ASSOCIATED(becke_control)) &
+      IF (is_becke .AND. .NOT. ASSOCIATED(becke_control)) &
          CPABORT("Becke control has not been allocated.")
       group => cdft_control%group
       ! Initialize
@@ -868,7 +871,7 @@ CONTAINS
             CASE DEFAULT
                CPABORT("Unknown constraint type.")
             END SELECT
-            IF (is_becke .AND. (becke_control%external_control .AND. becke_control%cavity_confine)) THEN
+            IF (is_becke .AND. (cdft_control%external_control .AND. becke_control%cavity_confine)) THEN
                ! With external control, we can use cavity_mat as a mask to kahan sum
                eps_cavity = becke_control%eps_cavity
                IF (igroup /= 1) &
@@ -899,7 +902,7 @@ CONTAINS
          ! GAPW: add core charges (rho_hard - rho_soft)
          IF (cdft_control%fragment_density) &
             CALL cp_abort(__LOCATION__, &
-                          "Becke deformation density not yet compatible with GAPW.")
+                          "Fragment constraints not yet compatible with GAPW.")
          ALLOCATE (gapw_offset(nvar, dft_control%nspins))
          gapw_offset = 0.0_dp
          CALL get_qs_env(qs_env, rho0_mpole=rho0_mpole)
@@ -1146,7 +1149,7 @@ CONTAINS
       CALL cp_print_key_finished_output(iw, logger, cdft_constraint_section, "PROGRAM_RUN_INFO")
       CALL timestop(handle)
 
-   END SUBROUTINE becke_constraint_integrate
+   END SUBROUTINE cdft_constraint_integrate
 
 ! **************************************************************************************************
 !> \brief Prepare CDFT fragment constraints. Fragment densities are read from cube files, multiplied
@@ -1161,32 +1164,22 @@ CONTAINS
       CHARACTER(len=*), PARAMETER :: routineN = 'prepare_fragment_constraint', &
          routineP = moduleN//':'//routineN
 
-      CHARACTER(len=2)                                   :: element_symbol
-      INTEGER                                            :: handle, i, iatom, igroup, ikind, ivar, &
-                                                            iw, jatom, natom, nelectron_total, &
-                                                            nfrag_spins, nvar, unit_nr
-      INTEGER, DIMENSION(:), POINTER                     :: stride
-      LOGICAL                                            :: mpi_io, needs_spin_density, paw_atom, is_becke
-      REAL(kind=dp)                                      :: dvol, eps_cavity, multiplier(2), &
-                                                            nelectron_frag, sign, tc(2), zeff
+      INTEGER                                            :: handle, i, iatom, igroup, &
+                                                            natom, nelectron_total, &
+                                                            nfrag_spins
+      LOGICAL                                            :: needs_spin_density, is_becke
+      REAL(kind=dp)                                      :: dvol, multiplier(2), &
+                                                            nelectron_frag
       TYPE(becke_constraint_type), POINTER               :: becke_control
-      TYPE(cdft_control_type)                            :: cdft_control
+      TYPE(cdft_control_type), POINTER                   :: cdft_control
       TYPE(cdft_group_type), DIMENSION(:), POINTER       :: group
       TYPE(cp_logger_type), POINTER                      :: logger
       TYPE(cp_para_env_type), POINTER                    :: para_env
       TYPE(dft_control_type), POINTER                    :: dft_control
-      TYPE(mpole_rho_atom), DIMENSION(:), POINTER        :: mp_rho
-      TYPE(particle_list_type), POINTER                  :: particles
-      TYPE(particle_type), DIMENSION(:), POINTER         :: particle_set
       TYPE(pw_env_type), POINTER                         :: pw_env
-      TYPE(pw_p_type), DIMENSION(:), POINTER             :: charge, rho_frag, rho_r
+      TYPE(pw_p_type), DIMENSION(:), POINTER             :: rho_frag
       TYPE(pw_pool_type), POINTER                        :: auxbas_pw_pool
-      TYPE(qs_energy_type), POINTER                      :: energy
-      TYPE(qs_kind_type), DIMENSION(:), POINTER          :: qs_kind_set
-      TYPE(qs_rho_type), POINTER                         :: rho
       TYPE(qs_subsys_type), POINTER                      :: subsys
-      TYPE(rho0_mpole_type), POINTER                     :: rho0_mpole
-      TYPE(section_vals_type), POINTER                   :: cdft_constraint_section
 
       NULLIFY (para_env, dft_control, logger, subsys, pw_env, auxbas_pw_pool, group, rho_frag)
       CALL timeset(routineN, handle)
@@ -1199,7 +1192,7 @@ CONTAINS
       cdft_control => dft_control%qs_control%cdft_control
       is_becke = (cdft_control%type == outer_scf_becke_constraint)
       becke_control => cdft_control%becke_control
-      IF (is_becke and .NOT. ASSOCIATED(becke_control)) &
+      IF (is_becke .AND. .NOT. ASSOCIATED(becke_control)) &
          CPABORT("Becke control has not been allocated.")
       group => cdft_control%group
 
@@ -1285,7 +1278,7 @@ CONTAINS
          ELSE
             i = 2
          END IF
-         IF (is_becke .AND. (becke_control%external_control .AND. becke_control%cavity_confine)) THEN
+         IF (is_becke .AND. (cdft_control%external_control .AND. becke_control%cavity_confine)) THEN
             cdft_control%target(igroup) = cdft_control%target(igroup)+ &
                                            accurate_dot_product(group(igroup)%weight%pw%cr3d, rho_frag(i)%pw%cr3d, &
                                                                 becke_control%cavity_mat, becke_control%eps_cavity)*dvol
@@ -1319,14 +1312,12 @@ CONTAINS
 ! **************************************************************************************************
 !> \brief calculates a Gaussian Hirshfeld constraint
 !> \param qs_env the qs_env where to build the constraint
-!> \param cdft_control the container for constraint related structures
 !> \param calc_pot if the constraint potential should be rebuilt or just integrated
 !> \param calculate_forces logical if potential has to be calculated or only_energy
 !> \author  Nico Holmberg (01.2016)
 ! **************************************************************************************************
-   SUBROUTINE hirshfeld_constraint(qs_env, cdft_control, calc_pot, calculate_forces)
+   SUBROUTINE hirshfeld_constraint(qs_env, calc_pot, calculate_forces)
       TYPE(qs_environment_type), POINTER                 :: qs_env
-      TYPE(cdft_control_type)                            :: cdft_control
       LOGICAL                                            :: calc_pot, calculate_forces
 
       CHARACTER(len=*), PARAMETER :: routineN = 'hirshfeld_constraint', &
@@ -1345,6 +1336,7 @@ CONTAINS
       REAL(KIND=dp), DIMENSION(:, :), POINTER            :: pab
       TYPE(atomic_kind_type), DIMENSION(:), POINTER      :: atomic_kind_set
       TYPE(atomic_kind_type), POINTER                    :: atomic_kind
+      TYPE(cdft_control_type), POINTER                   :: cdft_control
       TYPE(cell_type), POINTER                           :: cell
       TYPE(cp_logger_type), POINTER                      :: logger
       TYPE(cp_para_env_type), POINTER                    :: para_env
@@ -1369,7 +1361,8 @@ CONTAINS
       NULLIFY (atom_list, cores, stride, pab, atomic_kind, atomic_kind_set, cell, &
                logger, para_env, dft_control, hirshfeld_env, particles, particle_set, &
                pw_env, fnorm, rho_r, auxbas_pw_pool, energy, rho, qs_kind_set, &
-               subsys, auxbas_rs_desc, rs_rho_all, rs_rho_constr, print_section)
+               subsys, auxbas_rs_desc, rs_rho_all, rs_rho_constr, print_section, &
+               cdft_control)
       CALL timeset(routineN, handle)
 
       CALL get_qs_env(qs_env, &
@@ -1394,10 +1387,11 @@ CONTAINS
       CALL qs_rho_get(rho, rho_r=rho_r)
 
       IF (dft_control%qs_control%cdft) THEN
-         dvol = cdft_control%weight%pw%pw_grid%dvol
+         cdft_control => dft_control%qs_control%cdft_control
+         dvol = cdft_control%group(1)%weight%pw%pw_grid%dvol
          ! Build weight function
          IF (calc_pot) THEN
-            cdft_control%weight%pw%cr3d = 0.0_dp
+            cdft_control%group(1)%weight%pw%cr3d = 0.0_dp
 
             ALLOCATE (catom(cdft_control%hirshfeld_control%natoms))
             ALLOCATE (coefficients(natom))
@@ -1529,7 +1523,7 @@ CONTAINS
             END IF
             tnfun2 = pw_integrate_function(tmp%pw)
             CALL rs_grid_release(rs_rho_constr)
-            CALL hfun_scale(cdft_control%weight%pw%cr3d, tmp%pw%cr3d, &
+            CALL hfun_scale(cdft_control%group(1)%weight%pw%cr3d, tmp%pw%cr3d, &
                             hirshfeld_env%fnorm%pw%cr3d, divide=.TRUE.)
             CALL pw_pool_give_back_pw(auxbas_pw_pool, tmp%pw)
             CALL rs_grid_release(rs_rho_all)
@@ -1538,7 +1532,7 @@ CONTAINS
 
          dE = 0.0_dp
          DO i = 1, dft_control%nspins
-            dE = dE+accurate_sum(cdft_control%weight%pw%cr3d*rho_r(i)%pw%cr3d)*dvol
+            dE = dE+accurate_sum(cdft_control%group(1)%weight%pw%cr3d*rho_r(i)%pw%cr3d)*dvol
          END DO
 
          CALL get_qs_env(qs_env, energy=energy)
@@ -1581,7 +1575,7 @@ CONTAINS
    SUBROUTINE hirshfeld_force(qs_env, cdft_control)
 
       TYPE(qs_environment_type), POINTER                 :: qs_env
-      TYPE(cdft_control_type)                            :: cdft_control
+      TYPE(cdft_control_type), POINTER                   :: cdft_control
 
       CHARACTER(len=*), PARAMETER :: routineN = 'hirshfeld_force', &
          routineP = moduleN//':'//routineN
@@ -1632,7 +1626,7 @@ CONTAINS
                       pw_env=pw_env)
 
       IF (dft_control%qs_control%cdft) THEN
-         dvol = cdft_control%weight%pw%pw_grid%dvol
+         dvol = cdft_control%group(1)%weight%pw%pw_grid%dvol
          ALLOCATE (catom(cdft_control%hirshfeld_control%natoms))
          ALLOCATE (coefficients(natom))
          ALLOCATE (is_acceptor(natom))
@@ -1663,7 +1657,7 @@ CONTAINS
          CALL pw_pool_create_pw(auxbas_pw_pool, tmp%pw, use_data=REALDATA3D)
          ! Here, we assume that all donor atoms have coeff +1 and acceptors -1
          tmp%pw%cr3d = 1.0_dp
-         CALL pw_copy(cdft_control%weight%pw, weight%pw)
+         CALL pw_copy(cdft_control%group(1)%weight%pw, weight%pw)
          CALL pw_scale(weight%pw, -1.0_dp)
          CALL pw_copy(weight%pw, donor_weight%pw)
          CALL pw_copy(weight%pw, acceptor_weight%pw)

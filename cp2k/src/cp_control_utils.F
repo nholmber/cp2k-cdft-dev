@@ -52,8 +52,7 @@ MODULE cp_control_utils
    USE kinds,                           ONLY: default_path_length,&
                                               default_string_length,&
                                               dp
-   USE qs_cdft_utils,                   ONLY: read_becke_section,&
-                                              read_cdft_control_section
+   USE qs_cdft_utils,                   ONLY: read_cdft_control_section
    USE string_utilities,                ONLY: uppercase
    USE util,                            ONLY: sort
    USE xc_derivatives,                  ONLY: xc_functionals_get_needs
@@ -594,14 +593,14 @@ CONTAINS
       TYPE(enumeration_type), POINTER                    :: enum
       TYPE(keyword_type), POINTER                        :: keyword
       TYPE(section_type), POINTER                        :: section
-      TYPE(section_vals_type), POINTER :: becke_constraint_section, cdft_control_section, &
+      TYPE(section_vals_type), POINTER :: cdft_control_section, &
          ddapc_restraint_section, dftb_parameter, dftb_section, lri_optbas_section, mull_section, &
          s2_restraint_section, se_section
 
       CALL timeset(routineN, handle)
 
       was_present = .FALSE.
-      NULLIFY (mull_section, ddapc_restraint_section, s2_restraint_section, becke_constraint_section, &
+      NULLIFY (mull_section, ddapc_restraint_section, s2_restraint_section, &
                se_section, dftb_section, dftb_parameter, lri_optbas_section, &
                cdft_control_section)
 
@@ -847,8 +846,6 @@ CONTAINS
          CALL section_vals_val_get(s2_restraint_section, "FUNCTIONAL_FORM", &
                                    i_val=qs_control%s2_restraint_control%functional_form)
       ENDIF
-
-      CALL section_vals_get(becke_constraint_section, explicit=qs_control%becke_constraint)
 
       CALL section_vals_get(cdft_control_section, explicit=qs_control%cdft)
       IF (qs_control%cdft) THEN

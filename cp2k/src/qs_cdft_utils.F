@@ -43,6 +43,7 @@ MODULE qs_cdft_utils
    USE kinds,                           ONLY: dp,&
                                               int_8
    USE memory_utilities,                ONLY: reallocate
+   USE outer_scf_control_types,         ONLY: outer_scf_read_parameters
    USE particle_list_types,             ONLY: particle_list_type
    USE particle_types,                  ONLY: particle_type
    USE pw_env_types,                    ONLY: pw_env_get,&
@@ -54,7 +55,8 @@ MODULE qs_cdft_utils
    USE qs_cdft_opt_types,               ONLY: cdft_opt_type_create,&
                                               cdft_opt_type_read
    USE qs_cdft_types,                   ONLY: becke_constraint_type,&
-                                              becke_group_type
+                                              cdft_control_type,&
+                                              cdft_group_type
    USE qs_collocate_density,            ONLY: collocate_pgf_product_rspace
    USE qs_environment_types,            ONLY: get_qs_env,&
                                               qs_environment_type
@@ -110,7 +112,8 @@ CONTAINS
       REAL(KIND=dp), DIMENSION(:, :), POINTER            :: pab
       TYPE(atomic_kind_type), DIMENSION(:), POINTER      :: atomic_kind_set
       TYPE(becke_constraint_type), POINTER               :: becke_control
-      TYPE(becke_group_type), DIMENSION(:), POINTER      :: group
+      TYPE(cdft_control_type), POINTER                   :: cdft_control
+      TYPE(cdft_group_type), DIMENSION(:), POINTER       :: group
       TYPE(cell_type), POINTER                           :: cell
       TYPE(cp_logger_type), POINTER                      :: logger
       TYPE(cp_para_env_type), POINTER                    :: para_env
@@ -128,7 +131,7 @@ CONTAINS
       NULLIFY (cores, stride, atom_list, cell, para_env, dft_control, &
                particle_set, logger, cdft_constraint_section, qs_kind_set, &
                particles, subsys, pab, pw_env, rs_cavity, cavity_env, &
-               auxbas_pw_pool, atomic_kind_set, group, radii_list)
+               auxbas_pw_pool, atomic_kind_set, group, radii_list, cdft_control)
       logger => cp_get_default_logger()
       CALL timeset(routineN, handle)
       CALL get_qs_env(qs_env, &
@@ -458,14 +461,12 @@ CONTAINS
       CHARACTER(len=*), PARAMETER :: routineN = 'read_becke_section', &
          routineP = moduleN//':'//routineN
 
-      INTEGER                                            :: i, j, jj, k, n_rep, natoms, nvar, &
-                                                            tot_natoms
-      INTEGER, DIMENSION(:), POINTER                     :: atomlist, dummylist, tmplist
-      LOGICAL                                            :: exists, is_duplicate, is_et_coupling
+      INTEGER                                            :: j
+      LOGICAL                                            :: exists
       REAL(KIND=dp), DIMENSION(:), POINTER               :: rtmplist
       TYPE(becke_constraint_type), POINTER               :: becke_control
 
-      NULLIFY (tmplist, rtmplist, atomlist, dummylist, group_section)
+      NULLIFY (rtmplist)
       becke_control => cdft_control%becke_control
 
       ! Atomic size corrections
@@ -499,16 +500,16 @@ CONTAINS
       CALL section_vals_val_get(becke_section, "CAVITY_CONFINE", l_val=becke_control%cavity_confine)
       CALL section_vals_val_get(becke_section, "SHOULD_SKIP", l_val=becke_control%should_skip)
       CALL section_vals_val_get(becke_section, "IN_MEMORY", l_val=becke_control%in_memory)
-      IF (qs_control%becke_control%cavity_confine) THEN
+      IF (cdft_control%becke_control%cavity_confine) THEN
          CALL section_vals_val_get(becke_section, "CAVITY_SHAPE", i_val=becke_control%cavity_shape)
-         IF (becke_control%cavity_shape == radius_user .AND. NOT. becke_control%adjust) &
+         IF (becke_control%cavity_shape == radius_user .AND. .NOT. becke_control%adjust) &
             CALL cp_abort(__LOCATION__, &
                           "Activate keyword ADJUST_SIZE to use cavity shape USER.")
          CALL section_vals_val_get(becke_section, "CAVITY_RADIUS", r_val=becke_control%rcavity)
          CALL section_vals_val_get(becke_section, "EPS_CAVITY", r_val=becke_control%eps_cavity)
          CALL section_vals_val_get(becke_section, "CAVITY_PRINT", l_val=becke_control%print_cavity)
          CALL section_vals_val_get(becke_section, "CAVITY_USE_BOHR", l_val=becke_control%use_bohr)
-         IF (.NOT. qs_control%becke_control%use_bohr) THEN
+         IF (.NOT. cdft_control%becke_control%use_bohr) THEN
             becke_control%rcavity = cp_unit_from_cp2k(becke_control%rcavity, "angstrom")
          END IF
          CALL create_hirshfeld_type(becke_control%cavity_env)
@@ -539,7 +540,7 @@ CONTAINS
       INTEGER                                            :: i, j, jj, k, n_rep, natoms, nvar, &
                                                             tot_natoms
       INTEGER, DIMENSION(:), POINTER                     :: atomlist, dummylist, tmplist
-      LOGICAL                                            :: exists, is_duplicate, is_et_coupling
+      LOGICAL                                            :: exists, is_duplicate
       REAL(KIND=dp), DIMENSION(:), POINTER               :: rtmplist
       TYPE(section_vals_type), POINTER                   :: group_section
 
@@ -548,7 +549,7 @@ CONTAINS
       group_section => section_vals_get_subs_vals(cdft_control_section, "ATOM_GROUP")
       CALL section_vals_get(group_section, n_repetition=nvar, explicit=exists)
       IF (.NOT. exists) CPABORT("Section ATOM_GROUP is missing.")
-      ALLOCATE (qs_control%becke_control%group(nvar))
+      ALLOCATE (cdft_control%group(nvar))
       tot_natoms = 0
       ! Parse all ATOM_GROUP sections
       DO k = 1, nvar
@@ -614,7 +615,7 @@ CONTAINS
          END DO
       END DO
       CALL reallocate(atomlist, 1, jj)
-      CALL section_vals_val_get(becke_section, "ATOMIC_CHARGES", &
+      CALL section_vals_val_get(cdft_control_section, "ATOMIC_CHARGES", &
                                 l_val=cdft_control%atomic_charges)
       ! Parse any dummy atoms (no constraint, just charges)
       IF (cdft_control%atomic_charges) THEN
@@ -700,17 +701,17 @@ CONTAINS
       END DO
       ! Read fragment constraint definitions
       IF (cdft_control%fragment_density) THEN
-         CALL section_vals_val_get(becke_section, "FRAGMENT_A_FILE_NAME", &
+         CALL section_vals_val_get(cdft_control_section, "FRAGMENT_A_FILE_NAME", &
                                    c_val=cdft_control%fragment_a_fname)
-         CALL section_vals_val_get(becke_section, "FRAGMENT_B_FILE_NAME", &
+         CALL section_vals_val_get(cdft_control_section, "FRAGMENT_B_FILE_NAME", &
                                    c_val=cdft_control%fragment_b_fname)
-         CALL section_vals_val_get(becke_section, "FRAGMENT_A_SPIN_FILE", &
+         CALL section_vals_val_get(cdft_control_section, "FRAGMENT_A_SPIN_FILE", &
                                    c_val=cdft_control%fragment_a_spin_fname)
-         CALL section_vals_val_get(becke_section, "FRAGMENT_B_SPIN_FILE", &
+         CALL section_vals_val_get(cdft_control_section, "FRAGMENT_B_SPIN_FILE", &
                                    c_val=cdft_control%fragment_b_spin_fname)
-         CALL section_vals_val_get(becke_section, "FLIP_FRAGMENT_A", &
+         CALL section_vals_val_get(cdft_control_section, "FLIP_FRAGMENT_A", &
                                    l_val=cdft_control%flip_fragment(1))
-         CALL section_vals_val_get(becke_section, "FLIP_FRAGMENT_B", &
+         CALL section_vals_val_get(cdft_control_section, "FLIP_FRAGMENT_B", &
                                    l_val=cdft_control%flip_fragment(2))
       END IF
 

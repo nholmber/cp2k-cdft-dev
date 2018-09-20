@@ -17,7 +17,8 @@ MODULE qs_ks_apply_restraints
    USE dbcsr_api,                       ONLY: dbcsr_copy,&
                                               dbcsr_p_type,&
                                               dbcsr_set
-   USE input_constants,                 ONLY: outer_scf_becke_constraint,&
+   USE input_constants,                 ONLY: cdft_charge_constraint,&
+                                              outer_scf_becke_constraint,&
                                               outer_scf_hirshfeld_constraint
    USE kinds,                           ONLY: dp
    USE mulliken,                        ONLY: mulliken_restraint
@@ -70,7 +71,7 @@ CONTAINS
          routineP = moduleN//':'//routineN
 
       REAL(KIND=dp)                                      :: inv_vol
-      INTEGER                                            :: natom
+      INTEGER                                            :: iatom, igroup, natom
       LOGICAL                                            :: do_kpoints
       TYPE(dft_control_type), POINTER                    :: dft_control
 
@@ -117,7 +118,7 @@ CONTAINS
             ! Build/Integrate CDFT constraints with selected population analysis method
             IF (cdft_control%type == outer_scf_becke_constraint) THEN
                CALL becke_constraint(qs_env, calc_pot=cdft_control%need_pot, calculate_forces=calculate_forces)
-            ELSE IF (cdft_control%type == outer_scf_hirshfeld_constraint)
+            ELSE IF (cdft_control%type == outer_scf_hirshfeld_constraint) THEN
                CALL hirshfeld_constraint(qs_env, calc_pot=cdft_control%need_pot, calculate_forces=calculate_forces)
             END IF
             DO igroup = 1, SIZE(cdft_control%group)

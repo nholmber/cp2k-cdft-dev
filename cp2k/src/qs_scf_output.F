@@ -726,10 +726,9 @@ CONTAINS
 !> \par History
 !>      12.2015 created [Nico Holmberg]
 ! **************************************************************************************************
-   SUBROUTINE qs_scf_cdft_initial_info(output_unit, cdft_control, dft_control)
+   SUBROUTINE qs_scf_cdft_initial_info(output_unit, cdft_control)
       INTEGER                                            :: output_unit
       TYPE(cdft_control_type), POINTER                   :: cdft_control
-      TYPE(dft_control_type), POINTER                    :: dft_control
 
       CHARACTER(LEN=*), PARAMETER :: routineN = 'qs_scf_cdft_initial_info', &
          routineP = moduleN//':'//routineN
@@ -773,27 +772,27 @@ CONTAINS
             WRITE (output_unit, '(A)') "  Type of constraint      : Hirshfeld"
          CASE (outer_scf_becke_constraint)
             WRITE (output_unit, '(A)') "  Type of constraint      :   Becke"
-            WRITE (output_unit, '(A,I8)') "  Number of constraints   :", SIZE(dft_control%qs_control%becke_control%group)
+            WRITE (output_unit, '(A,I8)') "  Number of constraints   :", SIZE(cdft_control%group)
             WRITE (output_unit, '(A)') "  "
-            SELECT CASE (dft_control%qs_control%becke_control%cutoff_type)
+            SELECT CASE (cdft_control%becke_control%cutoff_type)
             CASE (becke_cutoff_global)
                WRITE (output_unit, '(A,F8.3,A)') &
-                  "  Cutoff for partitioning :", cp_unit_from_cp2k(dft_control%qs_control%becke_control%rglobal, &
+                  "  Cutoff for partitioning :", cp_unit_from_cp2k(cdft_control%becke_control%rglobal, &
                                                                    "angstrom"), " angstrom"
             CASE (becke_cutoff_element)
                WRITE (output_unit, '(A)') &
                   "  Using element specific cutoffs for partitioning"
             END SELECT
             WRITE (output_unit, '(A,L7)') &
-               "  Skipping distant gpoints: ", dft_control%qs_control%becke_control%should_skip
+               "  Skipping distant gpoints: ", cdft_control%becke_control%should_skip
             WRITE (output_unit, '(A,L7)') &
-               "  Precompute gradients    : ", dft_control%qs_control%becke_control%in_memory
+               "  Precompute gradients    : ", cdft_control%becke_control%in_memory
             WRITE (output_unit, '(A,L7)') &
-               "  Using fragment densities: ", dft_control%qs_control%becke_control%fragment_density
+               "  Using fragment densities: ", cdft_control%fragment_density
             WRITE (output_unit, '(A)') "  "
             WRITE (output_unit, '(A,L7)') &
-               "  Reusing preconditioner  : ", dft_control%qs_control%cdft_control%reuse_precond
-            IF (dft_control%qs_control%cdft_control%reuse_precond) THEN
+               "  Reusing preconditioner  : ", cdft_control%reuse_precond
+            IF (cdft_control%reuse_precond) THEN
                WRITE (output_unit, '(A,I3,A,I3,A)') &
                   "       using old preconditioner for upto ", &
                   cdft_control%max_reuse, " subsequent CDFT SCF"
@@ -802,23 +801,23 @@ CONTAINS
                   cdft_control%precond_freq, " steps"
             END IF
             WRITE (output_unit, '(A)') "  "
-            IF (dft_control%qs_control%becke_control%atomic_charges) &
+            IF (cdft_control%atomic_charges) &
                WRITE (output_unit, '(A)') &
                "  Calculating atomic Becke charges"
-            IF (dft_control%qs_control%becke_control%adjust) &
+            IF (cdft_control%becke_control%adjust) &
                WRITE (output_unit, '(A)') &
                "  Using atomic radii to generate a heteronuclear charge partitioning"
             WRITE (output_unit, '(A)') "  "
-            IF (.NOT. dft_control%qs_control%becke_control%cavity_confine) THEN
+            IF (.NOT. cdft_control%becke_control%cavity_confine) THEN
                WRITE (output_unit, '(A)') &
                   "  No confinement is active"
             ELSE
                WRITE (output_unit, '(A)') "  Confinement using a Gaussian shaped cavity is active"
-               SELECT CASE (dft_control%qs_control%becke_control%cavity_shape)
+               SELECT CASE (cdft_control%becke_control%cavity_shape)
                CASE (radius_single)
                   WRITE (output_unit, '(A,F8.4, A)') &
                      "  Type of Gaussian        : Fixed radius: ", &
-                     cp_unit_from_cp2k(dft_control%qs_control%becke_control%rcavity, "angstrom"), " angstrom"
+                     cp_unit_from_cp2k(cdft_control%becke_control%rcavity, "angstrom"), " angstrom"
                CASE (radius_covalent)
                   WRITE (output_unit, '(A)') &
                      "  Type of Gaussian        : Covalent radius "
@@ -830,7 +829,7 @@ CONTAINS
                      "  Type of Gaussian        : User radius "
                END SELECT
                WRITE (output_unit, '(A,ES12.4)') &
-                  "  Cavity threshold        : ", dft_control%qs_control%becke_control%eps_cavity
+                  "  Cavity threshold        : ", cdft_control%becke_control%eps_cavity
             END IF
          END SELECT
          WRITE (output_unit, '(/,A)') &

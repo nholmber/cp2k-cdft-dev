@@ -23,6 +23,8 @@ MODULE qs_cdft_types
    USE pw_types,                        ONLY: pw_p_type
    USE qs_cdft_opt_types,               ONLY: cdft_opt_type,&
                                               cdft_opt_type_release
+   USE outer_scf_control_types,         ONLY: outer_scf_control_type, &
+                                              qs_outer_scf_type
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE
@@ -83,28 +85,28 @@ MODULE qs_cdft_types
 !> \param cavity_mat a compacted version of cavity
 ! **************************************************************************************************
    ! To build multiple constraints
-   TYPE becke_group_type
-      ! Atoms of this constraint group
-      INTEGER, POINTER, DIMENSION(:)       :: atoms
-      ! Constraint type: charge constraint, magnetization density constraint, or spin channel specific constraint
-      INTEGER                              :: constraint_type
-      ! Is the constraint fragment based
-      LOGICAL                              :: is_fragment_constraint
-      ! Temporary array holding a component of the weight function gradient that only includes
-      ! terms defined on constraint atoms
-      REAL(kind=dp), ALLOCATABLE, &
-         DIMENSION(:, :)                   :: d_sum_const_dR
-      ! Coefficients that determine how to sum up the atoms to form the constraint
-      REAL(KIND=dp), POINTER, DIMENSION(:) :: coeff
-      ! Result of integration dw/dR * rho_r dr where dw/dR is the weight function gradient
-      REAL(KIND=dp), POINTER, &
-         DIMENSION(:, :)                   :: integrated
-      ! Atomic gradients of the weight function at every grid point
-      REAL(KIND=dp), POINTER, &
-         DIMENSION(:, :, :, :)             :: gradients
-      ! The weight function of this constraint group
-      TYPE(pw_p_type)                      :: weight
-   END TYPE becke_group_type
+!   TYPE becke_group_type
+!      ! Atoms of this constraint group
+!      INTEGER, POINTER, DIMENSION(:)       :: atoms
+!      ! Constraint type: charge constraint, magnetization density constraint, or spin channel specific constraint
+!      INTEGER                              :: constraint_type
+!      ! Is the constraint fragment based
+!      LOGICAL                              :: is_fragment_constraint
+!      ! Temporary array holding a component of the weight function gradient that only includes
+!      ! terms defined on constraint atoms
+!      REAL(kind=dp), ALLOCATABLE, &
+!         DIMENSION(:, :)                   :: d_sum_const_dR
+!      ! Coefficients that determine how to sum up the atoms to form the constraint
+!      REAL(KIND=dp), POINTER, DIMENSION(:) :: coeff
+!      ! Result of integration dw/dR * rho_r dr where dw/dR is the weight function gradient
+!      REAL(KIND=dp), POINTER, &
+!         DIMENSION(:, :)                   :: integrated
+!      ! Atomic gradients of the weight function at every grid point
+!      REAL(KIND=dp), POINTER, &
+!         DIMENSION(:, :, :, :)             :: gradients
+!      ! The weight function of this constraint group
+!      TYPE(pw_p_type)                      :: weight
+!   END TYPE becke_group_type
 
    ! Utility vector container for building becke constraint
    TYPE becke_vector_buffer
@@ -125,28 +127,18 @@ MODULE qs_cdft_types
       LOGICAL                              :: in_memory, &
                                               adjust, cavity_confine, &
                                               should_skip, print_cavity, &
-                                              external_control, first_iteration, &
-                                              use_bohr, transfer_pot
-      LOGICAL, POINTER, DIMENSION(:)       :: is_constraint
+                                              use_bohr
       REAL(KIND=dp)                        :: rglobal, &
                                               rcavity, eps_cavity
-      REAL(KIND=dp), DIMENSION(:), POINTER :: TARGET, strength, &
-                                              becke_order_p, &
-                                              cutoffs, cutoffs_tmp, &
+      REAL(KIND=dp), DIMENSION(:), POINTER :: cutoffs, cutoffs_tmp, &
                                               radii_tmp, radii
       REAL(KIND=dp), POINTER, &
-         DIMENSION(:, :)                   :: aij, charges_fragment
+         DIMENSION(:, :)                   :: aij
       REAL(KIND=dp), POINTER, &
          DIMENSION(:, :, :)                :: cavity_mat
-      TYPE(becke_group_type), POINTER, &
-         DIMENSION(:)                      :: group
       TYPE(becke_vector_buffer)            :: vector_buffer
       TYPE(hirshfeld_type), POINTER        :: cavity_env
       TYPE(pw_p_type)                      :: cavity
-      TYPE(pw_p_type), POINTER, &
-         DIMENSION(:)                      :: charge
-      TYPE(pw_p_type), POINTER, &
-         DIMENSION(:, :)                   :: fragments
    END TYPE becke_constraint_type
 
 ! **************************************************************************************************
@@ -207,31 +199,31 @@ MODULE qs_cdft_types
 !> \param occupations occupation numbers in case non-uniform occupation (for do_et)
 ! **************************************************************************************************
    ! Copied from qs_scf_types to avoid circular dependency
-   TYPE qs_outer_scf_type
-      INTEGER                              :: iter_count
-      LOGICAL                              :: deallocate_jacobian
-      REAL(KIND=dp), DIMENSION(:), POINTER :: energy
-      REAL(KIND=dp), DIMENSION(:, :), &
-         POINTER                           :: variables
-      REAL(KIND=dp), DIMENSION(:, :), &
-         POINTER                           :: gradient
-      REAL(KIND=dp), DIMENSION(:, :), &
-         POINTER                           :: inv_jacobian
-      INTEGER, DIMENSION(:), POINTER       :: count
-   END TYPE qs_outer_scf_type
-
-   ! Copied from scf_control_types to avoid circular dependency
-   TYPE outer_scf_control_type
-      LOGICAL       :: have_scf
-      INTEGER       :: max_scf
-      REAL(KIND=dp) :: eps_scf, step_size
-      INTEGER       :: TYPE
-      INTEGER       :: optimizer
-      INTEGER       :: diis_buffer_length
-      INTEGER       :: extrapolation_order
-      INTEGER       :: bisect_trust_count
-      TYPE(cdft_opt_type), POINTER :: cdft_opt_control
-   END TYPE outer_scf_control_type
+!   TYPE qs_outer_scf_type
+!      INTEGER                              :: iter_count
+!      LOGICAL                              :: deallocate_jacobian
+!      REAL(KIND=dp), DIMENSION(:), POINTER :: energy
+!      REAL(KIND=dp), DIMENSION(:, :), &
+!         POINTER                           :: variables
+!      REAL(KIND=dp), DIMENSION(:, :), &
+!         POINTER                           :: gradient
+!      REAL(KIND=dp), DIMENSION(:, :), &
+!         POINTER                           :: inv_jacobian
+!      INTEGER, DIMENSION(:), POINTER       :: count
+!   END TYPE qs_outer_scf_type
+!
+!   ! Copied from scf_control_types to avoid circular dependency
+!   TYPE outer_scf_control_type
+!      LOGICAL       :: have_scf
+!      INTEGER       :: max_scf
+!      REAL(KIND=dp) :: eps_scf, step_size
+!      INTEGER       :: TYPE
+!      INTEGER       :: optimizer
+!      INTEGER       :: diis_buffer_length
+!      INTEGER       :: extrapolation_order
+!      INTEGER       :: bisect_trust_count
+!      TYPE(cdft_opt_type), POINTER :: cdft_opt_control
+!   END TYPE outer_scf_control_type
 
    ! To build multiple constraints
    TYPE cdft_group_type
@@ -265,15 +257,21 @@ MODULE qs_cdft_types
       INTEGER                              :: ref_count, total_steps, TYPE, &
                                               precond_freq, nreused, max_reuse, &
                                               purge_freq, nbad_conv, purge_offset, &
-                                              istep, ienergy
+                                              istep, ienergy, natoms
       INTEGER, DIMENSION(:), ALLOCATABLE   :: constraint_type
+      INTEGER, POINTER, DIMENSION(:)       :: atoms
       LOGICAL                              :: need_pot, save_pot, do_et, &
                                               reuse_precond, purge_history, &
                                               should_purge, calculate_metric, &
                                               atomic_charges, fragment_density, &
-                                              fragments_integrated, flip_fragment(2)
+                                              fragments_integrated, flip_fragment(2),&
+                                              transfer_pot, external_control,&
+                                              first_iteration
       LOGICAL, DIMENSION(:), ALLOCATABLE   :: is_fragment_constraint
+      LOGICAL, POINTER, DIMENSION(:)       :: is_constraint
       REAL(KIND=dp), DIMENSION(:), POINTER :: strength, TARGET, value
+      REAL(KIND=dp), POINTER, &
+         DIMENSION(:, :)                   :: charges_fragment
       TYPE(cp_1d_r_p_type), ALLOCATABLE, &
          DIMENSION(:)                      :: occupations
       TYPE(cp_fm_p_type), DIMENSION(:), &
@@ -288,6 +286,10 @@ MODULE qs_cdft_types
       TYPE(cdft_group_type), POINTER, &
          DIMENSION(:)                      :: group
       TYPE(qs_outer_scf_type)              :: constraint
+      TYPE(pw_p_type), POINTER, &
+         DIMENSION(:)                      :: charge
+      TYPE(pw_p_type), POINTER, &
+         DIMENSION(:, :)                   :: fragments
    END TYPE cdft_control_type
 
    CHARACTER(len=*), PARAMETER, PRIVATE :: moduleN = 'qs_cdft_types'
@@ -296,7 +298,7 @@ MODULE qs_cdft_types
 
    PUBLIC :: becke_constraint_type, &
              cdft_control_type, &
-             becke_group_type
+             cdft_group_type
 
    ! Public subroutines
 
@@ -322,45 +324,25 @@ CONTAINS
       CPASSERT(.NOT. ASSOCIATED(becke_control))
       ALLOCATE (becke_control)
 
-      becke_control%ref_count = 1
-      becke_control%natoms = 0
-      becke_control%need_pot = .TRUE.
-      becke_control%save_pot = .FALSE.
-      becke_control%transfer_pot = .FALSE.
       becke_control%adjust = .FALSE.
-      becke_control%atomic_charges = .FALSE.
       becke_control%cutoff_type = becke_cutoff_global
       becke_control%cavity_confine = .FALSE.
       becke_control%should_skip = .FALSE.
       becke_control%print_cavity = .FALSE.
       becke_control%in_memory = .FALSE.
-      becke_control%first_iteration = .TRUE.
-      becke_control%fragment_density = .FALSE.
-      becke_control%fragments_integrated = .FALSE.
       becke_control%use_bohr = .FALSE.
-      becke_control%flip_fragment = .FALSE.
       becke_control%confine_bounds = 0
       becke_control%rcavity = 3.0_dp
       becke_control%rglobal = 6.0_dp
-      becke_control%eps_cavity = 1.0e-5_dp
+      becke_control%eps_cavity = 1.0e-6_dp
       becke_control%cavity_shape = radius_single
-      becke_control%external_control = .FALSE.
       becke_control%vector_buffer%store_vectors = .TRUE.
       NULLIFY (becke_control%cavity%pw)
-      NULLIFY (becke_control%strength)
-      NULLIFY (becke_control%target)
-      NULLIFY (becke_control%becke_order_p)
-      NULLIFY (becke_control%atoms)
-      NULLIFY (becke_control%group)
-      NULLIFY (becke_control%charge)
       NULLIFY (becke_control%aij)
-      NULLIFY (becke_control%is_constraint)
       NULLIFY (becke_control%cavity_mat)
       NULLIFY (becke_control%cavity_env)
       NULLIFY (becke_control%cutoffs)
       NULLIFY (becke_control%cutoffs_tmp)
-      NULLIFY (becke_control%charges_fragment)
-      NULLIFY (becke_control%fragments)
       NULLIFY (becke_control%radii)
       NULLIFY (becke_control%radii_tmp)
    END SUBROUTINE becke_control_create
@@ -377,90 +359,36 @@ CONTAINS
       CHARACTER(len=*), PARAMETER :: routineN = 'becke_control_release', &
          routineP = moduleN//':'//routineN
 
-      INTEGER                                            :: i
-
       CPASSERT(ASSOCIATED(becke_control))
-      CPASSERT(becke_control%ref_count > 0)
-      becke_control%ref_count = becke_control%ref_count-1
-      IF (becke_control%ref_count == 0) THEN
-         IF (ASSOCIATED(becke_control%atoms)) &
-            DEALLOCATE (becke_control%atoms)
-         IF (ASSOCIATED(becke_control%group)) THEN
-            DO i = 1, SIZE(becke_control%group)
-               IF (ASSOCIATED(becke_control%group(i)%atoms)) &
-                  DEALLOCATE (becke_control%group(i)%atoms)
-               IF (ASSOCIATED(becke_control%group(i)%coeff)) &
-                  DEALLOCATE (becke_control%group(i)%coeff)
-               IF (ALLOCATED(becke_control%group(i)%d_sum_const_dR)) &
-                  DEALLOCATE (becke_control%group(i)%d_sum_const_dR)
-               IF (ASSOCIATED(becke_control%group(i)%gradients)) &
-                  DEALLOCATE (becke_control%group(i)%gradients)
-               IF (ASSOCIATED(becke_control%group(i)%integrated)) &
-                  DEALLOCATE (becke_control%group(i)%integrated)
-            END DO
-            DEALLOCATE (becke_control%group)
-         END IF
-         IF (becke_control%vector_buffer%store_vectors) THEN
-            IF (ALLOCATED(becke_control%vector_buffer%distances)) &
-               DEALLOCATE (becke_control%vector_buffer%distances)
-            IF (ALLOCATED(becke_control%vector_buffer%distance_vecs)) &
-               DEALLOCATE (becke_control%vector_buffer%distance_vecs)
-            IF (ALLOCATED(becke_control%vector_buffer%position_vecs)) &
-               DEALLOCATE (becke_control%vector_buffer%position_vecs)
-            IF (ALLOCATED(becke_control%vector_buffer%R12)) &
-               DEALLOCATE (becke_control%vector_buffer%R12)
-            IF (ALLOCATED(becke_control%vector_buffer%pair_dist_vecs)) &
-               DEALLOCATE (becke_control%vector_buffer%pair_dist_vecs)
-         END IF
-         IF (ASSOCIATED(becke_control%cutoffs)) &
-            DEALLOCATE (becke_control%cutoffs)
-         IF (ASSOCIATED(becke_control%cutoffs_tmp)) &
-            DEALLOCATE (becke_control%cutoffs_tmp)
-         IF (ASSOCIATED(becke_control%radii_tmp)) &
-            DEALLOCATE (becke_control%radii_tmp)
-         IF (ASSOCIATED(becke_control%radii)) &
-            DEALLOCATE (becke_control%radii)
-         IF (ASSOCIATED(becke_control%charges_fragment)) &
-            DEALLOCATE (becke_control%charges_fragment)
-         IF (ASSOCIATED(becke_control%fragments)) &
-            DEALLOCATE (becke_control%fragments)
-         IF (ASSOCIATED(becke_control%charge)) &
-            DEALLOCATE (becke_control%charge)
-         IF (ASSOCIATED(becke_control%aij)) &
-            DEALLOCATE (becke_control%aij)
-         IF (ASSOCIATED(becke_control%is_constraint)) &
-            DEALLOCATE (becke_control%is_constraint)
-         IF (ASSOCIATED(becke_control%cavity_mat)) &
-            DEALLOCATE (becke_control%cavity_mat)
-         IF (ASSOCIATED(becke_control%target)) &
-            DEALLOCATE (becke_control%target)
-         IF (ASSOCIATED(becke_control%strength)) &
-            DEALLOCATE (becke_control%strength)
-         IF (ASSOCIATED(becke_control%becke_order_p)) &
-            DEALLOCATE (becke_control%becke_order_p)
-         IF (becke_control%cavity_confine) &
-            CALL release_hirshfeld_type(becke_control%cavity_env)
-         becke_control%ref_count = 0
-         becke_control%natoms = 0
-         DEALLOCATE (becke_control)
-      ENDIF
+      IF (becke_control%vector_buffer%store_vectors) THEN
+         IF (ALLOCATED(becke_control%vector_buffer%distances)) &
+            DEALLOCATE (becke_control%vector_buffer%distances)
+         IF (ALLOCATED(becke_control%vector_buffer%distance_vecs)) &
+            DEALLOCATE (becke_control%vector_buffer%distance_vecs)
+         IF (ALLOCATED(becke_control%vector_buffer%position_vecs)) &
+            DEALLOCATE (becke_control%vector_buffer%position_vecs)
+         IF (ALLOCATED(becke_control%vector_buffer%R12)) &
+            DEALLOCATE (becke_control%vector_buffer%R12)
+         IF (ALLOCATED(becke_control%vector_buffer%pair_dist_vecs)) &
+            DEALLOCATE (becke_control%vector_buffer%pair_dist_vecs)
+      END IF
+      IF (ASSOCIATED(becke_control%cutoffs)) &
+         DEALLOCATE (becke_control%cutoffs)
+      IF (ASSOCIATED(becke_control%cutoffs_tmp)) &
+         DEALLOCATE (becke_control%cutoffs_tmp)
+      IF (ASSOCIATED(becke_control%radii_tmp)) &
+         DEALLOCATE (becke_control%radii_tmp)
+      IF (ASSOCIATED(becke_control%radii)) &
+         DEALLOCATE (becke_control%radii)
+      IF (ASSOCIATED(becke_control%aij)) &
+         DEALLOCATE (becke_control%aij)
+      IF (ASSOCIATED(becke_control%cavity_mat)) &
+         DEALLOCATE (becke_control%cavity_mat)
+      IF (becke_control%cavity_confine) &
+         CALL release_hirshfeld_type(becke_control%cavity_env)
+      DEALLOCATE (becke_control)
+
    END SUBROUTINE becke_control_release
-
-! **************************************************************************************************
-!> \brief retain the becke_constraint_type
-!> \param becke_control the structure to retain
-!> \par History
-!>      02.2007 created [Florian Schiffmann]
-! **************************************************************************************************
-   SUBROUTINE becke_control_retain(becke_control)
-      TYPE(becke_constraint_type), POINTER               :: becke_control
-
-      CHARACTER(len=*), PARAMETER :: routineN = 'becke_control_retain', &
-         routineP = moduleN//':'//routineN
-
-      CPASSERT(ASSOCIATED(becke_control))
-      becke_control%ref_count = becke_control%ref_count+1
-   END SUBROUTINE becke_control_retain
 
 ! **************************************************************************************************
 !> \brief create the cdft_control_type
@@ -481,12 +409,12 @@ CONTAINS
       NULLIFY (cdft_control%strength)
       NULLIFY (cdft_control%target)
       NULLIFY (cdft_control%value)
-      NULLIFY (becke_control%atoms)
-      NULLIFY (becke_control%group)
-      NULLIFY (becke_control%charge)
-      NULLIFY (becke_control%is_constraint)
-      NULLIFY (becke_control%charges_fragment)
-      NULLIFY (becke_control%fragments)
+      NULLIFY (cdft_control%atoms)
+      NULLIFY (cdft_control%is_constraint)
+      NULLIFY (cdft_control%charges_fragment)
+      NULLIFY (cdft_control%fragments)
+      NULLIFY (cdft_control%group)
+      NULLIFY (cdft_control%charge)
       cdft_control%natoms = 0
       cdft_control%type = outer_scf_none
       cdft_control%need_pot = .TRUE.
@@ -512,7 +440,7 @@ CONTAINS
       cdft_control%istep = 0
       cdft_control%ienergy = 0
       NULLIFY (cdft_control%becke_control)
-      CALL becke_control_create(qs_control%becke_control)
+      CALL becke_control_create(cdft_control%becke_control)
       NULLIFY (cdft_control%hirshfeld_control)
       NULLIFY (cdft_control%wmat)
       NULLIFY (cdft_control%matrix_s%matrix)
@@ -562,6 +490,9 @@ CONTAINS
       CPASSERT(cdft_control%ref_count > 0)
       cdft_control%ref_count = cdft_control%ref_count-1
       IF (cdft_control%ref_count == 0) THEN
+         ! Constraint settings
+         IF (ASSOCIATED(cdft_control%atoms)) &
+            DEALLOCATE (cdft_control%atoms)
          IF (ASSOCIATED(cdft_control%strength)) &
             DEALLOCATE (cdft_control%strength)
          IF (ASSOCIATED(cdft_control%target)) &
@@ -572,15 +503,34 @@ CONTAINS
             DEALLOCATE (cdft_control%constraint_type)
          IF (ALLOCATED(cdft_control%is_fragment_constraint)) &
             DEALLOCATE (cdft_control%is_fragment_constraint)
-         IF (ALLOCATED(cdft_control%occupations)) THEN
-            DO i = 1, SIZE(cdft_control%occupations)
-               IF (ASSOCIATED(cdft_control%occupations(i)%array)) &
-                  DEALLOCATE (cdft_control%occupations(i)%array)
+         IF (ASSOCIATED(cdft_control%charges_fragment)) &
+            DEALLOCATE (cdft_control%charges_fragment)
+         IF (ASSOCIATED(cdft_control%fragments)) &
+            DEALLOCATE (cdft_control%fragments)
+         IF (ASSOCIATED(cdft_control%is_constraint)) &
+            DEALLOCATE (cdft_control%is_constraint)
+         IF (ASSOCIATED(cdft_control%charge)) &
+            DEALLOCATE (cdft_control%charge)
+         ! Constraint atom groups
+         IF (ASSOCIATED(cdft_control%group)) THEN
+            DO i = 1, SIZE(cdft_control%group)
+               IF (ASSOCIATED(cdft_control%group(i)%atoms)) &
+                  DEALLOCATE (cdft_control%group(i)%atoms)
+               IF (ASSOCIATED(cdft_control%group(i)%coeff)) &
+                  DEALLOCATE (cdft_control%group(i)%coeff)
+               IF (ALLOCATED(cdft_control%group(i)%d_sum_const_dR)) &
+                  DEALLOCATE (cdft_control%group(i)%d_sum_const_dR)
+               IF (ASSOCIATED(cdft_control%group(i)%gradients)) &
+                  DEALLOCATE (cdft_control%group(i)%gradients)
+               IF (ASSOCIATED(cdft_control%group(i)%integrated)) &
+                  DEALLOCATE (cdft_control%group(i)%integrated)
             END DO
-            DEALLOCATE (cdft_control%occupations)
+            DEALLOCATE (cdft_control%group)
          END IF
-         cdft_control%type = outer_scf_none
-         NULLIFY (cdft_control%weight%pw)
+         ! Constraint type specific deallocations
+         IF (ASSOCIATED(cdft_control%becke_control)) THEN
+            CALL becke_control_release(cdft_control%becke_control)
+         END IF
          IF (ASSOCIATED(cdft_control%hirshfeld_control)) THEN
             CALL release_hirshfeld_type(cdft_control%hirshfeld_control%hirshfeld_env)
             cdft_control%hirshfeld_control%natoms = 0
@@ -590,6 +540,7 @@ CONTAINS
                DEALLOCATE (cdft_control%hirshfeld_control%coeff)
             DEALLOCATE (cdft_control%hirshfeld_control)
          END IF
+         ! Release OUTER_SCF types
          CALL cdft_opt_type_release(cdft_control%ot_control%cdft_opt_control)
          CALL cdft_opt_type_release(cdft_control%constraint_control%cdft_opt_control)
          IF (ASSOCIATED(cdft_control%constraint%variables)) &
@@ -602,6 +553,16 @@ CONTAINS
             DEALLOCATE (cdft_control%constraint%energy)
          IF (ASSOCIATED(cdft_control%constraint%inv_jacobian)) &
             DEALLOCATE (cdft_control%constraint%inv_jacobian)
+         ! Storage for mixed CDFT calculations
+         IF (ALLOCATED(cdft_control%occupations)) THEN
+            DO i = 1, SIZE(cdft_control%occupations)
+               IF (ASSOCIATED(cdft_control%occupations(i)%array)) &
+                  DEALLOCATE (cdft_control%occupations(i)%array)
+            END DO
+            DEALLOCATE (cdft_control%occupations)
+         END IF
+         ! Release control
+         cdft_control%type = outer_scf_none
          DEALLOCATE (cdft_control)
       END IF
    END SUBROUTINE cdft_control_release

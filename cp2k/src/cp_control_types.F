@@ -14,10 +14,7 @@ MODULE cp_control_types
    USE kinds,                           ONLY: default_path_length,&
                                               default_string_length,&
                                               dp
-   USE qs_cdft_types,                   ONLY: becke_constraint_type,&
-                                              becke_control_create,&
-                                              becke_control_release,&
-                                              cdft_control_create,&
+   USE qs_cdft_types,                   ONLY: cdft_control_create,&
                                               cdft_control_release,&
                                               cdft_control_type
    USE xas_control,                     ONLY: xas_control_release,&
@@ -260,7 +257,6 @@ MODULE cp_control_types
       LOGICAL                              :: ddapc_restraint
       LOGICAL                              :: ddapc_restraint_is_spin
       LOGICAL                              :: ddapc_explicit_potential
-      LOGICAL                              :: becke_constraint
       LOGICAL                              :: cdft
       LOGICAL                              :: et_coupling_calc
       LOGICAL                              :: s2_restraint
@@ -849,7 +845,6 @@ CONTAINS
          CALL s2_control_release(qs_control%s2_restraint_control)
          CALL se_control_release(qs_control%se_control)
          CALL dftb_control_release(qs_control%dftb_control)
-         CALL becke_control_release(qs_control%becke_control)
          CALL cdft_control_release(qs_control%cdft_control)
 
          IF (ASSOCIATED(qs_control%e_cutoff)) THEN

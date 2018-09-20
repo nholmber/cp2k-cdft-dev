@@ -46,7 +46,7 @@ MODULE qs_scf_initialization
    USE input_constants,                 ONLY: &
         broy_mix, broy_mix_new, cholesky_dbcsr, cholesky_inverse, cholesky_off, &
         diag_block_davidson, diag_block_krylov, diag_filter_matrix, diag_ot, diag_standard, &
-        direct_p_mix, kerker_mix, multisec_mix, no_mix, ot2cdft, outer_scf_becke_constraint, &
+        direct_p_mix, kerker_mix, multisec_mix, no_mix, ot2cdft, &
         outer_scf_hirshfeld_constraint, outer_scf_none, plus_u_lowdin, pulay_mix, &
         wfi_frozen_method_nr, wfi_use_guess_method_nr
    USE input_section_types,             ONLY: section_vals_get_subs_vals,&
@@ -316,7 +316,7 @@ CONTAINS
       CHARACTER(len=*), PARAMETER :: routineN = 'qs_scf_ensure_cdft_loop_vars', &
          routineP = moduleN//':'//routineN
 
-      INTEGER                                            :: ivar, nhistory, nvariables
+      INTEGER                                            :: nhistory, nvariables
       LOGICAL                                            :: do_kpoints
       REAL(KIND=dp), DIMENSION(:, :), POINTER            :: gradient_history, outer_scf_history, &
                                                             variable_history

@@ -23,8 +23,8 @@ MODULE mixed_cdft_types
    USE kinds,                           ONLY: dp
    USE pw_env_types,                    ONLY: pw_env_release,&
                                               pw_env_type
-   USE qs_cdft_types,                   ONLY: becke_constraint_type,&
-                                              becke_control_release
+   USE qs_cdft_types,                   ONLY: cdft_control_type,&
+                                              cdft_control_release
    USE qs_kind_types,                   ONLY: deallocate_qs_kind_set,&
                                               qs_kind_type
 #include "./base/base_uses.f90"
@@ -189,7 +189,7 @@ MODULE mixed_cdft_types
 !> \param eps_svd value that controls which matrix inversion method to use
 !> \param weight the constraint weight function
 !> \param cavity the confinement cavity: the weight function is nonzero only within the cavity
-!> \param becke_control container for becke_constraint_type
+!> \param cdft_control container for cdft_control_type
 !> \param sendbuff buffer that holds the data to be replicated
 !> \param blacs_env the blacs_env needed to redistribute arrays during a coupling calculation
 !> \param results container for mixed CDFT results
@@ -220,7 +220,7 @@ MODULE mixed_cdft_types
       REAL(KIND=dp)                                    :: eps_rho_rspace, sim_dt, &
                                                           eps_svd
       REAL(KIND=dp), POINTER, DIMENSION(:, :, :)       :: weight, cavity
-      TYPE(becke_constraint_type), POINTER             :: becke_control
+      TYPE(cdft_control_type), POINTER              :: cdft_control
       TYPE(buffers), DIMENSION(:), POINTER             :: sendbuff
       TYPE(cp_1d_r_p_type), ALLOCATABLE, &
          DIMENSION(:, :)                               :: occupations
@@ -241,7 +241,7 @@ MODULE mixed_cdft_types
       LOGICAL                                            :: is_spherical, &
                                                             is_odd
       LOGICAL, DIMENSION(:, :), POINTER                  :: sb
-      INTEGER                                            :: nbecke, &
+      INTEGER                                            :: ncdft, &
                                                             max_nkinds
       INTEGER, DIMENSION(2, 3)                           :: bo
       INTEGER, DIMENSION(:), POINTER                     :: grid_span, &
@@ -294,7 +294,7 @@ CONTAINS
       NULLIFY (cdft_control%dest_bo_save, cdft_control%dest_list_save, cdft_control%source_list)
       NULLIFY (cdft_control%source_list_save, cdft_control%source_bo_save, cdft_control%source_list_bo)
       NULLIFY (cdft_control%cavity, cdft_control%weight, cdft_control%sendbuff)
-      NULLIFY (cdft_control%becke_control, cdft_control%recv_bo)
+      NULLIFY (cdft_control%cdft_control, cdft_control%recv_bo)
       NULLIFY (cdft_control%sub_logger)
 
    END SUBROUTINE mixed_cdft_type_create
@@ -354,8 +354,8 @@ CONTAINS
          END DO
          DEALLOCATE (cdft_control%sendbuff)
       END IF
-      IF (ASSOCIATED(cdft_control%becke_control)) &
-         CALL becke_control_release(cdft_control%becke_control)
+      IF (ASSOCIATED(cdft_control%cdft_control)) &
+         CALL cdft_control_release(cdft_control%cdft_control)
       IF (ASSOCIATED(cdft_control%blacs_env)) &
          CALL cp_blacs_env_release(cdft_control%blacs_env)
       IF (ASSOCIATED(cdft_control%qs_kind_set)) &

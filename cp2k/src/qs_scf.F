@@ -80,7 +80,8 @@ MODULE qs_scf
         broyden_type_2, broyden_type_2_explicit, broyden_type_2_explicit_ls, broyden_type_2_ls, &
         cdft2ot, history_guess, ot2cdft, ot_precond_full_all, ot_precond_full_single, &
         ot_precond_full_single_inverse, ot_precond_none, ot_precond_s_inverse, &
-        outer_scf_hirshfeld_constraint, outer_scf_optimizer_broyden, outer_scf_optimizer_newton_ls
+        outer_scf_hirshfeld_constraint, outer_scf_optimizer_broyden, outer_scf_optimizer_newton_ls, &
+        outer_scf_becke_constraint
    USE input_section_types,             ONLY: section_vals_get_subs_vals,&
                                               section_vals_type
    USE kinds,                           ONLY: default_path_length,&
@@ -318,7 +319,7 @@ CONTAINS
       CHARACTER(LEN=*), PARAMETER :: routineN = 'scf_env_do_scf', routineP = moduleN//':'//routineN
 
       CHARACTER(LEN=default_string_length)               :: description, name
-      INTEGER :: ext_master_id, external_comm, handle, handle2, i_tmp, iatom, ic, ispin, &
+      INTEGER :: ext_master_id, external_comm, handle, handle2, i_tmp, ic, ispin, &
          iter_count, output_unit, scf_energy_message_tag, total_steps
       LOGICAL :: diis_step, do_kpoints, energy_only, exit_inner_loop, exit_outer_loop, &
          inner_loop_converged, just_energy, outer_loop_converged
@@ -334,7 +335,6 @@ CONTAINS
       TYPE(mo_set_p_type), DIMENSION(:), POINTER         :: mos
       TYPE(particle_type), DIMENSION(:), POINTER         :: particle_set
       TYPE(pw_env_type), POINTER                         :: pw_env
-      TYPE(pw_pool_type), POINTER                        :: auxbas_pw_pool
       TYPE(qs_charges_type), POINTER                     :: qs_charges
       TYPE(qs_energy_type), POINTER                      :: energy
       TYPE(qs_kind_type), DIMENSION(:), POINTER          :: qs_kind_set
@@ -943,7 +943,7 @@ CONTAINS
       IF (output_unit > 0) THEN
          WRITE (UNIT=output_unit, FMT="(/,/,T2,A)") &
             "CDFT EXTERNAL SCF WAVEFUNCTION OPTIMIZATION"
-         CALL qs_scf_cdft_initial_info(output_unit, cdft_control, dft_control)
+         CALL qs_scf_cdft_initial_info(output_unit, cdft_control)
       END IF
       IF (cdft_control%reuse_precond) THEN
          reuse_precond = .FALSE.
@@ -1068,8 +1068,10 @@ CONTAINS
          END IF
       END IF
 
-      ! Deallocate constraint storage if forces are not needed or if a serial model mixed CDFT calculation was not requested
-      IF (.NOT. (cdft_control%save_pot .OR. & cdft_control%transfer_pot)) THEN
+      ! Deallocate constraint storage if forces are not needed
+      ! In case of a simulation with multiple force_evals,
+      ! deallocate only if weight function should not be copied to different force_evals
+      IF (.NOT. (cdft_control%save_pot .OR. cdft_control%transfer_pot)) THEN
          CALL get_qs_env(qs_env, pw_env=pw_env)
          CALL pw_env_get(pw_env, auxbas_pw_pool=auxbas_pw_pool)
          DO iatom = 1, SIZE(cdft_control%group)
@@ -1081,7 +1083,8 @@ CONTAINS
             END DO
             DEALLOCATE (cdft_control%charge)
          END IF
-         IF (cdft_control%type == outer_scf_becke_constraint .AND. cdft_control%becke_control%cavity_confine) THEN
+         IF (cdft_control%type == outer_scf_becke_constraint .AND. &
+             cdft_control%becke_control%cavity_confine) THEN
             IF (.NOT. ASSOCIATED(cdft_control%becke_control%cavity_mat)) THEN
                CALL pw_pool_give_back_pw(auxbas_pw_pool, cdft_control%becke_control%cavity%pw)
             ELSE

@@ -5461,8 +5461,7 @@ CONTAINS
                                         " which determines the type of weight used.", &
                                         "Do nothing in the outer loop, useful for resetting the inner loop,"), &
                           enum_i_vals=(/outer_scf_ddapc_constraint, outer_scf_s2_constraint, &
-                                        outer_scf_basis_center_opt,3 &
-                                        outer_scf_cdft_constraint, outer_scf_none/))
+                                        outer_scf_basis_center_opt, outer_scf_cdft_constraint, outer_scf_none/))
       CALL section_add_keyword(section, keyword)
       CALL keyword_release(keyword)
 
