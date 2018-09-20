@@ -404,13 +404,11 @@ CONTAINS
       CALL get_mixed_env(force_env%mixed_env, cdft_control=mixed_cdft)
       CPASSERT(ASSOCIATED(mixed_cdft))
       IF (.NOT. PRESENT(iforce_eval)) THEN
-         IF (.NOT. mixed_cdft%is_parallel) &
-            CPABORT("Parallel routine called in serial case")
-         CALL mixed_cdft_build_weight_parallel(force_env, calculate_forces)
-      ELSE
          IF (mixed_cdft%is_parallel) &
-            CPABORT("Serial routine called in parallel case")
-         CALL mixed_cdft_transfer_weight(force_env, calculate_forces, iforce_eval)
+            CALL mixed_cdft_build_weight_parallel(force_env, calculate_forces)
+      ELSE
+         IF (.NOT. mixed_cdft%is_parallel) &
+            CALL mixed_cdft_transfer_weight(force_env, calculate_forces, iforce_eval)
       END IF
 
    END SUBROUTINE mixed_cdft_build_weight
