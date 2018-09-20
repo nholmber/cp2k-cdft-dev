@@ -668,9 +668,9 @@ CONTAINS
             IF (igroup > 1) WRITE (output_unit, '(T3,A)') ' '
             WRITE (output_unit, '(T3,A,T54,(3X,I18))') &
                'Atomic group                :', igroup
-            SELECT CASE (cdft_control%constraint_type (igroup))
+            SELECT CASE (cdft_control%group(igroup)%constraint_type)
             CASE (cdft_charge_constraint)
-               IF (cdft_control%is_fragment_constraint(igroup)) THEN
+               IF (cdft_control%group(igroup)%is_fragment_constraint) THEN
                   WRITE (output_unit, '(T3,A,T42,A)') &
                      'Type of constraint          :', ADJUSTR('Charge density constraint (frag.)')
                ELSE
@@ -678,7 +678,7 @@ CONTAINS
                      'Type of constraint          :', ADJUSTR('Charge density constraint')
                END IF
             CASE (cdft_magnetization_constraint)
-               IF (cdft_control%is_fragment_constraint(igroup)) THEN
+               IF (cdft_control%group(igroup)%is_fragment_constraint) THEN
                   WRITE (output_unit, '(T3,A,T35,A)') &
                      'Type of constraint          :', ADJUSTR('Magnetization density constraint (frag.)')
                ELSE
@@ -686,7 +686,7 @@ CONTAINS
                      'Type of constraint          :', ADJUSTR('Magnetization density constraint')
                END IF
             CASE (cdft_alpha_constraint)
-               IF (cdft_control%is_fragment_constraint(igroup)) THEN
+               IF (cdft_control%group(igroup)%is_fragment_constraint) THEN
                   WRITE (output_unit, '(T3,A,T38,A)') &
                      'Type of constraint          :', ADJUSTR('Alpha spin density constraint (frag.)')
                ELSE
@@ -694,7 +694,7 @@ CONTAINS
                      'Type of constraint          :', ADJUSTR('Alpha spin density constraint')
                END IF
             CASE (cdft_beta_constraint)
-               IF (cdft_control%is_fragment_constraint(igroup)) THEN
+               IF (cdft_control%group(igroup)%is_fragment_constraint) THEN
                   WRITE (output_unit, '(T3,A,T39,A)') &
                      'Type of constraint          :', ADJUSTR('Beta spin density constraint (frag.)')
                ELSE

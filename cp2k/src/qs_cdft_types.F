@@ -258,7 +258,6 @@ MODULE qs_cdft_types
                                               precond_freq, nreused, max_reuse, &
                                               purge_freq, nbad_conv, purge_offset, &
                                               istep, ienergy, natoms
-      INTEGER, DIMENSION(:), ALLOCATABLE   :: constraint_type
       INTEGER, POINTER, DIMENSION(:)       :: atoms
       LOGICAL                              :: need_pot, save_pot, do_et, &
                                               reuse_precond, purge_history, &
@@ -267,7 +266,6 @@ MODULE qs_cdft_types
                                               fragments_integrated, flip_fragment(2),&
                                               transfer_pot, external_control,&
                                               first_iteration
-      LOGICAL, DIMENSION(:), ALLOCATABLE   :: is_fragment_constraint
       LOGICAL, POINTER, DIMENSION(:)       :: is_constraint
       REAL(KIND=dp), DIMENSION(:), POINTER :: strength, TARGET, value
       REAL(KIND=dp), POINTER, &
@@ -499,10 +497,6 @@ CONTAINS
             DEALLOCATE (cdft_control%target)
          IF (ASSOCIATED(cdft_control%value)) &
             DEALLOCATE (cdft_control%value)
-         IF (ALLOCATED(cdft_control%constraint_type)) &
-            DEALLOCATE (cdft_control%constraint_type)
-         IF (ALLOCATED(cdft_control%is_fragment_constraint)) &
-            DEALLOCATE (cdft_control%is_fragment_constraint)
          IF (ASSOCIATED(cdft_control%charges_fragment)) &
             DEALLOCATE (cdft_control%charges_fragment)
          IF (ASSOCIATED(cdft_control%fragments)) &

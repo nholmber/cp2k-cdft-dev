@@ -144,12 +144,12 @@ CONTAINS
          IF (ASSOCIATED(force_env%qs_env)) THEN
             CALL get_qs_env(force_env%qs_env, dft_control=dft_control)
             IF (dft_control%qs_control%cdft) THEN
+               dft_section => section_vals_get_subs_vals3(force_env_sections, "DFT", &
+                                                          i_rep_section=i_force_eval(iforce_eval))
                CALL section_vals_val_set(dft_section, "QS%CDFT%COUNTER", &
                                          i_val=dft_control%qs_control%cdft_control%ienergy)
                ALLOCATE (work(SIZE(dft_control%qs_control%cdft_control%strength)))
                work = dft_control%qs_control%cdft_control%strength
-               dft_section => section_vals_get_subs_vals3(force_env_sections, "DFT", &
-                                                          i_rep_section=i_force_eval(iforce_eval))
                CALL section_vals_val_set(dft_section, "QS%CDFT%STRENGTH", &
                                          r_vals_ptr=work)
             END IF
