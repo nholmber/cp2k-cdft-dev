@@ -4268,8 +4268,8 @@ CONTAINS
                           description="Parameters needed to set up a constrained DFT calculation."// &
                           " Each repetition of the ATOM_GROUP section defines a new constraint."// &
                           " The constraint(s) is (are) converged in a separate external SCF loop with settings"// &
-                          " read from the OUTER_SCF section. Supported constraints: Gaussian Hirshfeld (partial)"// &
-                          " and Becke.", n_keywords=8, n_subsections=2, &
+                          " read from the OUTER_SCF section. Supported constraints: Becke and Gaussian"// &
+                          " Hirshfeld (partial).", n_keywords=8, n_subsections=2, &
                           repeats=.FALSE., citations=(/Holmberg2017/))
 
       NULLIFY (subsection, keyword)
@@ -4516,8 +4516,8 @@ CONTAINS
    END SUBROUTINE create_cdft_control_section
 
 ! **************************************************************************************************
-!> \brief ...
-!> \param section ...
+!> \brief Creates the input section for defining Gaussian Hirshfeld CDFT constraints.
+!> \param section the section to create
 ! **************************************************************************************************
    SUBROUTINE create_hirshfeld_constraint_section(section)
       TYPE(section_type), POINTER                        :: section
@@ -4532,92 +4532,61 @@ CONTAINS
 
       CPASSERT(.NOT. ASSOCIATED(section))
       CALL section_create(section, "HIRSHFELD_CONSTRAINT", &
-                          description="Parameters for CDFT with Hirshfeld constraint", &
+                          description="Parameters for CDFT with a Gaussian Hirshfeld constraint", &
                           n_keywords=11, n_subsections=0, repeats=.FALSE.)
 
-      CALL keyword_create(keyword, name="STRENGTH", &
-                          description="Force constants of the constraints. "// &
-                          "Second value is for combined constraint and is optional.", &
-                          usage="STRENGTH {real} {real}", repeats=.FALSE., &
-                          type_of_var=real_t, n_var=-1, &
-                          default_r_val=0.0_dp)
+      CALL keyword_create(keyword=keyword, name="SHAPE_FUNCTION", &
+                    description="Type of shape function used for Hirshfeld partitioning.", &
+                    usage="SHAPE_FUNCTION {Gaussian,Density}", repeats=.FALSE., n_var=1, &
+                    default_i_val=shape_function_gaussian, &
+                    enum_c_vals=s2a("GAUSSIAN", "DENSITY"), &
+                    enum_desc=s2a("Single Gaussian with radius determined by keyword GAUSSIAN_SHAPE.", &
+                                  "Atomic density expanded in multiple Gaussians."), &
+                    enum_i_vals=(/shape_function_gaussian, shape_function_density/))
       CALL section_add_keyword(section, keyword)
       CALL keyword_release(keyword)
 
-      CALL keyword_create(keyword, name="TARGET", &
-                          description="Target values of the constraints.  "// &
-                          "Second value is for combined constraint and is optional.", &
-                          usage="TARGET {real}", repeats=.FALSE., &
-                          type_of_var=real_t, n_var=-1, &
-                          default_r_val=0.0_dp)
+      CALL keyword_create(keyword, name="GAUSSIAN_SHAPE", &
+                          description="Specifies the type of Gaussian used for SHAPE_FUNCTION Gaussian.", &
+                          usage="GAUSSIAN_SHAPE (SINGLE|VDW|COVALENT|USER)", &
+                          enum_c_vals=s2a("DEFAULT", "SINGLE", "VDW", "COVALENT", "USER"), &
+                          enum_i_vals=(/radius_default, radius_single, radius_vdw, radius_covalent, radius_user/), &
+                          enum_desc=s2a("Use covalent radii (in angstrom) to construct Gaussians, but fixed"// &
+                                        " 1.0_dp radius for elements with a radius larger than this value.", &
+                                        "Single Gaussian for all atom types with radius given by GAUSSIAN_RADIUS.", &
+                                        "Use van der Waals radii to construct Gaussians.", &
+                                        "Use covalent radii to construct Gaussians.", &
+                                        "Use user defined radii (keyword ATOMIC_RADII) to construct Gaussians."), &
+                          default_i_val=radius_default)
       CALL section_add_keyword(section, keyword)
       CALL keyword_release(keyword)
 
-      CALL keyword_create(keyword, name="ATOMS", &
-                          description="Specifies the list of atoms that are included in the constraint", &
-                          usage="ATOMS {integer} {integer} .. {integer}", &
-                          n_var=-1, type_of_var=integer_t)
-      CALL section_add_keyword(section, keyword)
-      CALL keyword_release(keyword)
-
-      CALL keyword_create(keyword, name="COEFF", &
-                          description="Defines coefficients for atoms included in the constraint (default is one)"// &
-                          " Use +1.0 for donor atoms and -1.0 for acceptor atoms.", &
-                          usage="COEFF 1.0 -1.0", repeats=.TRUE., &
-                          type_of_var=real_t, n_var=-1)
-      CALL section_add_keyword(section, keyword)
-      CALL keyword_release(keyword)
-
-      CALL keyword_create(keyword, name="SELF_CONSISTENT", &
-                          description="Calculate charges from the Hirsheld-I (self_consistent) method."// &
-                          " This scales only the full shape function, not the added charge as in the original scheme. NYI.", &
-                          usage="SELF_CONSISTENT yes", repeats=.FALSE., n_var=1, &
-                          default_l_val=.FALSE., lone_keyword_l_val=.TRUE.)
-      CALL section_add_keyword(section, keyword)
-      CALL keyword_release(keyword)
-
-      CALL keyword_create(keyword, name="SHAPE_FUNCTION", &
-                          description="Type of shape function used for Hirshfeld partitioning.", &
-                          usage="SHAPE_FUNCTION {Gaussian,Density}", repeats=.FALSE., n_var=1, &
-                          default_i_val=shape_function_gaussian, &
-                          enum_c_vals=s2a("GAUSSIAN", "DENSITY"), &
-                          enum_desc=s2a("Single Gaussian with Colvalent radius", &
-                                        "Atomic density expanded in multiple Gaussians (NYI)"), &
-                          enum_i_vals=(/shape_function_gaussian, shape_function_density/))
-      CALL section_add_keyword(section, keyword)
-      CALL keyword_release(keyword)
-
-      CALL keyword_create(keyword, name="REFERENCE_CHARGE", &
-                          description="Charge of atomic partitioning function for Hirshfeld method.", &
-                          usage="REFERENCE_CHARGE {Atomic,Mulliken}", repeats=.FALSE., n_var=1, &
-                          default_i_val=ref_charge_atomic, &
-                          enum_c_vals=s2a("ATOMIC", "MULLIKEN"), &
-                          enum_desc=s2a("Use atomic core charges", "Calculate Mulliken charges (NYI)"), &
-                          enum_i_vals=(/ref_charge_atomic, ref_charge_mulliken/))
-      CALL section_add_keyword(section, keyword)
-      CALL keyword_release(keyword)
-
-      CALL keyword_create(keyword, name="USER_RADIUS", &
-                          description="Use user defined covalent radii for single Gaussian Hirshfeld partitioning."// &
-                          " These radii are defined by the keyword ATOMIC_RADII", &
-                          usage="USER_RADIUS yes", repeats=.FALSE., n_var=1, &
-                          default_l_val=.FALSE., lone_keyword_l_val=.TRUE.)
+      CALL keyword_create(keyword, name="GAUSSIAN_RADIUS", &
+                          description="Radius parameter controlling the creation of Gaussians.", &
+                          usage="GAUSSIAN_RADIUS <REAL>", &
+                          unit_str="angstrom", &
+                          default_r_val=cp_unit_to_cp2k(3.0_dp, "angstrom"), &
+                          type_of_var=real_t, n_var=1)
       CALL section_add_keyword(section, keyword)
       CALL keyword_release(keyword)
 
       CALL keyword_create(keyword, name="ATOMIC_RADII", &
-                          description="Defines custom radii to setup the spherical Gaussians.", &
+                          description="Defines custom radii to setup the spherical Gaussians. "// &
+                          "Give one value per element in the same order as they "// &
+                          "appear in the input coordinates.", &
                           usage="ATOMIC_RADII {real} {real} {real}", repeats=.FALSE., &
                           unit_str="angstrom", &
                           type_of_var=real_t, n_var=-1)
       CALL section_add_keyword(section, keyword)
       CALL keyword_release(keyword)
 
-      CALL cp_print_key_section_create(print_key, "PROGRAM_RUN_INFO", &
-                                       description="Controls the printing of basic info about the method", &
-                                       print_level=low_print_level, add_last=add_last_numeric, filename="__STD_OUT__")
-      CALL section_add_subsection(section, print_key)
-      CALL section_release(print_key)
+      CALL keyword_create(keyword, name="USE_BOHR", &
+                          description="Convert the Gaussian radius from angstrom to bohr. This results in a larger"// &
+                          "Gaussian than without unit conversion.", &
+                          usage="CAVITY_USE_BOHR TRUE", &
+                          default_l_val=.FALSE., lone_keyword_l_val=.TRUE.)
+      CALL section_add_keyword(section, keyword)
+      CALL keyword_release(keyword)
 
    END SUBROUTINE create_hirshfeld_constraint_section
 

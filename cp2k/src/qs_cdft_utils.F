@@ -81,7 +81,7 @@ MODULE qs_cdft_utils
 
 ! *** Public subroutines ***
    PUBLIC :: becke_constraint_init, read_becke_section, read_cdft_control_section
-   PUBLIC :: hfun_scale
+   PUBLIC :: hfun_scale, hirshfeld_constraint_init
 
 CONTAINS
 
@@ -773,7 +773,7 @@ CONTAINS
                hirshfeld_constraint_section => section_vals_get_subs_vals(cdft_control_section, "HIRSHFELD_CONSTRAINT")
                CALL section_vals_get(hirshfeld_constraint_section, explicit=exists)
                IF (.NOT. exists) CPABORT("HIRSHFELD_CONSTRAINT section is missing.")
-               CALL read_hirshfeld_constraint_section(qs_control, hirshfeld_constraint_section)
+               CALL read_hirshfeld_constraint_section(cdft_control, hirshfeld_constraint_section)
             CASE DEFAULT
                CPABORT("Unknown constraint type.")
             END SELECT
@@ -791,12 +791,12 @@ CONTAINS
 ! **************************************************************************************************
 !> \brief reads the input parameters needed for Hirshfeld constraint
 !> \param qs_control the qs_control which holds the Hirshfeld constraint
-!> \param hirshfeld_constraint_section the input section for a Hirshfeld constraint
-!> \author Nico Holmberg [12.2015]
+!> \param hirshfeld_section the input section for a Hirshfeld constraint
+!> \author Nico Holmberg [09.2018]
 ! **************************************************************************************************
-   SUBROUTINE read_hirshfeld_constraint_section(qs_control, hirshfeld_constraint_section)
-      TYPE(qs_control_type), INTENT(INOUT)               :: qs_control
-      TYPE(section_vals_type), POINTER                   :: hirshfeld_constraint_section
+   SUBROUTINE read_hirshfeld_constraint_section(cdft_control, hirshfeld_section)
+      TYPE(cdft_control_type), INTENT(INOUT)             :: cdft_control
+      TYPE(section_vals_type), POINTER                   :: hirshfeld_section
 
       CHARACTER(len=*), PARAMETER :: routineN = 'read_hirshfeld_constraint_section', &
          routineP = moduleN//':'//routineN
@@ -808,75 +808,33 @@ CONTAINS
       REAL(KIND=dp), DIMENSION(:), POINTER               :: rtmplist
 
       NULLIFY (tmplist, rtmplist)
-      CPASSERT(.NOT. ASSOCIATED(qs_control%cdft_control%hirshfeld_control))
-      ALLOCATE (qs_control%cdft_control%hirshfeld_control)
+      becke_control => cdft_control%hirshfeld_control
+      CPASSERT(ASSOCIATED(hirshfeld_control))
 
-      CALL section_vals_val_get(hirshfeld_constraint_section, "ATOMS", n_rep_val=n_rep)
-      jj = 0
-      DO k = 1, n_rep
-         CALL section_vals_val_get(hirshfeld_constraint_section, "ATOMS", i_rep_val=k, i_vals=tmplist)
-         DO j = 1, SIZE(tmplist)
-            jj = jj+1
-         END DO
-      END DO
-      IF (jj < 1) CPABORT("Need at least 1 atom to use Hirshfeld constraints.")
-      qs_control%cdft_control%hirshfeld_control%natoms = jj
-      ALLOCATE (qs_control%cdft_control%hirshfeld_control%atoms( &
-                qs_control%cdft_control%hirshfeld_control%natoms))
-      jj = 0
-      DO k = 1, n_rep
-         CALL section_vals_val_get(hirshfeld_constraint_section, "ATOMS", i_rep_val=k, i_vals=tmplist)
-         DO j = 1, SIZE(tmplist)
-            jj = jj+1
-            qs_control%cdft_control%hirshfeld_control%atoms(jj) = tmplist(j)
-         END DO
-      END DO
-
-      ALLOCATE (qs_control%cdft_control%hirshfeld_control%coeff(qs_control%cdft_control%hirshfeld_control%natoms))
-      qs_control%cdft_control%hirshfeld_control%coeff = 1.0_dp
-
-      CALL section_vals_val_get(hirshfeld_constraint_section, "COEFF", n_rep_val=n_rep)
-      jj = 0
-      DO k = 1, n_rep
-         CALL section_vals_val_get(hirshfeld_constraint_section, "COEFF", i_rep_val=k, r_vals=rtmplist)
-         DO j = 1, SIZE(rtmplist)
-            jj = jj+1
-            IF (jj > qs_control%cdft_control%hirshfeld_control%natoms) &
-               CPABORT("Need the same number of coeff as there are atoms.")
-            qs_control%cdft_control%hirshfeld_control%coeff(jj) = rtmplist(j)
-            IF (ABS(rtmplist(j)) /= 1.0_dp) &
-               CPABORT("Illegal coefficient. Only -1.0 or 1.0 allowed.")
-         END DO
-      END DO
-      IF (jj < qs_control%cdft_control%hirshfeld_control%natoms .AND. jj .NE. 0) &
-         CPABORT("Need no or the same number of coeff as there are atoms.")
-
-      nvar = 1
-      ALLOCATE (qs_control%cdft_control%target(nvar))
-      ALLOCATE (qs_control%cdft_control%strength(nvar))
-      ALLOCATE (qs_control%cdft_control%value(nvar))
-      CALL section_vals_val_get(hirshfeld_constraint_section, "STRENGTH", r_vals=rtmplist)
-      DO j = 1, nvar
-         qs_control%cdft_control%strength(j) = rtmplist(j)
-      END DO
-      CALL section_vals_val_get(hirshfeld_constraint_section, "TARGET", r_vals=rtmplist)
-      DO j = 1, nvar
-         qs_control%cdft_control%target(j) = rtmplist(j)
-      END DO
-
-      NULLIFY (qs_control%cdft_control%hirshfeld_control%hirshfeld_env)
-      CALL create_hirshfeld_type(qs_control%cdft_control%hirshfeld_control%hirshfeld_env)
-      CALL section_vals_val_get(hirshfeld_constraint_section, "SELF_CONSISTENT", l_val=do_sc)
-      CALL section_vals_val_get(hirshfeld_constraint_section, "USER_RADIUS", l_val=do_radius)
-      CALL section_vals_val_get(hirshfeld_constraint_section, "SHAPE_FUNCTION", i_val=shapef)
-      CALL section_vals_val_get(hirshfeld_constraint_section, "REFERENCE_CHARGE", i_val=refc)
-      IF (do_radius) THEN
-         radius_type = radius_user
-      ELSE
-         radius_type = radius_covalent
+      CALL section_vals_val_get(hirshfeld_section, "SHAPE_FUNCTION", i_val=hirshfeld_control%shape_function)
+      CALL section_vals_val_get(hirshfeld_section, "GAUSSIAN_SHAPE", i_val=hirshfeld_control%gaussian_shape)
+      CALL section_vals_val_get(hirshfeld_section, "GAUSSIAN_RADIUS", r_val=hirshfeld_control%radius)
+      CALL section_vals_val_get(hirshfeld_section, "USE_BOHR", l_val=hirshfeld_control%use_bohr)
+      IF (.NOT. hirshfeld_control%use_bohr) THEN
+         hirshfeld_control%radius = cp_unit_from_cp2k(hirshfeld_control%radius, "angstrom")
       END IF
-      CALL set_hirshfeld_info(qs_control%cdft_control%hirshfeld_control%hirshfeld_env, &
-                              shape_function_type=shapef, iterative=do_sc, ref_charge=refc, radius_type=radius_type)
+
+      IF (hirshfeld_control%shape_function == shape_function_gaussian .AND. &
+          hirshfeld_control%gaussian_shape == radius_user) THEN
+         CALL section_vals_val_get(hirshfeld_section, "ATOMIC_RADII", explicit=exists)
+         IF (.NOT. exists) CPABORT("Keyword ATOMIC_RADII is missing.")
+         CALL section_vals_val_get(hirshfeld_section, "ATOMIC_RADII", r_vals=rtmplist)
+         CPASSERT(SIZE(rtmplist) > 0)
+         ALLOCATE (hirshfeld_control%radii(SIZE(rtmplist)))
+         hirshfeld_control%radii(:) = rtmplist
+      END IF
+
+      CALL create_hirshfeld_type(hirshfeld_control%hirshfeld_env)
+      CALL set_hirshfeld_info(hirshfeld_control%hirshfeld_env, &
+                              shape_function_type=hirshfeld_control%shape_function, &
+                              iterative=.FALSE., &
+                              radius_type=hirshfeld_control%gaussian_shape, &
+                              use_bohr=hirshfeld_control%use_bohr)
 
    END SUBROUTINE read_hirshfeld_constraint_section
 
@@ -1003,5 +961,106 @@ CONTAINS
       END IF
 
    END SUBROUTINE hfun_zero
+
+! **************************************************************************************************
+!> \brief Initializes Gaussian Hirshfeld constraints
+!> \param qs_env the qs_env where to build the constraint
+!> \author  Nico Holmberg (09.2018)
+! **************************************************************************************************
+   SUBROUTINE hirshfeld_constraint_init(qs_env)
+      TYPE(qs_environment_type), POINTER                 :: qs_env
+
+      CHARACTER(len=*), PARAMETER :: routineN = 'hirshfeld_constraint_init', &
+         routineP = moduleN//':'//routineN
+
+      INTEGER                                            :: handle, igroup,  iatom,  &
+                                                            ikind, iw, natom, nkind
+      TYPE(atomic_kind_type), DIMENSION(:), POINTER      :: atomic_kind_set
+      TYPE(cdft_control_type), POINTER                   :: cdft_control
+      TYPE(dft_control_type), POINTER                    :: dft_control
+      TYPE(hirshfeld_constraint_type), POINTER           :: hirshfeld_control
+      TYPE(hirshfeld_type), POINTER                      :: hirshfeld_env
+      TYPE(particle_type), DIMENSION(:), POINTER         :: particle_set
+      TYPE(qs_kind_type), DIMENSION(:), POINTER          :: qs_kind_set
+      TYPE(section_vals_type), POINTER                   :: print_section
+
+      NULLIFY (cdft_control, hirshfeld_control, hirshfeld_env, qs_kind_set, atomic_kind_set, &
+               radii_list, dft_control)
+      CALL timeset(routineN, handle)
+
+      print_section => section_vals_get_subs_vals(qs_env%input, "DFT%QS%CDFT")
+      iw = cp_print_key_unit_nr(logger, print_section, "PROGRAM_RUN_INFO", extension=".cdftLog")
+
+      CALL get_qs_env(qs_env, dft_control=dft_control)
+      cdft_control => dft_control%qs_control%cdft_control
+      hirshfeld_control => hirshfeld_control
+
+      ! Setup the Hirshfeld shape function
+      IF (.NOT. ASSOCIATED(hirshfeld_env%kind_shape_fn)) THEN
+         hirshfeld_env => hirshfeld_control%hirshfeld_env
+         CALL get_qs_env(qs_env, atomic_kind_set=atomic_kind_set, qs_kind_set=qs_kind_set)
+         CPASSERT(ASSOCIATED(qs_kind_set))
+         nkind = SIZE(qs_kind_set)
+         ! Parse atomic radii for setting up Gaussian shape function
+         IF (ASSOCIATED(hirshfeld_control%radii)) THEN
+            IF (.NOT. SIZE(atomic_kind_set) == SIZE(hirshfeld_control%radii_tmp)) &
+               CALL cp_abort(__LOCATION__, &
+                             "Length of keyword HIRSHFELD_CONSTRAINT\ATOMIC_RADII does not "// &
+                             "match number of atomic kinds in the input coordinate file.")
+
+            ALLOCATE (radii_list(SIZE(hirshfeld_control%radii)))
+            DO ikind = 1, SIZE(hirshfeld_control_control%radii)
+               IF (hirshfeld_control%use_bohr) THEN
+                  radii_list(ikind) = hirshfeld_control%radii(ikind)
+               ELSE
+                  radii_list(ikind) = cp_unit_from_cp2k(hirshfeld_control%radii(ikind), "angstrom")
+               END IF
+            END DO
+         END IF
+         CALL create_shape_function(hirshfeld_env, qs_kind_set, atomic_kind_set, &
+                                    radius=hirshfeld_control%radius, &
+                                    radii_list=radii_list)
+         IF (ASSOCIATED(radii_list)) DEALLOCATE (radii_list)
+      END IF
+
+      ! Print some additional information about the calculation on the first iteration
+      IF (cdft_control%first_iteration) THEN
+         IF (iw > 0) THEN
+            CALL get_qs_env(qs_env, particle_set=particle_set)
+            IF (ASSOCIATED(hirshfeld_control%radii)) THEN
+               WRITE (iw, '(T3,A)') &
+                  'Atom   Element  Gaussian radius (angstrom)'
+               DO iatom = 1, natom
+                  CALL get_atomic_kind(atomic_kind=particle_set(iatom)%atomic_kind, element_symbol=element_symbol)
+                  WRITE (iw, "(i7,T15,A2,T37,F8.3)") &
+                     iatom, ADJUSTR(element_symbol), cp_unit_from_cp2k(hirshfeld_control%radii(iatom), "angstrom")
+               END DO
+               WRITE (iw, '(T3,A)') &
+                  '------------------------------------------------------------------------'
+            END IF
+            WRITE (iw, '(/,T3,A,T60)') &
+               '----------------------- CDFT group definitions -------------------------'
+            DO igroup = 1, SIZE(group)
+               IF (igroup > 1) WRITE (iw, '(T3,A)') ' '
+               WRITE (iw, '(T5,A,I5,A,I5)') &
+                  'Atomic group', igroup, ' of ', SIZE(group)
+               WRITE (iw, '(T5,A)') 'Atom  Element  Coefficient'
+               DO ip = 1, SIZE(group(igroup)%atoms)
+                  iatom = group(igroup)%atoms(ip)
+                  CALL get_atomic_kind(atomic_kind=particle_set(iatom)%atomic_kind, element_symbol=element_symbol)
+                  WRITE (iw, '(i8,T16,A2,T23,F8.3)') iatom, ADJUSTR(element_symbol), group(igroup)%coeff(ip)
+               END DO
+            END DO
+            WRITE (iw, '(T3,A)') &
+               '------------------------------------------------------------------------'
+         END IF
+         cdft_control%first_iteration = .FALSE.
+      END IF
+
+      ! Radii no longer needed
+      IF (ASSOCIATED(hirshfeld_control%radii)) DEALLOCATE(hirshfeld_control%radii)
+      CALL timestop(handle)
+
+   END SUBROUTINE hirshfeld_constraint_init
 
 END MODULE qs_cdft_utils

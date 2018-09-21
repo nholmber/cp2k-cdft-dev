@@ -95,8 +95,7 @@ MODULE mixed_cdft_utils
    USE pw_pool_types,                   ONLY: pw_pool_create,&
                                               pw_pool_p_type,&
                                               pw_pool_type
-   USE qs_cdft_types,                   ONLY: becke_control_create, &
-                                              cdft_control_create,&
+   USE qs_cdft_types,                   ONLY: cdft_control_create,&
                                               cdft_control_type
    USE qs_environment_types,            ONLY: get_qs_env,&
                                               qs_environment_type

@@ -17,7 +17,8 @@ MODULE qs_cdft_types
                                               release_hirshfeld_type
    USE input_constants,                 ONLY: becke_cutoff_global,&
                                               outer_scf_none,&
-                                              radius_single
+                                              radius_single, &
+                                              shape_function_gaussian
    USE kinds,                           ONLY: default_path_length,&
                                               dp
    USE pw_types,                        ONLY: pw_p_type
@@ -151,9 +152,10 @@ MODULE qs_cdft_types
 ! **************************************************************************************************
    TYPE hirshfeld_constraint_type
       TYPE(hirshfeld_type), POINTER        :: hirshfeld_env
-      INTEGER                              :: natoms, constraint_type
-      INTEGER, POINTER, DIMENSION(:)       :: atoms
-      REAL(KIND=dp), POINTER, DIMENSION(:) :: coeff
+      LOGICAL                              :: use_bohr
+      INTEGER                              :: gaussian_shape, shape_function
+      REAL(KIND=dp)                        :: radius
+      REAL(KIND=dp), DIMENSION(:), POINTER :: radii
    END TYPE hirshfeld_constraint_type
 
 ! **************************************************************************************************
@@ -296,13 +298,12 @@ MODULE qs_cdft_types
 
    PUBLIC :: becke_constraint_type, &
              cdft_control_type, &
-             cdft_group_type
+             cdft_group_type, &
+             hirshfeld_constraint_type
 
    ! Public subroutines
 
-   PUBLIC :: becke_control_create, &
-             becke_control_release, &
-             cdft_control_create, &
+   PUBLIC :: cdft_control_create, &
              cdft_control_release
 
 CONTAINS
@@ -440,6 +441,7 @@ CONTAINS
       NULLIFY (cdft_control%becke_control)
       CALL becke_control_create(cdft_control%becke_control)
       NULLIFY (cdft_control%hirshfeld_control)
+      CALL hirshfeld_control_create(cdft_control%hirshfeld_control)
       NULLIFY (cdft_control%wmat)
       NULLIFY (cdft_control%matrix_s%matrix)
       NULLIFY (cdft_control%mo_coeff)
@@ -526,13 +528,7 @@ CONTAINS
             CALL becke_control_release(cdft_control%becke_control)
          END IF
          IF (ASSOCIATED(cdft_control%hirshfeld_control)) THEN
-            CALL release_hirshfeld_type(cdft_control%hirshfeld_control%hirshfeld_env)
-            cdft_control%hirshfeld_control%natoms = 0
-            IF (ASSOCIATED(cdft_control%hirshfeld_control%atoms)) &
-               DEALLOCATE (cdft_control%hirshfeld_control%atoms)
-            IF (ASSOCIATED(cdft_control%hirshfeld_control%coeff)) &
-               DEALLOCATE (cdft_control%hirshfeld_control%coeff)
-            DEALLOCATE (cdft_control%hirshfeld_control)
+            CALL hirshfeld_control_release(cdft_control%hirshfeld_control)
          END IF
          ! Release OUTER_SCF types
          CALL cdft_opt_type_release(cdft_control%ot_control%cdft_opt_control)
@@ -576,5 +572,50 @@ CONTAINS
       CPASSERT(ASSOCIATED(cdft_control))
       cdft_control%ref_count = cdft_control%ref_count+1
    END SUBROUTINE cdft_control_retain
+
+! **************************************************************************************************
+!> \brief create the hirshfeld_constraint_type
+!> \param hirshfeld_control the structure to create
+!> \par History
+!>      09.2018 created [Nico Holmberg]
+! **************************************************************************************************
+   SUBROUTINE hirshfeld_control_create(hirshfeld_control)
+      TYPE(hirshfeld_constraint_type), POINTER           :: hirshfeld_control
+
+      CHARACTER(len=*), PARAMETER :: routineN = 'hirshfeld_control_create', &
+         routineP = moduleN//':'//routineN
+
+      CPASSERT(.NOT. ASSOCIATED(hirshfeld_control))
+      ALLOCATE (hirshfeld_control)
+
+      hirshfeld_control%use_bohr = .FALSE.
+      hirsfeld_control%radius = 3.0_dp
+      hirshfeld_control%shape_function = shape_function_gaussian
+      hirshfeld_control%gaussian_shape = radius_single
+      NULLIFY(hirshfeld_control%hirshfeld_env)
+      NULLIFY(hirshfeld_control%radii)
+
+   END SUBROUTINE hirshfeld_control_create
+
+! **************************************************************************************************
+!> \brief release the hirshfeld_constraint_type
+!> \param hirshfeld_control the structure to release
+!> \par History
+!>      09.2018 created [Nico Holmberg]
+! **************************************************************************************************
+   SUBROUTINE hirshfeld_control_release(hirshfeld_control)
+      TYPE(hirshfeld_constraint_type), POINTER           :: hirshfeld_control
+
+      CHARACTER(len=*), PARAMETER :: routineN = 'hirshfeld_control_release', &
+         routineP = moduleN//':'//routineN
+
+      CPASSERT(ASSOCIATED(hirshfeld_control))
+
+      IF (ASSOCIATED(hirshfeld_control%radii)) &
+         DEALLOCATE (hirshfeld_control%radii)
+      CALL release_hirshfeld_type(hirshfeld_control%hirshfeld_env)
+      DEALLOCATE (hirshfeld_control)
+
+   END SUBROUTINE hirshfeld_control_release
 
 END MODULE qs_cdft_types

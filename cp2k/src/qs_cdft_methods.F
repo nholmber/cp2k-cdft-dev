@@ -61,7 +61,8 @@ MODULE qs_cdft_methods
                                               cdft_control_type,&
                                               cdft_group_type
    USE qs_cdft_utils,                   ONLY: becke_constraint_init,&
-                                              hfun_scale
+                                              hfun_scale,&
+                                              hirshfeld_constraint_init
    USE qs_collocate_density,            ONLY: collocate_pgf_product_rspace
    USE qs_energy_types,                 ONLY: qs_energy_type
    USE qs_environment_types,            ONLY: get_qs_env,&
@@ -129,7 +130,7 @@ CONTAINS
          END IF
          ! Integrate the Becke constraint
          CALL cdft_constraint_integrate(qs_env)
-         ! Calculate gradients
+         ! Calculate forces
          IF (calculate_forces) CALL becke_constraint_force(qs_env)
       END IF
       CALL timestop(handle)
@@ -1310,17 +1311,52 @@ CONTAINS
 
 
 ! **************************************************************************************************
-!> \brief calculates a Gaussian Hirshfeld constraint
+!> \brief Driver routine for calculating a Gaussian Hirshfeld constraint
 !> \param qs_env the qs_env where to build the constraint
-!> \param calc_pot if the constraint potential should be rebuilt or just integrated
+!> \param calc_pot if the potential needs to be recalculated or just integrated
 !> \param calculate_forces logical if potential has to be calculated or only_energy
-!> \author  Nico Holmberg (01.2016)
+!> \par   History
+!>        Created 09.2018 [Nico Holmberg]
 ! **************************************************************************************************
    SUBROUTINE hirshfeld_constraint(qs_env, calc_pot, calculate_forces)
       TYPE(qs_environment_type), POINTER                 :: qs_env
       LOGICAL                                            :: calc_pot, calculate_forces
 
-      CHARACTER(len=*), PARAMETER :: routineN = 'hirshfeld_constraint', &
+      CHARACTER(len=*), PARAMETER :: routineN = 'becke_constraint', &
+         routineP = moduleN//':'//routineN
+
+      INTEGER                                            :: handle
+      TYPE(dft_control_type), POINTER                    :: dft_control
+      TYPE(cdft_control_type), POINTER                   :: cdft_control
+
+      CALL timeset(routineN, handle)
+      CALL get_qs_env(qs_env, dft_control=dft_control)
+      cdft_control => dft_control%qs_control%cdft_control
+      IF (dft_control%qs_control%cdft .AND. cdft_control%type == outer_scf_hirshfeld_constraint) THEN
+         IF (calc_pot) THEN
+            ! Initialize the Hirshfeld constraint environment
+            CALL hirshfeld_constraint_init(qs_env)
+            ! Calculate the Hirshfeld weight function and possibly the gradients
+            CALL hirshfeld_constraint_low(qs_env)
+         END IF
+         ! Integrate the Hirshfeld constraint
+         CALL cdft_constraint_integrate(qs_env)
+         ! Calculate forces
+         IF (calculate_forces) CALL becke_constraint_force(qs_env)
+      END IF
+      CALL timestop(handle)
+
+   END SUBROUTINE hirshfeld_constraint
+
+! **************************************************************************************************
+!> \brief Calculates Gaussian Hirshfeld constraints
+!> \param qs_env the qs_env where to build the constraint
+!> \author  Nico Holmberg (09.2018)
+! **************************************************************************************************
+   SUBROUTINE hirshfeld_constraint_low(qs_env)
+      TYPE(qs_environment_type), POINTER                 :: qs_env
+
+      CHARACTER(len=*), PARAMETER :: routineN = 'hirshfeld_constraint_ow', &
          routineP = moduleN//':'//routineN
 
       INTEGER                                            :: atom_a, handle, i, iat, iatom, iex, &
@@ -1386,149 +1422,126 @@ CONTAINS
                                      extension=".cube", log_filename=.FALSE.)
       CALL qs_rho_get(rho, rho_r=rho_r)
 
-      IF (dft_control%qs_control%cdft) THEN
-         cdft_control => dft_control%qs_control%cdft_control
-         dvol = cdft_control%group(1)%weight%pw%pw_grid%dvol
-         ! Build weight function
-         IF (calc_pot) THEN
-            cdft_control%group(1)%weight%pw%cr3d = 0.0_dp
+      CALL get_qs_env(qs_env, atomic_kind_set=atomic_kind_set, pw_env=pw_env, qs_kind_set=qs_kind_set)
+      cdft_control => dft_control%qs_control%cdft_control
+      hirshfeld_control => hirshfeld_control
+      cavity_env => becke_control%cavity_env
 
-            ALLOCATE (catom(cdft_control%hirshfeld_control%natoms))
-            ALLOCATE (coefficients(natom))
-            ALLOCATE (is_constraint(natom))
-            is_constraint = .FALSE.
-            coefficients(:) = 0.0_dp
+      ! Allocate temporary storage
+      ALLOCATE (catom(cdft_control%natoms))
+      ALLOCATE (is_constraint(natom))
+      is_constraint = .FALSE.
+      DO i = 1, cdft_control%natoms
+         catom(i) = cdft_control%atoms(i)
+         ! Notice that here is_constraint=.TRUE. also for dummy atoms to properly compute their Hirshfeld charges
+         ! A subsequent check (atom_in_group) ensures that the gradients of these dummy atoms are correct
+         is_constraint(catom(i)) = .TRUE.
+      END DO
+      ! Build weight function
+      DO igroup = 1, SIZE(cdft_control%group)
+         dvol = cdft_control%group(igroup)%weight%pw%pw_grid%dvol
+         cdft_control%group(igroup)%weight%pw%cr3d = 0.0_dp
+         CALL get_qs_env(qs_env, atomic_kind_set=atomic_kind_set, pw_env=pw_env)
+         nkind = SIZE(qs_kind_set)
 
-            DO i = 1, cdft_control%hirshfeld_control%natoms
-               catom(i) = cdft_control%hirshfeld_control%atoms(i)
-               is_constraint(catom(i)) = .TRUE.
-               coefficients(catom(i)) = cdft_control%hirshfeld_control%coeff(i)
-            END DO
-
-            hirshfeld_env => cdft_control%hirshfeld_control%hirshfeld_env
-            CALL get_qs_env(qs_env, atomic_kind_set=atomic_kind_set, pw_env=pw_env)
-            nkind = SIZE(qs_kind_set)
-
-            ! Setup Hirshfeld
-            IF (.NOT. ASSOCIATED(hirshfeld_env%kind_shape_fn)) THEN
-               CALL create_shape_function(hirshfeld_env, qs_kind_set, atomic_kind_set)
-               CPASSERT(.NOT. ASSOCIATED(hirshfeld_env%charges))
-               ALLOCATE (hirshfeld_env%charges(natom))
-               SELECT CASE (hirshfeld_env%ref_charge)
-               CASE (ref_charge_atomic)
-                  DO ikind = 1, nkind
-                     CALL get_qs_kind(qs_kind_set(ikind), zeff=zeff)
-                     atomic_kind => atomic_kind_set(ikind)
-                     CALL get_atomic_kind(atomic_kind, atom_list=atom_list)
-                     DO iat = 1, SIZE(atom_list)
-                        i = atom_list(iat)
-                        hirshfeld_env%charges(i) = zeff
-                     END DO
-                  END DO
-               CASE (ref_charge_mulliken)
-                  CALL cp_abort(__LOCATION__, &
-                                "Mulliken reference charge NYI for Hirshfeld partitioning.")
-               CASE DEFAULT
-                  CALL cp_abort(__LOCATION__, &
-                                "Unknown type of reference charge for Hirshfeld partitioning.")
-               END SELECT
-            END IF
-            ! Calculate densities
-            ! rs_rho_all: Promolecular density i.e. superposition of isolated Gaussian densities
-            ! rs_rho_constr: Sum of isolated Gaussian densities over constraint atoms multiplied by coeff
+         ! Calculate Hirshfeld weight functions: w_i / sum w_i
+         ! rs_rho_all: Promolecular density i.e. superposition of isolated Gaussian densities
+         ! rs_rho_constr: Sum of isolated Gaussian densities over constraint atoms in this constraint group
+         IF (.NOT. ASSOCIATED(rs_rho_all)) THEN
             CALL pw_env_get(pw_env, auxbas_rs_desc=auxbas_rs_desc, auxbas_rs_grid=rs_rho_all, &
                             auxbas_pw_pool=auxbas_pw_pool)
             cube_info = pw_env%cube_info(1)
             CALL rs_grid_retain(rs_rho_all)
             CALL rs_grid_zero(rs_rho_all)
-            CALL rs_grid_create(rs_rho_constr, auxbas_rs_desc)
-            CALL rs_grid_zero(rs_rho_constr)
-            eps_rho_rspace = dft_control%qs_control%eps_rho_rspace
-            ALLOCATE (pab(1, 1))
-            nthread = 1
-            ithread = 0
+         END IF
+         CALL rs_grid_create(rs_rho_constr, auxbas_rs_desc)
+         CALL rs_grid_zero(rs_rho_constr)
+         eps_rho_rspace = dft_control%qs_control%eps_rho_rspace
+         ALLOCATE (pab(1, 1))
+         nthread = 1
+         ithread = 0
 
-            DO ikind = 1, SIZE(atomic_kind_set)
-               numexp = hirshfeld_env%kind_shape_fn(ikind)%numexp
-               IF (numexp <= 0) CYCLE
-               CALL get_atomic_kind(atomic_kind_set(ikind), natom=natom, atom_list=atom_list)
-               ALLOCATE (cores(natom))
+         DO ikind = 1, SIZE(atomic_kind_set)
+            numexp = hirshfeld_env%kind_shape_fn(ikind)%numexp
+            IF (numexp <= 0) CYCLE
+            CALL get_atomic_kind(atomic_kind_set(ikind), natom=natom, atom_list=atom_list)
+            ALLOCATE (cores(natom))
 
-               DO iex = 1, numexp
-                  alpha = hirshfeld_env%kind_shape_fn(ikind)%zet(iex)
-                  coef = hirshfeld_env%kind_shape_fn(ikind)%coef(iex)
-                  npme = 0
-                  cores = 0
-                  DO iatom = 1, natom
-                     atom_a = atom_list(iatom)
-                     ra(:) = pbc(particle_set(atom_a)%r, cell)
-                     IF (rs_rho_all%desc%parallel .AND. .NOT. rs_rho_all%desc%distributed) THEN
-                        ! replicated realspace grid, split the atoms up between procs
-                        IF (MODULO(iatom, rs_rho_all%desc%group_size) == rs_rho_all%desc%my_pos) THEN
-                           npme = npme+1
-                           cores(npme) = iatom
-                        ENDIF
-                     ELSE
+            DO iex = 1, numexp
+               alpha = hirshfeld_env%kind_shape_fn(ikind)%zet(iex)
+               coef = hirshfeld_env%kind_shape_fn(ikind)%coef(iex)
+               npme = 0
+               cores = 0
+               DO iatom = 1, natom
+                  atom_a = atom_list(iatom)
+                  ra(:) = pbc(particle_set(atom_a)%r, cell)
+                  IF (rs_rho_all%desc%parallel .AND. .NOT. rs_rho_all%desc%distributed) THEN
+                     ! replicated realspace grid, split the atoms up between procs
+                     IF (MODULO(iatom, rs_rho_all%desc%group_size) == rs_rho_all%desc%my_pos) THEN
                         npme = npme+1
                         cores(npme) = iatom
                      ENDIF
-                  END DO
-                  DO j = 1, npme
-                     iatom = cores(j)
-                     atom_a = atom_list(iatom)
-                     pab(1, 1) = hirshfeld_env%charges(atom_a)*coef
-                     ra(:) = pbc(particle_set(atom_a)%r, cell)
-                     subpatch_pattern = 0
+                  ELSE
+                     npme = npme+1
+                     cores(npme) = iatom
+                  ENDIF
+               END DO
+               DO j = 1, npme
+                  iatom = cores(j)
+                  atom_a = atom_list(iatom)
+                  pab(1, 1) = hirshfeld_env%charges(atom_a)*coef
+                  ra(:) = pbc(particle_set(atom_a)%r, cell)
+                  subpatch_pattern = 0
+                  CALL collocate_pgf_product_rspace(0, alpha, 0, 0, 0.0_dp, 0, ra, &
+                                                    (/0.0_dp, 0.0_dp, 0.0_dp/), 0.0_dp, 1.0_dp, pab, 0, 0, &
+                                                    rs_rho_all, cell, cube_info, eps_rho_rspace, &
+                                                    ga_gb_function=FUNC_AB, ithread=ithread, use_subpatch=.TRUE., &
+                                                    subpatch_pattern=subpatch_pattern, lmax_global=0)
+                  IF (is_constraint(atom_a)) &
                      CALL collocate_pgf_product_rspace(0, alpha, 0, 0, 0.0_dp, 0, ra, &
-                                                       (/0.0_dp, 0.0_dp, 0.0_dp/), 0.0_dp, 1.0_dp, pab, 0, 0, &
-                                                       rs_rho_all, cell, cube_info, eps_rho_rspace, &
+                                                       (/0.0_dp, 0.0_dp, 0.0_dp/), 0.0_dp, coefficients(atom_a), &
+                                                       pab, 0, 0, rs_rho_constr, cell, cube_info, eps_rho_rspace, &
                                                        ga_gb_function=FUNC_AB, ithread=ithread, use_subpatch=.TRUE., &
                                                        subpatch_pattern=subpatch_pattern, lmax_global=0)
-                     IF (is_constraint(atom_a)) &
-                        CALL collocate_pgf_product_rspace(0, alpha, 0, 0, 0.0_dp, 0, ra, &
-                                                          (/0.0_dp, 0.0_dp, 0.0_dp/), 0.0_dp, coefficients(atom_a), &
-                                                          pab, 0, 0, rs_rho_constr, cell, cube_info, eps_rho_rspace, &
-                                                          ga_gb_function=FUNC_AB, ithread=ithread, use_subpatch=.TRUE., &
-                                                          subpatch_pattern=subpatch_pattern, lmax_global=0)
-                  END DO
                END DO
-               DEALLOCATE (cores)
             END DO
-            DEALLOCATE (pab)
-            DEALLOCATE (catom)
-            DEALLOCATE (is_constraint)
-            DEALLOCATE (coefficients)
-            CALL get_hirshfeld_info(hirshfeld_env, fnorm=fnorm)
-            IF (ASSOCIATED(fnorm)) THEN
-               CALL pw_release(fnorm%pw)
-               DEALLOCATE (fnorm)
-            ENDIF
-            ALLOCATE (fnorm)
+            DEALLOCATE (cores)
+         END DO
+         DEALLOCATE (pab)
+         DEALLOCATE (catom)
+         DEALLOCATE (is_constraint)
+         DEALLOCATE (coefficients)
+         CALL get_hirshfeld_info(hirshfeld_env, fnorm=fnorm)
+         IF (ASSOCIATED(fnorm)) THEN
+            CALL pw_release(fnorm%pw)
+            DEALLOCATE (fnorm)
+         ENDIF
+         ALLOCATE (fnorm)
 
-            CALL pw_pool_create_pw(auxbas_pw_pool, fnorm%pw, use_data=REALDATA3D, &
-                                   in_space=REALSPACE)
-            CALL pw_pool_create_pw(auxbas_pw_pool, tmp%pw, use_data=REALDATA3D, &
-                                   in_space=REALSPACE)
-            CALL set_hirshfeld_info(hirshfeld_env, fnorm=fnorm)
-            CALL rs_pw_transfer(rs_rho_all, fnorm%pw, rs2pw)
-            CALL rs_pw_transfer(rs_rho_constr, tmp%pw, rs2pw)
-            IF (debug_this_module) THEN
-               ALLOCATE (stride(3))
-               stride = (/2, 2, 2/)
-               CALL qs_subsys_get(subsys, particles=particles)
-               CALL cp_pw_to_cube(tmp%pw, unit_nr, "RHO_CONSTR", &
-                                  particles=particles, &
-                                  stride=stride)
-               DEALLOCATE (stride)
-            END IF
-            tnfun2 = pw_integrate_function(tmp%pw)
-            CALL rs_grid_release(rs_rho_constr)
-            CALL hfun_scale(cdft_control%group(1)%weight%pw%cr3d, tmp%pw%cr3d, &
-                            hirshfeld_env%fnorm%pw%cr3d, divide=.TRUE.)
-            CALL pw_pool_give_back_pw(auxbas_pw_pool, tmp%pw)
-            CALL rs_grid_release(rs_rho_all)
-            tnfun = pw_integrate_function(hirshfeld_env%fnorm%pw)
+         CALL pw_pool_create_pw(auxbas_pw_pool, fnorm%pw, use_data=REALDATA3D, &
+                                in_space=REALSPACE)
+         CALL pw_pool_create_pw(auxbas_pw_pool, tmp%pw, use_data=REALDATA3D, &
+                                in_space=REALSPACE)
+         CALL set_hirshfeld_info(hirshfeld_env, fnorm=fnorm)
+         CALL rs_pw_transfer(rs_rho_all, fnorm%pw, rs2pw)
+         CALL rs_pw_transfer(rs_rho_constr, tmp%pw, rs2pw)
+         IF (debug_this_module) THEN
+            ALLOCATE (stride(3))
+            stride = (/2, 2, 2/)
+            CALL qs_subsys_get(subsys, particles=particles)
+            CALL cp_pw_to_cube(tmp%pw, unit_nr, "RHO_CONSTR", &
+                               particles=particles, &
+                               stride=stride)
+            DEALLOCATE (stride)
          END IF
+         tnfun2 = pw_integrate_function(tmp%pw)
+         CALL rs_grid_release(rs_rho_constr)
+         CALL hfun_scale(cdft_control%group(1)%weight%pw%cr3d, tmp%pw%cr3d, &
+                         hirshfeld_env%fnorm%pw%cr3d, divide=.TRUE.)
+         CALL pw_pool_give_back_pw(auxbas_pw_pool, tmp%pw)
+         CALL rs_grid_release(rs_rho_all)
+         tnfun = pw_integrate_function(hirshfeld_env%fnorm%pw)
+      END IF
 
          dE = 0.0_dp
          DO i = 1, dft_control%nspins
@@ -1565,6 +1578,7 @@ CONTAINS
       CALL timestop(handle)
 
    END SUBROUTINE hirshfeld_constraint
+
 
 ! **************************************************************************************************
 !> \brief calculates forces due to a Gaussian Hirshfeld constraint
