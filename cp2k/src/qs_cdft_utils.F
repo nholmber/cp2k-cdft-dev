@@ -81,7 +81,7 @@ MODULE qs_cdft_utils
 
 ! *** Public subroutines ***
    PUBLIC :: becke_constraint_init, read_becke_section, read_cdft_control_section
-   PUBLIC :: hfun_scale, hirshfeld_constraint_init
+   PUBLIC :: hfun_scale, hirshfeld_constraint_init, cdft_constraint_print
 
 CONTAINS
 
@@ -1062,5 +1062,167 @@ CONTAINS
       CALL timestop(handle)
 
    END SUBROUTINE hirshfeld_constraint_init
+
+! **************************************************************************************************
+!> \brief Prints information about CDFT constraints
+!> \param qs_env the qs_env where to build the constraint
+!> \par   History
+!>        Created 9.2019 [Nico Holmberg]
+! **************************************************************************************************
+   SUBROUTINE cdft_constraint_print(qs_env, electronic_charge)
+      TYPE(qs_environment_type), POINTER                 :: qs_env
+      REAL(kind=dp), ALLOCATABLE, DIMENSION(:, :)        :: electronic_charge
+
+      CHARACTER(len=*), PARAMETER :: routineN = 'cdft_constraint_print', &
+         routineP = moduleN//':'//routineN
+
+      CHARACTER(len=2)                                   :: element_symbol
+      INTEGER                                            :: iatom, ikind, &
+                                                            iw, jatom
+      REAL(kind=dp)                                      :: tc(2), zeff
+      TYPE(cdft_control_type), POINTER                   :: cdft_control
+      TYPE(cp_logger_type), POINTER                      :: logger
+      TYPE(dft_control_type), POINTER                    :: dft_control
+      TYPE(particle_type), DIMENSION(:), POINTER         :: particle_set
+      TYPE(qs_kind_type), DIMENSION(:), POINTER          :: qs_kind_set
+      TYPE(section_vals_type), POINTER                   :: cdft_constraint_section
+
+      NULLIFY(cdft_constraint_section, logger, particle_set, dft_control, qs_kind_set)
+      logger => cp_get_default_logger()
+
+      CALL get_qs_env(qs_env, &
+                      particle_set=particle_set, &
+                      dft_control=dft_control, &
+                      qs_kind_set=qs_kind_set)
+      CPASSERT(ASSOCIATED(qs_kind_set))
+
+      cdft_constraint_section => section_vals_get_subs_vals(qs_env%input, "DFT%QS%CDFT")
+      iw = cp_print_key_unit_nr(logger, cdft_constraint_section, "PROGRAM_RUN_INFO", extension=".cdftLog")
+      cdft_control => dft_control%qs_control%cdft_control
+
+      ! Print constraint information
+      CALL qs_scf_cdft_constraint_info(iw, cdft_control)
+
+      ! Print atomic CDFT charges
+      IF (iw > 0 . AND. cdft_control%atomic_charges) THEN
+         IF (.NOT. cdft_control%fragment_density) THEN
+            IF (dft_control%nspins == 1) THEN
+               WRITE (iw, '(/,T3,A)') &
+                  '-------------------------------- CDFT atomic charges --------------------------------'
+               WRITE (iw, '(T3,A,A)') &
+                  '#Atom  Element   Is_constraint', '   Core charge    Population (total)'// &
+                  '          Net charge'
+               tc = 0.0_dp
+               DO iatom = 1, cdft_control%natoms
+                  jatom = cdft_control%atoms(iatom)
+                  CALL get_atomic_kind(atomic_kind=particle_set(jatom)%atomic_kind, &
+                                       element_symbol=element_symbol, &
+                                       kind_number=ikind)
+                  CALL get_qs_kind(qs_kind_set(ikind), zeff=zeff)
+                  WRITE (iw, "(i7,T15,A2,T23,L10,T39,F8.3,T61,F8.3,T81,F8.3)") &
+                     jatom, ADJUSTR(element_symbol), cdft_control%is_constraint(iatom), zeff, electronic_charge(iatom, 1), &
+                     (zeff-electronic_charge(iatom, 1))
+                  tc(1) = tc(1)+(zeff-electronic_charge(iatom, 1))
+               END DO
+               WRITE (iw, '(/,T3,A,T81,F8.3,/)') "Total Charge: ", tc(1)
+            ELSE
+               WRITE (iw, '(/,T3,A)') &
+                  '------------------------------------------ CDFT atomic charges -------------------------------------------'
+               WRITE (iw, '(T3,A,A)') &
+                  '#Atom  Element   Is_constraint', '   Core charge    Population (alpha, beta)'// &
+                  '    Net charge      Spin population'
+               tc = 0.0_dp
+               DO iatom = 1, cdft_control%natoms
+                  jatom = cdft_control%atoms(iatom)
+                  CALL get_atomic_kind(atomic_kind=particle_set(jatom)%atomic_kind, &
+                                       element_symbol=element_symbol, &
+                                       kind_number=ikind)
+                  CALL get_qs_kind(qs_kind_set(ikind), zeff=zeff)
+                  WRITE (iw, "(i7,T15,A2,T23,L10,T39,F8.3,T53,F8.3,T67,F8.3,T81,F8.3,T102,F8.3)") &
+                     jatom, ADJUSTR(element_symbol), &
+                     cdft_control%is_constraint(iatom), &
+                     zeff, electronic_charge(iatom, 1), electronic_charge(iatom, 2), &
+                     (zeff-electronic_charge(iatom, 1)-electronic_charge(iatom, 2)), &
+                     electronic_charge(iatom, 1)-electronic_charge(iatom, 2)
+                  tc(1) = tc(1)+(zeff-electronic_charge(iatom, 1)-electronic_charge(iatom, 2))
+                  tc(2) = tc(2)+(electronic_charge(iatom, 1)-electronic_charge(iatom, 2))
+               END DO
+               WRITE (iw, '(/,T3,A,T81,F8.3,T102,F8.3/)') "Total Charge and Spin Moment: ", tc(1), tc(2)
+            END IF
+         ELSE
+            IF (ANY(cdft_control%group(:)%constraint_type) /= cdft_charge_constraint) THEN
+               WRITE (iw, '(/,T3,A)') &
+                  '-------------------------------- CDFT atomic charges --------------------------------'
+               IF (dft_control%nspins == 1) THEN
+                  WRITE (iw, '(T3,A,A)') &
+                     '#Atom  Element   Is_constraint', '   Fragment charge    Population (total)'// &
+                     '      Net charge'
+               ELSE
+                  WRITE (iw, '(T3,A,A)') &
+                     '#Atom  Element   Is_constraint', '   Fragment charge  Population (alpha, beta)'// &
+                     '  Net charge'
+               END IF
+               tc = 0.0_dp
+               DO iatom = 1, cdft_control%natoms
+                  jatom = cdft_control%atoms(iatom)
+                  CALL get_atomic_kind(atomic_kind=particle_set(jatom)%atomic_kind, &
+                                       element_symbol=element_symbol, &
+                                       kind_number=ikind)
+                  IF (dft_control%nspins == 1) THEN
+                     WRITE (iw, "(i7,T15,A2,T23,L10,T43,F8.3,T65,F8.3,T81,F8.3)") &
+                        jatom, ADJUSTR(element_symbol), &
+                        cdft_control%is_constraint(iatom), &
+                        cdft_control%charges_fragment(iatom, 1), &
+                        electronic_charge(iatom, 1), &
+                        (electronic_charge(iatom, 1)- &
+                         cdft_control%charges_fragment(iatom, 1))
+                     tc(1) = tc(1)+(electronic_charge(iatom, 1)- &
+                                    cdft_control%charges_fragment(iatom, 1))
+                  ELSE
+                     WRITE (iw, "(i7,T15,A2,T23,L10,T43,F8.3,T57,F8.3,T69,F8.3,T81,F8.3)") &
+                        jatom, ADJUSTR(element_symbol), &
+                        cdft_control%is_constraint(iatom), &
+                        cdft_control%charges_fragment(iatom, 1), &
+                        electronic_charge(iatom, 1), electronic_charge(iatom, 2), &
+                        (electronic_charge(iatom, 1)+electronic_charge(iatom, 2)- &
+                         cdft_control%charges_fragment(iatom, 1))
+                     tc(1) = tc(1)+(electronic_charge(iatom, 1)+electronic_charge(iatom, 2)- &
+                                    cdft_control%charges_fragment(iatom, 1))
+                  END IF
+               END DO
+               WRITE (iw, '(/,T3,A,T81,F8.3,/)') "Total Charge: ", tc(1)
+            ELSE
+               WRITE (iw, '(/,T3,A)') &
+                  '------------------------------------------ CDFT atomic charges -------------------------------------------'
+               WRITE (iw, '(T3,A,A)') &
+                  '#Atom  Element  Is_constraint', ' Fragment charge/spin moment'// &
+                  '  Population (alpha, beta)  Net charge/spin moment'
+               tc = 0.0_dp
+               DO iatom = 1, cdft_control%natoms
+                  jatom = cdft_control%atoms(iatom)
+                  CALL get_atomic_kind(atomic_kind=particle_set(jatom)%atomic_kind, &
+                                       element_symbol=element_symbol, &
+                                       kind_number=ikind)
+                  WRITE (iw, "(i7,T15,A2,T22,L10,T40,F8.3,T52,F8.3,T66,F8.3,T78,F8.3,T90,F8.3,T102,F8.3)") &
+                     jatom, ADJUSTR(element_symbol), &
+                     cdft_control%is_constraint(iatom), &
+                     cdft_control%charges_fragment(iatom, 1), &
+                     cdft_control%charges_fragment(iatom, 2), &
+                     electronic_charge(iatom, 1), electronic_charge(iatom, 2), &
+                     (electronic_charge(iatom, 1)+electronic_charge(iatom, 2)- &
+                      cdft_control%charges_fragment(iatom, 1)), &
+                     (electronic_charge(iatom, 1)-electronic_charge(iatom, 2)- &
+                      cdft_control%charges_fragment(iatom, 2))
+                  tc(1) = tc(1)+(electronic_charge(iatom, 1)+electronic_charge(iatom, 2)- &
+                                 cdft_control%charges_fragment(iatom, 1))
+                  tc(2) = tc(2)+(electronic_charge(iatom, 1)-electronic_charge(iatom, 2)- &
+                                 cdft_control%charges_fragment(iatom, 2))
+               END DO
+               WRITE (iw, '(/,T3,A,T90,F8.3,T102,F8.3/)') "Total Charge and Spin Moment: ", tc(1), tc(2)
+            END IF
+         END IF
+      END IF
+
+   END SUBROUTINE cdft_constraint_print
 
 END MODULE qs_cdft_utils

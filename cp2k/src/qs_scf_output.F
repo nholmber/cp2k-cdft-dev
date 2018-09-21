@@ -71,7 +71,8 @@ MODULE qs_scf_output
              qs_scf_initial_info, &
              qs_scf_write_mos, &
              qs_scf_cdft_info, &
-             qs_scf_cdft_initial_info
+             qs_scf_cdft_initial_info, &
+             qs_scf_cdft_constraint_info
 
 CONTAINS
 
@@ -655,67 +656,8 @@ CONTAINS
                scf_env%outer_scf%iter_count, " iterations or ", total_steps, " steps"
          END IF
       END IF
-      IF (output_unit > 0) THEN
-         SELECT CASE (cdft_control%type)
-         CASE (outer_scf_hirshfeld_constraint)
-            WRITE (output_unit, '(/,T3,A,T60)') &
-               '------------------- Hirshfeld constraint information -------------------'
-         CASE (outer_scf_becke_constraint)
-            WRITE (output_unit, '(/,T3,A,T60)') &
-               '--------------------- Becke constraint information ---------------------'
-         END SELECT
-         DO igroup = 1, SIZE(cdft_control%target)
-            IF (igroup > 1) WRITE (output_unit, '(T3,A)') ' '
-            WRITE (output_unit, '(T3,A,T54,(3X,I18))') &
-               'Atomic group                :', igroup
-            SELECT CASE (cdft_control%group(igroup)%constraint_type)
-            CASE (cdft_charge_constraint)
-               IF (cdft_control%group(igroup)%is_fragment_constraint) THEN
-                  WRITE (output_unit, '(T3,A,T42,A)') &
-                     'Type of constraint          :', ADJUSTR('Charge density constraint (frag.)')
-               ELSE
-                  WRITE (output_unit, '(T3,A,T50,A)') &
-                     'Type of constraint          :', ADJUSTR('Charge density constraint')
-               END IF
-            CASE (cdft_magnetization_constraint)
-               IF (cdft_control%group(igroup)%is_fragment_constraint) THEN
-                  WRITE (output_unit, '(T3,A,T35,A)') &
-                     'Type of constraint          :', ADJUSTR('Magnetization density constraint (frag.)')
-               ELSE
-                  WRITE (output_unit, '(T3,A,T43,A)') &
-                     'Type of constraint          :', ADJUSTR('Magnetization density constraint')
-               END IF
-            CASE (cdft_alpha_constraint)
-               IF (cdft_control%group(igroup)%is_fragment_constraint) THEN
-                  WRITE (output_unit, '(T3,A,T38,A)') &
-                     'Type of constraint          :', ADJUSTR('Alpha spin density constraint (frag.)')
-               ELSE
-                  WRITE (output_unit, '(T3,A,T46,A)') &
-                     'Type of constraint          :', ADJUSTR('Alpha spin density constraint')
-               END IF
-            CASE (cdft_beta_constraint)
-               IF (cdft_control%group(igroup)%is_fragment_constraint) THEN
-                  WRITE (output_unit, '(T3,A,T39,A)') &
-                     'Type of constraint          :', ADJUSTR('Beta spin density constraint (frag.)')
-               ELSE
-                  WRITE (output_unit, '(T3,A,T47,A)') &
-                     'Type of constraint          :', ADJUSTR('Beta spin density constraint')
-               END IF
-            CASE DEFAULT
-               CPABORT("Unknown constraint type.")
-            END SELECT
-            WRITE (output_unit, '(T3,A,T54,(3X,F18.12))') &
-               'Target value of constraint  :', cdft_control%target(igroup)
-            WRITE (output_unit, '(T3,A,T54,(3X,F18.12))') &
-               'Current value of constraint :', cdft_control%value(igroup)
-            WRITE (output_unit, '(T3,A,T59,(3X,ES13.3))') &
-               'Deviation from target       :', cdft_control%value(igroup)-cdft_control%target(igroup)
-            WRITE (output_unit, '(T3,A,T54,(3X,F18.12))') &
-               'Strength of constraint      :', cdft_control%strength(igroup)
-         END DO
-         WRITE (output_unit, '(T3,A)') &
-            '------------------------------------------------------------------------'
-      END IF
+      CALL qs_scf_cdft_constraint_info(output_unit, cdft_control)
+
    END SUBROUTINE qs_scf_cdft_info
 
 ! **************************************************************************************************
@@ -837,5 +779,87 @@ CONTAINS
       END IF
 
    END SUBROUTINE qs_scf_cdft_initial_info
+
+! **************************************************************************************************
+!> \brief writes CDFT constraint information
+!> \param output_unit where to write the information
+!> \param cdft_control the env which holds information about the constraint
+!> \par History
+!>      08.2018 separated from qs_scf_cdft_info to make code callable elsewhere  [Nico Holmberg]
+! **************************************************************************************************
+   SUBROUTINE qs_scf_cdft_constraint_info(output_unit, cdft_control)
+      INTEGER                                            :: output_unit
+      TYPE(cdft_control_type), POINTER                   :: cdft_control
+
+      CHARACTER(LEN=*), PARAMETER :: routineN = 'qs_scf_cdft_constraint_info', &
+         routineP = moduleN//':'//routineN
+
+      INTEGER                                            :: igroup
+
+      IF (output_unit > 0) THEN
+         SELECT CASE (cdft_control%type)
+         CASE (outer_scf_hirshfeld_constraint)
+            WRITE (output_unit, '(/,T3,A,T60)') &
+               '------------------- Hirshfeld constraint information -------------------'
+         CASE (outer_scf_becke_constraint)
+            WRITE (output_unit, '(/,T3,A,T60)') &
+               '--------------------- Becke constraint information ---------------------'
+         CASE DEFAULT
+            CPABORT("Unknown CDFT constraint.")
+         END SELECT
+         DO igroup = 1, SIZE(cdft_control%target)
+            IF (igroup > 1) WRITE (output_unit, '(T3,A)') ' '
+            WRITE (output_unit, '(T3,A,T54,(3X,I18))') &
+               'Atomic group                :', igroup
+            SELECT CASE (cdft_control%group(igroup)%constraint_type)
+            CASE (cdft_charge_constraint)
+               IF (cdft_control%group(igroup)%is_fragment_constraint) THEN
+                  WRITE (output_unit, '(T3,A,T42,A)') &
+                     'Type of constraint          :', ADJUSTR('Charge density constraint (frag.)')
+               ELSE
+                  WRITE (output_unit, '(T3,A,T50,A)') &
+                     'Type of constraint          :', ADJUSTR('Charge density constraint')
+               END IF
+            CASE (cdft_magnetization_constraint)
+               IF (cdft_control%group(igroup)%is_fragment_constraint) THEN
+                  WRITE (output_unit, '(T3,A,T35,A)') &
+                     'Type of constraint          :', ADJUSTR('Magnetization density constraint (frag.)')
+               ELSE
+                  WRITE (output_unit, '(T3,A,T43,A)') &
+                     'Type of constraint          :', ADJUSTR('Magnetization density constraint')
+               END IF
+            CASE (cdft_alpha_constraint)
+               IF (cdft_control%group(igroup)%is_fragment_constraint) THEN
+                  WRITE (output_unit, '(T3,A,T38,A)') &
+                     'Type of constraint          :', ADJUSTR('Alpha spin density constraint (frag.)')
+               ELSE
+                  WRITE (output_unit, '(T3,A,T46,A)') &
+                     'Type of constraint          :', ADJUSTR('Alpha spin density constraint')
+               END IF
+            CASE (cdft_beta_constraint)
+               IF (cdft_control%group(igroup)%is_fragment_constraint) THEN
+                  WRITE (output_unit, '(T3,A,T39,A)') &
+                     'Type of constraint          :', ADJUSTR('Beta spin density constraint (frag.)')
+               ELSE
+                  WRITE (output_unit, '(T3,A,T47,A)') &
+                     'Type of constraint          :', ADJUSTR('Beta spin density constraint')
+               END IF
+            CASE DEFAULT
+               CPABORT("Unknown constraint type.")
+            END SELECT
+            WRITE (output_unit, '(T3,A,T54,(3X,F18.12))') &
+               'Target value of constraint  :', cdft_control%target(igroup)
+            WRITE (output_unit, '(T3,A,T54,(3X,F18.12))') &
+               'Current value of constraint :', cdft_control%value(igroup)
+            WRITE (output_unit, '(T3,A,T59,(3X,ES13.3))') &
+               'Deviation from target       :', cdft_control%value(igroup)-cdft_control%target(igroup)
+            WRITE (output_unit, '(T3,A,T54,(3X,F18.12))') &
+               'Strength of constraint      :', cdft_control%strength(igroup)
+         END DO
+         WRITE (output_unit, '(T3,A)') &
+            '------------------------------------------------------------------------'
+      END IF
+
+   END SUBROUTINE qs_scf_cdft_constraint_info
 
 END MODULE qs_scf_output

@@ -61,6 +61,7 @@ MODULE qs_cdft_methods
                                               cdft_control_type,&
                                               cdft_group_type
    USE qs_cdft_utils,                   ONLY: becke_constraint_init,&
+                                              cdft_constraint_print,&
                                               hfun_scale,&
                                               hirshfeld_constraint_init
    USE qs_collocate_density,            ONLY: collocate_pgf_product_rspace
@@ -77,6 +78,7 @@ MODULE qs_cdft_methods
                                               rho0_mpole_type
    USE qs_rho_types,                    ONLY: qs_rho_get,&
                                               qs_rho_type
+   USE qs_scf_output,                   ONLY: qs_scf_cdft_constraint_info
    USE qs_subsys_types,                 ONLY: qs_subsys_get,&
                                               qs_subsys_type
    USE realspace_grid_cube,             ONLY: cube_to_pw
@@ -791,8 +793,7 @@ CONTAINS
       CHARACTER(len=2)                                   :: element_symbol
       INTEGER                                            :: handle, i, iatom, igroup, ikind, ivar, &
                                                             iw, jatom, natom, nvar
-      LOGICAL                                            :: needs_spin_density, paw_atom,&
-                                                            is_becke
+      LOGICAL                                            :: paw_atom, is_becke
       REAL(kind=dp)                                      :: dvol, eps_cavity, &
                                                             sign, tc(2), zeff
       REAL(kind=dp), ALLOCATABLE, DIMENSION(:)           :: dE, strength, target_val
@@ -847,6 +848,8 @@ CONTAINS
       dE = 0.0_dp
       dvol = group(1)%weight%pw%pw_grid%dvol
       IF (cdft_control%atomic_charges) THEN
+         IF (cdft_control%type == outer_scf_hirshfeld_constraint) &
+            CPABORT("Hirshfeld charges NYI.")
          charge => cdft_control%charge
          ALLOCATE (electronic_charge(cdft_control%natoms, dft_control%nspins))
          electronic_charge = 0.0_dp
@@ -964,187 +967,8 @@ CONTAINS
          energy%cdft = energy%cdft+(dE(ivar)-target_val(ivar))*strength(ivar)
       END DO
       ! Print constraint info and atomic CDFT charges
-      IF (iw > 0) THEN
-         SELECT CASE (cdft_control%type)
-         CASE (outer_scf_hirshfeld_constraint)
-            WRITE (iw, '(/,T3,A,T60)') &
-               '------------------- Hirshfeld constraint information -------------------'
-         CASE (outer_scf_becke_constraint)
-            WRITE (iw, '(/,T3,A,T60)') &
-               '--------------------- Becke constraint information ---------------------'
-         CASE DEFAULT
-            CPABORT("Unknown CDFT constraint.")
-         END SELECT
-         DO igroup = 1, SIZE(group)
-            IF (igroup > 1) WRITE (iw, '(T3,A)') ' '
-            WRITE (iw, '(T3,A,T54,(3X,I18))') &
-               'Atomic group                :', igroup
-            SELECT CASE (group (igroup)%constraint_type)
-            CASE (cdft_charge_constraint)
-               IF (group(igroup)%is_fragment_constraint) THEN
-                  WRITE (iw, '(T3,A,T42,A)') &
-                     'Type of constraint          :', ADJUSTR('Charge density constraint (frag.)')
-               ELSE
-                  WRITE (iw, '(T3,A,T50,A)') &
-                     'Type of constraint          :', ADJUSTR('Charge density constraint')
-               END IF
-            CASE (cdft_magnetization_constraint)
-               IF (group(igroup)%is_fragment_constraint) THEN
-                  WRITE (iw, '(T3,A,T35,A)') &
-                     'Type of constraint          :', ADJUSTR('Magnetization density constraint (frag.)')
-               ELSE
-                  WRITE (iw, '(T3,A,T43,A)') &
-                     'Type of constraint          :', ADJUSTR('Magnetization density constraint')
-               END IF
-            CASE (cdft_alpha_constraint)
-               IF (group(igroup)%is_fragment_constraint) THEN
-                  WRITE (iw, '(T3,A,T38,A)') &
-                     'Type of constraint          :', ADJUSTR('Alpha spin density constraint (frag.)')
-               ELSE
-                  WRITE (iw, '(T3,A,T46,A)') &
-                     'Type of constraint          :', ADJUSTR('Alpha spin density constraint')
-               END IF
-            CASE (cdft_beta_constraint)
-               IF (group(igroup)%is_fragment_constraint) THEN
-                  WRITE (iw, '(T3,A,T39,A)') &
-                     'Type of constraint          :', ADJUSTR('Beta spin density constraint (frag.)')
-               ELSE
-                  WRITE (iw, '(T3,A,T47,A)') &
-                     'Type of constraint          :', ADJUSTR('Beta spin density constraint')
-               END IF
-            CASE DEFAULT
-               CPABORT("Unknown constraint type.")
-            END SELECT
-            WRITE (iw, '(T3,A,T54,(3X,F18.12))') &
-               'Target value of constraint  :', target_val(igroup)
-            WRITE (iw, '(T3,A,T54,(3X,F18.12))') &
-               'Current value of constraint :', dE(igroup)
-            WRITE (iw, '(T3,A,T59,(3X,ES13.3))') &
-               'Deviation from target       :', dE(igroup)-target_val(igroup)
-            WRITE (iw, '(T3,A,T54,(3X,F18.12))') &
-               'Strength of constraint      :', strength(igroup)
-         END DO
-         WRITE (iw, '(T3,A)') &
-            '------------------------------------------------------------------------'
-         IF (cdft_control%atomic_charges) THEN
-            IF (.NOT. cdft_control%fragment_density) THEN
-               IF (dft_control%nspins == 1) THEN
-                  WRITE (iw, '(/,T3,A)') &
-                     '-------------------------------- CDFT atomic charges --------------------------------'
-                  WRITE (iw, '(T3,A,A)') &
-                     '#Atom  Element   Is_constraint', '   Core charge    Population (total)'// &
-                     '          Net charge'
-                  tc = 0.0_dp
-                  DO iatom = 1, cdft_control%natoms
-                     jatom = cdft_control%atoms(iatom)
-                     CALL get_atomic_kind(atomic_kind=particle_set(jatom)%atomic_kind, &
-                                          element_symbol=element_symbol, &
-                                          kind_number=ikind)
-                     CALL get_qs_kind(qs_kind_set(ikind), zeff=zeff)
-                     WRITE (iw, "(i7,T15,A2,T23,L10,T39,F8.3,T61,F8.3,T81,F8.3)") &
-                        jatom, ADJUSTR(element_symbol), cdft_control%is_constraint(iatom), zeff, electronic_charge(iatom, 1), &
-                        (zeff-electronic_charge(iatom, 1))
-                     tc(1) = tc(1)+(zeff-electronic_charge(iatom, 1))
-                  END DO
-                  WRITE (iw, '(/,T3,A,T81,F8.3,/)') "Total Charge: ", tc(1)
-               ELSE
-                  WRITE (iw, '(/,T3,A)') &
-                     '------------------------------------------ CDFT atomic charges -------------------------------------------'
-                  WRITE (iw, '(T3,A,A)') &
-                     '#Atom  Element   Is_constraint', '   Core charge    Population (alpha, beta)'// &
-                     '    Net charge      Spin population'
-                  tc = 0.0_dp
-                  DO iatom = 1, cdft_control%natoms
-                     jatom = cdft_control%atoms(iatom)
-                     CALL get_atomic_kind(atomic_kind=particle_set(jatom)%atomic_kind, &
-                                          element_symbol=element_symbol, &
-                                          kind_number=ikind)
-                     CALL get_qs_kind(qs_kind_set(ikind), zeff=zeff)
-                     WRITE (iw, "(i7,T15,A2,T23,L10,T39,F8.3,T53,F8.3,T67,F8.3,T81,F8.3,T102,F8.3)") &
-                        jatom, ADJUSTR(element_symbol), &
-                        cdft_control%is_constraint(iatom), &
-                        zeff, electronic_charge(iatom, 1), electronic_charge(iatom, 2), &
-                        (zeff-electronic_charge(iatom, 1)-electronic_charge(iatom, 2)), &
-                        electronic_charge(iatom, 1)-electronic_charge(iatom, 2)
-                     tc(1) = tc(1)+(zeff-electronic_charge(iatom, 1)-electronic_charge(iatom, 2))
-                     tc(2) = tc(2)+(electronic_charge(iatom, 1)-electronic_charge(iatom, 2))
-                  END DO
-                  WRITE (iw, '(/,T3,A,T81,F8.3,T102,F8.3/)') "Total Charge and Spin Moment: ", tc(1), tc(2)
-               END IF
-            ELSE
-               IF (.NOT. needs_spin_density) THEN
-                  WRITE (iw, '(/,T3,A)') &
-                     '-------------------------------- CDFT atomic charges --------------------------------'
-                  IF (dft_control%nspins == 1) THEN
-                     WRITE (iw, '(T3,A,A)') &
-                        '#Atom  Element   Is_constraint', '   Fragment charge    Population (total)'// &
-                        '      Net charge'
-                  ELSE
-                     WRITE (iw, '(T3,A,A)') &
-                        '#Atom  Element   Is_constraint', '   Fragment charge  Population (alpha, beta)'// &
-                        '  Net charge'
-                  END IF
-                  tc = 0.0_dp
-                  DO iatom = 1, cdft_control%natoms
-                     jatom = cdft_control%atoms(iatom)
-                     CALL get_atomic_kind(atomic_kind=particle_set(jatom)%atomic_kind, &
-                                          element_symbol=element_symbol, &
-                                          kind_number=ikind)
-                     IF (dft_control%nspins == 1) THEN
-                        WRITE (iw, "(i7,T15,A2,T23,L10,T43,F8.3,T65,F8.3,T81,F8.3)") &
-                           jatom, ADJUSTR(element_symbol), &
-                           cdft_control%is_constraint(iatom), &
-                           cdft_control%charges_fragment(iatom, 1), &
-                           electronic_charge(iatom, 1), &
-                           (electronic_charge(iatom, 1)- &
-                            cdft_control%charges_fragment(iatom, 1))
-                        tc(1) = tc(1)+(electronic_charge(iatom, 1)- &
-                                       cdft_control%charges_fragment(iatom, 1))
-                     ELSE
-                        WRITE (iw, "(i7,T15,A2,T23,L10,T43,F8.3,T57,F8.3,T69,F8.3,T81,F8.3)") &
-                           jatom, ADJUSTR(element_symbol), &
-                           cdft_control%is_constraint(iatom), &
-                           cdft_control%charges_fragment(iatom, 1), &
-                           electronic_charge(iatom, 1), electronic_charge(iatom, 2), &
-                           (electronic_charge(iatom, 1)+electronic_charge(iatom, 2)- &
-                            cdft_control%charges_fragment(iatom, 1))
-                        tc(1) = tc(1)+(electronic_charge(iatom, 1)+electronic_charge(iatom, 2)- &
-                                       cdft_control%charges_fragment(iatom, 1))
-                     END IF
-                  END DO
-                  WRITE (iw, '(/,T3,A,T81,F8.3,/)') "Total Charge: ", tc(1)
-               ELSE
-                  WRITE (iw, '(/,T3,A)') &
-                     '------------------------------------------ CDFT atomic charges -------------------------------------------'
-                  WRITE (iw, '(T3,A,A)') &
-                     '#Atom  Element  Is_constraint', ' Fragment charge/spin moment'// &
-                     '  Population (alpha, beta)  Net charge/spin moment'
-                  tc = 0.0_dp
-                  DO iatom = 1, cdft_control%natoms
-                     jatom = cdft_control%atoms(iatom)
-                     CALL get_atomic_kind(atomic_kind=particle_set(jatom)%atomic_kind, &
-                                          element_symbol=element_symbol, &
-                                          kind_number=ikind)
-                     WRITE (iw, "(i7,T15,A2,T22,L10,T40,F8.3,T52,F8.3,T66,F8.3,T78,F8.3,T90,F8.3,T102,F8.3)") &
-                        jatom, ADJUSTR(element_symbol), &
-                        cdft_control%is_constraint(iatom), &
-                        cdft_control%charges_fragment(iatom, 1), &
-                        cdft_control%charges_fragment(iatom, 2), &
-                        electronic_charge(iatom, 1), electronic_charge(iatom, 2), &
-                        (electronic_charge(iatom, 1)+electronic_charge(iatom, 2)- &
-                         cdft_control%charges_fragment(iatom, 1)), &
-                        (electronic_charge(iatom, 1)-electronic_charge(iatom, 2)- &
-                         cdft_control%charges_fragment(iatom, 2))
-                     tc(1) = tc(1)+(electronic_charge(iatom, 1)+electronic_charge(iatom, 2)- &
-                                    cdft_control%charges_fragment(iatom, 1))
-                     tc(2) = tc(2)+(electronic_charge(iatom, 1)-electronic_charge(iatom, 2)- &
-                                    cdft_control%charges_fragment(iatom, 2))
-                  END DO
-                  WRITE (iw, '(/,T3,A,T90,F8.3,T102,F8.3/)') "Total Charge and Spin Moment: ", tc(1), tc(2)
-               END IF
-            END IF
-         END IF
-      END IF
+      CALL cdft_constraint_print(qs_env, electronic_charge)
+      ! Deallocate tmp storage
       DEALLOCATE (dE, strength, target_val)
       IF (cdft_control%atomic_charges) DEALLOCATE (electronic_charge)
       CALL cp_print_key_finished_output(iw, logger, cdft_constraint_section, "PROGRAM_RUN_INFO")
@@ -1342,7 +1166,8 @@ CONTAINS
          ! Integrate the Hirshfeld constraint
          CALL cdft_constraint_integrate(qs_env)
          ! Calculate forces
-         IF (calculate_forces) CALL becke_constraint_force(qs_env)
+         IF (calculate_forces) CPABORT("Hirshfeld force NYI.")
+         !CALL becke_constraint_force(qs_env)
       END IF
       CALL timestop(handle)
 
@@ -1356,96 +1181,66 @@ CONTAINS
    SUBROUTINE hirshfeld_constraint_low(qs_env)
       TYPE(qs_environment_type), POINTER                 :: qs_env
 
-      CHARACTER(len=*), PARAMETER :: routineN = 'hirshfeld_constraint_ow', &
+      CHARACTER(len=*), PARAMETER :: routineN = 'hirshfeld_constraint_low', &
          routineP = moduleN//':'//routineN
 
-      INTEGER                                            :: atom_a, handle, i, iat, iatom, iex, &
-                                                            ikind, ithread, iw, j, natom, nkind, &
-                                                            npme, nthread, numexp, unit_nr
+      INTEGER                                            :: atom_a, handle, i, iatom, iex, &
+                                                            ikind, ithread, j, natom, &
+                                                            npme, nthread, numexp
       INTEGER(KIND=int_8)                                :: subpatch_pattern
-      INTEGER, ALLOCATABLE, DIMENSION(:)                 :: catom
-      INTEGER, DIMENSION(:), POINTER                     :: atom_list, cores, stride
+      INTEGER, DIMENSION(:), POINTER                     :: atom_list, cores
       LOGICAL, ALLOCATABLE, DIMENSION(:)                 :: is_constraint
-      REAL(kind=dp)                                      :: alpha, coef, dE, dvol, eps_rho_rspace, &
-                                                            ra(3), tnfun, tnfun2, zeff
+      REAL(kind=dp)                                      :: alpha, coef, dvol, &
+                                                            eps_rho_rspace, ra(3)
       REAL(kind=dp), ALLOCATABLE, DIMENSION(:)           :: coefficients
       REAL(KIND=dp), DIMENSION(:, :), POINTER            :: pab
       TYPE(atomic_kind_type), DIMENSION(:), POINTER      :: atomic_kind_set
-      TYPE(atomic_kind_type), POINTER                    :: atomic_kind
       TYPE(cdft_control_type), POINTER                   :: cdft_control
       TYPE(cell_type), POINTER                           :: cell
-      TYPE(cp_logger_type), POINTER                      :: logger
       TYPE(cp_para_env_type), POINTER                    :: para_env
       TYPE(cube_info_type)                               :: cube_info
       TYPE(dft_control_type), POINTER                    :: dft_control
       TYPE(hirshfeld_type), POINTER                      :: hirshfeld_env
-      TYPE(particle_list_type), POINTER                  :: particles
       TYPE(particle_type), DIMENSION(:), POINTER         :: particle_set
       TYPE(pw_env_type), POINTER                         :: pw_env
       TYPE(pw_p_type)                                    :: tmp
-      TYPE(pw_p_type), DIMENSION(:), POINTER             :: rho_r
       TYPE(pw_p_type), POINTER                           :: fnorm
       TYPE(pw_pool_type), POINTER                        :: auxbas_pw_pool
-      TYPE(qs_energy_type), POINTER                      :: energy
-      TYPE(qs_kind_type), DIMENSION(:), POINTER          :: qs_kind_set
-      TYPE(qs_rho_type), POINTER                         :: rho
-      TYPE(qs_subsys_type), POINTER                      :: subsys
       TYPE(realspace_grid_desc_type), POINTER            :: auxbas_rs_desc
       TYPE(realspace_grid_type), POINTER                 :: rs_rho_all, rs_rho_constr
-      TYPE(section_vals_type), POINTER                   :: print_section
 
-      NULLIFY (atom_list, cores, stride, pab, atomic_kind, atomic_kind_set, cell, &
-               logger, para_env, dft_control, hirshfeld_env, particles, particle_set, &
-               pw_env, fnorm, rho_r, auxbas_pw_pool, energy, rho, qs_kind_set, &
-               subsys, auxbas_rs_desc, rs_rho_all, rs_rho_constr, print_section, &
-               cdft_control)
+      NULLIFY (atom_list, cores, pab, atomic_kind_set, cell, dft_control, &
+               hirshfeld_env, particle_set, pw_env, fnorm, auxbas_pw_pool, &
+               auxbas_rs_desc, rs_rho_all, rs_rho_constr, cdft_control)
+
       CALL timeset(routineN, handle)
-
       CALL get_qs_env(qs_env, &
+                      atomic_kind_set=atomic_kind_set, &
                       cell=cell, &
                       particle_set=particle_set, &
-                      rho=rho, &
                       natom=natom, &
                       dft_control=dft_control, &
-                      para_env=para_env, &
-                      qs_kind_set=qs_kind_set, &
-                      subsys=subsys)
+                      pw_env=pw_env)
 
-      logger => cp_get_default_logger()
-      CPASSERT(ASSOCIATED(qs_kind_set))
-
-      print_section => section_vals_get_subs_vals(qs_env%input, &
-                                                  "DFT%QS%CDFT%HIRSHFELD_CONSTRAINT")
-      iw = cp_print_key_unit_nr(logger, print_section, "PROGRAM_RUN_INFO", &
-                                extension=".cdftLog")
-      unit_nr = cp_print_key_unit_nr(logger, print_section, "PROGRAM_RUN_INFO", &
-                                     extension=".cube", log_filename=.FALSE.)
-      CALL qs_rho_get(rho, rho_r=rho_r)
-
-      CALL get_qs_env(qs_env, atomic_kind_set=atomic_kind_set, pw_env=pw_env, qs_kind_set=qs_kind_set)
       cdft_control => dft_control%qs_control%cdft_control
       hirshfeld_control => hirshfeld_control
       cavity_env => becke_control%cavity_env
 
-      ! Allocate temporary storage
-      ALLOCATE (catom(cdft_control%natoms))
-      ALLOCATE (is_constraint(natom))
-      is_constraint = .FALSE.
-      DO i = 1, cdft_control%natoms
-         catom(i) = cdft_control%atoms(i)
-         ! Notice that here is_constraint=.TRUE. also for dummy atoms to properly compute their Hirshfeld charges
-         ! A subsequent check (atom_in_group) ensures that the gradients of these dummy atoms are correct
-         is_constraint(catom(i)) = .TRUE.
-      END DO
       ! Build weight function
+      ALLOCATE (is_constraint(natom))
+      ALLOCATE (coefficients(natom))
       DO igroup = 1, SIZE(cdft_control%group)
          dvol = cdft_control%group(igroup)%weight%pw%pw_grid%dvol
          cdft_control%group(igroup)%weight%pw%cr3d = 0.0_dp
-         CALL get_qs_env(qs_env, atomic_kind_set=atomic_kind_set, pw_env=pw_env)
-         nkind = SIZE(qs_kind_set)
-
-         ! Calculate Hirshfeld weight functions: w_i / sum w_i
-         ! rs_rho_all: Promolecular density i.e. superposition of isolated Gaussian densities
+         ! Keep track of those atoms that are active in this contraint group
+         coefficients(:) = 0.0_dp
+         is_constraint = .FALSE.
+         DO i = 1, SIZE(cdft_control%group(igroup)%atoms)
+            coefficients(cdft_control%group(igroup)%atoms(i)) = cdft_control%group(igroup)%coeff(i)
+            is_constraint(cdft_control%group(igroup)%atoms(i)) = .TRUE.
+         END DO
+         ! Calculate atomic Hirshfeld weight functions:  rs_rho_constr / rs_rho_all
+         ! rs_rho_all: Superposition of isolated Gaussian densities over all atoms in system
          ! rs_rho_constr: Sum of isolated Gaussian densities over constraint atoms in this constraint group
          IF (.NOT. ASSOCIATED(rs_rho_all)) THEN
             CALL pw_env_get(pw_env, auxbas_rs_desc=auxbas_rs_desc, auxbas_rs_grid=rs_rho_all, &
@@ -1508,76 +1303,70 @@ CONTAINS
             DEALLOCATE (cores)
          END DO
          DEALLOCATE (pab)
-         DEALLOCATE (catom)
-         DEALLOCATE (is_constraint)
-         DEALLOCATE (coefficients)
-         CALL get_hirshfeld_info(hirshfeld_env, fnorm=fnorm)
-         IF (ASSOCIATED(fnorm)) THEN
-            CALL pw_release(fnorm%pw)
-            DEALLOCATE (fnorm)
-         ENDIF
-         ALLOCATE (fnorm)
 
-         CALL pw_pool_create_pw(auxbas_pw_pool, fnorm%pw, use_data=REALDATA3D, &
-                                in_space=REALSPACE)
+         ! Transfer rs_rho_all to the correct grid and save it
+         CALL get_hirshfeld_info(hirshfeld_env, fnorm=fnorm)
+         IF (igroup == 1) THEN
+            IF (ASSOCIATED(fnorm) THEN
+               CALL pw_pool_give_back_pw(auxbas_pw_pool, fnorm%pw)
+!               CALL pw_release(fnorm%pw)
+!               DEALLOCATE (fnorm)
+            END IF
+            ALLOCATE (fnorm)
+            CALL pw_pool_create_pw(auxbas_pw_pool, fnorm%pw, use_data=REALDATA3D, &
+                                   in_space=REALSPACE)
+            CALL set_hirshfeld_info(hirshfeld_env, fnorm=fnorm)
+            CALL rs_pw_transfer(rs_rho_all, fnorm%pw, rs2pw)
+            CALL rs_grid_release(rs_rho_all)
+         ELSE
+
+         ! Compute CDFT weight function
          CALL pw_pool_create_pw(auxbas_pw_pool, tmp%pw, use_data=REALDATA3D, &
                                 in_space=REALSPACE)
-         CALL set_hirshfeld_info(hirshfeld_env, fnorm=fnorm)
-         CALL rs_pw_transfer(rs_rho_all, fnorm%pw, rs2pw)
          CALL rs_pw_transfer(rs_rho_constr, tmp%pw, rs2pw)
-         IF (debug_this_module) THEN
-            ALLOCATE (stride(3))
-            stride = (/2, 2, 2/)
-            CALL qs_subsys_get(subsys, particles=particles)
-            CALL cp_pw_to_cube(tmp%pw, unit_nr, "RHO_CONSTR", &
-                               particles=particles, &
-                               stride=stride)
-            DEALLOCATE (stride)
-         END IF
-         tnfun2 = pw_integrate_function(tmp%pw)
          CALL rs_grid_release(rs_rho_constr)
-         CALL hfun_scale(cdft_control%group(1)%weight%pw%cr3d, tmp%pw%cr3d, &
-                         hirshfeld_env%fnorm%pw%cr3d, divide=.TRUE.)
+         CALL hfun_scale(cdft_control%group(igroup)%weight%pw%cr3d, tmp%pw%cr3d, &
+                         fnorm%pw%cr3d, divide=.TRUE.)
          CALL pw_pool_give_back_pw(auxbas_pw_pool, tmp%pw)
-         CALL rs_grid_release(rs_rho_all)
-         tnfun = pw_integrate_function(hirshfeld_env%fnorm%pw)
-      END IF
+      END DO
 
-         dE = 0.0_dp
-         DO i = 1, dft_control%nspins
-            dE = dE+accurate_sum(cdft_control%group(1)%weight%pw%cr3d*rho_r(i)%pw%cr3d)*dvol
-         END DO
-
-         CALL get_qs_env(qs_env, energy=energy)
-         CALL mp_sum(dE, para_env%group)
-
-         cdft_control%value = dE
-         energy%cdft = (cdft_control%value(1)-cdft_control%target(1))*cdft_control%strength(1)
-
-         IF (iw > 0) THEN
-            WRITE (iw, '(/,T3,A,T60)') &
-               '------------------- Hirshfeld constraint information -------------------'
-            WRITE (iw, '(T3,A,T60,(3X,F18.12))') &
-               'Target value of constraint        :', cdft_control%target
-            WRITE (iw, '(T3,A,T60,(3X,F18.12))') &
-               'Current value of constraint       :', cdft_control%value
-            WRITE (iw, '(T3,A,T60,(3X,ES12.2))') &
-               'Deviation from target             :', ABS(cdft_control%value-cdft_control%target)
-            WRITE (iw, '(T3,A,T54,(3X,F18.12))') &
-               'Strength of constraint            :', cdft_control%strength
-            WRITE (iw, '(T3,A)') &
-               '------------------------------------------------------------------------'
-         END IF
-         CALL cp_print_key_finished_output(iw, logger, print_section, "PROGRAM_RUN_INFO")
-         CALL cp_print_key_finished_output(unit_nr, logger, print_section, "PROGRAM_RUN_INFO")
-
-         IF (calculate_forces) &
-            CPABORT("Forces with Hirshfeld constraint NYI.")
-         !CALL hirshfeld_force(qs_env,cdft_control)
-      END IF
+      DEALLOCATE (is_constraint)
+      DEALLOCATE (coefficients)
       CALL timestop(handle)
 
-   END SUBROUTINE hirshfeld_constraint
+   END SUBROUTINE hirshfeld_constraint_low
+!         dE = 0.0_dp
+!         DO i = 1, dft_control%nspins
+!            dE = dE+accurate_sum(cdft_control%group(1)%weight%pw%cr3d*rho_r(i)%pw%cr3d)*dvol
+!         END DO
+!
+!         CALL get_qs_env(qs_env, energy=energy)
+!         CALL mp_sum(dE, para_env%group)
+!
+!         cdft_control%value = dE
+!         energy%cdft = (cdft_control%value(1)-cdft_control%target(1))*cdft_control%strength(1)
+!
+!         IF (iw > 0) THEN
+!            WRITE (iw, '(/,T3,A,T60)') &
+!               '------------------- Hirshfeld constraint information -------------------'
+!            WRITE (iw, '(T3,A,T60,(3X,F18.12))') &
+!               'Target value of constraint        :', cdft_control%target
+!            WRITE (iw, '(T3,A,T60,(3X,F18.12))') &
+!               'Current value of constraint       :', cdft_control%value
+!            WRITE (iw, '(T3,A,T60,(3X,ES12.2))') &
+!               'Deviation from target             :', ABS(cdft_control%value-cdft_control%target)
+!            WRITE (iw, '(T3,A,T54,(3X,F18.12))') &
+!               'Strength of constraint            :', cdft_control%strength
+!            WRITE (iw, '(T3,A)') &
+!               '------------------------------------------------------------------------'
+!         END IF
+!         CALL cp_print_key_finished_output(iw, logger, print_section, "PROGRAM_RUN_INFO")
+!         CALL cp_print_key_finished_output(unit_nr, logger, print_section, "PROGRAM_RUN_INFO")
+!
+!         IF (calculate_forces) &
+!            CPABORT("Forces with Hirshfeld constraint NYI.")
+!         !CALL hirshfeld_force(qs_env,cdft_control)
+!      END IF
 
 
 ! **************************************************************************************************
