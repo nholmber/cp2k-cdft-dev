@@ -825,8 +825,8 @@ CONTAINS
          cdft_control_target%becke_control%confine_bounds(2) = ub_max
          cdft_control_target%becke_control%confine_bounds(1) = lb_min
       END IF
-      CALL pw_scale(cdft_control%group(1)%weight%pw, &
-                    cdft_control%group(1)%weight%pw%pw_grid%dvol)
+      CALL pw_scale(cdft_control_target%group(1)%weight%pw, &
+                    cdft_control_target%group(1)%weight%pw%pw_grid%dvol)
       ! Set flags for ET coupling calculation
       IF (mixed_env%do_mixed_et) THEN
          IF (MODULO(mixed_cdft%sim_step, mixed_env%et_freq) == 0) THEN

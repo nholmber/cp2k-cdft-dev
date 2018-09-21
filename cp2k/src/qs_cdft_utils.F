@@ -149,20 +149,15 @@ CONTAINS
       IF (cdft_control%save_pot) THEN
          in_memory = becke_control%in_memory
       END IF
-      IF (cdft_control%save_pot .OR. &
-          becke_control%cavity_confine .OR. &
-          becke_control%should_skip) THEN
+      IF (becke_control%cavity_confine) THEN
          ALLOCATE (is_constraint(natom))
          is_constraint = .FALSE.
-      END IF
-      DO i = 1, cdft_control%natoms
-         ! Notice that here is_constraint=.TRUE. also for dummy atoms to properly compute their Becke charges
-         ! A subsequent check (atom_in_group) ensures that the gradients of these dummy atoms are correct
-         IF (cdft_control%save_pot .OR. &
-             becke_control%cavity_confine .OR. &
-             becke_control%should_skip) &
+         DO i = 1, cdft_control%natoms
+            ! Notice that here is_constraint=.TRUE. also for dummy atoms to properly compute their Becke charges
+            ! A subsequent check (atom_in_group) ensures that the gradients of these dummy atoms are correct
             is_constraint(cdft_control%atoms(i)) = .TRUE.
-      END DO
+         END DO
+      END IF
       eps_cavity = becke_control%eps_cavity
       ! Setup atomic radii for adjusting cell boundaries
       IF (becke_control%adjust) THEN
@@ -468,6 +463,7 @@ CONTAINS
 
       NULLIFY (rtmplist)
       becke_control => cdft_control%becke_control
+      CPASSERT(ASSOCIATED(becke_control))
 
       ! Atomic size corrections
       CALL section_vals_val_get(becke_section, "ADJUST_SIZE", l_val=becke_control%adjust)
@@ -739,6 +735,8 @@ CONTAINS
 
       NULLIFY (outer_scf_section, hirshfeld_constraint_section, becke_constraint_section)
       cdft_control => qs_control%cdft_control
+      CPASSERT(ASSOCIATED(cdft_control))
+
       CALL section_vals_val_get(cdft_control_section, "TYPE_OF_CONSTRAINT", &
                                 i_val=qs_control%cdft_control%type)
 

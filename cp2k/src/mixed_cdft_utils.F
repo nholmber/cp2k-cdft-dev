@@ -410,13 +410,13 @@ CONTAINS
             END IF
             CALL get_qs_env(qs_env, dft_control=dft_control)
             cdft_control => dft_control%qs_control%cdft_control
-            IF (.NOT. cdft_control%atomic_charges) DEALLOCATE (cdft_control%atoms)
             IF (mixed_cdft%is_parallel) THEN
                IF (.NOT. dft_control%qs_control%gapw) THEN
                   DO i = 1, SIZE(cdft_control%group)
                      DEALLOCATE (cdft_control%group(i)%coeff)
                      DEALLOCATE (cdft_control%group(i)%atoms)
                   END DO
+                  IF (.NOT. cdft_control%atomic_charges) DEALLOCATE (cdft_control%atoms)
                END IF
             ELSE
                IF (iforce_eval == 1) CYCLE
@@ -427,6 +427,7 @@ CONTAINS
                   END IF
                END DO
                IF (cdft_control%type == outer_scf_becke_constraint) THEN
+                  IF (.NOT. cdft_control%atomic_charges) DEALLOCATE (cdft_control%atoms)
                   IF (cdft_control%becke_control%cavity_confine) &
                      CALL release_hirshfeld_type(cdft_control%becke_control%cavity_env)
                   IF (cdft_control%becke_control%cutoff_type == becke_cutoff_element) &
@@ -479,7 +480,6 @@ CONTAINS
 
          CALL cdft_control_create(mixed_cdft%cdft_control)
          cdft_control => mixed_cdft%cdft_control
-         CALL becke_control_create(cdft_control%becke_control)
          ALLOCATE (cdft_control%atoms(settings%ncdft))
          cdft_control%atoms = settings%atoms(1:settings%ncdft, 1)
          ALLOCATE (cdft_control%group(1))
