@@ -636,7 +636,6 @@ CONTAINS
       CHARACTER(LEN=*), PARAMETER :: routineN = 'qs_scf_cdft_info', &
          routineP = moduleN//':'//routineN
 
-      INTEGER                                            :: igroup
       REAL(KIND=dp)                                      :: outer_loop_eps
 
       IF (cdft_loop) THEN

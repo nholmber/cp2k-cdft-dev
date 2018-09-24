@@ -36,11 +36,13 @@ MODULE qs_cdft_utils
         outer_scf_becke_constraint, outer_scf_cdft_constraint, outer_scf_hirshfeld_constraint, &
         outer_scf_none, outer_scf_optimizer_broyden, outer_scf_optimizer_newton, &
         outer_scf_optimizer_newton_ls, radius_covalent, radius_user, shape_function_gaussian
-   USE input_section_types,             ONLY: section_vals_get,&
+   USE input_section_types,             ONLY: section_get_ivals,&
+                                              section_vals_get,&
                                               section_vals_get_subs_vals,&
                                               section_vals_type,&
                                               section_vals_val_get
    USE kinds,                           ONLY: dp,&
+                                              default_path_length,&
                                               int_8
    USE memory_utilities,                ONLY: reallocate
    USE outer_scf_control_types,         ONLY: outer_scf_read_parameters
@@ -56,12 +58,15 @@ MODULE qs_cdft_utils
                                               cdft_opt_type_read
    USE qs_cdft_types,                   ONLY: becke_constraint_type,&
                                               cdft_control_type,&
-                                              cdft_group_type
+                                              cdft_group_type,&
+                                              hirshfeld_constraint_type
    USE qs_collocate_density,            ONLY: collocate_pgf_product_rspace
    USE qs_environment_types,            ONLY: get_qs_env,&
                                               qs_environment_type
-   USE qs_kind_types,                   ONLY: qs_kind_type
+   USE qs_kind_types,                   ONLY: qs_kind_type,&
+                                              get_qs_kind
    USE qs_modify_pab_block,             ONLY: FUNC_AB
+   USE qs_scf_output,                   ONLY: qs_scf_cdft_constraint_info
    USE qs_subsys_types,                 ONLY: qs_subsys_get,&
                                               qs_subsys_type
    USE realspace_grid_types,            ONLY: realspace_grid_type,&
@@ -731,9 +736,11 @@ CONTAINS
       TYPE(cdft_control_type), POINTER                   :: cdft_control
       TYPE(section_vals_type), POINTER                   :: becke_constraint_section, &
                                                             hirshfeld_constraint_section, &
-                                                            outer_scf_section
+                                                            outer_scf_section, &
+                                                            print_section
 
-      NULLIFY (outer_scf_section, hirshfeld_constraint_section, becke_constraint_section)
+      NULLIFY (outer_scf_section, hirshfeld_constraint_section, becke_constraint_section, &
+               print_section)
       cdft_control => qs_control%cdft_control
       CPASSERT(ASSOCIATED(cdft_control))
 
@@ -755,6 +762,9 @@ CONTAINS
                                    i_val=cdft_control%purge_offset)
          CALL section_vals_val_get(cdft_control_section, "COUNTER", &
                                    i_val=cdft_control%ienergy)
+         print_section => section_vals_get_subs_vals(cdft_control_section, "PROGRAM_RUN_INFO%WEIGHT_FUNCTION")
+         CALL section_vals_get(print_section, explicit=cdft_control%print_weight)
+
          outer_scf_section => section_vals_get_subs_vals(cdft_control_section, "OUTER_SCF")
          CALL outer_scf_read_parameters(cdft_control%constraint_control, outer_scf_section)
          IF (cdft_control%constraint_control%have_scf) THEN
@@ -801,14 +811,12 @@ CONTAINS
       CHARACTER(len=*), PARAMETER :: routineN = 'read_hirshfeld_constraint_section', &
          routineP = moduleN//':'//routineN
 
-      INTEGER                                            :: j, jj, k, n_rep, nvar, radius_type, &
-                                                            refc, shapef
-      INTEGER, DIMENSION(:), POINTER                     :: tmplist
-      LOGICAL                                            :: do_radius, do_sc
+      LOGICAL                                            :: exists
       REAL(KIND=dp), DIMENSION(:), POINTER               :: rtmplist
+      TYPE(hirshfeld_constraint_type), POINTER           :: hirshfeld_control
 
-      NULLIFY (tmplist, rtmplist)
-      becke_control => cdft_control%hirshfeld_control
+      NULLIFY (rtmplist)
+      hirshfeld_control => cdft_control%hirshfeld_control
       CPASSERT(ASSOCIATED(hirshfeld_control))
 
       CALL section_vals_val_get(hirshfeld_section, "SHAPE_FUNCTION", i_val=hirshfeld_control%shape_function)
@@ -973,10 +981,18 @@ CONTAINS
       CHARACTER(len=*), PARAMETER :: routineN = 'hirshfeld_constraint_init', &
          routineP = moduleN//':'//routineN
 
+      CHARACTER(len=2)                                   :: element_symbol
       INTEGER                                            :: handle, igroup,  iatom,  &
-                                                            ikind, iw, natom, nkind
+                                                            ikind, iw, natom, nkind, ip, &
+                                                            iat
+      INTEGER, DIMENSION(:), POINTER                     :: atom_list
+      REAL(KIND=dp)                                      :: zeff
+      REAL(KIND=dp), DIMENSION(:), POINTER               :: radii_list
       TYPE(atomic_kind_type), DIMENSION(:), POINTER      :: atomic_kind_set
+      TYPE(atomic_kind_type), POINTER                    :: atomic_kind
       TYPE(cdft_control_type), POINTER                   :: cdft_control
+      TYPE(cdft_group_type), DIMENSION(:), POINTER       :: group
+      TYPE(cp_logger_type), POINTER                      :: logger
       TYPE(dft_control_type), POINTER                    :: dft_control
       TYPE(hirshfeld_constraint_type), POINTER           :: hirshfeld_control
       TYPE(hirshfeld_type), POINTER                      :: hirshfeld_env
@@ -985,15 +1001,17 @@ CONTAINS
       TYPE(section_vals_type), POINTER                   :: print_section
 
       NULLIFY (cdft_control, hirshfeld_control, hirshfeld_env, qs_kind_set, atomic_kind_set, &
-               radii_list, dft_control)
+               radii_list, dft_control, group, atomic_kind, atom_list)
       CALL timeset(routineN, handle)
 
+      logger => cp_get_default_logger()
       print_section => section_vals_get_subs_vals(qs_env%input, "DFT%QS%CDFT")
       iw = cp_print_key_unit_nr(logger, print_section, "PROGRAM_RUN_INFO", extension=".cdftLog")
 
       CALL get_qs_env(qs_env, dft_control=dft_control)
       cdft_control => dft_control%qs_control%cdft_control
-      hirshfeld_control => hirshfeld_control
+      hirshfeld_control => cdft_control%hirshfeld_control
+      hirshfeld_env => hirshfeld_control%hirshfeld_env
 
       ! Setup the Hirshfeld shape function
       IF (.NOT. ASSOCIATED(hirshfeld_env%kind_shape_fn)) THEN
@@ -1003,13 +1021,13 @@ CONTAINS
          nkind = SIZE(qs_kind_set)
          ! Parse atomic radii for setting up Gaussian shape function
          IF (ASSOCIATED(hirshfeld_control%radii)) THEN
-            IF (.NOT. SIZE(atomic_kind_set) == SIZE(hirshfeld_control%radii_tmp)) &
+            IF (.NOT. SIZE(atomic_kind_set) == SIZE(hirshfeld_control%radii)) &
                CALL cp_abort(__LOCATION__, &
                              "Length of keyword HIRSHFELD_CONSTRAINT\ATOMIC_RADII does not "// &
                              "match number of atomic kinds in the input coordinate file.")
 
             ALLOCATE (radii_list(SIZE(hirshfeld_control%radii)))
-            DO ikind = 1, SIZE(hirshfeld_control_control%radii)
+            DO ikind = 1, SIZE(hirshfeld_control%radii)
                IF (hirshfeld_control%use_bohr) THEN
                   radii_list(ikind) = hirshfeld_control%radii(ikind)
                ELSE
@@ -1023,9 +1041,26 @@ CONTAINS
          IF (ASSOCIATED(radii_list)) DEALLOCATE (radii_list)
       END IF
 
+      ! Atomic reference charges (Mulliken not supported)
+      IF (.NOT. ASSOCIATED(hirshfeld_env%charges)) THEN
+         CALL get_qs_env(qs_env, qs_kind_set=qs_kind_set, atomic_kind_set=atomic_kind_set, &
+                         nkind=nkind, natom=natom)
+         ALLOCATE(hirshfeld_env%charges(natom))
+         DO ikind = 1, nkind
+            CALL get_qs_kind(qs_kind_set(ikind), zeff=zeff)
+            atomic_kind => atomic_kind_set(ikind)
+            CALL get_atomic_kind(atomic_kind, atom_list=atom_list)
+            DO iat = 1, SIZE(atom_list)
+               iatom = atom_list(iat)
+               hirshfeld_env%charges(iatom) = zeff
+            END DO
+         END DO
+      END IF
+
       ! Print some additional information about the calculation on the first iteration
       IF (cdft_control%first_iteration) THEN
          IF (iw > 0) THEN
+            group => cdft_control%group
             CALL get_qs_env(qs_env, particle_set=particle_set)
             IF (ASSOCIATED(hirshfeld_control%radii)) THEN
                WRITE (iw, '(T3,A)') &
@@ -1067,7 +1102,7 @@ CONTAINS
 !> \brief Prints information about CDFT constraints
 !> \param qs_env the qs_env where to build the constraint
 !> \par   History
-!>        Created 9.2019 [Nico Holmberg]
+!>        Created 9.2018 [Nico Holmberg]
 ! **************************************************************************************************
    SUBROUTINE cdft_constraint_print(qs_env, electronic_charge)
       TYPE(qs_environment_type), POINTER                 :: qs_env
@@ -1103,8 +1138,12 @@ CONTAINS
       ! Print constraint information
       CALL qs_scf_cdft_constraint_info(iw, cdft_control)
 
+      ! Print weight function(s) to cube file(s) whenever weight is (re)built
+      IF (cdft_control%print_weight .AND. cdft_control%need_pot) &
+         CALL cdft_print_weight_function(qs_env)
+
       ! Print atomic CDFT charges
-      IF (iw > 0 . AND. cdft_control%atomic_charges) THEN
+      IF (iw > 0 .AND. cdft_control%atomic_charges) THEN
          IF (.NOT. cdft_control%fragment_density) THEN
             IF (dft_control%nspins == 1) THEN
                WRITE (iw, '(/,T3,A)') &
@@ -1150,7 +1189,7 @@ CONTAINS
                WRITE (iw, '(/,T3,A,T81,F8.3,T102,F8.3/)') "Total Charge and Spin Moment: ", tc(1), tc(2)
             END IF
          ELSE
-            IF (ANY(cdft_control%group(:)%constraint_type) /= cdft_charge_constraint) THEN
+            IF (ALL(cdft_control%group(:)%constraint_type == cdft_charge_constraint)) THEN
                WRITE (iw, '(/,T3,A)') &
                   '-------------------------------- CDFT atomic charges --------------------------------'
                IF (dft_control%nspins == 1) THEN
@@ -1224,5 +1263,60 @@ CONTAINS
       END IF
 
    END SUBROUTINE cdft_constraint_print
+
+! **************************************************************************************************
+!> \brief Prints CDFT weight functions to cube files
+!> \param qs_env the qs_env where to build the constraint
+!> \par   History
+!>        Created 9.2018 [Nico Holmberg]
+! **************************************************************************************************
+   SUBROUTINE cdft_print_weight_function(qs_env)
+      TYPE(qs_environment_type), POINTER                 :: qs_env
+
+      CHARACTER(len=*), PARAMETER :: routineN = 'cdft_constraint_print', &
+         routineP = moduleN//':'//routineN
+
+      CHARACTER(LEN=default_path_length)                 :: middle_name
+      INTEGER                                            :: igroup, unit_nr
+      LOGICAL                                            :: mpi_io
+      TYPE(cdft_control_type), POINTER                   :: cdft_control
+      TYPE(cp_logger_type), POINTER                      :: logger
+      TYPE(cp_para_env_type), POINTER                    :: para_env
+      TYPE(dft_control_type), POINTER                    :: dft_control
+      TYPE(particle_list_type), POINTER                  :: particles
+      TYPE(section_vals_type), POINTER                   :: cdft_constraint_section
+      TYPE(qs_subsys_type), POINTER                      :: subsys
+
+      NULLIFY(cdft_constraint_section, logger, particles, dft_control, &
+              para_env, subsys, cdft_control)
+      logger => cp_get_default_logger()
+
+      CALL get_qs_env(qs_env, subsys=subsys, para_env=para_env, dft_control=dft_control)
+      CALL qs_subsys_get(subsys, particles=particles)
+      cdft_control => dft_control%qs_control%cdft_control
+      cdft_constraint_section => section_vals_get_subs_vals(qs_env%input, "DFT%QS%CDFT")
+
+      DO igroup = 1, SIZE(cdft_control%group)
+         mpi_io = .TRUE.
+         middle_name = "cdft_weight_"//TRIM(ADJUSTL(cp_to_string(igroup)))
+         unit_nr = cp_print_key_unit_nr(logger, cdft_constraint_section, "PROGRAM_RUN_INFO", &
+                                        middle_name=middle_name, &
+                                        extension=".cube", file_position="REWIND", &
+                                        log_filename=.FALSE., mpi_io=mpi_io)
+         ! Note PROGRAM_RUN_INFO section neeeds to be active!
+         IF (para_env%mepos == para_env%source .AND. unit_nr .LT. 1) &
+            CALL cp_abort(__LOCATION__, &
+                          "Please turn on PROGRAM_RUN_INFO to print CDFT weight function.")
+
+         CALL cp_pw_to_cube(cdft_control%group(igroup)%weight%pw, &
+                            unit_nr, &
+                            "CDFT Weight Function", &
+                            particles=particles, &
+                            stride=section_get_ivals(cdft_constraint_section, "PROGRAM_RUN_INFO%WEIGHT_FUNCTION%STRIDE"), &
+                            mpi_io=mpi_io)
+         CALL cp_print_key_finished_output(unit_nr, logger, cdft_constraint_section, "PROGRAM_RUN_INFO", mpi_io=mpi_io)
+      END DO
+
+   END SUBROUTINE cdft_print_weight_function
 
 END MODULE qs_cdft_utils

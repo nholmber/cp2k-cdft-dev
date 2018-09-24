@@ -4393,6 +4393,24 @@ CONTAINS
       CALL cp_print_key_section_create(print_key, "PROGRAM_RUN_INFO", &
                                        description="Controls the printing of basic info about the method.", &
                                        print_level=low_print_level, add_last=add_last_numeric, filename="__STD_OUT__")
+
+      CALL section_create(subsection, "WEIGHT_FUNCTION", &
+                          description="Controls the printing of cube files with "// &
+                          "the CDFT weight function(s). Intended for single-point testing. "// &
+                          "In multistep simulations, generated cube files are overwritten each step.", &
+                          n_keywords=1, n_subsections=0, repeats=.FALSE.)
+
+      CALL keyword_create(keyword, name="STRIDE", &
+                          description="The stride (X,Y,Z) used to write the cube file "// &
+                          "(larger values result in smaller cube files). You can provide 3 numbers (for X,Y,Z) or"// &
+                          " 1 number valid for all components.", &
+                          usage="STRIDE 2 2 2", n_var=-1, default_i_vals=(/2, 2, 2/), type_of_var=integer_t)
+      CALL section_add_keyword(subsection, keyword)
+      CALL keyword_release(keyword)
+
+      CALL section_add_subsection(print_key, subsection)
+      CALL section_release(subsection)
+
       CALL section_add_subsection(section, print_key)
       CALL section_release(print_key)
 

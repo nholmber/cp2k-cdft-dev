@@ -267,7 +267,7 @@ MODULE qs_cdft_types
                                               atomic_charges, fragment_density, &
                                               fragments_integrated, flip_fragment(2),&
                                               transfer_pot, external_control,&
-                                              first_iteration
+                                              first_iteration, print_weight
       LOGICAL, POINTER, DIMENSION(:)       :: is_constraint
       REAL(KIND=dp), DIMENSION(:), POINTER :: strength, TARGET, value
       REAL(KIND=dp), POINTER, &
@@ -421,6 +421,7 @@ CONTAINS
       cdft_control%transfer_pot = .FALSE.
       cdft_control%atomic_charges = .FALSE.
       cdft_control%first_iteration = .TRUE.
+      cdft_control%first_iteration = .FALSE.
       cdft_control%fragment_density = .FALSE.
       cdft_control%fragments_integrated = .FALSE.
       cdft_control%flip_fragment = .FALSE.
@@ -589,7 +590,7 @@ CONTAINS
       ALLOCATE (hirshfeld_control)
 
       hirshfeld_control%use_bohr = .FALSE.
-      hirsfeld_control%radius = 3.0_dp
+      hirshfeld_control%radius = 3.0_dp
       hirshfeld_control%shape_function = shape_function_gaussian
       hirshfeld_control%gaussian_shape = radius_single
       NULLIFY(hirshfeld_control%hirshfeld_env)

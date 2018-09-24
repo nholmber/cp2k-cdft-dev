@@ -59,7 +59,8 @@ MODULE qs_cdft_methods
                                               pw_release
    USE qs_cdft_types,                   ONLY: becke_constraint_type,&
                                               cdft_control_type,&
-                                              cdft_group_type
+                                              cdft_group_type,&
+                                              hirshfeld_constraint_type
    USE qs_cdft_utils,                   ONLY: becke_constraint_init,&
                                               cdft_constraint_print,&
                                               hfun_scale,&
@@ -83,7 +84,7 @@ MODULE qs_cdft_methods
                                               qs_subsys_type
    USE realspace_grid_cube,             ONLY: cube_to_pw
    USE realspace_grid_types,            ONLY: &
-        pw2rs, realspace_grid_desc_type, realspace_grid_type, rs2pw, rs_grid_create, &
+        pw2rs, realspace_grid_desc_type, realspace_grid_type, realspace_grid_p_type, rs2pw, rs_grid_create, &
         rs_grid_release, rs_grid_retain, rs_grid_zero, rs_pw_transfer
 #include "./base/base_uses.f90"
 
@@ -790,12 +791,11 @@ CONTAINS
       CHARACTER(len=*), PARAMETER :: routineN = 'cdft_constraint_integrate', &
          routineP = moduleN//':'//routineN
 
-      CHARACTER(len=2)                                   :: element_symbol
       INTEGER                                            :: handle, i, iatom, igroup, ikind, ivar, &
                                                             iw, jatom, natom, nvar
       LOGICAL                                            :: paw_atom, is_becke
       REAL(kind=dp)                                      :: dvol, eps_cavity, &
-                                                            sign, tc(2), zeff
+                                                            sign
       REAL(kind=dp), ALLOCATABLE, DIMENSION(:)           :: dE, strength, target_val
       REAL(kind=dp), ALLOCATABLE, DIMENSION(:, :)        :: electronic_charge, gapw_offset
       TYPE(becke_constraint_type), POINTER               :: becke_control
@@ -848,8 +848,6 @@ CONTAINS
       dE = 0.0_dp
       dvol = group(1)%weight%pw%pw_grid%dvol
       IF (cdft_control%atomic_charges) THEN
-         IF (cdft_control%type == outer_scf_hirshfeld_constraint) &
-            CPABORT("Hirshfeld charges NYI.")
          charge => cdft_control%charge
          ALLOCATE (electronic_charge(cdft_control%natoms, dft_control%nspins))
          electronic_charge = 0.0_dp
@@ -1186,10 +1184,10 @@ CONTAINS
 
       INTEGER                                            :: atom_a, handle, i, iatom, iex, &
                                                             ikind, ithread, j, natom, &
-                                                            npme, nthread, numexp
+                                                            npme, nthread, numexp, igroup
       INTEGER(KIND=int_8)                                :: subpatch_pattern
       INTEGER, DIMENSION(:), POINTER                     :: atom_list, cores
-      LOGICAL, ALLOCATABLE, DIMENSION(:)                 :: is_constraint
+      LOGICAL, ALLOCATABLE, DIMENSION(:)                 :: is_constraint, compute_charge
       REAL(kind=dp)                                      :: alpha, coef, dvol, &
                                                             eps_rho_rspace, ra(3)
       REAL(kind=dp), ALLOCATABLE, DIMENSION(:)           :: coefficients
@@ -1197,9 +1195,9 @@ CONTAINS
       TYPE(atomic_kind_type), DIMENSION(:), POINTER      :: atomic_kind_set
       TYPE(cdft_control_type), POINTER                   :: cdft_control
       TYPE(cell_type), POINTER                           :: cell
-      TYPE(cp_para_env_type), POINTER                    :: para_env
       TYPE(cube_info_type)                               :: cube_info
       TYPE(dft_control_type), POINTER                    :: dft_control
+      TYPE(hirshfeld_constraint_type), POINTER           :: hirshfeld_control
       TYPE(hirshfeld_type), POINTER                      :: hirshfeld_env
       TYPE(particle_type), DIMENSION(:), POINTER         :: particle_set
       TYPE(pw_env_type), POINTER                         :: pw_env
@@ -1208,10 +1206,13 @@ CONTAINS
       TYPE(pw_pool_type), POINTER                        :: auxbas_pw_pool
       TYPE(realspace_grid_desc_type), POINTER            :: auxbas_rs_desc
       TYPE(realspace_grid_type), POINTER                 :: rs_rho_all, rs_rho_constr
+      TYPE(realspace_grid_p_type), &
+         DIMENSION(:), POINTER                           :: rs_single
 
       NULLIFY (atom_list, cores, pab, atomic_kind_set, cell, dft_control, &
                hirshfeld_env, particle_set, pw_env, fnorm, auxbas_pw_pool, &
-               auxbas_rs_desc, rs_rho_all, rs_rho_constr, cdft_control)
+               auxbas_rs_desc, rs_rho_all, rs_rho_constr, cdft_control, &
+               hirshfeld_control, rs_single)
 
       CALL timeset(routineN, handle)
       CALL get_qs_env(qs_env, &
@@ -1223,16 +1224,20 @@ CONTAINS
                       pw_env=pw_env)
 
       cdft_control => dft_control%qs_control%cdft_control
-      hirshfeld_control => hirshfeld_control
-      cavity_env => becke_control%cavity_env
+      hirshfeld_control => cdft_control%hirshfeld_control
+      hirshfeld_env => hirshfeld_control%hirshfeld_env
 
       ! Build weight function
       ALLOCATE (is_constraint(natom))
       ALLOCATE (coefficients(natom))
+      IF (cdft_control%atomic_charges) THEN
+         ALLOCATE(compute_charge(natom))
+         compute_charge = .FALSE.
+      END IF
       DO igroup = 1, SIZE(cdft_control%group)
          dvol = cdft_control%group(igroup)%weight%pw%pw_grid%dvol
          cdft_control%group(igroup)%weight%pw%cr3d = 0.0_dp
-         ! Keep track of those atoms that are active in this contraint group
+         ! Keep track of those atoms that are active in this constraint group
          coefficients(:) = 0.0_dp
          is_constraint = .FALSE.
          DO i = 1, SIZE(cdft_control%group(igroup)%atoms)
@@ -1251,6 +1256,18 @@ CONTAINS
          END IF
          CALL rs_grid_create(rs_rho_constr, auxbas_rs_desc)
          CALL rs_grid_zero(rs_rho_constr)
+         ! Compute Gaussian density over single atoms (rs_single) when atomic charges are requested
+         IF (cdft_control%atomic_charges .AND. igroup == 1) THEN
+            ALLOCATE(rs_single(cdft_control%natoms))
+            DO i = 1, cdft_control%natoms
+               NULLIFY (rs_single(i)%rs_grid)
+               CALL rs_grid_create(rs_single(i)%rs_grid, auxbas_rs_desc)
+               CALL rs_grid_zero(rs_single(i)%rs_grid)
+               compute_charge(cdft_control%atoms(i)) = .TRUE.
+            END DO
+         END IF
+
+         ! Collocate Gaussians
          eps_rho_rspace = dft_control%qs_control%eps_rho_rspace
          ALLOCATE (pab(1, 1))
          nthread = 1
@@ -1284,7 +1301,7 @@ CONTAINS
                DO j = 1, npme
                   iatom = cores(j)
                   atom_a = atom_list(iatom)
-                  pab(1, 1) = hirshfeld_env%charges(atom_a)*coef
+                  pab(1, 1) = coef * hirshfeld_env%charges(atom_a)
                   ra(:) = pbc(particle_set(atom_a)%r, cell)
                   subpatch_pattern = 0
                   CALL collocate_pgf_product_rspace(0, alpha, 0, 0, 0.0_dp, 0, ra, &
@@ -1298,6 +1315,12 @@ CONTAINS
                                                        pab, 0, 0, rs_rho_constr, cell, cube_info, eps_rho_rspace, &
                                                        ga_gb_function=FUNC_AB, ithread=ithread, use_subpatch=.TRUE., &
                                                        subpatch_pattern=subpatch_pattern, lmax_global=0)
+                  IF (cdft_control%atomic_charges .AND. igroup == 1 .AND. compute_charge(atom_a)) &
+                     CALL collocate_pgf_product_rspace(0, alpha, 0, 0, 0.0_dp, 0, ra, &
+                                                       (/0.0_dp, 0.0_dp, 0.0_dp/), 0.0_dp, 1.0_dp, pab, 0, 0, &
+                                                       rs_single(atom_a)%rs_grid, cell, cube_info, eps_rho_rspace, &
+                                                       ga_gb_function=FUNC_AB, ithread=ithread, use_subpatch=.TRUE., &
+                                                       subpatch_pattern=subpatch_pattern, lmax_global=0)
                END DO
             END DO
             DEALLOCATE (cores)
@@ -1307,10 +1330,8 @@ CONTAINS
          ! Transfer rs_rho_all to the correct grid and save it
          CALL get_hirshfeld_info(hirshfeld_env, fnorm=fnorm)
          IF (igroup == 1) THEN
-            IF (ASSOCIATED(fnorm) THEN
+            IF (ASSOCIATED(fnorm)) THEN
                CALL pw_pool_give_back_pw(auxbas_pw_pool, fnorm%pw)
-!               CALL pw_release(fnorm%pw)
-!               DEALLOCATE (fnorm)
             END IF
             ALLOCATE (fnorm)
             CALL pw_pool_create_pw(auxbas_pw_pool, fnorm%pw, use_data=REALDATA3D, &
@@ -1318,8 +1339,7 @@ CONTAINS
             CALL set_hirshfeld_info(hirshfeld_env, fnorm=fnorm)
             CALL rs_pw_transfer(rs_rho_all, fnorm%pw, rs2pw)
             CALL rs_grid_release(rs_rho_all)
-         ELSE
-
+         END IF
          ! Compute CDFT weight function
          CALL pw_pool_create_pw(auxbas_pw_pool, tmp%pw, use_data=REALDATA3D, &
                                 in_space=REALSPACE)
@@ -1328,6 +1348,18 @@ CONTAINS
          CALL hfun_scale(cdft_control%group(igroup)%weight%pw%cr3d, tmp%pw%cr3d, &
                          fnorm%pw%cr3d, divide=.TRUE.)
          CALL pw_pool_give_back_pw(auxbas_pw_pool, tmp%pw)
+         ! Compute atomic weight functions if charges are needed
+         IF (cdft_control%atomic_charges .AND. igroup == 1) THEN
+            CALL pw_pool_create_pw(auxbas_pw_pool, tmp%pw, use_data=REALDATA3D, &
+                                   in_space=REALSPACE)
+            DO i = 1, cdft_control%natoms
+               CALL rs_pw_transfer(rs_single(i)%rs_grid, tmp%pw, rs2pw)
+               CALL rs_grid_release(rs_single(i)%rs_grid)
+               CALL hfun_scale(cdft_control%charge(i)%pw%cr3d, tmp%pw%cr3d, &
+                               fnorm%pw%cr3d, divide=.TRUE.)
+            END DO
+            CALL pw_pool_give_back_pw(auxbas_pw_pool, tmp%pw)
+         END IF
       END DO
 
       DEALLOCATE (is_constraint)
@@ -1335,39 +1367,6 @@ CONTAINS
       CALL timestop(handle)
 
    END SUBROUTINE hirshfeld_constraint_low
-!         dE = 0.0_dp
-!         DO i = 1, dft_control%nspins
-!            dE = dE+accurate_sum(cdft_control%group(1)%weight%pw%cr3d*rho_r(i)%pw%cr3d)*dvol
-!         END DO
-!
-!         CALL get_qs_env(qs_env, energy=energy)
-!         CALL mp_sum(dE, para_env%group)
-!
-!         cdft_control%value = dE
-!         energy%cdft = (cdft_control%value(1)-cdft_control%target(1))*cdft_control%strength(1)
-!
-!         IF (iw > 0) THEN
-!            WRITE (iw, '(/,T3,A,T60)') &
-!               '------------------- Hirshfeld constraint information -------------------'
-!            WRITE (iw, '(T3,A,T60,(3X,F18.12))') &
-!               'Target value of constraint        :', cdft_control%target
-!            WRITE (iw, '(T3,A,T60,(3X,F18.12))') &
-!               'Current value of constraint       :', cdft_control%value
-!            WRITE (iw, '(T3,A,T60,(3X,ES12.2))') &
-!               'Deviation from target             :', ABS(cdft_control%value-cdft_control%target)
-!            WRITE (iw, '(T3,A,T54,(3X,F18.12))') &
-!               'Strength of constraint            :', cdft_control%strength
-!            WRITE (iw, '(T3,A)') &
-!               '------------------------------------------------------------------------'
-!         END IF
-!         CALL cp_print_key_finished_output(iw, logger, print_section, "PROGRAM_RUN_INFO")
-!         CALL cp_print_key_finished_output(unit_nr, logger, print_section, "PROGRAM_RUN_INFO")
-!
-!         IF (calculate_forces) &
-!            CPABORT("Forces with Hirshfeld constraint NYI.")
-!         !CALL hirshfeld_force(qs_env,cdft_control)
-!      END IF
-
 
 ! **************************************************************************************************
 !> \brief calculates forces due to a Gaussian Hirshfeld constraint
@@ -1430,7 +1429,7 @@ CONTAINS
 
       IF (dft_control%qs_control%cdft) THEN
          dvol = cdft_control%group(1)%weight%pw%pw_grid%dvol
-         ALLOCATE (catom(cdft_control%hirshfeld_control%natoms))
+         ALLOCATE (catom(cdft_control%natoms))
          ALLOCATE (coefficients(natom))
          ALLOCATE (is_acceptor(natom))
          ALLOCATE (is_donor(natom))
@@ -1438,9 +1437,9 @@ CONTAINS
          is_donor = .FALSE.
          coefficients(:) = 0.0_dp
 
-         DO i = 1, cdft_control%hirshfeld_control%natoms
-            catom(i) = cdft_control%hirshfeld_control%atoms(i)
-            coefficients(catom(i)) = cdft_control%hirshfeld_control%coeff(i)
+         DO i = 1, cdft_control%natoms
+            catom(i) = cdft_control%group(1)%atoms(i)
+            coefficients(catom(i)) = cdft_control%group(1)%coeff(i)
             IF (coefficients(catom(i)) < 0.0_dp) THEN
                is_donor(catom(i)) = .TRUE.
             ELSE
