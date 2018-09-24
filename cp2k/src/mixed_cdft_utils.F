@@ -176,7 +176,10 @@ CONTAINS
          ALLOCATE (settings%coeffs(natom, nforce_eval))
          settings%coeffs = 0.0_dp
       END IF
-      ALLOCATE (settings%si(4, nforce_eval))
+      ! Some of the checked settings are only defined for certain types of constraints
+      ! We nonetheless use arrays that are large enough to contain settings for all constraints
+      ! This is not completely optimal...
+      ALLOCATE (settings%si(6, nforce_eval))
       ALLOCATE (settings%sb(8, nforce_eval))
       ALLOCATE (settings%sr(5, nforce_eval))
       ALLOCATE (settings%cutoffs(settings%max_nkinds, nforce_eval))
@@ -211,11 +214,6 @@ CONTAINS
                           "A mixed CDFT simulation with multiple force_evals was requested, "// &
                           "but CDFT constraints were not active in the QS section of all force_evals!")
          cdft_control => dft_control%qs_control%cdft_control
-         IF (cdft_control%type /= outer_scf_becke_constraint) &
-            CPABORT("Mixed CDFT without Becke NYI.")
-         ! TODO: Parse other sections than BECKE
-         !IF (cdft_control%type /= outer_scf_becke_constraint .AND. mixed_cdft%is_parallel) &
-         !   CPABORT("Mixed CDFT without Becke NYI.")
          CALL pw_env_get(pw_env, auxbas_pw_pool=auxbas_pw_pool)
          settings%bo = auxbas_pw_pool%pw_grid%bounds_local
          ! Only the rank 0 process collects info about pw_grid and CDFT
@@ -237,47 +235,82 @@ CONTAINS
             IF (mixed_cdft%is_parallel) &
                settings%coeffs(1:cdft_control%natoms, iforce_eval) = cdft_control%group(1)%coeff
             ! Integer type settings
-            settings%si(1, iforce_eval) = cdft_control%becke_control%cutoff_type
-            settings%si(2, iforce_eval) = cdft_control%becke_control%cavity_shape
+            IF (cdft_control%type == outer_scf_becke_constraint) THEN
+               settings%si(1, iforce_eval) = cdft_control%becke_control%cutoff_type
+               settings%si(2, iforce_eval) = cdft_control%becke_control%cavity_shape
+            END IF
             settings%si(3, iforce_eval) = dft_control%multiplicity
             settings%si(4, iforce_eval) = SIZE(cdft_control%group)
+            settings%si(5, iforce_eval) = cdft_control%type
+            IF (cdft_control%type == outer_scf_hirshfeld_constraint) THEN
+               settings%si(6, iforce_eval) = cdft_control%hirsfeld_control%shape_function_type
+               settings%si(6, iforce_eval) = cdft_control%hirsfeld_control%gaussian_shape
+            END IF
             ! Logicals
-            settings%sb(1, iforce_eval) = cdft_control%becke_control%cavity_confine
-            settings%sb(2, iforce_eval) = cdft_control%becke_control%should_skip
-            settings%sb(3, iforce_eval) = cdft_control%becke_control%print_cavity
-            settings%sb(4, iforce_eval) = cdft_control%becke_control%in_memory
-            settings%sb(5, iforce_eval) = cdft_control%becke_control%adjust
+            IF (cdft_control%type == outer_scf_becke_constraint) THEN
+               settings%sb(1, iforce_eval) = cdft_control%becke_control%cavity_confine
+               settings%sb(2, iforce_eval) = cdft_control%becke_control%should_skip
+               settings%sb(3, iforce_eval) = cdft_control%becke_control%print_cavity
+               settings%sb(4, iforce_eval) = cdft_control%becke_control%in_memory
+               settings%sb(5, iforce_eval) = cdft_control%becke_control%adjust
+               settings%sb(8, iforce_eval) = cdft_control%becke_control%use_bohr
+            END IF
+            IF (cdft_control%type == outer_scf_hirshfeld_constraint) THEN
+               settings%sb(8, iforce_eval) = cdft_control%hirshfeld_control%use_bohr
+            END IF
             settings%sb(6, iforce_eval) = cdft_control%atomic_charges
             settings%sb(7, iforce_eval) = qs_env%has_unit_metric
-            settings%sb(8, iforce_eval) = cdft_control%becke_control%use_bohr
             ! Reals
-            settings%sr(1, iforce_eval) = cdft_control%becke_control%rcavity
-            settings%sr(2, iforce_eval) = cdft_control%becke_control%rglobal
-            settings%sr(3, iforce_eval) = cdft_control%becke_control%eps_cavity
+            IF (cdft_control%type == outer_scf_becke_constraint) THEN
+               settings%sr(1, iforce_eval) = cdft_control%becke_control%rcavity
+               settings%sr(2, iforce_eval) = cdft_control%becke_control%rglobal
+               settings%sr(3, iforce_eval) = cdft_control%becke_control%eps_cavity
+            END IF
+            IF (cdft_control%type == outer_scf_hirshfeld_constraint) THEN
+               settings%sr(2, iforce_eval) = cdft_control%hirshfeld_control%radius
+            END IF
             settings%sr(4, iforce_eval) = dft_control%qs_control%eps_rho_rspace
             settings%sr(5, iforce_eval) = pw_env%cube_info(pw_env%auxbas_grid)%max_rad_ga
-            IF (cdft_control%becke_control%cutoff_type == becke_cutoff_element) THEN
-               nkinds = SIZE(cdft_control%becke_control%cutoffs_tmp)
-               IF (nkinds .GT. settings%max_nkinds) &
-                  CALL cp_abort(__LOCATION__, &
-                                "More than "//TRIM(cp_to_string(settings%max_nkinds))// &
-                                " unique elements were defined in BECKE_CONSTRAINT\ELEMENT_CUTOFF. Are you sure"// &
-                                " your input is correct? If yes, please increase max_nkinds and recompile.")
-               settings%cutoffs(1:nkinds, iforce_eval) = cdft_control%becke_control%cutoffs_tmp(:)
+            IF (cdft_control%type == outer_scf_becke_constraint) THEN
+               IF (cdft_control%becke_control%cutoff_type == becke_cutoff_element) THEN
+                  nkinds = SIZE(cdft_control%becke_control%cutoffs_tmp)
+                  IF (nkinds .GT. settings%max_nkinds) &
+                     CALL cp_abort(__LOCATION__, &
+                                   "More than "//TRIM(cp_to_string(settings%max_nkinds))// &
+                                   " unique elements were defined in BECKE_CONSTRAINT\ELEMENT_CUTOFF. Are you sure"// &
+                                   " your input is correct? If yes, please increase max_nkinds and recompile.")
+                  settings%cutoffs(1:nkinds, iforce_eval) = cdft_control%becke_control%cutoffs_tmp(:)
+               END IF
+               IF (cdft_control%becke_control%adjust) THEN
+                  CALL get_qs_env(qs_env, atomic_kind_set=atomic_kind_set)
+                  IF (.NOT. SIZE(atomic_kind_set) == SIZE(cdft_control%becke_control%radii_tmp)) &
+                     CALL cp_abort(__LOCATION__, &
+                                   "Length of keyword BECKE_CONSTRAINT\ATOMIC_RADII does not "// &
+                                   "match number of atomic kinds in the input coordinate file.")
+                  nkinds = SIZE(cdft_control%becke_control%radii_tmp)
+                  IF (nkinds .GT. settings%max_nkinds) &
+                     CALL cp_abort(__LOCATION__, &
+                                   "More than "//TRIM(cp_to_string(settings%max_nkinds))// &
+                                   " unique elements were defined in BECKE_CONSTRAINT\ATOMIC_RADII. Are you sure"// &
+                                   " your input is correct? If yes, please increase max_nkinds and recompile.")
+                  settings%radii(1:nkinds, iforce_eval) = cdft_control%becke_control%radii_tmp(:)
+               END IF
             END IF
-            IF (cdft_control%becke_control%adjust) THEN
-               CALL get_qs_env(qs_env, atomic_kind_set=atomic_kind_set)
-               IF (.NOT. SIZE(atomic_kind_set) == SIZE(cdft_control%becke_control%radii_tmp)) &
-                  CALL cp_abort(__LOCATION__, &
-                                "Length of keyword BECKE_CONSTRAINT\ATOMIC_RADII does not "// &
-                                "match number of atomic kinds in the input coordinate file.")
-               nkinds = SIZE(cdft_control%becke_control%radii_tmp)
-               IF (nkinds .GT. settings%max_nkinds) &
-                  CALL cp_abort(__LOCATION__, &
-                                "More than "//TRIM(cp_to_string(settings%max_nkinds))// &
-                                " unique elements were defined in BECKE_CONSTRAINT\ATOMIC_RADII. Are you sure"// &
-                                " your input is correct? If yes, please increase max_nkinds and recompile.")
-               settings%radii(1:nkinds, iforce_eval) = cdft_control%becke_control%radii_tmp(:)
+            IF (cdft_control%type == outer_scf_hirshfeld_constraint) THEN
+               IF (ASSOCIATED(cdft_control%hirsheld_control%radii)) THEN
+                  CALL get_qs_env(qs_env, atomic_kind_set=atomic_kind_set)
+                  IF (.NOT. SIZE(atomic_kind_set) == SIZE(cdft_control%hirshfeld_control%radii)) &
+                     CALL cp_abort(__LOCATION__, &
+                                   "Length of keyword HIRSHFELD_CONSTRAINT&RADII does not "// &
+                                   "match number of atomic kinds in the input coordinate file.")
+                  nkinds = SIZE(cdft_control%hirsheld_control%radii)
+                  IF (nkinds .GT. settings%max_nkinds) &
+                     CALL cp_abort(__LOCATION__, &
+                                   "More than "//TRIM(cp_to_string(settings%max_nkinds))// &
+                                   " unique elements were defined in HIRSHFELD_CONSTRAINT&RADII. Are you sure"// &
+                                   " your input is correct? If yes, please increase max_nkinds and recompile.")
+                  settings%radii(1:nkinds, iforce_eval) = cdft_control%hirsheld_control%radii(:)
+               END IF
             END IF
          END IF
       END DO
@@ -476,6 +509,10 @@ CONTAINS
          IF (mixed_cdft%nconstraint /= 1) &
             CALL cp_abort(__LOCATION__, &
                           "Parallel mode mixed CDFT does not yet support multiple constraints.")
+
+         IF (mixed_cdft%constraint_type /= outer_scf_becke_constraint) &
+            CALL cp_abort(__LOCATION__, &
+                          "Parallel mode mixed CDFT does not support Hirshfeld constraints.")
 
          CALL cdft_control_create(mixed_cdft%cdft_control)
          cdft_control => mixed_cdft%cdft_control

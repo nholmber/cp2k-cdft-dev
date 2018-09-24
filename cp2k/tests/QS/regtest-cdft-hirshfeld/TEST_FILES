@@ -1,0 +1,11 @@
+# runs are executed in the same order as in this file
+# the second field tells which test should be run in order to compare with the last available output
+# see regtest/TEST_FILES
+#
+HeH-noconstraint.inp                                   1      2e-13              -3.01067446615060
+He+-noconstraint.inp                                   1      2e-13              -2.05007934458372
+H-noconstraint.inp                                     1      4e-13              -0.45734465780293
+# These tests use different constraint formalisms so their value differs (see outputted charges)
+HeH-cdft-1.inp                                        71      3e-11               1.200733561958
+HeH-cdft-2.inp                                        71      2e-11               1.599542796623
+#EOF
