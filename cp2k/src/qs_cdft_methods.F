@@ -21,7 +21,6 @@ MODULE qs_cdft_methods
    USE cp_output_handling,              ONLY: cp_print_key_finished_output,&
                                               cp_print_key_unit_nr
    USE cp_para_types,                   ONLY: cp_para_env_type
-   USE cp_realspace_grid_cube,          ONLY: cp_pw_to_cube
    USE cube_utils,                      ONLY: cube_info_type
    USE hirshfeld_methods,               ONLY: create_shape_function
    USE hirshfeld_types,                 ONLY: get_hirshfeld_info,&
@@ -1018,7 +1017,7 @@ CONTAINS
       IF (is_becke .AND. .NOT. ASSOCIATED(becke_control)) &
          CPABORT("Becke control has not been allocated.")
       group => cdft_control%group
-
+      dvol = group(1)%weight%pw%pw_grid%dvol
       ! Fragment densities are meaningful only for some calculation types
       IF (.NOT. qs_env%single_point_run) &
          CALL cp_abort(__LOCATION__, &

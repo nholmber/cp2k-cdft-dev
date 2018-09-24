@@ -421,7 +421,6 @@ CONTAINS
       cdft_control%transfer_pot = .FALSE.
       cdft_control%atomic_charges = .FALSE.
       cdft_control%first_iteration = .TRUE.
-      cdft_control%first_iteration = .FALSE.
       cdft_control%fragment_density = .FALSE.
       cdft_control%fragments_integrated = .FALSE.
       cdft_control%flip_fragment = .FALSE.

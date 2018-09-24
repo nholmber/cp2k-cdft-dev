@@ -62,7 +62,8 @@ MODULE mixed_cdft_utils
                                               set_hirshfeld_info
    USE input_constants,                 ONLY: becke_cutoff_element,&
                                               shape_function_gaussian,&
-                                              outer_scf_becke_constraint
+                                              outer_scf_becke_constraint,&
+                                              outer_scf_hirshfeld_constraint
    USE input_section_types,             ONLY: section_vals_duplicate,&
                                               section_vals_get,&
                                               section_vals_get_subs_vals,&
@@ -243,8 +244,8 @@ CONTAINS
             settings%si(4, iforce_eval) = SIZE(cdft_control%group)
             settings%si(5, iforce_eval) = cdft_control%type
             IF (cdft_control%type == outer_scf_hirshfeld_constraint) THEN
-               settings%si(6, iforce_eval) = cdft_control%hirsfeld_control%shape_function_type
-               settings%si(6, iforce_eval) = cdft_control%hirsfeld_control%gaussian_shape
+               settings%si(6, iforce_eval) = cdft_control%hirshfeld_control%shape_function
+               settings%si(6, iforce_eval) = cdft_control%hirshfeld_control%gaussian_shape
             END IF
             ! Logicals
             IF (cdft_control%type == outer_scf_becke_constraint) THEN
@@ -297,19 +298,19 @@ CONTAINS
                END IF
             END IF
             IF (cdft_control%type == outer_scf_hirshfeld_constraint) THEN
-               IF (ASSOCIATED(cdft_control%hirsheld_control%radii)) THEN
+               IF (ASSOCIATED(cdft_control%hirshfeld_control%radii)) THEN
                   CALL get_qs_env(qs_env, atomic_kind_set=atomic_kind_set)
                   IF (.NOT. SIZE(atomic_kind_set) == SIZE(cdft_control%hirshfeld_control%radii)) &
                      CALL cp_abort(__LOCATION__, &
                                    "Length of keyword HIRSHFELD_CONSTRAINT&RADII does not "// &
                                    "match number of atomic kinds in the input coordinate file.")
-                  nkinds = SIZE(cdft_control%hirsheld_control%radii)
+                  nkinds = SIZE(cdft_control%hirshfeld_control%radii)
                   IF (nkinds .GT. settings%max_nkinds) &
                      CALL cp_abort(__LOCATION__, &
                                    "More than "//TRIM(cp_to_string(settings%max_nkinds))// &
                                    " unique elements were defined in HIRSHFELD_CONSTRAINT&RADII. Are you sure"// &
                                    " your input is correct? If yes, please increase max_nkinds and recompile.")
-                  settings%radii(1:nkinds, iforce_eval) = cdft_control%hirsheld_control%radii(:)
+                  settings%radii(1:nkinds, iforce_eval) = cdft_control%hirshfeld_control%radii(:)
                END IF
             END IF
          END IF
@@ -510,7 +511,7 @@ CONTAINS
             CALL cp_abort(__LOCATION__, &
                           "Parallel mode mixed CDFT does not yet support multiple constraints.")
 
-         IF (mixed_cdft%constraint_type /= outer_scf_becke_constraint) &
+         IF (settings%si(5, 1) /= outer_scf_becke_constraint) &
             CALL cp_abort(__LOCATION__, &
                           "Parallel mode mixed CDFT does not support Hirshfeld constraints.")
 

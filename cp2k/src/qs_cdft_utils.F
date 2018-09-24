@@ -1035,6 +1035,7 @@ CONTAINS
                END IF
             END DO
          END IF
+         ! radius/radii_list parameters are optional for shape_function_density
          CALL create_shape_function(hirshfeld_env, qs_kind_set, atomic_kind_set, &
                                     radius=hirshfeld_control%radius, &
                                     radii_list=radii_list)

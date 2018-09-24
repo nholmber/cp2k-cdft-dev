@@ -10,16 +10,16 @@
     ! The constraint target: sum_i coeff_i * N_i
     ! where N_i is the number of VALENCE electrons on i
     TARGET          ${HIRSHFELD_TARGET}
-    @IF ( ${HIRSHFELD_ATOMIC_CHARGES} == TRUE )
-      ! Defaults to false
-      ATOMIC_CHARGES  TRUE
-    @ENDIF
+    ATOMIC_CHARGES  TRUE
     @IF ( ${HIRSHFELD_FRAGMENT} == TRUE )
       &ATOM_GROUP
         ATOMS           1
         COEFF           1
         FRAGMENT_CONSTRAINT
       &END ATOM_GROUP
+      &DUMMY_ATOMS
+        ATOMS 2
+      &END DUMMY_ATOMS
       FRAGMENT_A_FILE_NAME He+-noconstraint-ELECTRON_DENSITY-1_0.cube
       FRAGMENT_B_FILE_NAME H-noconstraint-ELECTRON_DENSITY-1_0.cube
     @ENDIF

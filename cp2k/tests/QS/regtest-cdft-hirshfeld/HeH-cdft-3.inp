@@ -1,9 +1,10 @@
 @SET RESTART_WFN              TRUE
 @SET WFN_FILE                 HeH-noconstraint-1_0.wfn
-@SET PROJECT_NAME             HeH-cdft-1
+@SET PROJECT_NAME             HeH-cdft-3
 @SET WRITE_WFN                0
 @SET CHARGE                   1
 @SET WRITE_CUBE               FALSE
+@SET CENTER_SYS               ON
 @SET XYZFILE                  HeH.xyz
 
 @SET HIRSHFELD_ACTIVE         TRUE
