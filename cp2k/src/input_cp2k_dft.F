@@ -4291,8 +4291,8 @@ CONTAINS
                           enum_i_vals=(/outer_scf_none, outer_scf_hirshfeld_constraint, &
                                         outer_scf_becke_constraint/), &
                           enum_desc=s2a("No constraint (disables section).", &
-                                        "Hirshfeld-type constraint defined by constraint atom centered spherical Gaussians"// &
-                                        " Partial implementation: no forces or coupling. Requires corresponding section.", &
+                                        "Guassian Hirshfeld constraint. Partial implementation: no forces. "// &
+                                        "Requires corresponding section. Not as extensively tested.", &
                                         "Becke constraint. Requires corresponding section."), &
                           citations=(/Becke1988b/), &
                           default_i_val=outer_scf_none)
@@ -4324,7 +4324,7 @@ CONTAINS
                           " (Z = Z_core - Z_CDFT). With fragment based constraints, charges are"// &
                           " relative to the fragment reference state i.e. Z = Z_CDFT - "// &
                           " Z_frag_reference. Note: if the number of atoms is greater than the"// &
-                          " default pw_pool max cache, calculation of atomic Becke charges"// &
+                          " default pw_pool max cache, calculation of atomic CDFT charges"// &
                           " will prompt harmless warnings during deallocation of atomic grids.", &
                           usage="ATOMIC_CHARGES", &
                           default_l_val=.FALSE., lone_keyword_l_val=.TRUE.)
@@ -4502,7 +4502,7 @@ CONTAINS
 
       CALL keyword_create(keyword, name="PURGE_HISTORY", &
                           description="Purge wavefunction and constraint history to improve SCF convergence during MD."// &
-                          "Counts how often the convergence of the first CDFT SCF iteration takes 2 or more outer SCF"// &
+                          " Counts how often the convergence of the first CDFT SCF iteration takes 2 or more outer SCF"// &
                           " iterations and purges the history if the counter exceeds PURGE_FREQ, and PURGE_OFFSET "// &
                           " MD steps have passed since the last purge."// &
                           " The counter is zeroed after each purge.", &
@@ -4548,7 +4548,7 @@ CONTAINS
 
       CPASSERT(.NOT. ASSOCIATED(section))
       CALL section_create(section, "HIRSHFELD_CONSTRAINT", &
-                          description="Parameters for CDFT with a Gaussian Hirshfeld constraint", &
+                          description="Parameters for CDFT with a Gaussian Hirshfeld constraint.", &
                           n_keywords=11, n_subsections=0, repeats=.FALSE.)
 
       CALL keyword_create(keyword=keyword, name="SHAPE_FUNCTION", &
@@ -4556,14 +4556,14 @@ CONTAINS
                           usage="SHAPE_FUNCTION {Gaussian,Density}", repeats=.FALSE., n_var=1, &
                           default_i_val=shape_function_gaussian, &
                           enum_c_vals=s2a("GAUSSIAN", "DENSITY"), &
-                          enum_desc=s2a("Single Gaussian with radius determined by keyword GAUSSIAN_SHAPE.", &
-                                        "Atomic density expanded in multiple Gaussians."), &
+                          enum_desc=s2a("One Gaussian per atom with radius determined by the keyword GAUSSIAN_SHAPE.", &
+                                        "Atomic density expanded in terms of multiple Gaussians."), &
                           enum_i_vals=(/shape_function_gaussian, shape_function_density/))
       CALL section_add_keyword(section, keyword)
       CALL keyword_release(keyword)
 
       CALL keyword_create(keyword, name="GAUSSIAN_SHAPE", &
-                          description="Specifies the type of Gaussian used for SHAPE_FUNCTION Gaussian.", &
+                          description="Specifies the type of Gaussian used for SHAPE_FUNCTION GAUSSIAN.", &
                           usage="GAUSSIAN_SHAPE (SINGLE|VDW|COVALENT|USER)", &
                           enum_c_vals=s2a("DEFAULT", "SINGLE", "VDW", "COVALENT", "USER"), &
                           enum_i_vals=(/radius_default, radius_single, radius_vdw, radius_covalent, radius_user/), &
@@ -4597,7 +4597,7 @@ CONTAINS
       CALL keyword_release(keyword)
 
       CALL keyword_create(keyword, name="USE_BOHR", &
-                          description="Convert the Gaussian radius from angstrom to bohr. This results in a larger"// &
+                          description="Convert the Gaussian radius from angstrom to bohr. This results in a larger "// &
                           "Gaussian than without unit conversion.", &
                           usage="CAVITY_USE_BOHR TRUE", &
                           default_l_val=.FALSE., lone_keyword_l_val=.TRUE.)

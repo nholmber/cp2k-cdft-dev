@@ -186,8 +186,8 @@ CONTAINS
       CALL keyword_release(keyword)
 
       CALL keyword_create(keyword, name="METRIC", variants=(/"COUPLING_METRIC"/), &
-                          description="Compute reliability metric for the CDFT electronic coupling element by diagonalizing"// &
-                          "the difference density matrix.", &
+                          description="Compute reliability metric for the CDFT electronic coupling element by "// &
+                          "diagonalizing the difference density matrix.", &
                           usage="METRIC", type_of_var=logical_t, &
                           default_l_val=.FALSE., lone_keyword_l_val=.TRUE., &
                           citations=(/Mavros2015/))
@@ -209,7 +209,7 @@ CONTAINS
       CALL keyword_create(keyword, name="LOWDIN", &
                           description="Compute the CDFT electronic coupling element using Lowdin orthogonalization. "// &
                           "This is the default behavior with multiple constraints and nonidentical constraints. "// &
-                          "By activating this keyword, this method is also used to compute the the coupling "// &
+                          "By activating this keyword, this method is also used to compute the coupling "// &
                           "when a single constraint is active in addition to the standard method.", &
                           usage="LOWDIN", type_of_var=logical_t, &
                           default_l_val=.FALSE., lone_keyword_l_val=.TRUE.)
@@ -230,7 +230,7 @@ CONTAINS
       CALL keyword_create(keyword, name="NONORTHOGONAL_COUPLING", variants=(/"NONORTHO_COUPLING"/), &
                           description="Print out the nonorthogonal diabatic CDFT coupling between states, "// &
                           "as it appears in the mixed CDFT Hamiltonian before orthogonalization (coupling "// &
-                          "calculations) and CDFT-CI. Useful for (re)constructing the Hamiltonian for additional"// &
+                          "calculations) and CDFT-CI. Useful for (re)constructing the Hamiltonian for additional "// &
                           "analysis. This is the CDFT interaction energy between states.", &
                           usage="NONORTHOGONAL_COUPLING", type_of_var=logical_t, &
                           default_l_val=.FALSE., lone_keyword_l_val=.TRUE.)
@@ -605,7 +605,7 @@ CONTAINS
       CALL section_create(section, name="BLOCK_DIAGONALIZE", &
                           description="Control section to setup block diagonalization of the mixed CDFT Hamiltonian. "// &
                           "Constructs a new Hamiltonian by diagonalizing the initial matrix within each block and "// &
-                          "by rotating the off-diagonal blocks (which represent the interaction between different "// &
+                          "by rotating the off-diagonal blocks (which represent the interactions between different "// &
                           "blocks) by the eigenvectors of diagonal blocks.", &
                           n_keywords=2, n_subsections=0, repeats=.FALSE.)
 
@@ -630,10 +630,10 @@ CONTAINS
 
       CALL keyword_create(keyword, "RECURSIVE_DIAGONALIZATION", &
                           description="Perform block diagonalization recursively until only two blocks remain. "// &
-                          "For example, if the elements of a 8x8 matrix are first collected into 4 four blocks "// &
-                          "(using keyword BLOCK), this keyword will block diagonalize the resulting 4x4 matrix "// &
-                          "yielding a 2x2 matrix. In this example, the new blocks would be assembled from the "// &
-                          " first and last 2 blocks of the previous matrix.", &
+                          "For example, if the elements of a 8x8 matrix are first collected into 4 blocks "// &
+                          "(using keyword BLOCK), this keyword will transform the matrix to a 2x2 matrix "// &
+                          "(8x8 -> 4x4 -> 2x2). In this example, the blocks of the 2x2 matrix would be "// &
+                          "assembled from the first and last 2 blocks of the 4x4 matrix.", &
                           usage="RECURSIVE_DIAGONALIZATION TRUE", type_of_var=logical_t, &
                           default_l_val=.FALSE., lone_keyword_l_val=.TRUE.)
       CALL section_add_keyword(section, keyword)
