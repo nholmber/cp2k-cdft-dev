@@ -22,7 +22,6 @@ MODULE qs_cdft_methods
                                               cp_print_key_unit_nr
    USE cp_para_types,                   ONLY: cp_para_env_type
    USE cube_utils,                      ONLY: cube_info_type
-   USE hirshfeld_methods,               ONLY: create_shape_function
    USE hirshfeld_types,                 ONLY: get_hirshfeld_info,&
                                               hirshfeld_type,&
                                               set_hirshfeld_info
@@ -31,9 +30,7 @@ MODULE qs_cdft_methods
                                               cdft_charge_constraint,&
                                               cdft_magnetization_constraint,&
                                               outer_scf_becke_constraint,&
-                                              outer_scf_hirshfeld_constraint,&
-                                              ref_charge_atomic,&
-                                              ref_charge_mulliken
+                                              outer_scf_hirshfeld_constraint
    USE input_section_types,             ONLY: section_vals_get_subs_vals,&
                                               section_vals_type
    USE kahan_sum,                       ONLY: accurate_dot_product,&
@@ -41,7 +38,6 @@ MODULE qs_cdft_methods
    USE kinds,                           ONLY: dp,&
                                               int_8
    USE message_passing,                 ONLY: mp_sum
-   USE particle_list_types,             ONLY: particle_list_type
    USE particle_types,                  ONLY: particle_type
    USE pw_env_types,                    ONLY: pw_env_get,&
                                               pw_env_type
@@ -54,8 +50,7 @@ MODULE qs_cdft_methods
                                               pw_pool_type
    USE pw_types,                        ONLY: REALDATA3D,&
                                               REALSPACE,&
-                                              pw_p_type,&
-                                              pw_release
+                                              pw_p_type
    USE qs_cdft_types,                   ONLY: becke_constraint_type,&
                                               cdft_control_type,&
                                               cdft_group_type,&
@@ -78,13 +73,12 @@ MODULE qs_cdft_methods
                                               rho0_mpole_type
    USE qs_rho_types,                    ONLY: qs_rho_get,&
                                               qs_rho_type
-   USE qs_scf_output,                   ONLY: qs_scf_cdft_constraint_info
    USE qs_subsys_types,                 ONLY: qs_subsys_get,&
                                               qs_subsys_type
    USE realspace_grid_cube,             ONLY: cube_to_pw
    USE realspace_grid_types,            ONLY: &
-        pw2rs, realspace_grid_desc_type, realspace_grid_type, realspace_grid_p_type, rs2pw, rs_grid_create, &
-        rs_grid_release, rs_grid_retain, rs_grid_zero, rs_pw_transfer
+        pw2rs, realspace_grid_desc_type, realspace_grid_p_type, realspace_grid_type, rs2pw, &
+        rs_grid_create, rs_grid_release, rs_grid_retain, rs_grid_zero, rs_pw_transfer
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE
@@ -117,8 +111,8 @@ CONTAINS
          routineP = moduleN//':'//routineN
 
       INTEGER                                            :: handle
-      TYPE(dft_control_type), POINTER                    :: dft_control
       TYPE(cdft_control_type), POINTER                   :: cdft_control
+      TYPE(dft_control_type), POINTER                    :: dft_control
 
       CALL timeset(routineN, handle)
       CALL get_qs_env(qs_env, dft_control=dft_control)
@@ -786,9 +780,8 @@ CONTAINS
 
       INTEGER                                            :: handle, i, iatom, igroup, ikind, ivar, &
                                                             iw, jatom, natom, nvar
-      LOGICAL                                            :: paw_atom, is_becke
-      REAL(kind=dp)                                      :: dvol, eps_cavity, &
-                                                            sign
+      LOGICAL                                            :: is_becke, paw_atom
+      REAL(kind=dp)                                      :: dvol, eps_cavity, sign
       REAL(kind=dp), ALLOCATABLE, DIMENSION(:)           :: dE, strength, target_val
       REAL(kind=dp), ALLOCATABLE, DIMENSION(:, :)        :: electronic_charge, gapw_offset
       TYPE(becke_constraint_type), POINTER               :: becke_control
@@ -798,20 +791,17 @@ CONTAINS
       TYPE(cp_para_env_type), POINTER                    :: para_env
       TYPE(dft_control_type), POINTER                    :: dft_control
       TYPE(mpole_rho_atom), DIMENSION(:), POINTER        :: mp_rho
-      TYPE(particle_list_type), POINTER                  :: particles
       TYPE(particle_type), DIMENSION(:), POINTER         :: particle_set
-      TYPE(pw_env_type), POINTER                         :: pw_env
-      TYPE(pw_p_type), DIMENSION(:), POINTER             :: charge, rho_frag, rho_r
-      TYPE(pw_pool_type), POINTER                        :: auxbas_pw_pool
+      TYPE(pw_p_type), DIMENSION(:), POINTER             :: charge, rho_r
       TYPE(qs_energy_type), POINTER                      :: energy
       TYPE(qs_kind_type), DIMENSION(:), POINTER          :: qs_kind_set
       TYPE(qs_rho_type), POINTER                         :: rho
-      TYPE(qs_subsys_type), POINTER                      :: subsys
       TYPE(rho0_mpole_type), POINTER                     :: rho0_mpole
       TYPE(section_vals_type), POINTER                   :: cdft_constraint_section
 
-      NULLIFY (para_env, dft_control, particle_set, rho_r, energy, rho, logger, cdft_constraint_section, qs_kind_set, &
-               particles, subsys, pw_env, auxbas_pw_pool, mp_rho, rho0_mpole, group, charge, rho_frag)
+      NULLIFY (para_env, dft_control, particle_set, rho_r, energy, rho, &
+               logger, cdft_constraint_section, qs_kind_set, mp_rho, &
+               rho0_mpole, group, charge)
       CALL timeset(routineN, handle)
       logger => cp_get_default_logger()
       CALL get_qs_env(qs_env, &
@@ -980,12 +970,10 @@ CONTAINS
       CHARACTER(len=*), PARAMETER :: routineN = 'prepare_fragment_constraint', &
          routineP = moduleN//':'//routineN
 
-      INTEGER                                            :: handle, i, iatom, igroup, &
-                                                            natom, nelectron_total, &
-                                                            nfrag_spins
-      LOGICAL                                            :: needs_spin_density, is_becke
-      REAL(kind=dp)                                      :: dvol, multiplier(2), &
-                                                            nelectron_frag
+      INTEGER                                            :: handle, i, iatom, igroup, natom, &
+                                                            nelectron_total, nfrag_spins
+      LOGICAL                                            :: is_becke, needs_spin_density
+      REAL(kind=dp)                                      :: dvol, multiplier(2), nelectron_frag
       TYPE(becke_constraint_type), POINTER               :: becke_control
       TYPE(cdft_control_type), POINTER                   :: cdft_control
       TYPE(cdft_group_type), DIMENSION(:), POINTER       :: group
@@ -1096,11 +1084,11 @@ CONTAINS
          END IF
          IF (is_becke .AND. (cdft_control%external_control .AND. becke_control%cavity_confine)) THEN
             cdft_control%target(igroup) = cdft_control%target(igroup)+ &
-                                           accurate_dot_product(group(igroup)%weight%pw%cr3d, rho_frag(i)%pw%cr3d, &
-                                                                becke_control%cavity_mat, becke_control%eps_cavity)*dvol
+                                          accurate_dot_product(group(igroup)%weight%pw%cr3d, rho_frag(i)%pw%cr3d, &
+                                                               becke_control%cavity_mat, becke_control%eps_cavity)*dvol
          ELSE
             cdft_control%target(igroup) = cdft_control%target(igroup)+ &
-                                           accurate_sum(group(igroup)%weight%pw%cr3d*rho_frag(i)%pw%cr3d)*dvol
+                                          accurate_sum(group(igroup)%weight%pw%cr3d*rho_frag(i)%pw%cr3d)*dvol
          END IF
       END DO
       CALL mp_sum(cdft_control%target, para_env%group)
@@ -1124,7 +1112,6 @@ CONTAINS
 
    END SUBROUTINE prepare_fragment_constraint
 
-
 ! **************************************************************************************************
 !> \brief Driver routine for calculating a Gaussian Hirshfeld constraint
 !> \param qs_env the qs_env where to build the constraint
@@ -1137,12 +1124,12 @@ CONTAINS
       TYPE(qs_environment_type), POINTER                 :: qs_env
       LOGICAL                                            :: calc_pot, calculate_forces
 
-      CHARACTER(len=*), PARAMETER :: routineN = 'becke_constraint', &
+      CHARACTER(len=*), PARAMETER :: routineN = 'hirshfeld_constraint', &
          routineP = moduleN//':'//routineN
 
       INTEGER                                            :: handle
-      TYPE(dft_control_type), POINTER                    :: dft_control
       TYPE(cdft_control_type), POINTER                   :: cdft_control
+      TYPE(dft_control_type), POINTER                    :: dft_control
 
       CALL timeset(routineN, handle)
       CALL get_qs_env(qs_env, dft_control=dft_control)
@@ -1175,14 +1162,13 @@ CONTAINS
       CHARACTER(len=*), PARAMETER :: routineN = 'hirshfeld_constraint_low', &
          routineP = moduleN//':'//routineN
 
-      INTEGER                                            :: atom_a, handle, i, iatom, iex, &
-                                                            ikind, ithread, j, natom, &
-                                                            npme, nthread, numexp, igroup
+      INTEGER                                            :: atom_a, handle, i, iatom, iex, igroup, &
+                                                            ikind, ithread, j, natom, npme, &
+                                                            nthread, numexp
       INTEGER(KIND=int_8)                                :: subpatch_pattern
       INTEGER, DIMENSION(:), POINTER                     :: atom_list, cores
-      LOGICAL, ALLOCATABLE, DIMENSION(:)                 :: is_constraint, compute_charge
-      REAL(kind=dp)                                      :: alpha, coef, dvol, &
-                                                            eps_rho_rspace, ra(3)
+      LOGICAL, ALLOCATABLE, DIMENSION(:)                 :: compute_charge, is_constraint
+      REAL(kind=dp)                                      :: alpha, coef, dvol, eps_rho_rspace, ra(3)
       REAL(kind=dp), ALLOCATABLE, DIMENSION(:)           :: coefficients
       REAL(KIND=dp), DIMENSION(:, :), POINTER            :: pab
       TYPE(atomic_kind_type), DIMENSION(:), POINTER      :: atomic_kind_set
@@ -1198,9 +1184,8 @@ CONTAINS
       TYPE(pw_p_type), POINTER                           :: fnorm
       TYPE(pw_pool_type), POINTER                        :: auxbas_pw_pool
       TYPE(realspace_grid_desc_type), POINTER            :: auxbas_rs_desc
+      TYPE(realspace_grid_p_type), DIMENSION(:), POINTER :: rs_single
       TYPE(realspace_grid_type), POINTER                 :: rs_rho_all, rs_rho_constr
-      TYPE(realspace_grid_p_type), &
-         DIMENSION(:), POINTER                           :: rs_single
 
       NULLIFY (atom_list, cores, pab, atomic_kind_set, cell, dft_control, &
                hirshfeld_env, particle_set, pw_env, fnorm, auxbas_pw_pool, &
@@ -1224,7 +1209,7 @@ CONTAINS
       ALLOCATE (is_constraint(natom))
       ALLOCATE (coefficients(natom))
       IF (cdft_control%atomic_charges) THEN
-         ALLOCATE(compute_charge(natom))
+         ALLOCATE (compute_charge(natom))
          compute_charge = .FALSE.
       END IF
       DO igroup = 1, SIZE(cdft_control%group)
@@ -1251,7 +1236,7 @@ CONTAINS
          CALL rs_grid_zero(rs_rho_constr)
          ! Compute Gaussian density over single atoms (rs_single) when atomic charges are requested
          IF (cdft_control%atomic_charges .AND. igroup == 1) THEN
-            ALLOCATE(rs_single(cdft_control%natoms))
+            ALLOCATE (rs_single(cdft_control%natoms))
             DO i = 1, cdft_control%natoms
                NULLIFY (rs_single(i)%rs_grid)
                CALL rs_grid_create(rs_single(i)%rs_grid, auxbas_rs_desc)
@@ -1294,7 +1279,7 @@ CONTAINS
                DO j = 1, npme
                   iatom = cores(j)
                   atom_a = atom_list(iatom)
-                  pab(1, 1) = coef * hirshfeld_env%charges(atom_a)
+                  pab(1, 1) = coef*hirshfeld_env%charges(atom_a)
                   ra(:) = pbc(particle_set(atom_a)%r, cell)
                   subpatch_pattern = 0
                   CALL collocate_pgf_product_rspace(0, alpha, 0, 0, 0.0_dp, 0, ra, &

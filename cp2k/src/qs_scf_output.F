@@ -21,8 +21,8 @@ MODULE qs_scf_output
         cdft_charge_constraint, cdft_magnetization_constraint, outer_scf_becke_constraint, &
         outer_scf_hirshfeld_constraint, outer_scf_optimizer_bisect, outer_scf_optimizer_broyden, &
         outer_scf_optimizer_diis, outer_scf_optimizer_newton, outer_scf_optimizer_newton_ls, &
-        outer_scf_optimizer_sd, outer_scf_optimizer_secant, radius_covalent, radius_single, &
-        radius_user, radius_vdw, shape_function_gaussian, shape_function_density, radius_default
+        outer_scf_optimizer_sd, outer_scf_optimizer_secant, radius_covalent, radius_default, &
+        radius_single, radius_user, radius_vdw, shape_function_density, shape_function_gaussian
    USE input_section_types,             ONLY: section_vals_get_subs_vals,&
                                               section_vals_type,&
                                               section_vals_val_get
@@ -663,7 +663,6 @@ CONTAINS
 !> \brief writes information about the CDFT env
 !> \param output_unit where to write the information
 !> \param cdft_control the CDFT env that stores information about the constraint calculation
-!> \param dft_control container for Becke constraint related information
 !> \par History
 !>      12.2015 created [Nico Holmberg]
 ! **************************************************************************************************
@@ -836,7 +835,7 @@ CONTAINS
             IF (igroup > 1) WRITE (output_unit, '(T3,A)') ' '
             WRITE (output_unit, '(T3,A,T54,(3X,I18))') &
                'Atomic group                :', igroup
-            SELECT CASE (cdft_control%group(igroup)%constraint_type)
+            SELECT CASE (cdft_control%group (igroup)%constraint_type)
             CASE (cdft_charge_constraint)
                IF (cdft_control%group(igroup)%is_fragment_constraint) THEN
                   WRITE (output_unit, '(T3,A,T42,A)') &

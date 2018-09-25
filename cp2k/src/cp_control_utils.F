@@ -593,9 +593,9 @@ CONTAINS
       TYPE(enumeration_type), POINTER                    :: enum
       TYPE(keyword_type), POINTER                        :: keyword
       TYPE(section_type), POINTER                        :: section
-      TYPE(section_vals_type), POINTER :: cdft_control_section, &
-         ddapc_restraint_section, dftb_parameter, dftb_section, lri_optbas_section, mull_section, &
-         s2_restraint_section, se_section
+      TYPE(section_vals_type), POINTER :: cdft_control_section, ddapc_restraint_section, &
+         dftb_parameter, dftb_section, lri_optbas_section, mull_section, s2_restraint_section, &
+         se_section
 
       CALL timeset(routineN, handle)
 

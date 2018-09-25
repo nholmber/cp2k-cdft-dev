@@ -54,17 +54,10 @@ MODULE mixed_cdft_methods
                                               use_qs_force
    USE hirshfeld_methods,               ONLY: create_shape_function
    USE hirshfeld_types,                 ONLY: hirshfeld_type
-   USE input_constants,                 ONLY: becke_cutoff_element,&
-                                              becke_cutoff_global,&
-                                              cdft_alpha_constraint,&
-                                              cdft_beta_constraint,&
-                                              cdft_charge_constraint,&
-                                              cdft_magnetization_constraint,&
-                                              mix_cdft,&
-                                              mixed_cdft_serial,&
-                                              mixed_cdft_parallel,&
-                                              mixed_cdft_parallel_nobuild,&
-                                              outer_scf_becke_constraint
+   USE input_constants,                 ONLY: &
+        becke_cutoff_element, becke_cutoff_global, cdft_alpha_constraint, cdft_beta_constraint, &
+        cdft_charge_constraint, cdft_magnetization_constraint, mix_cdft, mixed_cdft_parallel, &
+        mixed_cdft_parallel_nobuild, mixed_cdft_serial, outer_scf_becke_constraint
    USE input_section_types,             ONLY: section_get_lval,&
                                               section_vals_get,&
                                               section_vals_get_subs_vals,&
@@ -274,7 +267,7 @@ CONTAINS
             ! Setup dynamic load balancing
             CALL section_vals_val_get(mixed_section, "MIXED_CDFT%DLB", l_val=mixed_cdft%dlb)
             mixed_cdft%dlb = mixed_cdft%dlb .AND. calculate_forces ! disable if forces are not needed
-            mixed_cdft%dlb = mixed_cdft%dlb .AND. (mixed_cdft%run_type == mixed_cdft_parallel)  ! disable if not parallel
+            mixed_cdft%dlb = mixed_cdft%dlb .AND. (mixed_cdft%run_type == mixed_cdft_parallel) ! disable if not parallel
             IF (mixed_cdft%dlb) THEN
                ALLOCATE (mixed_cdft%dlb_control)
                NULLIFY (mixed_cdft%dlb_control%weight, mixed_cdft%dlb_control%gradients, &
@@ -732,8 +725,8 @@ CONTAINS
          END IF
          ! We only need the nonzero part of the confinement cavity
          ALLOCATE (cdft_control_target%becke_control%cavity_mat(bo(1, 1):bo(2, 1), &
-                                                                   bo(1, 2):bo(2, 2), &
-                                                                   lb_min:ub_max))
+                                                                bo(1, 2):bo(2, 2), &
+                                                                lb_min:ub_max))
          cdft_control_target%becke_control%cavity_mat = 0.0_dp
 
          DO j = 1, SIZE(mixed_cdft%source_list)
@@ -802,8 +795,8 @@ CONTAINS
                                                           bo(1, 2):bo(2, 2), lb_min:ub_max))
          DO j = 1, SIZE(mixed_cdft%source_list)
             cdft_control_target%group(1)%gradients(:, recvbuffer(j)%imap(1):recvbuffer(j)%imap(2), &
-                                                  recvbuffer(j)%imap(3):recvbuffer(j)%imap(4), &
-                                                  recvbuffer(j)%imap(5):recvbuffer(j)%imap(6)) = recvbuffer(j)%r4
+                                                   recvbuffer(j)%imap(3):recvbuffer(j)%imap(4), &
+                                                   recvbuffer(j)%imap(5):recvbuffer(j)%imap(6)) = recvbuffer(j)%r4
             DEALLOCATE (recvbuffer(j)%r4)
          END DO
          IF (mixed_cdft%dlb) THEN
@@ -1083,7 +1076,7 @@ CONTAINS
       TYPE(mixed_environment_type), POINTER              :: mixed_env
       TYPE(qs_environment_type), POINTER                 :: qs_env
 
-      NULLIFY (mixed_cdft, dft_control,force_env_qs, qs_env, mixed_env, cdft_control)
+      NULLIFY (mixed_cdft, dft_control, force_env_qs, qs_env, mixed_env, cdft_control)
       mixed_env => force_env%mixed_env
       CALL get_mixed_env(mixed_env, cdft_control=mixed_cdft)
       CALL timeset(routineN, handle)

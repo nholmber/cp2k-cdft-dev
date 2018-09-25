@@ -34,15 +34,14 @@ MODULE qs_cdft_utils
    USE input_constants,                 ONLY: &
         becke_cutoff_element, becke_cutoff_global, cdft_charge_constraint, &
         outer_scf_becke_constraint, outer_scf_cdft_constraint, outer_scf_hirshfeld_constraint, &
-        outer_scf_none, outer_scf_optimizer_broyden, outer_scf_optimizer_newton, &
-        outer_scf_optimizer_newton_ls, radius_covalent, radius_user, shape_function_gaussian
+        outer_scf_none, radius_user, shape_function_gaussian
    USE input_section_types,             ONLY: section_get_ivals,&
                                               section_vals_get,&
                                               section_vals_get_subs_vals,&
                                               section_vals_type,&
                                               section_vals_val_get
-   USE kinds,                           ONLY: dp,&
-                                              default_path_length,&
+   USE kinds,                           ONLY: default_path_length,&
+                                              dp,&
                                               int_8
    USE memory_utilities,                ONLY: reallocate
    USE outer_scf_control_types,         ONLY: outer_scf_read_parameters
@@ -54,8 +53,6 @@ MODULE qs_cdft_utils
                                               pw_pool_type
    USE pw_types,                        ONLY: REALDATA3D,&
                                               REALSPACE
-   USE qs_cdft_opt_types,               ONLY: cdft_opt_type_create,&
-                                              cdft_opt_type_read
    USE qs_cdft_types,                   ONLY: becke_constraint_type,&
                                               cdft_control_type,&
                                               cdft_group_type,&
@@ -63,8 +60,8 @@ MODULE qs_cdft_utils
    USE qs_collocate_density,            ONLY: collocate_pgf_product_rspace
    USE qs_environment_types,            ONLY: get_qs_env,&
                                               qs_environment_type
-   USE qs_kind_types,                   ONLY: qs_kind_type,&
-                                              get_qs_kind
+   USE qs_kind_types,                   ONLY: get_qs_kind,&
+                                              qs_kind_type
    USE qs_modify_pab_block,             ONLY: FUNC_AB
    USE qs_scf_output,                   ONLY: qs_scf_cdft_constraint_info
    USE qs_subsys_types,                 ONLY: qs_subsys_get,&
@@ -535,7 +532,7 @@ CONTAINS
       TYPE(cdft_control_type), INTENT(INOUT)             :: cdft_control
       TYPE(section_vals_type), INTENT(INOUT), POINTER    :: cdft_control_section
 
-      CHARACTER(len=*), PARAMETER :: routineN = 'read_becke_section', &
+      CHARACTER(len=*), PARAMETER :: routineN = 'read_constraint_definitions', &
          routineP = moduleN//':'//routineN
 
       INTEGER                                            :: i, j, jj, k, n_rep, natoms, nvar, &
@@ -718,7 +715,6 @@ CONTAINS
 
    END SUBROUTINE read_constraint_definitions
 
-
 ! **************************************************************************************************
 !> \brief reads the input parameters needed for CDFT with OT
 !> \param qs_control the qs_control which holds the CDFT control type
@@ -736,8 +732,7 @@ CONTAINS
       TYPE(cdft_control_type), POINTER                   :: cdft_control
       TYPE(section_vals_type), POINTER                   :: becke_constraint_section, &
                                                             hirshfeld_constraint_section, &
-                                                            outer_scf_section, &
-                                                            print_section
+                                                            outer_scf_section, print_section
 
       NULLIFY (outer_scf_section, hirshfeld_constraint_section, becke_constraint_section, &
                print_section)
@@ -800,7 +795,7 @@ CONTAINS
 
 ! **************************************************************************************************
 !> \brief reads the input parameters needed for Hirshfeld constraint
-!> \param qs_control the qs_control which holds the Hirshfeld constraint
+!> \param cdft_control the cdft_control which holds the Hirshfeld constraint
 !> \param hirshfeld_section the input section for a Hirshfeld constraint
 !> \author Nico Holmberg [09.2018]
 ! **************************************************************************************************
@@ -982,9 +977,8 @@ CONTAINS
          routineP = moduleN//':'//routineN
 
       CHARACTER(len=2)                                   :: element_symbol
-      INTEGER                                            :: handle, igroup,  iatom,  &
-                                                            ikind, iw, natom, nkind, ip, &
-                                                            iat
+      INTEGER                                            :: handle, iat, iatom, igroup, ikind, ip, &
+                                                            iw, natom, nkind
       INTEGER, DIMENSION(:), POINTER                     :: atom_list
       REAL(KIND=dp)                                      :: zeff
       REAL(KIND=dp), DIMENSION(:), POINTER               :: radii_list
@@ -1046,7 +1040,7 @@ CONTAINS
       IF (.NOT. ASSOCIATED(hirshfeld_env%charges)) THEN
          CALL get_qs_env(qs_env, qs_kind_set=qs_kind_set, atomic_kind_set=atomic_kind_set, &
                          nkind=nkind, natom=natom)
-         ALLOCATE(hirshfeld_env%charges(natom))
+         ALLOCATE (hirshfeld_env%charges(natom))
          DO ikind = 1, nkind
             CALL get_qs_kind(qs_kind_set(ikind), zeff=zeff)
             atomic_kind => atomic_kind_set(ikind)
@@ -1094,7 +1088,7 @@ CONTAINS
       END IF
 
       ! Radii no longer needed
-      IF (ASSOCIATED(hirshfeld_control%radii)) DEALLOCATE(hirshfeld_control%radii)
+      IF (ASSOCIATED(hirshfeld_control%radii)) DEALLOCATE (hirshfeld_control%radii)
       CALL timestop(handle)
 
    END SUBROUTINE hirshfeld_constraint_init
@@ -1102,6 +1096,7 @@ CONTAINS
 ! **************************************************************************************************
 !> \brief Prints information about CDFT constraints
 !> \param qs_env the qs_env where to build the constraint
+!> \param electronic_charge the CDFT charges
 !> \par   History
 !>        Created 9.2018 [Nico Holmberg]
 ! **************************************************************************************************
@@ -1113,8 +1108,7 @@ CONTAINS
          routineP = moduleN//':'//routineN
 
       CHARACTER(len=2)                                   :: element_symbol
-      INTEGER                                            :: iatom, ikind, &
-                                                            iw, jatom
+      INTEGER                                            :: iatom, ikind, iw, jatom
       REAL(kind=dp)                                      :: tc(2), zeff
       TYPE(cdft_control_type), POINTER                   :: cdft_control
       TYPE(cp_logger_type), POINTER                      :: logger
@@ -1123,7 +1117,7 @@ CONTAINS
       TYPE(qs_kind_type), DIMENSION(:), POINTER          :: qs_kind_set
       TYPE(section_vals_type), POINTER                   :: cdft_constraint_section
 
-      NULLIFY(cdft_constraint_section, logger, particle_set, dft_control, qs_kind_set)
+      NULLIFY (cdft_constraint_section, logger, particle_set, dft_control, qs_kind_set)
       logger => cp_get_default_logger()
 
       CALL get_qs_env(qs_env, &
@@ -1274,7 +1268,7 @@ CONTAINS
    SUBROUTINE cdft_print_weight_function(qs_env)
       TYPE(qs_environment_type), POINTER                 :: qs_env
 
-      CHARACTER(len=*), PARAMETER :: routineN = 'cdft_constraint_print', &
+      CHARACTER(len=*), PARAMETER :: routineN = 'cdft_print_weight_function', &
          routineP = moduleN//':'//routineN
 
       CHARACTER(LEN=default_path_length)                 :: middle_name
@@ -1285,11 +1279,11 @@ CONTAINS
       TYPE(cp_para_env_type), POINTER                    :: para_env
       TYPE(dft_control_type), POINTER                    :: dft_control
       TYPE(particle_list_type), POINTER                  :: particles
-      TYPE(section_vals_type), POINTER                   :: cdft_constraint_section
       TYPE(qs_subsys_type), POINTER                      :: subsys
+      TYPE(section_vals_type), POINTER                   :: cdft_constraint_section
 
-      NULLIFY(cdft_constraint_section, logger, particles, dft_control, &
-              para_env, subsys, cdft_control)
+      NULLIFY (cdft_constraint_section, logger, particles, dft_control, &
+               para_env, subsys, cdft_control)
       logger => cp_get_default_logger()
 
       CALL get_qs_env(qs_env, subsys=subsys, para_env=para_env, dft_control=dft_control)

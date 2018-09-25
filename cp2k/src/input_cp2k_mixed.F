@@ -135,7 +135,7 @@ CONTAINS
                           "parallel, whereas when it is set to 1, the states are solved in serial. "// &
                           "During MD, the system can be translated using only two of the CDFT states, "// &
                           "which are selected with the keyword FORCE_STATES. The forces are determined "// &
-                          "by the linear combination F= lambda F1 + (1-lambda) F2.",&
+                          "by the linear combination F= lambda F1 + (1-lambda) F2.", &
                           n_keywords=11, n_subsections=2, repeats=.FALSE., citations=(/Holmberg2017/))
 
       CALL keyword_create(keyword, name="LAMBDA", &
@@ -171,7 +171,7 @@ CONTAINS
                           "involved CDFT states in parallel on N/2 processors. Supports only Becke "// &
                           "constraints that are identical in both states. Limited to 1 "// &
                           "charge constraint per state (different target values). "// &
-                          "The keyword MIXED&NGROUPS must be set to 2.",&
+                          "The keyword MIXED&NGROUPS must be set to 2.", &
                           usage="PARALLEL_BUILD TRUE", type_of_var=logical_t, &
                           default_l_val=.FALSE., lone_keyword_l_val=.TRUE.)
       CALL section_add_keyword(subsection, keyword)

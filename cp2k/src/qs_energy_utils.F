@@ -36,10 +36,7 @@ MODULE qs_energy_utils
                                               kpoint_density_transform
    USE kpoint_types,                    ONLY: kpoint_type
    USE mp2,                             ONLY: mp2_main
-   USE pw_env_types,                    ONLY: pw_env_get,&
-                                              pw_env_type
-   USE pw_pool_types,                   ONLY: pw_pool_give_back_pw,&
-                                              pw_pool_type
+   USE pw_env_types,                    ONLY: pw_env_type
    USE pw_types,                        ONLY: pw_p_type
    USE qs_energy_types,                 ONLY: qs_energy_type
    USE qs_environment_types,            ONLY: get_qs_env,&

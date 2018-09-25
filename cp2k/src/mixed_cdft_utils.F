@@ -61,12 +61,12 @@ MODULE mixed_cdft_utils
                                               release_hirshfeld_type,&
                                               set_hirshfeld_info
    USE input_constants,                 ONLY: becke_cutoff_element,&
-                                              shape_function_gaussian,&
-                                              outer_scf_becke_constraint,&
-                                              outer_scf_hirshfeld_constraint,&
                                               mixed_cdft_parallel,&
                                               mixed_cdft_parallel_nobuild,&
-                                              mixed_cdft_serial
+                                              mixed_cdft_serial,&
+                                              outer_scf_becke_constraint,&
+                                              outer_scf_hirshfeld_constraint,&
+                                              shape_function_gaussian
    USE input_section_types,             ONLY: section_vals_duplicate,&
                                               section_vals_get,&
                                               section_vals_get_subs_vals,&
@@ -156,21 +156,17 @@ CONTAINS
       INTEGER, ALLOCATABLE, DIMENSION(:, :, :)           :: array_sizes
       LOGICAL                                            :: is_match
       TYPE(atomic_kind_type), DIMENSION(:), POINTER      :: atomic_kind_set
-      TYPE(cdft_control_type), POINTER                   :: cdft_control, &
-                                                            cdft_control_source, cdft_control_target
-      TYPE(cp_1d_i_p_type), &
-         ALLOCATABLE, DIMENSION(:, :)                    :: atoms
-      TYPE(cp_1d_r_p_type), &
-         ALLOCATABLE, DIMENSION(:, :)                    :: coeff
-      TYPE(dft_control_type), POINTER                    :: dft_control, dft_control_source, &
-                                                            dft_control_target
+      TYPE(cdft_control_type), POINTER                   :: cdft_control
+      TYPE(cp_1d_i_p_type), ALLOCATABLE, DIMENSION(:, :) :: atoms
+      TYPE(cp_1d_r_p_type), ALLOCATABLE, DIMENSION(:, :) :: coeff
+      TYPE(dft_control_type), POINTER                    :: dft_control
       TYPE(force_env_type), POINTER                      :: force_env_qs
       TYPE(pw_env_type), POINTER                         :: pw_env
       TYPE(pw_pool_type), POINTER                        :: auxbas_pw_pool
       TYPE(qs_environment_type), POINTER                 :: qs_env
 
-      NULLIFY (dft_control, qs_env, pw_env, auxbas_pw_pool, force_env_qs, dft_control_target, dft_control_source, &
-               cdft_control, cdft_control_target, cdft_control_source)
+      NULLIFY (dft_control, qs_env, pw_env, auxbas_pw_pool, force_env_qs, &
+               cdft_control)
       ! Allocate storage for temporaries used for checking settings consistency
       settings%max_nkinds = 30
       nforce_eval = SIZE(force_env%sub_force_env)
@@ -444,7 +440,7 @@ CONTAINS
       ! Check for identical constraints in case of run type serial/parallel_nobuild
       IF (mixed_cdft%run_type /= mixed_cdft_parallel) THEN
          ! Get array sizes
-         ALLOCATE(array_sizes(nforce_eval, settings%si(4,1), 2))
+         ALLOCATE (array_sizes(nforce_eval, settings%si(4, 1), 2))
          array_sizes(:, :, :) = 0
          DO iforce_eval = 1, nforce_eval
             IF (.NOT. ASSOCIATED(force_env%sub_force_env(iforce_eval)%force_env)) CYCLE
@@ -471,16 +467,16 @@ CONTAINS
          ! Check constraint definitions
          IF (mixed_cdft%identical_constraints) THEN
             ! Prepare temporary storage
-            ALLOCATE(atoms(nforce_eval, settings%si(4,1)))
-            ALLOCATE(coeff(nforce_eval, settings%si(4,1)))
-            ALLOCATE(constraint_type(nforce_eval, settings%si(4,1)))
+            ALLOCATE (atoms(nforce_eval, settings%si(4, 1)))
+            ALLOCATE (coeff(nforce_eval, settings%si(4, 1)))
+            ALLOCATE (constraint_type(nforce_eval, settings%si(4, 1)))
             constraint_type(:, :) = 0
             DO iforce_eval = 1, nforce_eval
-               DO i = 1, settings%si(4,1)
-                  NULLIFY(atoms(iforce_eval, i)%array)
-                  NULLIFY(coeff(iforce_eval, i)%array)
-                  ALLOCATE(atoms(iforce_eval, i)%array(array_sizes(iforce_eval, i, 1)))
-                  ALLOCATE(coeff(iforce_eval, i)%array(array_sizes(iforce_eval, i, 1)))
+               DO i = 1, settings%si(4, 1)
+                  NULLIFY (atoms(iforce_eval, i)%array)
+                  NULLIFY (coeff(iforce_eval, i)%array)
+                  ALLOCATE (atoms(iforce_eval, i)%array(array_sizes(iforce_eval, i, 1)))
+                  ALLOCATE (coeff(iforce_eval, i)%array(array_sizes(iforce_eval, i, 1)))
                   atoms(iforce_eval, i)%array(:) = 0
                   coeff(iforce_eval, i)%array(:) = 0
                END DO
@@ -495,7 +491,7 @@ CONTAINS
                CALL get_qs_env(qs_env, dft_control=dft_control)
                cdft_control => dft_control%qs_control%cdft_control
                IF (force_env_qs%para_env%mepos == force_env_qs%para_env%source) THEN
-                  DO i = 1, settings%si(4,1)
+                  DO i = 1, settings%si(4, 1)
                      atoms(iforce_eval, i)%array(:) = cdft_control%group(i)%atoms
                      coeff(iforce_eval, i)%array(:) = cdft_control%group(i)%coeff
                      constraint_type(iforce_eval, i) = cdft_control%group(i)%constraint_type
@@ -503,7 +499,7 @@ CONTAINS
                END IF
             END DO
             ! Sum up constraint definitions and check consistency
-            DO i = 1, settings%si(4,1)
+            DO i = 1, settings%si(4, 1)
                DO iforce_eval = 1, nforce_eval
                   CALL mp_sum(atoms(iforce_eval, i)%array, force_env%para_env%group)
                   CALL mp_sum(coeff(iforce_eval, i)%array, force_env%para_env%group)
@@ -525,16 +521,16 @@ CONTAINS
             END DO
             ! Deallocate temporary storage
             DO iforce_eval = 1, nforce_eval
-               DO i = 1, settings%si(4,1)
-                  DEALLOCATE(atoms(iforce_eval, i)%array)
-                  DEALLOCATE(coeff(iforce_eval, i)%array)
+               DO i = 1, settings%si(4, 1)
+                  DEALLOCATE (atoms(iforce_eval, i)%array)
+                  DEALLOCATE (coeff(iforce_eval, i)%array)
                END DO
             END DO
-            DEALLOCATE(atoms)
-            DEALLOCATE(coeff)
-            DEALLOCATE(constraint_type)
+            DEALLOCATE (atoms)
+            DEALLOCATE (coeff)
+            DEALLOCATE (constraint_type)
          END IF
-         DEALLOCATE(array_sizes)
+         DEALLOCATE (array_sizes)
       END IF
       ! Deallocate some arrays that are no longer needed
       IF (mixed_cdft%identical_constraints .AND. mixed_cdft%run_type /= mixed_cdft_parallel_nobuild) THEN

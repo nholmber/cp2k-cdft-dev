@@ -82,7 +82,7 @@ MODULE force_env_methods
                                               globenv_retain
    USE input_constants,                 ONLY: &
         debug_run, mix_cdft, mix_coupled, mix_generic, mix_linear_combination, mix_minimum, &
-        mix_restrained, use_bazant_eip, use_lenosky_eip, mixed_cdft_serial
+        mix_restrained, mixed_cdft_serial, use_bazant_eip, use_lenosky_eip
    USE input_section_types,             ONLY: section_vals_get_subs_vals,&
                                               section_vals_retain,&
                                               section_vals_type,&

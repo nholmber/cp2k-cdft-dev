@@ -18,11 +18,10 @@ MODULE qs_outer_scf
         broyden_type_1, broyden_type_1_explicit, broyden_type_1_explicit_ls, broyden_type_1_ls, &
         broyden_type_2, broyden_type_2_explicit, broyden_type_2_explicit_ls, broyden_type_2_ls, &
         cdft2ot, do_ddapc_constraint, do_s2_constraint, ot2cdft, outer_scf_basis_center_opt, &
-        outer_scf_cdft_constraint, outer_scf_ddapc_constraint, &
-        outer_scf_none, outer_scf_optimizer_bisect, outer_scf_optimizer_broyden, &
-        outer_scf_optimizer_diis, outer_scf_optimizer_newton, outer_scf_optimizer_newton_ls, &
-        outer_scf_optimizer_none, outer_scf_optimizer_sd, outer_scf_optimizer_secant, &
-        outer_scf_s2_constraint
+        outer_scf_cdft_constraint, outer_scf_ddapc_constraint, outer_scf_none, &
+        outer_scf_optimizer_bisect, outer_scf_optimizer_broyden, outer_scf_optimizer_diis, &
+        outer_scf_optimizer_newton, outer_scf_optimizer_newton_ls, outer_scf_optimizer_none, &
+        outer_scf_optimizer_sd, outer_scf_optimizer_secant, outer_scf_s2_constraint
    USE kinds,                           ONLY: dp
    USE mathlib,                         ONLY: diamat_all
    USE qs_basis_gradient,               ONLY: qs_basis_center_gradient,&

@@ -23,8 +23,8 @@ MODULE mixed_cdft_types
    USE kinds,                           ONLY: dp
    USE pw_env_types,                    ONLY: pw_env_release,&
                                               pw_env_type
-   USE qs_cdft_types,                   ONLY: cdft_control_type,&
-                                              cdft_control_release
+   USE qs_cdft_types,                   ONLY: cdft_control_release,&
+                                              cdft_control_type
    USE qs_kind_types,                   ONLY: deallocate_qs_kind_set,&
                                               qs_kind_type
 #include "./base/base_uses.f90"

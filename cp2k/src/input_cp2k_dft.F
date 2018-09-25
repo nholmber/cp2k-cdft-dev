@@ -4119,7 +4119,7 @@ CONTAINS
       NULLIFY (keyword)
       CPASSERT(.NOT. ASSOCIATED(section))
       CALL section_create(section, "BECKE_CONSTRAINT", &
-                          description="Define settings influencing the construction of the Becke weight function.",&
+                          description="Define settings influencing the construction of the Becke weight function.", &
                           n_keywords=13, repeats=.FALSE., citations=(/Becke1988b/))
 
       CALL keyword_create(keyword, name="ADJUST_SIZE", &
@@ -4258,8 +4258,7 @@ CONTAINS
          routineP = moduleN//':'//routineN
 
       TYPE(keyword_type), POINTER                        :: keyword
-      TYPE(section_type), POINTER                        :: subsection, group_section, &
-                                                            print_key
+      TYPE(section_type), POINTER                        :: group_section, print_key, subsection
 
       NULLIFY (keyword, subsection, group_section, print_key)
 
@@ -4544,9 +4543,8 @@ CONTAINS
          routineP = moduleN//':'//routineN
 
       TYPE(keyword_type), POINTER                        :: keyword
-      TYPE(section_type), POINTER                        :: print_key
 
-      NULLIFY (keyword, print_key)
+      NULLIFY (keyword)
 
       CPASSERT(.NOT. ASSOCIATED(section))
       CALL section_create(section, "HIRSHFELD_CONSTRAINT", &
@@ -4554,13 +4552,13 @@ CONTAINS
                           n_keywords=11, n_subsections=0, repeats=.FALSE.)
 
       CALL keyword_create(keyword=keyword, name="SHAPE_FUNCTION", &
-                    description="Type of shape function used for Hirshfeld partitioning.", &
-                    usage="SHAPE_FUNCTION {Gaussian,Density}", repeats=.FALSE., n_var=1, &
-                    default_i_val=shape_function_gaussian, &
-                    enum_c_vals=s2a("GAUSSIAN", "DENSITY"), &
-                    enum_desc=s2a("Single Gaussian with radius determined by keyword GAUSSIAN_SHAPE.", &
-                                  "Atomic density expanded in multiple Gaussians."), &
-                    enum_i_vals=(/shape_function_gaussian, shape_function_density/))
+                          description="Type of shape function used for Hirshfeld partitioning.", &
+                          usage="SHAPE_FUNCTION {Gaussian,Density}", repeats=.FALSE., n_var=1, &
+                          default_i_val=shape_function_gaussian, &
+                          enum_c_vals=s2a("GAUSSIAN", "DENSITY"), &
+                          enum_desc=s2a("Single Gaussian with radius determined by keyword GAUSSIAN_SHAPE.", &
+                                        "Atomic density expanded in multiple Gaussians."), &
+                          enum_i_vals=(/shape_function_gaussian, shape_function_density/))
       CALL section_add_keyword(section, keyword)
       CALL keyword_release(keyword)
 

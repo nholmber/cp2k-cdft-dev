@@ -42,11 +42,7 @@ MODULE scf_control_types
    USE kinds,                           ONLY: dp
    USE outer_scf_control_types,         ONLY: outer_scf_control_type,&
                                               outer_scf_read_parameters
-   USE qs_cdft_opt_types,               ONLY: cdft_opt_type,&
-                                              cdft_opt_type_create,&
-                                              cdft_opt_type_read,&
-                                              cdft_opt_type_release,&
-                                              cdft_opt_type_write
+   USE qs_cdft_opt_types,               ONLY: cdft_opt_type_release
    USE qs_ot_types,                     ONLY: ot_readwrite_input,&
                                               qs_ot_settings_init,&
                                               qs_ot_settings_type
@@ -95,19 +91,6 @@ MODULE scf_control_types
 !>      09.2002 created [fawzi]
 !> \author Fawzi Mohamed
 ! **************************************************************************************************
-
-  ! TYPE outer_scf_control_type
-  !    LOGICAL       :: have_scf
-  !    INTEGER       :: max_scf
-  !    REAL(KIND=dp) :: eps_scf, step_size
-  !    INTEGER       :: TYPE
-  !    INTEGER       :: optimizer
-  !    INTEGER       :: diis_buffer_length
-  !    INTEGER       :: extrapolation_order
-  !    INTEGER       :: bisect_trust_count
-  !    TYPE(cdft_opt_type), POINTER :: cdft_opt_control
-  ! END TYPE outer_scf_control_type
-
    TYPE smear_type
       LOGICAL       :: do_smear
       LOGICAL       :: common_mu

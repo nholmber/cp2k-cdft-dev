@@ -80,8 +80,8 @@ MODULE qs_scf
         broyden_type_2, broyden_type_2_explicit, broyden_type_2_explicit_ls, broyden_type_2_ls, &
         cdft2ot, history_guess, ot2cdft, ot_precond_full_all, ot_precond_full_single, &
         ot_precond_full_single_inverse, ot_precond_none, ot_precond_s_inverse, &
-        outer_scf_hirshfeld_constraint, outer_scf_optimizer_broyden, outer_scf_optimizer_newton_ls, &
-        outer_scf_becke_constraint
+        outer_scf_becke_constraint, outer_scf_hirshfeld_constraint, outer_scf_optimizer_broyden, &
+        outer_scf_optimizer_newton_ls
    USE input_section_types,             ONLY: section_vals_get_subs_vals,&
                                               section_vals_type
    USE kinds,                           ONLY: default_path_length,&
@@ -319,8 +319,8 @@ CONTAINS
       CHARACTER(LEN=*), PARAMETER :: routineN = 'scf_env_do_scf', routineP = moduleN//':'//routineN
 
       CHARACTER(LEN=default_string_length)               :: description, name
-      INTEGER :: ext_master_id, external_comm, handle, handle2, i_tmp, ic, ispin, &
-         iter_count, output_unit, scf_energy_message_tag, total_steps
+      INTEGER :: ext_master_id, external_comm, handle, handle2, i_tmp, ic, ispin, iter_count, &
+         output_unit, scf_energy_message_tag, total_steps
       LOGICAL :: diis_step, do_kpoints, energy_only, exit_inner_loop, exit_outer_loop, &
          inner_loop_converged, just_energy, outer_loop_converged
       REAL(KIND=dp)                                      :: t1, t2

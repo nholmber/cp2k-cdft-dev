@@ -52,8 +52,8 @@ MODULE qs_ks_utils
         dbcsr_set, dbcsr_trace, dbcsr_type
    USE input_constants,                 ONLY: &
         cdft_alpha_constraint, cdft_beta_constraint, cdft_charge_constraint, &
-        cdft_magnetization_constraint, do_ppl_grid, outer_scf_hirshfeld_constraint, sic_ad, &
-        sic_eo, sic_list_all, sic_list_unpaired, sic_mauri_spz, sic_mauri_us, sic_none
+        cdft_magnetization_constraint, do_ppl_grid, sic_ad, sic_eo, sic_list_all, &
+        sic_list_unpaired, sic_mauri_spz, sic_mauri_us, sic_none
    USE input_section_types,             ONLY: section_vals_get_subs_vals,&
                                               section_vals_type,&
                                               section_vals_val_get
@@ -1333,8 +1333,8 @@ CONTAINS
                      CPABORT("Unknown constraint type.")
                   END SELECT
                   v_rspace_new(ispin)%pw%cr3d = v_rspace_new(ispin)%pw%cr3d &
-                                                +sign*cdft_control%group(igroup)%weight%pw%cr3d*&
-                                                 cdft_control%strength(igroup)
+                                                +sign*cdft_control%group(igroup)%weight%pw%cr3d* &
+                                                cdft_control%strength(igroup)
                END DO
             END IF
             ! The efield contribution

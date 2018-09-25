@@ -14,9 +14,7 @@ MODULE qs_ks_apply_restraints
                                               cp_fm_p_type,&
                                               cp_fm_type
    USE cp_para_types,                   ONLY: cp_para_env_type
-   USE dbcsr_api,                       ONLY: dbcsr_copy,&
-                                              dbcsr_p_type,&
-                                              dbcsr_set
+   USE dbcsr_api,                       ONLY: dbcsr_p_type
    USE input_constants,                 ONLY: cdft_charge_constraint,&
                                               outer_scf_becke_constraint,&
                                               outer_scf_hirshfeld_constraint
@@ -29,12 +27,10 @@ MODULE qs_ks_apply_restraints
                                               REALSPACE
    USE qs_cdft_methods,                 ONLY: becke_constraint,&
                                               hirshfeld_constraint
-   USE qs_cdft_types,                   ONLY: becke_constraint_type,&
-                                              cdft_control_type
+   USE qs_cdft_types,                   ONLY: cdft_control_type
    USE qs_energy_types,                 ONLY: qs_energy_type
    USE qs_environment_types,            ONLY: get_qs_env,&
                                               qs_environment_type
-   USE qs_integrate_potential,          ONLY: integrate_v_rspace
    USE qs_mo_types,                     ONLY: get_mo_set,&
                                               mo_set_p_type
    USE qs_rho_types,                    ONLY: qs_rho_get,&
@@ -70,9 +66,9 @@ CONTAINS
       CHARACTER(LEN=*), PARAMETER :: routineN = 'qs_ks_cdft_constraint', &
          routineP = moduleN//':'//routineN
 
-      REAL(KIND=dp)                                      :: inv_vol
       INTEGER                                            :: iatom, igroup, natom
       LOGICAL                                            :: do_kpoints
+      REAL(KIND=dp)                                      :: inv_vol
       TYPE(dft_control_type), POINTER                    :: dft_control
 
       NULLIFY (dft_control)

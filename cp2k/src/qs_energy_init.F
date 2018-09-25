@@ -21,8 +21,7 @@ MODULE qs_energy_init
    USE input_constants,                 ONLY: kg_tnadd_atomic,&
                                               kg_tnadd_embed,&
                                               kg_tnadd_embed_ri,&
-                                              kg_tnadd_none,&
-                                              outer_scf_hirshfeld_constraint
+                                              kg_tnadd_none
    USE input_section_types,             ONLY: section_vals_type
    USE kg_environment,                  ONLY: kg_build_neighborlist,&
                                               kg_build_subsets

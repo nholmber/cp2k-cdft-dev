@@ -17,15 +17,14 @@ MODULE qs_cdft_types
                                               release_hirshfeld_type
    USE input_constants,                 ONLY: becke_cutoff_global,&
                                               outer_scf_none,&
-                                              radius_single, &
+                                              radius_single,&
                                               shape_function_gaussian
    USE kinds,                           ONLY: default_path_length,&
                                               dp
-   USE pw_types,                        ONLY: pw_p_type
-   USE qs_cdft_opt_types,               ONLY: cdft_opt_type,&
-                                              cdft_opt_type_release
-   USE outer_scf_control_types,         ONLY: outer_scf_control_type, &
+   USE outer_scf_control_types,         ONLY: outer_scf_control_type,&
                                               qs_outer_scf_type
+   USE pw_types,                        ONLY: pw_p_type
+   USE qs_cdft_opt_types,               ONLY: cdft_opt_type_release
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE
@@ -211,8 +210,8 @@ MODULE qs_cdft_types
                                               reuse_precond, purge_history, &
                                               should_purge, calculate_metric, &
                                               atomic_charges, fragment_density, &
-                                              fragments_integrated, flip_fragment(2),&
-                                              transfer_pot, external_control,&
+                                              fragments_integrated, flip_fragment(2), &
+                                              transfer_pot, external_control, &
                                               first_iteration, print_weight
       LOGICAL, POINTER, DIMENSION(:)       :: is_constraint
       REAL(KIND=dp), DIMENSION(:), POINTER :: strength, TARGET, value
@@ -538,8 +537,8 @@ CONTAINS
       hirshfeld_control%radius = 3.0_dp
       hirshfeld_control%shape_function = shape_function_gaussian
       hirshfeld_control%gaussian_shape = radius_single
-      NULLIFY(hirshfeld_control%hirshfeld_env)
-      NULLIFY(hirshfeld_control%radii)
+      NULLIFY (hirshfeld_control%hirshfeld_env)
+      NULLIFY (hirshfeld_control%radii)
 
    END SUBROUTINE hirshfeld_control_create
 

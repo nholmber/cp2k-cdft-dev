@@ -31,8 +31,7 @@ MODULE qs_force
                                               dbcsr_set
    USE dft_plus_u,                      ONLY: plus_u
    USE efield_utils,                    ONLY: calculate_ecore_efield
-   USE input_constants,                 ONLY: do_admm_purify_none,&
-                                              outer_scf_hirshfeld_constraint
+   USE input_constants,                 ONLY: do_admm_purify_none
    USE input_section_types,             ONLY: section_vals_get_subs_vals,&
                                               section_vals_type,&
                                               section_vals_val_get
