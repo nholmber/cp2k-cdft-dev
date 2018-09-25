@@ -257,7 +257,6 @@ CONTAINS
             is_constraint(catom(i)) = .TRUE.
       END DO
       bo = group(1)%weight%pw%pw_grid%bounds_local
-      np = group(1)%weight%pw%pw_grid%npts
       dvol = group(1)%weight%pw%pw_grid%dvol
       dr = group(1)%weight%pw%pw_grid%dr
       np = group(1)%weight%pw%pw_grid%npts
@@ -603,12 +602,11 @@ CONTAINS
          routineP = moduleN//':'//routineN
 
       INTEGER                                            :: handle, i, iatom, igroup, ikind, ind(3), &
-                                                            ispin, j, k, natom, np(3), nvar
+                                                            ispin, j, k, natom, nvar
       INTEGER, ALLOCATABLE, DIMENSION(:)                 :: atom_of_kind, kind_of
       INTEGER, DIMENSION(2, 3)                           :: bo
       REAL(kind=dp)                                      :: dvol, eps_cavity, sign, th
       REAL(kind=dp), ALLOCATABLE, DIMENSION(:)           :: strength
-      REAL(kind=dp), DIMENSION(3)                        :: dr, shift
       REAL(KIND=dp), DIMENSION(:), POINTER               :: cutoffs
       TYPE(atomic_kind_type), DIMENSION(:), POINTER      :: atomic_kind_set
       TYPE(becke_constraint_type), POINTER               :: becke_control
@@ -657,11 +655,7 @@ CONTAINS
          group(igroup)%integrated = 0.0_dp
       END DO
       bo = group(1)%weight%pw%pw_grid%bounds_local
-      np = group(1)%weight%pw%pw_grid%npts
       dvol = group(1)%weight%pw%pw_grid%dvol
-      dr = group(1)%weight%pw%pw_grid%dr
-      np = group(1)%weight%pw%pw_grid%npts
-      shift = -REAL(MODULO(np, 2), dp)*dr/2.0_dp
 
       IF (.NOT. becke_control%in_memory) &
          ! Gradients were not precomputed => calculate them now
