@@ -34,81 +34,29 @@ MODULE qs_cdft_types
 
 ! **************************************************************************************************
 !> \brief some parameters useful for becke_constraints
-!> \param fragment_a_fname filename of cube file holding the total electron density
-!>                         of isolated fragment a
-!> \param fragment_b_fname filename of cube file holding the total electron density
-!>                         of isolated fragment b
-!> \param fragment_a_spin_fname filename of cube file holding the spin difference density
-!>                              of isolated fragment a
-!> \param fragment_b_spin_fname filename of cube file holding the spin difference density
-!>                              of isolated fragment b
-!> \param ref_count the ref count
-!> \param rglobal global cutoff to use for building the constraint
-!> \param target target values of the constraints
-!> \param strength Lagrangian multipliers of the constraints
-!> \param becke_order_p integrated values of the constraints
-!> \param natoms number of constraint atoms
-!> \param cavity_shape the confinement cavity shape id
-!> \param cutoff_type the cutoff type to use for building the constraint
-!> \param atoms list of constraint atoms
-!> \param cavity the Gaussian confinement cavity: the constraint is nonzero outside this cavity
-!> \param group container for atom groups each defining their own constraint
-!> \param charge atomic Becke real space potentials needed to calculate atomic Becke charges
-!> \param fragments container for isolated fragment densities read from cube files
-!> \param need_pot logical which determines if the Becke potential needs to be built
-!> \param save_pot logical which determines if the Becke potential should be saved until forces
-!>                 have been evaluated
-!> \param in_memory logical which determines if the gradients of the Becke potential should be
-!>                  computed simultaneously with the potential instead of separately
-!> \param adjust logical which determines if the Becke potential is adjusted with atomic radii
-!> \param atomic_charges logical which determines if atomic Becke charges should be computed
-!> \param cavity_confine logical which determines if cavity confinement is active
-!> \param should_skip logical which determines is grid points should be skipped if all constraint
-!>                    atoms are found to reside beyond the cutoff distance from it
-!> \param print_cavity logical to print the Gaussian confinement cavity
-!> \param flip_fragment should the spin difference density of the either fragment be flipped
-!> \param external_control logical which determines if the constraint has already been built
-!>                         in a mixed_env that holds multiple CDFT states
-!> \param first_iteration a flag to mark the first iteration for printing of additional data
-!> \param fragment_density use isolated fragment densities as a reference for the constraint
-!> \param fragments_integrated logical to determine if the fragment densities have been integrated
-!> \param use_bohr decides whether to use angstrom or bohr units for the confinement cavity radius
-!> \param cutoffs element specific cutoffs
-!> \param cutoffs_tmp same as cutoffs but a temporary read during parsing of this type
-!> \param charges_fragment the values of the integrated isolated fragment densities
-!> \param radii_tmp temporary list of element specific atomic radii used to adjust the Becke cells
-!> \param radii permanent copy of radii_tmp
-!> \param confine_bounds grid point indices outside which the constraint vanishes along Z-axis
-!> \param rcavity an optional global radius parameter used to define the Gaussian confinement cavity
-!> \param eps_cavity threshold used screen small values of the Gaussian cavity density
-!> \param cavity_env the structure used to build the Gaussian cavity
-!> \param aij pairwise parameters used to adjust the Becke cell boundaries built from atomic radii
-!> \param cavity_mat a compacted version of cavity
+!> \param aij             pairwise parameters used to adjust the Becke cell boundaries built from atomic radii
+!> \param adjust          logical which determines if the Becke potential is adjusted with atomic radii
+!> \param cavity          the Gaussian confinement cavity: the constraint is nonzero outside this cavity
+!> \param cavity_confine  logical which determines if cavity confinement is active
+!> \param cavity_mat      a compacted version of cavity
+!> \param cavity_shape    the confinement cavity shape id
+!> \param cavity_env      the structure used to build the Gaussian cavity
+!> \param confine_bounds  grid point indices outside which the constraint vanishes along Z-axis
+!> \param cutoff_type     the cutoff type to use for building the constraint
+!> \param cutoffs         element specific cutoffs
+!> \param cutoffs_tmp     same as cutoffs but a temporary read during parsing of this type
+!> \param eps_cavity      threshold used screen small values of the Gaussian cavity density
+!> \param in_memory       logical which determines if the gradients of the Becke potential should be
+!> \param print_cavity    logical to print the Gaussian confinement cavity
+!> \param radii           permanent copy of radii_tmp
+!> \param radii_tmp       temporary list of element specific atomic radii used to adjust the Becke cells
+!> \param rcavity         an optional global radius parameter used to define the Gaussian confinement cavity
+!> \param rglobal         global cutoff to use for building the constraint
+!>                        computed simultaneously with the potential instead of separately
+!> \param should_skip     logical which determines is grid points should be skipped if all constraint
+!>                        atoms are found to reside beyond the cutoff distance from it
+!> \param use_bohr        decides whether to use angstrom or bohr units for the confinement cavity radius
 ! **************************************************************************************************
-   ! To build multiple constraints
-!   TYPE becke_group_type
-!      ! Atoms of this constraint group
-!      INTEGER, POINTER, DIMENSION(:)       :: atoms
-!      ! Constraint type: charge constraint, magnetization density constraint, or spin channel specific constraint
-!      INTEGER                              :: constraint_type
-!      ! Is the constraint fragment based
-!      LOGICAL                              :: is_fragment_constraint
-!      ! Temporary array holding a component of the weight function gradient that only includes
-!      ! terms defined on constraint atoms
-!      REAL(kind=dp), ALLOCATABLE, &
-!         DIMENSION(:, :)                   :: d_sum_const_dR
-!      ! Coefficients that determine how to sum up the atoms to form the constraint
-!      REAL(KIND=dp), POINTER, DIMENSION(:) :: coeff
-!      ! Result of integration dw/dR * rho_r dr where dw/dR is the weight function gradient
-!      REAL(KIND=dp), POINTER, &
-!         DIMENSION(:, :)                   :: integrated
-!      ! Atomic gradients of the weight function at every grid point
-!      REAL(KIND=dp), POINTER, &
-!         DIMENSION(:, :, :, :)             :: gradients
-!      ! The weight function of this constraint group
-!      TYPE(pw_p_type)                      :: weight
-!   END TYPE becke_group_type
-
    ! Utility vector container for building becke constraint
    TYPE becke_vector_buffer
       LOGICAL                              :: store_vectors
@@ -143,90 +91,88 @@ MODULE qs_cdft_types
    END TYPE becke_constraint_type
 
 ! **************************************************************************************************
-! \brief control parameters for hirshfeld constraint
-!> \param hirshfeld_env holds the information needed to build the Gaussian Hirshfeld weight
-!> \param natoms the number of constraint atoms
-!> \param constraint_type the constraint type to use
-!> \param atoms list of constraint atoms
-!> \param coeff determines how to sum up the constraint atoms to form the value of the constraint
+! \brief control parameters for Hirshfeld constraints
+!> \param gaussian_shape  the type of Gaussian to use (shape_function Gaussian)
+!> \param radii           list of Gaussian radii for different atomic kinds
+!> \param radius          Gaussian radius parameter
+!> \param shape_function  the constraint type: atomic density or single Gaussian
+!> \param use_bohr        determines whether to use angstrom or bohr units for the radii of Gaussians
+!> \param hirshfeld_env   auxiliary type storing information about the Gaussians
 ! **************************************************************************************************
    TYPE hirshfeld_constraint_type
-      TYPE(hirshfeld_type), POINTER        :: hirshfeld_env
-      LOGICAL                              :: use_bohr
       INTEGER                              :: gaussian_shape, shape_function
+      LOGICAL                              :: use_bohr
       REAL(KIND=dp)                        :: radius
       REAL(KIND=dp), DIMENSION(:), POINTER :: radii
+      TYPE(hirshfeld_type), POINTER        :: hirshfeld_env
    END TYPE hirshfeld_constraint_type
 
 ! **************************************************************************************************
-! \brief control parameters for CDFT with OT
-!        TODO: make cdft_control parent section for Becke restraint type
-!> \param ref_count the ref count
-!> \param total_steps counter to keep track of the total number of SCF steps
-!> \param type type of CDFT constraint
-!> \param precond_freq preconditioner can be used if SCF converged in less than precond_freq steps
-!> \param nreused determines how many times the current OT preconditioner has been reused
-!> \param max_reuse the same preconditioner can be used a maximum of max_reuse times
-!> \param purge_freq determines how large nbad_conv can grow before purging the wfn/constraint history
-!> \param nbad_conv a running counter keeping track of the number of CDFT SCF loops when the first
-!>                  CDFT SCF iteration required more than 1 outer SCF loop. Reset when convergence is
-!>                  smooth
-!> \param purge_offset purging is only allowed when more than purge_offset steps have passed since
-!>                     last purge
-!> \param istep a counter to keep track of how many steps have passed since the last purge
-!> \param ienergy a counter tracking the total number of CDFT energy evaluations
-!> \param constraints holds information about the CDFT SCF loop
-!> \param constraint_control the outer_scf_control_type for the constraint
-!> \param ot_control the outer_scf_control_type for OT where data is stashed when outside the OT
-!>                   outer loop
-!> \param hirshfeld_control control parameters for a Hirshfeld constraint
-!> \param strength Lagrangian multipliers of the constraints
-!> \param target target values of the constraints
-!> \param value integrated values of the constraints
-!> \param weight the constraint potential
-!> \param need_pot logical which determines if the constraint potential needs to be built
-!> \param save_pot logical which determines if the constraint potential should be saved until forces
-!>                 have been evaluated
-!> \param do_et logical which determines if a ET coupling calculation was requested
-!> \param reuse_precond logical which determines if a preconditioner can be reused
-!> \param purge_history logical which determines if the wfn/constraint history can be purged
-!> \param should_purge logical which determines if purging should take place after this CDFT SCF loop
-!> \param calculate_metric logical which determines if the ET coupling reliablity metric is computed
-!> \param constraint_type list of integers which determine what type of constraint should be applied
-!>                             to each constraint group
-!> \param mo_coeff save the MO coeffs (for do_et)
-!> \param wmat matrix representation of the weight function (for do_et)
-!> \param matrix_s save the overlap matrix (for do_et)
-!> \param matrix_p save the density matrix (for calculate_metric)
-!> \param occupations occupation numbers in case non-uniform occupation (for do_et)
+!> \brief control parameters for CDFT simulations
+!> \param fragment_a_fname      filename of cube file holding the total electron density
+!>                              of isolated fragment a
+!> \param fragment_b_fname      filename of cube file holding the total electron density
+!>                              of isolated fragment b
+!> \param fragment_a_spin_fname filename of cube file holding the spin difference density
+!>                              of isolated fragment a
+!> \param fragment_b_spin_fname filename of cube file holding the spin difference density
+!>                              of isolated fragment b
+!> \param ref_count             the ref count
+!> \param need_pot              logical which determines if the Becke potential needs to be built
+!> \param save_pot              logical which determines if the Becke potential should be saved until forces
+!>                              have been evaluated
+!> \param atomic_charges        flag that determines if atomic CDFT charges should be computed
+!> \param total_steps           counter to keep track of the total number of SCF steps
+!> \param type                  the type of CDFT constraint to use
+!> \param precond_freq          preconditioner can be used if SCF converged in less than precond_freq steps
+!> \param nreused               determines how many times the current OT preconditioner has been reused
+!> \param max_reuse             the same preconditioner can be used a maximum of max_reuse times
+!> \param purge_freq            determines how large nbad_conv can grow before purging the wfn/constraint history
+!> \param nbad_conv             a running counter keeping track of the number of CDFT SCF loops when the first
+!>                              CDFT SCF iteration required more than 1 outer SCF loop. Reset when convergence is
+!>                              smooth
+!> \param purge_offset          purging is only allowed when more than purge_offset steps have passed since
+!>                              last purge
+!> \param istep                 a counter to keep track of how many steps have passed since the last purge
+!> \param ienergy               a counter tracking the total number of CDFT energy evaluations
+!> \param natoms                the total number of atoms included in constraint/dummy atom groups
+!> \param atoms                 list of constraint atoms
+!> \param need_pot              logical which determines if the constraint potential needs to be built
+!> \param save_pot              logical which determines if the constraint potential should be saved until forces
+!>                              have been evaluated
+!> \param do_et                 logical which determines if a ET coupling calculation was requested
+!> \param reuse_precond         logical which determines if a preconditioner can be reused
+!> \param purge_history         logical which determines if the wfn/constraint history can be purged
+!> \param should_purge          logical which determines if purging should take place after this CDFT SCF loop
+!> \param calculate_metric      logical which determines if the ET coupling reliablity metric is computed
+!> \param fragment_density      use isolated fragment densities as a reference for the constraint
+!> \param fragments_integrated  logical to determine if the fragment densities have been integrated
+!> \param flip_fragment         should the spin difference density of the either fragment be flipped
+!> \param transfer_pot          logical which determines if constraint should be saved for reuse later
+!> \param external_control      logical which determines if the constraint has already been built
+!>                              in a mixed_env that holds multiple CDFT states
+!> \param first_iteration       a flag to mark the first iteration for printing of additional data
+!> \param print_weight          logical which determines if CDFT weight functions should be saved to a file
+!> \param is_constraint         list of logicals which determines if an atom is included in a constraint group
+!> \param strength              Lagrangian multipliers of the constraints
+!> \param target                target values of the constraints
+!> \param value                 integrated values of the constraints
+!> \param charges_fragment      atomic partial charges computed from the isolated fragment densities
+!> \param becke_control         control parameters for Becke constraints
+!> \param group                 container for atom groups each defining their own constraint
+!> \param occupations           occupation numbers in case non-uniform MO occupation (for do_et)
+!> \param mo_coeff              save the MO coeffs (for do_et)
+!> \param matrix_s              save the overlap matrix (for do_et)
+!> \param wmat                  matrix representation of the weight function (for do_et)
+!> \param matrix_p              save the density matrix (for calculate_metric)
+!> \param hirshfeld_control     control parameters for Hirshfeld constraints
+!> \param constraint_control    the outer_scf_control_type for the CDFT constraints
+!> \param ot_control            the outer_scf_control_type for OT where data is stashed when outside the OT
+!>                              outer loop
+!> \param charge                atomic CDFT real space potentials needed to calculate CDFT charges
+!> \param fragments             container for isolated fragment densities read from cube files
+!> \param constraint            holds information about the CDFT SCF loop
 ! **************************************************************************************************
-   ! Copied from qs_scf_types to avoid circular dependency
-!   TYPE qs_outer_scf_type
-!      INTEGER                              :: iter_count
-!      LOGICAL                              :: deallocate_jacobian
-!      REAL(KIND=dp), DIMENSION(:), POINTER :: energy
-!      REAL(KIND=dp), DIMENSION(:, :), &
-!         POINTER                           :: variables
-!      REAL(KIND=dp), DIMENSION(:, :), &
-!         POINTER                           :: gradient
-!      REAL(KIND=dp), DIMENSION(:, :), &
-!         POINTER                           :: inv_jacobian
-!      INTEGER, DIMENSION(:), POINTER       :: count
-!   END TYPE qs_outer_scf_type
-!
-!   ! Copied from scf_control_types to avoid circular dependency
-!   TYPE outer_scf_control_type
-!      LOGICAL       :: have_scf
-!      INTEGER       :: max_scf
-!      REAL(KIND=dp) :: eps_scf, step_size
-!      INTEGER       :: TYPE
-!      INTEGER       :: optimizer
-!      INTEGER       :: diis_buffer_length
-!      INTEGER       :: extrapolation_order
-!      INTEGER       :: bisect_trust_count
-!      TYPE(cdft_opt_type), POINTER :: cdft_opt_control
-!   END TYPE outer_scf_control_type
-
    ! To build multiple constraints
    TYPE cdft_group_type
       ! Atoms of this constraint group
@@ -272,6 +218,9 @@ MODULE qs_cdft_types
       REAL(KIND=dp), DIMENSION(:), POINTER :: strength, TARGET, value
       REAL(KIND=dp), POINTER, &
          DIMENSION(:, :)                   :: charges_fragment
+      TYPE(becke_constraint_type), POINTER :: becke_control
+      TYPE(cdft_group_type), POINTER, &
+         DIMENSION(:)                      :: group
       TYPE(cp_1d_r_p_type), ALLOCATABLE, &
          DIMENSION(:)                      :: occupations
       TYPE(cp_fm_p_type), DIMENSION(:), &
@@ -279,17 +228,14 @@ MODULE qs_cdft_types
       TYPE(dbcsr_p_type)                   :: matrix_s
       TYPE(dbcsr_p_type), DIMENSION(:), &
          POINTER                           :: wmat, matrix_p
-      TYPE(becke_constraint_type), POINTER :: becke_control
       TYPE(hirshfeld_constraint_type), &
          POINTER                           :: hirshfeld_control
       TYPE(outer_scf_control_type)         :: constraint_control, ot_control
-      TYPE(cdft_group_type), POINTER, &
-         DIMENSION(:)                      :: group
-      TYPE(qs_outer_scf_type)              :: constraint
       TYPE(pw_p_type), POINTER, &
          DIMENSION(:)                      :: charge
       TYPE(pw_p_type), POINTER, &
          DIMENSION(:, :)                   :: fragments
+      TYPE(qs_outer_scf_type)              :: constraint
    END TYPE cdft_control_type
 
    CHARACTER(len=*), PARAMETER, PRIVATE :: moduleN = 'qs_cdft_types'

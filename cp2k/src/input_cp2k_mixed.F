@@ -128,13 +128,14 @@ CONTAINS
       ! Mixed CDFT section
       CALL section_create(subsection, name="MIXED_CDFT", &
                           description="Calculate properties involving multiple constrained states. "// &
-                          "The system can be propagated using only two of the CDFT states selected by the "// &
-                          "keyword FORCE_STATES. The forces are then determined by a linear combination "// &
-                          "between these two force_eval: F= lambda F1 + (1-lambda) F2. When the keyword "// &
-                          "MIXED&NGROUPS is set to 2, the CDFT states are solved in parallel (supports "// &
-                          "only two states with identical constraint definitions), whereas when it is set "// &
-                          "to 1, the states are solved in serial (supports any number of states and nonequal "// &
-                          "constraint definitions but the number of constraints must be the same across states).", &
+                          "Each repetition of the FORCE_EVAL section defines a new CDFT state that is "// &
+                          "included in the simulation. The DFT&QS&CDFT section must be active in each "// &
+                          "FORCE_EVAL and it must be consistently defined. When the keyword "// &
+                          "MIXED&NGROUPS is set to a value 2 or larger, the CDFT states are solved in "// &
+                          "parallel, whereas when it is set to 1, the states are solved in serial. "// &
+                          "During MD, the system can be translated using only two of the CDFT states, "// &
+                          "which are selected with the keyword FORCE_STATES. The forces are determined "// &
+                          "by the linear combination F= lambda F1 + (1-lambda) F2.",&
                           n_keywords=11, n_subsections=2, repeats=.FALSE., citations=(/Holmberg2017/))
 
       CALL keyword_create(keyword, name="LAMBDA", &
@@ -144,7 +145,7 @@ CONTAINS
       CALL keyword_release(keyword)
 
       CALL keyword_create(keyword, name="FORCE_STATES", &
-                          description="Defines the CDFT states used to propagate the system. ", &
+                          description="Defines the CDFT states used to translate the system. ", &
                           usage="FORCE_STATES 1 1", n_var=2, &
                           default_i_vals=(/1, 2/), type_of_var=integer_t)
       CALL section_add_keyword(subsection, keyword)
@@ -164,9 +165,21 @@ CONTAINS
       CALL section_add_keyword(subsection, keyword)
       CALL keyword_release(keyword)
 
+      CALL keyword_create(keyword, name="PARALLEL_BUILD", &
+                          description="Build CDFT weight function and gradients in parallel on all "// &
+                          "N MPI processors before starting the CDFT SCF calculations of the 2 "// &
+                          "involved CDFT states in parallel on N/2 processors. Supports only Becke "// &
+                          "constraints that are identical in both states. Limited to 1 "// &
+                          "charge constraint per state (different target values). "// &
+                          "The keyword MIXED&NGROUPS must be set to 2.",&
+                          usage="PARALLEL_BUILD TRUE", type_of_var=logical_t, &
+                          default_l_val=.FALSE., lone_keyword_l_val=.TRUE.)
+      CALL section_add_keyword(subsection, keyword)
+      CALL keyword_release(keyword)
+
       CALL keyword_create(keyword, name="DLB", &
                           description="Controls the activation of dynamic load balancing during a mixed CDFT calculation."// &
-                          " Requires Gaussian cavity confinement. Works only when the CDFT states are treated in parallel.", &
+                          " Requires Gaussian cavity confinement. Works only in conjunction with keyword PARALLEL_BUILD.", &
                           usage="DLB", type_of_var=logical_t, &
                           default_l_val=.FALSE., lone_keyword_l_val=.TRUE.)
       CALL section_add_keyword(subsection, keyword)
@@ -269,7 +282,7 @@ CONTAINS
 
       CALL keyword_create(keyword, name="LOAD_SCALE", &
                           description="Control parameter for dynamic load balancing during a mixed CDFT calculation."// &
-                          " See code for details.", &
+                          " See code for details. Works only in conjunction with keyword PARALLEL_BUILD.", &
                           usage="LOAD_SCALE <REAL>", type_of_var=real_t, &
                           default_r_val=2.0_dp)
       CALL section_add_keyword(subsection, keyword)
@@ -277,7 +290,7 @@ CONTAINS
 
       CALL keyword_create(keyword, name="MORE_WORK", &
                           description="Control parameter for dynamic load balancing during a mixed CDFT calculation."// &
-                          " See code for details.", &
+                          " See code for details. Works only in conjunction with keyword PARALLEL_BUILD.", &
                           usage="MORE_WORK <INT>", type_of_var=integer_t, &
                           default_i_val=0, repeats=.FALSE.)
       CALL section_add_keyword(subsection, keyword)
@@ -285,7 +298,7 @@ CONTAINS
 
       CALL keyword_create(keyword, name="VERY_OVERLOADED", &
                           description="Control parameter for dynamic load balancing during a mixed CDFT calculation."// &
-                          " See code for details.", &
+                          " See code for details. Works only in conjunction with keyword PARALLEL_BUILD.", &
                           usage="VERY_OVERLOADED <REAL>", type_of_var=real_t, &
                           default_r_val=0.0_dp, repeats=.FALSE.)
       CALL section_add_keyword(subsection, keyword)

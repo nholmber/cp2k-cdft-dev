@@ -152,56 +152,57 @@ MODULE mixed_cdft_types
    END TYPE mixed_cdft_dlb_type
 ! **************************************************************************************************
 !> \brief Main mixed CDFT control type
-!> \param sim_step counter to keep track of the simulation step for MD
-!> \param multiplicity spin multiplicity
-!> \param nconstraint the number of constraints
-!> \param source_list a list of processors which will send this processor data
-!> \param dest_list a list of processors which this processor will send data to
-!> \param recv_bo bounds of the data which this processor will receive (is_special = .FALSE.)
-!> \param source_list_save permanent copy of source_list which might get reallocated during
-!>                         load balancing
-!> \param dest_list_save permanent copy of dest_list which might get reallocated during
-!>                       load balancing
-!> \param source_list_bo bounds of the data which this processor will receive (is_special = .TRUE.)
-!> \param dest_list_bo bounds of the data this processor will send (is_special = .TRUE.)
-!> \param source_bo_save permanent copy of source_list_bo
-!> \param deset_bo_save permanent copy of dest_list_bo
-!> \param is_pencil flag controlling which scheme to use for constraint replication
-!> \param dlb flag to enable dynamic load balancing
-!> \param is_special another flag controlling which scheme to use for constraint replication
-!> \param first_iteration flag to mark the first iteration e.g. during MD to output information
-!> \param calculate_metric flag which determines if the coupling reliablity metric should be computed
-!> \param wnf_ovelap_method flag to enable the wavefunction overlap method for computing the coupling
-!> \param has_unit_metric flag to determine if the basis set has unit metric
-!> \param is_parallel flag which determines if the mixed CDFT calculation is parallel or serial mode
-!> \param use_lowdin flag which determines if Lowdin orthogonalization is used to compute the coupling
-!> \param do_ci flag which determines if a CDFT-CI calculation was requested
-!> \param nonortho_coupling flag which determines if the nonorthogonal CDFT interaction energies
-!>                          should be printed out
+!> \param sim_step              counter to keep track of the simulation step for MD
+!> \param multiplicity          spin multiplicity
+!> \param nconstraint           the number of constraints
+!> \param run_type              what type of mixed CDFT simulation to perform
+!> \param source_list           a list of processors which will send this processor data
+!> \param dest_list             a list of processors which this processor will send data to
+!> \param recv_bo               bounds of the data which this processor will receive (is_special = .FALSE.)
+!> \param source_list_save      permanent copy of source_list which might get reallocated during
+!>                              load balancing
+!> \param dest_list_save        permanent copy of dest_list which might get reallocated during
+!>                              load balancing
+!> \param source_list_bo        bounds of the data which this processor will receive (is_special = .TRUE.)
+!> \param dest_list_bo          bounds of the data this processor will send (is_special = .TRUE.)
+!> \param source_bo_save        permanent copy of source_list_bo
+!> \param deset_bo_save         permanent copy of dest_list_bo
+!> \param is_pencil             flag controlling which scheme to use for constraint replication
+!> \param dlb                   flag to enable dynamic load balancing
+!> \param is_special            another flag controlling which scheme to use for constraint replication
+!> \param first_iteration       flag to mark the first iteration e.g. during MD to output information
+!> \param calculate_metric      flag which determines if the coupling reliablity metric should be computed
+!> \param wnf_ovelap_method     flag to enable the wavefunction overlap method for computing the coupling
+!> \param has_unit_metric       flag to determine if the basis set has unit metric
+!> \param use_lowdin            flag which determines if Lowdin orthogonalization is used to compute the coupling
+!> \param do_ci                 flag which determines if a CDFT-CI calculation was requested
+!> \param nonortho_coupling     flag which determines if the nonorthogonal CDFT interaction energies
+!>                              should be printed out
 !> \param identical_constraints flag which determines if the constraint definitions are identical
-!>                               across all CDFT states
+!>                              across all CDFT states
 !> \param block_diagonalize     flag which determines if the CDFT Hamiltonian should be block
 !>                              diagonalized
-!> \param constraint_type list of integers which determine what type of constraint should be applied
-!>                             to each constraint group
-!> \param eps_rho_rspace threshold to determine when the realspace density can be considered zero
-!> \param sim_dt timestep of the MD simulation
-!> \param eps_svd value that controls which matrix inversion method to use
-!> \param weight the constraint weight function
-!> \param cavity the confinement cavity: the weight function is nonzero only within the cavity
-!> \param cdft_control container for cdft_control_type
-!> \param sendbuff buffer that holds the data to be replicated
-!> \param blacs_env the blacs_env needed to redistribute arrays during a coupling calculation
-!> \param results container for mixed CDFT results
-!> \param matrix container for mixed CDFT work matrices
-!> \param dlb_control container for load balancing structures
-!> \param qs_kind_set the qs_kind_set needed to setup a confinement cavity
-!> \param pw_env the pw_env that holds the fully distributed realspace grid
-!> \param occupations occupation numbers in case non-uniform occupation
+!> \param constraint_type       list of integers which determine what type of constraint should be applied
+!>                              to each constraint group
+!> \param eps_rho_rspace        threshold to determine when the realspace density can be considered zero
+!> \param sim_dt                timestep of the MD simulation
+!> \param eps_svd               value that controls which matrix inversion method to use
+!> \param weight                the constraint weight function
+!> \param cavity                the confinement cavity: the weight function is nonzero only within the cavity
+!> \param cdft_control          container for cdft_control_type
+!> \param sendbuff              buffer that holds the data to be replicated
+!> \param blacs_env             the blacs_env needed to redistribute arrays during a coupling calculation
+!> \param results               container for mixed CDFT results
+!> \param matrix                container for mixed CDFT work matrices
+!> \param dlb_control           container for load balancing structures
+!> \param qs_kind_set           the qs_kind_set needed to setup a confinement cavity
+!> \param pw_env                the pw_env that holds the fully distributed realspace grid
+!> \param occupations           occupation numbers in case non-uniform occupation
 ! **************************************************************************************************
    TYPE mixed_cdft_type
       INTEGER                                          :: sim_step, multiplicity, &
-                                                          nconstraint
+                                                          nconstraint, &
+                                                          run_type
       INTEGER, DIMENSION(:, :), ALLOCATABLE            :: constraint_type
       INTEGER, POINTER, DIMENSION(:)                   :: source_list, dest_list, &
                                                           recv_bo, source_list_save, &
@@ -213,14 +214,14 @@ MODULE mixed_cdft_types
                                                           calculate_metric, &
                                                           wfn_overlap_method, &
                                                           has_unit_metric, &
-                                                          is_parallel, use_lowdin, &
+                                                          use_lowdin, &
                                                           do_ci, nonortho_coupling, &
                                                           identical_constraints, &
                                                           block_diagonalize
       REAL(KIND=dp)                                    :: eps_rho_rspace, sim_dt, &
                                                           eps_svd
       REAL(KIND=dp), POINTER, DIMENSION(:, :, :)       :: weight, cavity
-      TYPE(cdft_control_type), POINTER              :: cdft_control
+      TYPE(cdft_control_type), POINTER                 :: cdft_control
       TYPE(buffers), DIMENSION(:), POINTER             :: sendbuff
       TYPE(cp_1d_r_p_type), ALLOCATABLE, &
          DIMENSION(:, :)                               :: occupations

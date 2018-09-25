@@ -61,6 +61,9 @@ MODULE mixed_cdft_methods
                                               cdft_charge_constraint,&
                                               cdft_magnetization_constraint,&
                                               mix_cdft,&
+                                              mixed_cdft_serial,&
+                                              mixed_cdft_parallel,&
+                                              mixed_cdft_parallel_nobuild,&
                                               outer_scf_becke_constraint
    USE input_section_types,             ONLY: section_get_lval,&
                                               section_vals_get,&
@@ -193,22 +196,10 @@ CONTAINS
       IF (mixing_type == mix_cdft .AND. .NOT. ASSOCIATED(mixed_env%cdft_control)) THEN
          mixed_env%do_mixed_cdft = .TRUE.
          IF (mixed_env%do_mixed_cdft) THEN
-            ! Enforce some limitations
+            ! Sanity check
             IF (nforce_eval .LT. 2) &
                CALL cp_abort(__LOCATION__, &
-                             "Mixed CDFT calculation requires at least 2 force_evals")
-            IF (mixed_env%ngroups == 2) THEN
-               is_parallel = .TRUE.
-               IF (.NOT. nforce_eval == 2) &
-                  CALL cp_abort(__LOCATION__, &
-                                "Parallel mode mixed CDFT calculation supports only 2 force_evals")
-            ELSE IF (mixed_env%ngroups == 1) THEN
-               is_parallel = .FALSE.
-            ELSE
-               CALL cp_abort(__LOCATION__, &
-                             "The number of processor groups (&NGROUPS)"// &
-                             " must be 1 or 2 for a mixed CDFT calculation.")
-            END IF
+                             "Mixed CDFT calculation requires at least 2 force_evals.")
             mapping_section => section_vals_get_subs_vals(mixed_section, "MAPPING")
             CALL section_vals_get(mapping_section, explicit=explicit)
             ! The sub_force_envs must share the same geometrical structure
@@ -259,13 +250,31 @@ CONTAINS
             ALLOCATE (mixed_cdft)
             CALL mixed_cdft_type_create(mixed_cdft)
             mixed_cdft%first_iteration = .TRUE.
-            mixed_cdft%is_parallel = is_parallel
+            ! Determine what run type to use
+            IF (mixed_env%ngroups == 1) THEN
+               ! States treated in serial, possibly copying CDFT weight function and gradients from state to state
+               mixed_cdft%run_type = mixed_cdft_serial
+            ELSE IF (mixed_env%ngroups == 2) THEN
+               CALL section_vals_val_get(mixed_section, "MIXED_CDFT%PARALLEL_BUILD", l_val=is_parallel)
+               IF (is_parallel) THEN
+                  ! Treat states in parallel, build weight function and gradients in parallel before SCF process
+                  mixed_cdft%run_type = mixed_cdft_parallel
+                  IF (.NOT. nforce_eval == 2) &
+                     CALL cp_abort(__LOCATION__, &
+                                   "Parallel mode mixed CDFT calculation supports only 2 force_evals.")
+               ELSE
+                  ! Treat states in parallel, but each states builds its own weight function and gradients
+                  mixed_cdft%run_type = mixed_cdft_parallel_nobuild
+               END IF
+            ELSE
+               mixed_cdft%run_type = mixed_cdft_parallel_nobuild
+            END IF
             ! Store QMMM flag
             mixed_env%do_mixed_qmmm_cdft = is_qmmm
             ! Setup dynamic load balancing
             CALL section_vals_val_get(mixed_section, "MIXED_CDFT%DLB", l_val=mixed_cdft%dlb)
             mixed_cdft%dlb = mixed_cdft%dlb .AND. calculate_forces ! disable if forces are not needed
-            mixed_cdft%dlb = mixed_cdft%dlb .AND. mixed_cdft%is_parallel ! disable if not parallel
+            mixed_cdft%dlb = mixed_cdft%dlb .AND. (mixed_cdft%run_type == mixed_cdft_parallel)  ! disable if not parallel
             IF (mixed_cdft%dlb) THEN
                ALLOCATE (mixed_cdft%dlb_control)
                NULLIFY (mixed_cdft%dlb_control%weight, mixed_cdft%dlb_control%gradients, &
@@ -328,22 +337,34 @@ CONTAINS
                   "MIXED_CDFT| Activating mixed CDFT calculation"
                WRITE (iounit, FMT="(T2,A,T71,I10)") &
                   "MIXED_CDFT| Number of CDFT states:                                  ", nforce_eval
-               IF (mixed_cdft%is_parallel) THEN
+               SELECT CASE (mixed_cdft%run_type)
+               CASE (mixed_cdft_parallel)
                   WRITE (iounit, FMT="(T2,A,T71)") &
-                     "MIXED_CDFT| CDFT states calculation mode: parallel"
+                     "MIXED_CDFT| CDFT states calculation mode: parallel with build"
                   WRITE (iounit, FMT="(T2,A,T71)") &
                      "MIXED_CDFT| Becke constraint is first built using all available processors"
                   WRITE (iounit, FMT="(T2,A,T71)") &
                      "            and then copied to both states with their own processor groups"
-               ELSE
+               CASE (mixed_cdft_serial)
                   WRITE (iounit, FMT="(T2,A,T71)") &
                      "MIXED_CDFT| CDFT states calculation mode: serial"
+                  IF (mixed_cdft%identical_constraints) THEN
+                     WRITE (iounit, FMT="(T2,A,T71)") &
+                        "MIXED_CDFT| The constraints are built before the SCF procedure of the first"
+                     WRITE (iounit, FMT="(T2,A,T71)") &
+                        "            CDFT state and subsequently copied to the other states"
+                  ELSE
+                     WRITE (iounit, FMT="(T2,A,T71)") &
+                        "MIXED_CDFT| The constraints are seperately built for all CDFT states"
+                  END IF
+               CASE (mixed_cdft_parallel_nobuild)
                   WRITE (iounit, FMT="(T2,A,T71)") &
-                     "MIXED_CDFT| Becke constraint is built before the SCF procedure of the first"
+                     "MIXED_CDFT| CDFT states calculation mode: parallel without build"
                   WRITE (iounit, FMT="(T2,A,T71)") &
-                     "            CDFT state and subsequently copied to other states"
-
-               END IF
+                     "MIXED_CDFT| The constraints are seperately built for all CDFT states"
+               CASE DEFAULT
+                  CPABORT("Unknown mixed CDFT run type.")
+               END SELECT
                WRITE (iounit, FMT="(T2,A,T71,L10)") &
                   "MIXED_CDFT| Calculating electronic coupling between states:         ", mixed_env%do_mixed_et
                WRITE (iounit, FMT="(T2,A,T71,L10)") &
@@ -352,16 +373,18 @@ CONTAINS
                   "MIXED_CDFT| Configuration interaction (CDFT-CI) was requested:      ", mixed_cdft%do_ci
                WRITE (iounit, FMT="(T2,A,T71,L10)") &
                   "MIXED_CDFT| Block diagonalizing the mixed CDFT Hamiltonian:         ", mixed_cdft%block_diagonalize
-               WRITE (iounit, FMT="(T2,A,T71,L10)") &
-                  "MIXED_CDFT| Dynamic load balancing enabled:                         ", mixed_cdft%dlb
-               IF (mixed_cdft%dlb) THEN
-                  WRITE (iounit, FMT="(T2,A,T71)") "MIXED_CDFT| Dynamic load balancing parameters:                         "
-                  WRITE (iounit, FMT="(T2,A,T71,F10.2)") &
-                     "MIXED_CDFT| load_scale:", mixed_cdft%dlb_control%load_scale
-                  WRITE (iounit, FMT="(T2,A,T71,F10.2)") &
-                     "MIXED_CDFT| very_overloaded:", mixed_cdft%dlb_control%very_overloaded
-                  WRITE (iounit, FMT="(T2,A,T71,I10)") &
-                     "MIXED_CDFT| more_work:", mixed_cdft%dlb_control%more_work
+               IF (mixed_cdft%run_type == mixed_cdft_parallel) THEN
+                  WRITE (iounit, FMT="(T2,A,T71,L10)") &
+                     "MIXED_CDFT| Dynamic load balancing enabled:                         ", mixed_cdft%dlb
+                  IF (mixed_cdft%dlb) THEN
+                     WRITE (iounit, FMT="(T2,A,T71)") "MIXED_CDFT| Dynamic load balancing parameters:"
+                     WRITE (iounit, FMT="(T2,A,T71,F10.2)") &
+                        "MIXED_CDFT| load_scale:", mixed_cdft%dlb_control%load_scale
+                     WRITE (iounit, FMT="(T2,A,T71,F10.2)") &
+                        "MIXED_CDFT| very_overloaded:", mixed_cdft%dlb_control%very_overloaded
+                     WRITE (iounit, FMT="(T2,A,T71,I10)") &
+                        "MIXED_CDFT| more_work:", mixed_cdft%dlb_control%more_work
+                  END IF
                END IF
                IF (mixed_env%do_mixed_et) THEN
                   IF (mixed_cdft%eps_svd == 0.0_dp) THEN
@@ -404,11 +427,21 @@ CONTAINS
       CALL get_mixed_env(force_env%mixed_env, cdft_control=mixed_cdft)
       CPASSERT(ASSOCIATED(mixed_cdft))
       IF (.NOT. PRESENT(iforce_eval)) THEN
-         IF (mixed_cdft%is_parallel) &
+         SELECT CASE (mixed_cdft%run_type)
+         CASE (mixed_cdft_parallel)
             CALL mixed_cdft_build_weight_parallel(force_env, calculate_forces)
+         CASE (mixed_cdft_parallel_nobuild)
+            CALL mixed_cdft_set_flags(force_env)
+         CASE DEFAULT
+            ! Do nothing
+         END SELECT
       ELSE
-         IF (.NOT. mixed_cdft%is_parallel) &
+         SELECT CASE (mixed_cdft%run_type)
+         CASE (mixed_cdft_serial)
             CALL mixed_cdft_transfer_weight(force_env, calculate_forces, iforce_eval)
+         CASE DEFAULT
+            ! Do nothing
+         END SELECT
       END IF
 
    END SUBROUTINE mixed_cdft_build_weight
@@ -851,7 +884,7 @@ CONTAINS
 
 ! **************************************************************************************************
 !> \brief Transfer CDFT weight/gradient between force_evals
-!> \param force_env the force_env that holds the two CDFT sub_force_envs
+!> \param force_env the force_env that holds the CDFT sub_force_envs
 !> \param calculate_forces if forces should be computed
 !> \param iforce_eval index of the currently active CDFT state
 !> \par History
@@ -1027,6 +1060,75 @@ CONTAINS
       CALL timestop(handle)
 
    END SUBROUTINE mixed_cdft_transfer_weight
+
+! **************************************************************************************************
+!> \brief In case CDFT states are treated in paralle, sets flags so that each CDFT state
+!>        builds their own weight functions and gradients
+!> \param force_env the force_env that holds the CDFT sub_force_envs
+!> \par History
+!>       09.2018  created [Nico Holmberg]
+! **************************************************************************************************
+   SUBROUTINE mixed_cdft_set_flags(force_env)
+      TYPE(force_env_type), POINTER                      :: force_env
+
+      CHARACTER(len=*), PARAMETER :: routineN = 'mixed_cdft_set_flags', &
+         routineP = moduleN//':'//routineN
+
+      INTEGER                                            :: handle, iforce_eval, nforce_eval
+      LOGICAL, SAVE                                      :: first_call = .TRUE.
+      TYPE(cdft_control_type), POINTER                   :: cdft_control
+      TYPE(dft_control_type), POINTER                    :: dft_control
+      TYPE(force_env_type), POINTER                      :: force_env_qs
+      TYPE(mixed_cdft_type), POINTER                     :: mixed_cdft
+      TYPE(mixed_environment_type), POINTER              :: mixed_env
+      TYPE(qs_environment_type), POINTER                 :: qs_env
+
+      NULLIFY (mixed_cdft, dft_control,force_env_qs, qs_env, mixed_env, cdft_control)
+      mixed_env => force_env%mixed_env
+      CALL get_mixed_env(mixed_env, cdft_control=mixed_cdft)
+      CALL timeset(routineN, handle)
+      nforce_eval = SIZE(force_env%sub_force_env)
+      DO iforce_eval = 1, nforce_eval
+         IF (.NOT. ASSOCIATED(force_env%sub_force_env(iforce_eval)%force_env)) CYCLE
+         SELECT CASE (force_env%sub_force_env (iforce_eval)%force_env%in_use)
+         CASE (use_qs_force, use_qmmm)
+            force_env_qs => force_env%sub_force_env(iforce_eval)%force_env
+         CASE DEFAULT
+            CPASSERT(.FALSE.)
+         END SELECT
+         IF (.NOT. force_env%mixed_env%do_mixed_qmmm_cdft) THEN
+            CALL force_env_get(force_env=force_env_qs, qs_env=qs_env)
+         ELSE
+            qs_env => force_env_qs%qmmm_env%qs_env
+         END IF
+         ! All force_evals build the weight function and gradients in qs_cdft_methods.F
+         ! Update flags to match run type
+         CALL get_qs_env(qs_env, dft_control=dft_control)
+         cdft_control => dft_control%qs_control%cdft_control
+         cdft_control%external_control = .FALSE.
+         cdft_control%need_pot = .TRUE.
+         cdft_control%transfer_pot = .FALSE.
+         IF (first_call) THEN
+            cdft_control%first_iteration = .TRUE.
+         ELSE
+            cdft_control%first_iteration = .FALSE.
+         END IF
+         ! Set flags for ET coupling calculation
+         IF (mixed_env%do_mixed_et) THEN
+            IF (MODULO(mixed_cdft%sim_step, mixed_env%et_freq) == 0) THEN
+               cdft_control%do_et = .TRUE.
+               cdft_control%calculate_metric = mixed_cdft%calculate_metric
+            ELSE
+               cdft_control%do_et = .FALSE.
+               cdft_control%calculate_metric = .FALSE.
+            END IF
+         END IF
+      END DO
+      mixed_cdft%sim_step = mixed_cdft%sim_step+1
+      IF (first_call) first_call = .FALSE.
+      CALL timestop(handle)
+
+   END SUBROUTINE mixed_cdft_set_flags
 
 ! **************************************************************************************************
 !> \brief Driver routine to calculate the electronic coupling(s) between CDFT states.

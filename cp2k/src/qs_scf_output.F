@@ -22,7 +22,7 @@ MODULE qs_scf_output
         outer_scf_hirshfeld_constraint, outer_scf_optimizer_bisect, outer_scf_optimizer_broyden, &
         outer_scf_optimizer_diis, outer_scf_optimizer_newton, outer_scf_optimizer_newton_ls, &
         outer_scf_optimizer_sd, outer_scf_optimizer_secant, radius_covalent, radius_single, &
-        radius_user, radius_vdw
+        radius_user, radius_vdw, shape_function_gaussian, shape_function_density, radius_default
    USE input_section_types,             ONLY: section_vals_get_subs_vals,&
                                               section_vals_type,&
                                               section_vals_val_get
@@ -680,6 +680,16 @@ CONTAINS
          WRITE (output_unit, '(A)') &
             "  Optimizing a density constraint in an external SCF loop "
          WRITE (output_unit, '(A)') "  "
+         SELECT CASE (cdft_control%type)
+         CASE (outer_scf_hirshfeld_constraint)
+            WRITE (output_unit, '(A)') "  Type of constraint:     Hirshfeld"
+         CASE (outer_scf_becke_constraint)
+            WRITE (output_unit, '(A)') "  Type of constraint:         Becke"
+         END SELECT
+         WRITE (output_unit, '(A,I8)') "  Number of constraints:   ", SIZE(cdft_control%group)
+         WRITE (output_unit, '(A,L8)') "  Using fragment densities:", cdft_control%fragment_density
+         WRITE (output_unit, '(A)') "  "
+         IF (cdft_control%atomic_charges) WRITE (output_unit, '(A,/)') "  Calculating atomic CDFT charges"
          SELECT CASE (cdft_control%constraint_control%optimizer)
          CASE (outer_scf_optimizer_sd)
             WRITE (output_unit, '(A)') &
@@ -707,13 +717,45 @@ CONTAINS
          CASE DEFAULT
             CPABORT("")
          END SELECT
-         WRITE (output_unit, '(A)') "  "
+         WRITE (output_unit, '(/,A,L7)') &
+            "  Reusing OT preconditioner: ", cdft_control%reuse_precond
+         IF (cdft_control%reuse_precond) THEN
+            WRITE (output_unit, '(A,I3,A,I3,A)') &
+               "       using old preconditioner for upto ", &
+               cdft_control%max_reuse, " subsequent CDFT SCF"
+            WRITE (output_unit, '(A,I3,A,I3,A)') &
+               "       iterations if the relevant loop converged in less than ", &
+               cdft_control%precond_freq, " steps"
+         END IF
          SELECT CASE (cdft_control%type)
          CASE (outer_scf_hirshfeld_constraint)
-            WRITE (output_unit, '(A)') "  Type of constraint      : Hirshfeld"
+            WRITE (output_unit, '(/,A)') "  Hirshfeld constraint settings"
+            WRITE (output_unit, '(A)') "  "
+            SELECT CASE (cdft_control%hirshfeld_control%shape_function)
+            CASE (shape_function_gaussian)
+               WRITE (output_unit, '(A, A8)') &
+                  "  Shape function type:     ", "Gaussian"
+               WRITE (output_unit, '(A)', ADVANCE='NO') &
+                  "  Type of Gaussian:   "
+               SELECT CASE (cdft_control%hirshfeld_control%gaussian_shape)
+               CASE (radius_default)
+                  WRITE (output_unit, '(A13)') "Default"
+               CASE (radius_covalent)
+                  WRITE (output_unit, '(A13)') "Covalent"
+               CASE (radius_single)
+                  WRITE (output_unit, '(A13)') "Fixed radius"
+               CASE (radius_vdw)
+                  WRITE (output_unit, '(A13)') "Van der Waals"
+               CASE (radius_user)
+                  WRITE (output_unit, '(A13)') "User-defined"
+
+               END SELECT
+            CASE (shape_function_density)
+               WRITE (output_unit, '(A, A8)') &
+                  "  Shape function type:     ", "Density"
+            END SELECT
          CASE (outer_scf_becke_constraint)
-            WRITE (output_unit, '(A)') "  Type of constraint      :   Becke"
-            WRITE (output_unit, '(A,I8)') "  Number of constraints   :", SIZE(cdft_control%group)
+            WRITE (output_unit, '(/, A)') "  Becke constraint settings"
             WRITE (output_unit, '(A)') "  "
             SELECT CASE (cdft_control%becke_control%cutoff_type)
             CASE (becke_cutoff_global)
@@ -728,23 +770,7 @@ CONTAINS
                "  Skipping distant gpoints: ", cdft_control%becke_control%should_skip
             WRITE (output_unit, '(A,L7)') &
                "  Precompute gradients    : ", cdft_control%becke_control%in_memory
-            WRITE (output_unit, '(A,L7)') &
-               "  Using fragment densities: ", cdft_control%fragment_density
             WRITE (output_unit, '(A)') "  "
-            WRITE (output_unit, '(A,L7)') &
-               "  Reusing preconditioner  : ", cdft_control%reuse_precond
-            IF (cdft_control%reuse_precond) THEN
-               WRITE (output_unit, '(A,I3,A,I3,A)') &
-                  "       using old preconditioner for upto ", &
-                  cdft_control%max_reuse, " subsequent CDFT SCF"
-               WRITE (output_unit, '(A,I3,A,I3,A)') &
-                  "       iterations if the relevant loop converged in less than ", &
-                  cdft_control%precond_freq, " steps"
-            END IF
-            WRITE (output_unit, '(A)') "  "
-            IF (cdft_control%atomic_charges) &
-               WRITE (output_unit, '(A)') &
-               "  Calculating atomic Becke charges"
             IF (cdft_control%becke_control%adjust) &
                WRITE (output_unit, '(A)') &
                "  Using atomic radii to generate a heteronuclear charge partitioning"

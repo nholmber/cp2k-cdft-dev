@@ -699,6 +699,11 @@ MODULE input_constants
                                                cdft_alpha_constraint = 822, &
                                                cdft_beta_constraint = 823
 
+   ! Mixed CDFT calculation run types
+   INTEGER, PARAMETER, PUBLIC               :: mixed_cdft_serial = 90, &
+                                               mixed_cdft_parallel_nobuild = 91, &
+                                               mixed_cdft_parallel = 92
+
    ! ROKS schemes
    INTEGER, PARAMETER, PUBLIC               :: general_roks = 1, &
                                                high_spin_roks = 2
