@@ -1,4 +1,0 @@
-@SET MULT 3
-@SET FUNC PBE
-
-@INCLUDE PBE_deriv.inc

@@ -1,4 +1,0 @@
-{
-"description": "Methods for changing atomic coordinates",
-'requires': ["../", "../base", "../common","../mpiwrap","../input", "../fm", "../dbcsr", "../subsys","../emd","thermostat","../pw","../pw/fft"],
-}
