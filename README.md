@@ -3,15 +3,17 @@
 # CP2K CDFT development branch
 This repository contains the constrained density functional theory (CDFT) development branch for [**CP2K**](https://www.cp2k.org/ "CP2K Project"). CP2K is an open source quantum chemistry package to perform atomistic simulations of solid state, liquid, molecular, periodic, material, crystal, and biological systems.
 
-An online tutorial documenting the features and usage of the CDFT/CP2K implementation is available [here](https://www.cp2k.org/howto:cdft). A brief introduction to the relevant theory behind the method is also included in the tutorial. If you find the CP2K/CDFT method useful in your work and decide to publish your results, please cite the original implementation paper:
+An online tutorial documenting the features and usage of the CDFT/CP2K implementation is available [here](https://www.cp2k.org/howto:cdft). A brief introduction to the relevant theory behind the method is also included in the tutorial. If you find the CP2K/CDFT method useful in your work and decide to publish your results, please cite the original implementation papers:
 
 Holmberg, Nico; Laasonen, Kari, *Efficient Constrained Density Functional Theory Implementation for Simulation of Condensed Phase Electron Transfer Reactions*, J. Chem. Theory Comput., 13 (2016), pp 587-601, doi: [10.1021/acs.jctc.6b01085](https://dx.doi.org/10.1021/acs.jctc.6b01085 "Online Version of Publication").
+
+Holmberg, Nico; Laasonen, Kari, *Diabatic model for electrochemical hydrogen evolution based on constrained DFT configuration interaction*, J. Chem. Phys., 149 (2018), 104702, doi: [10.1063/1.5038959](https://dx.doi.org/10.1063/1.5038959 "Online Version of Publication").
 
 
 ## Available branches
 
 1. `main`: latest stable build
-	* synced clone of the official cp2k [`trunk`](https://github.com/cp2k/cp2k) branch, also available from the [official SVN mirror](https://sourceforge.net/projects/cp2k/?source=navbar)
+	* synced clone of the official cp2k development branch -- the [`master`](https://github.com/cp2k/cp2k) branch.
 
 2. `staging`: branch for submitting new patches to official repos
 	* merges new, complete features from `development`
@@ -19,16 +21,15 @@ Holmberg, Nico; Laasonen, Kari, *Efficient Constrained Density Functional Theory
 
 3. `development`: unstable development branch
 	* might not compile, incomplete implementation of new features, code not cleaned
-	* planned features not yet under active development (no ETA):
+	* planned features not yet under active development:
 		- refactoring of Becke constraint type under CDFT control type
 
 ## Installation
 
 1. Latest stable version (from official repos)
-	* Download the trunk version (use either `svn` or `git`)
-		- `svn checkout http://svn.code.sf.net/p/cp2k/code/trunk dir_name`
+	* Download the development version
 		- `git clone -b master --single-branch https://github.com/cp2k/cp2k dir_name`
-	* Follow the installation instructions in the file [`INSTALL`](cp2k/INSTALL), also available at the official [CP2K project page](https://www.cp2k.org/howto:compile)
+	* Follow the installation instructions in the file [`INSTALL`](INSTALL.md), also available at the official [CP2K project page](https://www.cp2k.org/howto:compile)
 
 2. Other versions
 	* Clone the branch in a directory of your choice
@@ -41,5 +42,4 @@ A tutorial is available at the official [CP2K wiki-pages](https://www.cp2k.org/h
 
 ## Bugs, ideas and contributing
 
-The CDFT features implemented in the `main` branch have been tested, but some unforseen bugs might still be present. If you encounter problems please open a new issue in the [issue tracker](https://github.com/nholmber/cp2k-cdft-dev/issues) and include a minimal input file for reproducing the bug. Please report only issues related to the CDFT module. You may also report bugs using the [SVN issue tracker](https://sourceforge.net/p/cp2k/bugs/?source=navbar) or the [Google group mailing list](https://groups.google.com/forum/#!forum/cp2k), where you can report any bugs not just those related to the CDFT module. New development ideas and contributions are always welcomed!
-
+The CDFT features implemented in the `main` branch have been tested, but some unforseen bugs might still be present. If you encounter problems please open a new issue in the [issue tracker](https://github.com/nholmber/cp2k-cdft-dev/issues) and include a minimal input file for reproducing the bug. Please report only issues related to the CDFT module. You may also report bugs using the official CP2K project [GitHub issue tracker](https://github.com/cp2k/cp2k/issues) or the [Google group mailing list](https://groups.google.com/forum/#!forum/cp2k), where you can report any bugs not just those related to the CDFT module. New development ideas and contributions are always welcomed!
