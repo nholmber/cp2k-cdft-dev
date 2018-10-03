@@ -1,5 +1,0 @@
-{
-"description": "wrappers of the mpi routines",
-"requires": ["../base"],
-"implicit": "MPI_.*",
-}

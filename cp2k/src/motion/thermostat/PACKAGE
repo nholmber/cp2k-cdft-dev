@@ -1,4 +1,0 @@
-{
-"description": "The thermostat and barostat",
-'requires': ["../..", "../../base", "../../common","../../mpiwrap", "../../input", "../../subsys"],
-}
