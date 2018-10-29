@@ -44,8 +44,10 @@
     &END HIRSHFELD_CONSTRAINT
     &PROGRAM_RUN_INFO ON
       ! Print weight function to cube file
-      &WEIGHT_FUNCTION ${PRINT_WEIGHT_FUNCTION}
-      &END WEIGHT_FUNCTION
+      @IF ( ${PRINT_WEIGHT_FUNCTION} == TRUE )
+        &WEIGHT_FUNCTION
+        &END WEIGHT_FUNCTION
+      @ENDIF
       &EACH
         QS_SCF 1
       &END EACH
