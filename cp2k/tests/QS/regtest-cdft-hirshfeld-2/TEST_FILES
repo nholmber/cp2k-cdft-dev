@@ -4,7 +4,7 @@
 #
 HeH-noconstraint.inp                                   1      2e-13              -3.01067446615063
 HeH-cdft-state-1.inp                                  71      5e-08                 0.161058337228
-HeH-cdft-state-2.inp                                  71      2e-10                 1.849710970513
+HeH-cdft-state-2.inp                                  71      1e-09                 1.849710970513
 # These tests compute the electronic coupling and related quantities
 # Coupling via rotation
 HeH-mixed-cdft-1.inp                                  73      5e-10               204.357138287654
