@@ -44,8 +44,7 @@ MODULE qs_cdft_methods
                                               pw_env_type
    USE pw_methods,                      ONLY: pw_axpy,&
                                               pw_copy,&
-                                              pw_integrate_function,&
-                                              pw_scale
+                                              pw_integrate_function
    USE pw_pool_types,                   ONLY: pw_pool_create_pw,&
                                               pw_pool_give_back_pw,&
                                               pw_pool_type
@@ -65,7 +64,6 @@ MODULE qs_cdft_methods
    USE qs_environment_types,            ONLY: get_qs_env,&
                                               qs_environment_type
    USE qs_force_types,                  ONLY: qs_force_type
-   USE qs_integrate_potential,          ONLY: integrate_pgf_product_rspace
    USE qs_kind_types,                   ONLY: get_qs_kind,&
                                               qs_kind_type
    USE qs_modify_pab_block,             ONLY: FUNC_AB
@@ -77,7 +75,7 @@ MODULE qs_cdft_methods
    USE qs_subsys_types,                 ONLY: qs_subsys_get,&
                                               qs_subsys_type
    USE realspace_grid_types,            ONLY: &
-        pw2rs, realspace_grid_desc_type, realspace_grid_p_type, realspace_grid_type, rs2pw, &
+        realspace_grid_desc_type, realspace_grid_p_type, realspace_grid_type, rs2pw, &
         rs_grid_create, rs_grid_release, rs_grid_retain, rs_grid_zero, rs_pw_transfer
 #include "./base/base_uses.f90"
 

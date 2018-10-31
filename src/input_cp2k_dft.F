@@ -4282,7 +4282,7 @@ CONTAINS
                           " The constraint(s) is (are) converged in a separate external SCF loop with settings"// &
                           " read from the OUTER_SCF section. Supported constraints: Becke and Gaussian"// &
                           " Hirshfeld (partial).", n_keywords=8, n_subsections=2, &
-                          repeats=.FALSE., citations=(/Holmberg2017/))
+                          repeats=.FALSE., citations=(/Holmberg2017, Holmberg2018/))
 
       NULLIFY (subsection, keyword)
       CALL create_outer_scf_section(subsection)

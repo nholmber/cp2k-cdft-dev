@@ -280,12 +280,6 @@ CONTAINS
          CALL get_qs_env(qs_env, sab_kp=sab_nl)
          CALL kpoint_init_cell_index(kpoints, sab_nl, para_env, dft_control)
       ENDIF
-      IF (.NOT. (dft_control%qs_control%becke_control%external_control)) &
-         dft_control%qs_control%becke_control%need_pot = .TRUE.
-      IF (ASSOCIATED(dft_control%qs_control%becke_control%group)) THEN
-         IF (ASSOCIATED(dft_control%qs_control%becke_control%group(1)%weight%pw)) &
-            dft_control%qs_control%becke_control%need_pot = .FALSE.
-      END IF
       IF (dft_control%qs_control%cdft) THEN
          IF (.NOT. (dft_control%qs_control%cdft_control%external_control)) &
             dft_control%qs_control%cdft_control%need_pot = .TRUE.
