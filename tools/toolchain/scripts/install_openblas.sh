@@ -2,7 +2,7 @@
 [ "${BASH_SOURCE[0]}" ] && SCRIPT_NAME="${BASH_SOURCE[0]}" || SCRIPT_NAME=$0
 SCRIPT_DIR="$(cd "$(dirname "$SCRIPT_NAME")" && pwd -P)"
 
-openblas_ver=${openblas_ver:-0.2.20}  # Keep in sync with get_openblas_arch.sh.
+openblas_ver=${openblas_ver:-0.3.3}  # Keep in sync with get_openblas_arch.sh.
 source "${SCRIPT_DIR}"/common_vars.sh
 source "${SCRIPT_DIR}"/tool_kit.sh
 source "${SCRIPT_DIR}"/signal_trap.sh
@@ -14,6 +14,11 @@ with_openblas=${1:-__INSTALL__}
 OPENBLAS_CFLAGS=''
 OPENBLAS_LDFLAGS=''
 OPENBLAS_LIBS=''
+PATCHES=(
+    https://github.com/xianyi/OpenBLAS/commit/79ea839b635d1fd84b6ce8a47e086f01d64198e6.patch
+    https://github.com/xianyi/OpenBLAS/commit/288aeea8a285da8551c465681c7b9330a5486e7e.patch
+    )
+
 ! [ -d "${BUILDDIR}" ] && mkdir -p "${BUILDDIR}"
 cd "${BUILDDIR}"
 case "$with_openblas" in
@@ -28,56 +33,81 @@ case "$with_openblas" in
                 echo "OpenBLAS-${openblas_ver}.tar.gz is found"
             else
                 download_pkg ${DOWNLOADER_FLAGS} \
-                             https://www.cp2k.org/static/downloads/OpenBLAS-${openblas_ver}.tar.gz
+                     https://github.com/xianyi/OpenBLAS/archive/v${openblas_ver}.tar.gz \
+                     -o OpenBLAS-${openblas_ver}.tar.gz
+
             fi
+
+            for patch in "${PATCHES[@]}" ; do
+                fname="${patch##*/}"
+                if [ -f "${fname}" ] ; then
+                    echo "${fname} is found"
+                else
+                    # parallel build patch
+                    download_pkg ${DOWNLOADER_FLAGS} "${patch}"
+                fi
+            done
+
             echo "Installing from scratch into ${pkg_install_dir}"
             [ -d OpenBLAS-${openblas_ver} ] && rm -rf OpenBLAS-${openblas_ver}
             tar -zxf OpenBLAS-${openblas_ver}.tar.gz
             cd OpenBLAS-${openblas_ver}
+
+            for patch in "${PATCHES[@]}" ; do
+                patch -p1 < ../"${patch##*/}"
+            done
+
             # First attempt to make openblas using auto detected
             # TARGET, if this fails, then make with forced
             # TARGET=NEHALEM
             #
-            # basename : see https://github.com/xianyi/OpenBLAS/issues/857
-            #
             ( make -j $NPROCS \
+                   MAKE_NB_JOBS=0 \
                    USE_THREAD=0 \
-                   CC=$(basename $CC) \
-                   FC=$(basename $FC) \
+                   CC="${CC}" \
+                   FC="${FC}" \
                    PREFIX="${pkg_install_dir}" \
                    > make.serial.log 2>&1 \
             ) || ( \
                 make -j $NPROCS clean; \
                 make -j $NPROCS \
+                     MAKE_NB_JOBS=0 \
                      TARGET=NEHALEM \
                      USE_THREAD=0 \
-                     CC=$(basename $CC) \
-                     FC=$(basename $FC) \
+                     CC="${CC}" \
+                     FC="${FC}" \
                      PREFIX="${pkg_install_dir}" \
                      > make.serial.log 2>&1 \
             )
             make -j $NPROCS \
+                 MAKE_NB_JOBS=0 \
                  USE_THREAD=0 \
-                 CC=$(basename $CC) \
-                 FC=$(basename $FC) \
+                 CC="${CC}" \
+                 FC="${FC}" \
                  PREFIX="${pkg_install_dir}" \
                  install > install.serial.log 2>&1
             if [ $ENABLE_OMP = "__TRUE__" ] ; then
                make clean > clean.log 2>&1
+               # wrt NUM_THREADS=64: this is what the most common Linux distros seem to choose atm
+               #                     for a good compromise between memory usage and scalability
                make -j $NPROCS \
+                    MAKE_NB_JOBS=0 \
+                    NUM_THREADS=64 \
                     USE_THREAD=1 \
                     USE_OPENMP=1 \
                     LIBNAMESUFFIX=omp \
-                    CC=$(basename $CC) \
-                    FC=$(basename $FC) \
+                    CC="${CC}" \
+                    FC="${FC}" \
                     PREFIX="${pkg_install_dir}" \
                     > make.omp.log 2>&1
                make -j $NPROCS \
+                    MAKE_NB_JOBS=0 \
+                    NUM_THREADS=64 \
                     USE_THREAD=1 \
                     USE_OPENMP=1 \
                     LIBNAMESUFFIX=omp \
-                    CC=$(basename $CC) \
-                    FC=$(basename $FC) \
+                    CC="${CC}" \
+                    FC="${FC}" \
                     PREFIX="${pkg_install_dir}" \
                     install > install.omp.log 2>&1
             fi 
