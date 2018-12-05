@@ -92,7 +92,7 @@ CONTAINS
       CHARACTER(len=default_path_length)                 :: basis_set_file_name, potential_file_name
       CHARACTER(LEN=default_string_length), &
          DIMENSION(:), POINTER                           :: tmpstringlist
-      INTEGER                                            :: excitations, i, irep, isize, method_id, &
+      INTEGER                                            :: excitations, irep, isize, method_id, &
                                                             nrep, xc_deriv_method_id
       LOGICAL                                            :: do_ot, do_rtp, explicit, is_present, &
                                                             l_param, not_SE, was_present
@@ -368,9 +368,7 @@ CONTAINS
       CALL section_vals_get(tmp_section, n_repetition=nrep, explicit=is_present)
       IF (is_present) THEN
          ALLOCATE (dft_control%efield_fields(nrep))
-         DO i = 1, nrep
-            CALL read_efield_sections(dft_control, tmp_section)
-         END DO
+         CALL read_efield_sections(dft_control, tmp_section)
          IF (do_rtp) THEN
             dft_control%apply_efield_field = .TRUE.
          ELSE
