@@ -15,7 +15,7 @@
   PRIVATE
 
   PUBLIC :: m_flush, m_memory, &
-            m_hostnm, m_getcwd, m_getlog, m_getuid, m_getpid, m_getarg, &
+            m_hostnm, m_getcwd, m_getlog, m_getpid, m_getarg, &
             m_iargc, m_abort, m_chdir, m_mov, &
             m_memory_details, m_procrun
 
@@ -67,6 +67,9 @@ CONTAINS
   FUNCTION m_procrun(pid) RESULT (run_on)
     INTEGER, INTENT(IN)       ::   pid
     INTEGER                   ::   run_on
+#if defined(__MINGW)
+    run_on = 0
+#else
     INTEGER                   ::   istat
 
     INTERFACE
@@ -87,7 +90,7 @@ CONTAINS
     ELSE
        run_on = 0 ! error, process probably does not exist
     ENDIF
-
+#endif
   END FUNCTION m_procrun
 
 
@@ -291,7 +294,11 @@ CONTAINS
 ! **************************************************************************************************
   SUBROUTINE m_hostnm(hname)
     CHARACTER(len=*), INTENT(OUT)            :: hname
-
+#if defined(__MINGW)
+    ! While there is a gethostname in the Windows (POSIX) API, it requires that winsocks is
+    ! initialised prior to using it via WSAStartup(..), respectively cleaned up at the end via WSACleanup().
+    hname = "<unknown>"
+#else
     INTEGER                                  :: istat, i
     CHARACTER(len=default_path_length)       :: buf
 
@@ -311,6 +318,7 @@ CONTAINS
     ENDIF
     i = INDEX(buf, c_null_char) -1
     hname = buf(1:i)
+#endif
   END SUBROUTINE m_hostnm
 
 
@@ -372,38 +380,22 @@ CONTAINS
 !> \param user ...
 ! **************************************************************************************************
   SUBROUTINE m_getlog(user)
-    CHARACTER(len=*), INTENT(OUT)            :: user
-    INTEGER :: status
+    CHARACTER(len=*), INTENT(OUT) :: user
+    INTEGER                       :: status
 
     ! on a posix system LOGNAME should be defined
     CALL get_environment_variable("LOGNAME", value=user, status=status)
     ! nope, check alternative
     IF (status/=0) &
        CALL get_environment_variable("USER", value=user, status=status)
+    ! nope, check alternative
+    IF (status/=0) &
+       CALL get_environment_variable("USERNAME", value=user, status=status)
     ! fall back
     IF (status/=0) &
-       user="root ;-)"
+       user="<unknown>"
 
   END SUBROUTINE m_getlog
-
-
-! *****************************************************************************
-! **************************************************************************************************
-!> \brief ...
-!> \param uid ...
-! **************************************************************************************************
-  SUBROUTINE m_getuid(uid)
-   INTEGER, INTENT(OUT)                     :: uid
-
-   INTERFACE
-     FUNCTION getuid() BIND(C,name="getuid") RESULT(uid)
-       IMPORT
-       INTEGER(KIND=C_INT)              :: uid
-     END FUNCTION
-   END INTERFACE
-
-   uid = getuid()
-  END SUBROUTINE m_getuid
 
 
 ! *****************************************************************************
